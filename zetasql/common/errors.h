@@ -274,20 +274,6 @@ ConvertInternalErrorLocationsAndAdjustErrorStrings(
   return new_statuses;
 }
 
-// DEPRECATED: Please use the overload using ErrorMessageOptions
-ABSL_DEPRECATED("Inline me!")
-inline std::vector<absl::Status>
-ConvertInternalErrorLocationsAndAdjustErrorStrings(
-    ErrorMessageMode mode, bool attach_error_location_payload,
-    absl::string_view input_string, const std::vector<absl::Status>& statuses) {
-  return ConvertInternalErrorLocationsAndAdjustErrorStrings(
-      ErrorMessageOptions{
-          .mode = mode,
-          .attach_error_location_payload = attach_error_location_payload,
-          .stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED},
-      input_string, statuses);
-}
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_ERRORS_H_

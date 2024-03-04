@@ -101,6 +101,8 @@ const char* const kIdStringAllowUnicodeCharacters =
     "zetasql_idstring_allow_unicode_characters";
 const char* const kDisallowDuplicateOptions = "disallow_duplicate_options";
 const char* const kRewriteOptions = "rewrite_options";
+const char* const kShowReferencedPropertyGraphs =
+    "show_referenced_property_graphs";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -165,6 +167,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
   test_case_options->RegisterString(
       kRewriteOptions, RewriteOptions::default_instance().DebugString());
+  test_case_options->RegisterBool(kShowReferencedPropertyGraphs, false);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
@@ -247,22 +250,6 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
       {"_p3_StrinG", type_factory->get_string()},
       {"_P4_string", type_factory->get_string()},
   };
-}
-
-static AnalyzerOptions::ASTRewriteSet GetAllRewrites() {
-  AnalyzerOptions::ASTRewriteSet enabled_set;
-  const google::protobuf::EnumDescriptor* descriptor =
-      google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
-  for (int i = 0; i < descriptor->value_count(); ++i) {
-    const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
-    if (value_descriptor->number() == 0) {
-      // This is the "INVALID" entry. Skip this case.
-      continue;
-    }
-    enabled_set.insert(
-        static_cast<ResolvedASTRewrite>(value_descriptor->number()));
-  }
-  return enabled_set;
 }
 
 absl::StatusOr<AnalyzerTestRewriteGroups> GetEnabledRewrites(

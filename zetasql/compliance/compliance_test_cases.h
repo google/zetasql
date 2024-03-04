@@ -38,6 +38,7 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -127,7 +128,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // For each original FunctionTestCall, build QueryParamsWithResult enabled for
   // FEATURE_V_1_3_DATE_ARITHMETICS language feature.
   std::vector<QueryParamsWithResult> GetFunctionTestsDateArithmetics(
-      const std::vector<FunctionTestCall>& tests);
+      absl::Span<const FunctionTestCall> tests);
 
   // For each function test call, runs the original version of the function in
   // addition to the SAFE version of the function, if the language feature is
@@ -162,13 +163,13 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // specified as a template parameter.
   template <typename FCT>
   void RunStatementTestsCustom(
-      const std::vector<QueryParamsWithResult>& statement_tests,
+      absl::Span<const QueryParamsWithResult> statement_tests,
       FCT get_sql_string);
 
   // Same as above but takes vector<FunctionTestCall> instead.
   template <typename FCT>
-  void RunFunctionTestsCustom(
-      const std::vector<FunctionTestCall>& function_tests, FCT get_sql_string);
+  void RunFunctionTestsCustom(absl::Span<const FunctionTestCall> function_tests,
+                              FCT get_sql_string);
 
   // Runs a statement with the specified feature set and returns the result.
   absl::StatusOr<ComplianceCodebasedTests::ComplianceTestCaseResult>
@@ -291,7 +292,7 @@ class ShardedTest : public BaseT {
   void SkipAllShards() { sharded_ = true; }
 
   // Accessors for test_name and index.
-  void set_test_name(const std::string& test_name) { test_name_ = test_name; }
+  void set_test_name(absl::string_view test_name) { test_name_ = test_name; }
   const std::string& test_name() const { return test_name_; }
 
   void set_index(const size_t index) { index_ = index; }

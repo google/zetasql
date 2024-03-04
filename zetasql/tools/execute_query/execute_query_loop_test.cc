@@ -61,8 +61,8 @@ class StaticResultPrompt : public ExecuteQueryPrompt {
 }  // namespace
 
 TEST(ExecuteQueryLoopTest, SelectOne) {
-  ExecuteQuerySingleInput prompt{"SELECT 1"};
   ExecuteQueryConfig config;
+  ExecuteQuerySingleInput prompt{"SELECT 1", config};
   std::ostringstream output;
   ExecuteQueryStreamWriter writer{output};
 

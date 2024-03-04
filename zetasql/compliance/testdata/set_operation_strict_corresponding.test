@@ -5,7 +5,7 @@
 
 # Literal coercion STRICT mode
 [name=literal_coercion_strict]
-[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+[default required_features=V_1_4_CORRESPONDING_FULL]
 SELECT 1 AS b, 1 AS a
 UNION ALL STRICT CORRESPONDING
 SELECT 1 AS a, CAST(1 AS INT32) AS b

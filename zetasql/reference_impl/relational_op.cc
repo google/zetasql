@@ -24,6 +24,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <random>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -33,6 +34,9 @@
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -43,9 +47,12 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
@@ -54,16 +61,16 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 using zetasql::values::Bool;
 using zetasql::values::Int64;
+using zetasql::values::Null;
 
 namespace zetasql {
 
@@ -617,6 +624,316 @@ EvaluatorTableScanOp::EvaluatorTableScanOp(
       variables_(variables.begin(), variables.end()),
       and_filters_(std::move(and_filters)),
       read_time_(std::move(read_time)) {}
+
+// -------------------------------------------------------
+// TVFOp
+// -------------------------------------------------------
+
+namespace {
+// EvaluatorTableIterator representing input relation scan.
+// The TVF implementation operates on relations with columns, therefore it is
+// necessary to adapt the input relation tuple iterator and translate column
+// indexes into matching tuple slots.
+class InputRelationIterator : public EvaluatorTableIterator {
+ public:
+  // Creates a new instance of InputRelationIterator. Arguments:
+  // * columns - Names and types of columns produced by this iterator.
+  //   Accessed through NumColumns, GetColumnName, GetColumnType.
+  // * tuple_indexes - Maps indices of 'columns' to tuple iterator so that
+  //   proper values can be retrieved. Length must match 'columns'.
+  // * context - Common evaluation context.
+  // * iter - Tuple iterator of the relation being adapted.
+  InputRelationIterator(
+      std::vector<std::pair<std::string, const Type*>> columns,
+      const std::vector<int> tuple_indexes, EvaluationContext* context,
+      std::unique_ptr<TupleIterator> iter)
+      : columns_(std::move(columns)),
+        tuple_indexes_(std::move(tuple_indexes)),
+        context_(context),
+        iter_(std::move(iter)) {
+    ABSL_DCHECK_EQ(columns_.size(), tuple_indexes_.size());
+  }
+
+  InputRelationIterator(const InputRelationIterator&) = delete;
+  InputRelationIterator& operator=(const InputRelationIterator&) = delete;
+
+  int NumColumns() const override { return static_cast<int>(columns_.size()); }
+
+  std::string GetColumnName(int i) const override {
+    ABSL_DCHECK_LT(i, columns_.size());
+    return columns_[i].first;
+  }
+
+  const Type* GetColumnType(int i) const override {
+    ABSL_DCHECK_LT(i, columns_.size());
+    return columns_[i].second;
+  }
+
+  bool NextRow() override {
+    current_ = iter_->Next();
+    return current_ != nullptr;
+  }
+
+  const Value& GetValue(int i) const override {
+    ABSL_DCHECK_LT(i, tuple_indexes_.size());
+    return current_->slot(tuple_indexes_[i]).value();
+  }
+
+  absl::Status Status() const override { return iter_->Status(); }
+
+  absl::Status Cancel() override { return context_->CancelStatement(); }
+
+  void SetDeadline(absl::Time deadline) override {
+    context_->SetStatementEvaluationDeadline(deadline);
+  }
+
+ private:
+  // Names and types of the columns
+  const std::vector<std::pair<std::string, const Type*>> columns_;
+  // Tuple slot index for each column. Size must match columns_.
+  const std::vector<int> tuple_indexes_;
+  // Current evaluation context.
+  EvaluationContext* context_;
+  // Input relation tuple iterator.
+  std::unique_ptr<TupleIterator> iter_;
+  // Current tuple values obtained from iter_.
+  const TupleData* current_ = nullptr;
+};
+
+// Tuple iterator that adapts TVF EvaluatorTableIterator and converts between
+// TVF columnar abstractions to tuples.
+//
+// The query can select only a subset of columns produced by TVF
+// EvaluatorTableIterator. Unselected columns can be pruned and won't have
+// tuple slots allocated. Tuple index allows this iterator to map all produced
+// tuples to selected TVF columns and ignore the rest of its columns.
+class EvaluatorTVFTupleIterator : public TupleIterator {
+ public:
+  EvaluatorTVFTupleIterator(
+      absl::string_view name, std::unique_ptr<TupleSchema> schema,
+      int num_extra_slots, std::vector<int64_t> tuple_indexes,
+      EvaluationContext* context,
+      std::unique_ptr<EvaluatorTableIterator> evaluator_table_iter)
+      : name_(name),
+        schema_(std::move(schema)),
+        tuple_indexes_(std::move(tuple_indexes)),
+        context_(context),
+        evaluator_table_iter_(std::move(evaluator_table_iter)),
+        current_(schema_->num_variables() + num_extra_slots) {
+    context_->RegisterCancelCallback(
+        [this] { return evaluator_table_iter_->Cancel(); });
+  }
+
+  EvaluatorTVFTupleIterator(const EvaluatorTVFTupleIterator&) = delete;
+  EvaluatorTVFTupleIterator& operator=(const EvaluatorTVFTupleIterator&) =
+      delete;
+
+  const TupleSchema& Schema() const override { return *schema_; }
+
+  TupleData* Next() override {
+    if (!called_next_) {
+      evaluator_table_iter_->SetDeadline(
+          context_->GetStatementEvaluationDeadline());
+      called_next_ = true;
+    }
+    if (!evaluator_table_iter_->NextRow()) {
+      status_ = evaluator_table_iter_->Status();
+      return nullptr;
+    }
+
+    for (int i = 0; i < tuple_indexes_.size(); ++i) {
+      current_.mutable_slot(i)->SetValue(
+          evaluator_table_iter_->GetValue(static_cast<int>(tuple_indexes_[i])));
+    }
+    return &current_;
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return EvaluatorTableScanOp::GetIteratorDebugString(name_);
+  }
+
+ private:
+  const std::string name_;
+  const std::unique_ptr<TupleSchema> schema_;
+  const std::vector<int64_t> tuple_indexes_;
+  EvaluationContext* context_;
+  bool called_next_ = false;
+  std::unique_ptr<EvaluatorTableIterator> evaluator_table_iter_;
+  TupleData current_;
+  absl::Status status_;
+};
+}  // namespace
+
+/*static*/ absl::StatusOr<std::unique_ptr<TVFOp>> TVFOp::Create(
+    const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+    std::vector<TVFSchemaColumn> output_columns,
+    std::vector<VariableId> variables,
+    std::shared_ptr<FunctionSignature> function_call_signature) {
+  return absl::WrapUnique(
+      new TVFOp(tvf, std::move(arguments), std::move(output_columns),
+                std::move(variables), std::move(function_call_signature)));
+}
+
+TVFOp::TVFOp(const TableValuedFunction* tvf,
+             std::vector<TVFOpArgument> arguments,
+             std::vector<TVFSchemaColumn> output_columns,
+             std::vector<VariableId> variables,
+             std::shared_ptr<FunctionSignature> function_call_signature)
+    : tvf_(tvf),
+      arguments_(std::move(arguments)),
+      output_columns_(std::move(output_columns)),
+      variables_(std::move(variables)),
+      function_call_signature_(std::move(function_call_signature)) {}
+
+absl::Status TVFOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  for (const TVFOpArgument& argument : arguments_) {
+    if (argument.value) {
+      ZETASQL_RETURN_IF_ERROR(argument.value->SetSchemasForEvaluation(params_schemas));
+    } else if (argument.relation) {
+      ZETASQL_RETURN_IF_ERROR(argument.relation->relational_op->SetSchemasForEvaluation(
+          params_schemas));
+    } else if (argument.model) {
+      // No-op.
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TVFOpArgument";
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> TVFOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  std::vector<TableValuedFunction::TvfEvaluatorArg> input_arguments;
+  for (const TVFOpArgument& argument : arguments_) {
+    if (argument.value) {
+      absl::Status status;
+      TupleSlot result;
+      if (!argument.value->EvalSimple(params, context, &result, &status)) {
+        return status;
+      }
+      input_arguments.push_back({.value = {result.value()}});
+    } else if (argument.relation) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> tuple_iterator,
+                       argument.relation->relational_op->Eval(
+                           params, num_extra_slots, context));
+
+      std::vector<std::pair<std::string, const Type*>> columns;
+      std::vector<int> tuple_indexes;
+      const TupleSchema& tuple_schema = tuple_iterator->Schema();
+      for (const TVFOp::TvfInputRelation::TvfInputRelationColumn& column :
+           argument.relation->columns) {
+        columns.push_back({column.name, column.type});
+
+        auto type_index = tuple_schema.FindIndexForVariable(column.variable);
+        ZETASQL_RET_CHECK(type_index.has_value());
+        tuple_indexes.push_back(*type_index);
+      }
+      ZETASQL_RET_CHECK_EQ(columns.size(), tuple_indexes.size());
+      input_arguments.push_back(
+          {.relation = {std::make_unique<InputRelationIterator>(
+               std::move(columns), std::move(tuple_indexes), context,
+               std::move(tuple_iterator))}});
+    } else if (argument.model) {
+      input_arguments.push_back({.model = argument.model});
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected TVFOpArgument";
+    }
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<EvaluatorTableIterator> evaluator_table_iterator,
+      tvf_->CreateEvaluator(std::move(input_arguments), output_columns_,
+                            function_call_signature_.get()));
+
+  // evaluator_table_iterator can produce more output columns than were
+  // selected, especially if the implementation assumes a fixed schema. The tvf
+  // tuple iterator adapter must ensure that tuple slots match to correct output
+  // columns.
+  std::vector<int64_t> tuple_indexes;
+  for (int i = 0; i < output_columns_.size(); ++i) {
+    int64_t tuple_index = -1;
+    for (int j = 0; j < evaluator_table_iterator->NumColumns(); ++j) {
+      if (output_columns_[i].name ==
+          evaluator_table_iterator->GetColumnName(j)) {
+        tuple_index = j;
+        break;
+      }
+    }
+    ZETASQL_RET_CHECK_GE(tuple_index, 0)
+        << " TVF iterator does not produce output column "
+        << output_columns_[i].name;
+    tuple_indexes.push_back(tuple_index);
+  }
+
+  std::unique_ptr<TupleIterator> tuple_iterator =
+      std::make_unique<EvaluatorTVFTupleIterator>(
+          tvf_->Name(), CreateOutputSchema(), num_extra_slots,
+          std::move(tuple_indexes), context,
+          std::move(evaluator_table_iterator));
+  return MaybeReorder(std::move(tuple_iterator), context);
+}
+
+std::unique_ptr<TupleSchema> TVFOp::CreateOutputSchema() const {
+  return std::make_unique<TupleSchema>(variables_);
+}
+
+std::string TVFOp::IteratorDebugString() const {
+  return absl::StrCat("TvfOp(", tvf_->Name(), ")");
+}
+
+std::string TVFOp::DebugInternal(const std::string& indent,
+                                 bool verbose) const {
+  const std::string indent_field = absl::StrCat(indent, kIndentFork);
+  const std::string indent_list = absl::StrCat(indent, kIndentBar, kIndentFork);
+  const std::string indent_nested =
+      absl::StrCat(indent, kIndentBar, kIndentSpace);
+  std::string result = "TvfOp(";
+  absl::StrAppend(&result, indent_field, "tvf: ", tvf_->Name());
+
+  absl::StrAppend(&result, indent_field, "arguments: {");
+  for (const TVFOpArgument& argument : arguments_) {
+    if (argument.value) {
+      absl::StrAppend(&result, indent_list,
+                      argument.value->DebugInternal(indent_nested, verbose));
+    } else if (argument.relation) {
+      absl::StrAppend(&result, indent_list,
+                      argument.relation->relational_op->DebugInternal(
+                          indent_nested, verbose));
+    } else if (argument.model) {
+      absl::StrAppend(&result, indent_list, "MODEL ", argument.model->Name());
+    } else {
+      absl::StrAppend(&result, kIndentBar, kIndentFork, "UNEXPECTED ARGUMENT");
+    }
+  }
+  absl::StrAppend(&result, "}");
+
+  if (verbose) {
+    absl::StrAppend(&result, indent_field, "output_columns: {");
+    for (int i = 0; i < output_columns_.size(); ++i) {
+      absl::StrAppend(&result, indent_list, output_columns_[i].name);
+    }
+    absl::StrAppend(&result, "}");
+  }
+
+  absl::StrAppend(&result, indent_field, "variables: {");
+  for (int i = 0; i < variables_.size(); ++i) {
+    absl::StrAppend(&result, indent_list, "$", variables_[i].ToString());
+  }
+  absl::StrAppend(&result, "}");
+
+  if (verbose && function_call_signature_) {
+    absl::StrAppend(
+        &result, indent_field, "function_call_signature: ",
+        function_call_signature_->DebugString(tvf_->Name(), verbose));
+  }
+
+  absl::StrAppend(&result, ")");  // To match TvfOp(
+  return result;
+}
 
 // -------------------------------------------------------
 // LetOp
@@ -3658,33 +3975,72 @@ absl::StatusOr<std::unique_ptr<ArrayScanOp>> ArrayScanOp::Create(
       new ArrayScanOp(element, position, fields, std::move(array)));
 }
 
+absl::StatusOr<std::unique_ptr<ArrayScanOp>> ArrayScanOp::Create(
+    absl::Span<const VariableId> elements, const VariableId& position,
+    std::vector<std::unique_ptr<ValueExpr>> arrays,
+    std::unique_ptr<ValueExpr> zip_mode_expr) {
+  ZETASQL_RET_CHECK_EQ(elements.size(), arrays.size());
+  ZETASQL_RET_CHECK(absl::c_all_of(arrays, [](const auto& expr) {
+    return expr != nullptr && expr->output_type()->IsArray();
+  }));
+  ZETASQL_RET_CHECK(zip_mode_expr != nullptr);
+
+  int num_arrays = static_cast<int>(arrays.size());
+  std::vector<std::unique_ptr<ExprArg>> element_columns(num_arrays);
+  std::vector<std::unique_ptr<ExprArg>> array_columns(num_arrays);
+  for (int i = 0; i < num_arrays; ++i) {
+    const Type* element_type =
+        arrays[i]->output_type()->AsArray()->element_type();
+    ZETASQL_RET_CHECK(elements[i].is_valid());
+    element_columns[i] = std::make_unique<ExprArg>(elements[i], element_type);
+    array_columns[i] = std::make_unique<ExprArg>(std::move(arrays[i]));
+  }
+
+  std::unique_ptr<ExprArg> position_column =
+      !position.is_valid()
+          ? nullptr
+          : std::make_unique<ExprArg>(position, types::Int64Type());
+  return absl::WrapUnique(
+      new ArrayScanOp(std::move(element_columns), std::move(position_column),
+                      std::move(array_columns),
+                      std::make_unique<ExprArg>(std::move(zip_mode_expr))));
+}
+
 absl::Status ArrayScanOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  return mutable_array_expr()->SetSchemasForEvaluation(params_schemas);
+  for (auto* array_expr : mutable_array_expr_list()) {
+    ZETASQL_RETURN_IF_ERROR(array_expr->mutable_value_expr()->SetSchemasForEvaluation(
+        params_schemas));
+  }
+  return absl::OkStatus();
 }
 
 namespace {
-// Returns one tuple per element of 'array_value'.
-// - If 'element' is valid, the tuple includes a variable containing the array
-//   element.
-// - If 'position' is valid, the tuple includes a variable containing the
+// Returns one tuple for every element of `array_values` with the same position.
+// - If `include_element` is true, the tuple includes variables containing an
+//   element from each of the arrays.
+// - If `include_position` is true, the tuple includes a variable containing the
 //   zero-based element position.
-// - For each element in 'field_list', the tuple contains a variable containing
+// - `max_num_elements` indicates the maximum number of elements we scan in
+//   every array. This decides the total number of output rows coming out of the
+//   iterator.
+// - For each element in `field_list`, the tuple contains a variable containing
 //   the corresponding field of the array element (which must be a struct if
-//   'field_list' is non-empty). This functionality is useful for scanning an
+//   `field_list` is non-empty). This functionality is useful for scanning an
 //   table represented as an array (e.g., in the compliance tests).
 class ArrayScanTupleIterator : public TupleIterator {
  public:
   ArrayScanTupleIterator(
-      const Value& array_value, const VariableId& element,
-      const VariableId& position,
+      const std::vector<Value>& array_values, bool include_element,
+      bool include_position, int max_num_elements,
       absl::Span<const ArrayScanOp::FieldArg* const> field_list,
       std::unique_ptr<TupleSchema> schema, int num_extra_slots,
       EvaluationContext* context)
-      : array_value_(array_value),
+      : array_values_(array_values),
         schema_(std::move(schema)),
-        include_element_(element.is_valid()),
-        include_position_(position.is_valid()),
+        include_element_(include_element),
+        include_position_(include_position),
+        max_num_elements_(max_num_elements),
         field_list_(field_list.begin(), field_list.end()),
         current_(schema_->num_variables() + num_extra_slots),
         context_(context) {
@@ -3697,22 +4053,32 @@ class ArrayScanTupleIterator : public TupleIterator {
   const TupleSchema& Schema() const override { return *schema_; }
 
   TupleData* Next() override {
-    // Scanning a NULL array results in no output.
-    if (array_value_.is_null()) {
+    // If final array length is 0, we produce no output.
+    if (max_num_elements_ == 0) {
       return nullptr;
     }
 
-    if (next_element_idx_ == array_value_.num_elements()) {
-      // Done iterating over the array. The output is non-deterministic if it
-      // includes the position but the array is unordered and has more than one
-      // element.
-      if (include_position_ &&
-          (InternalValue::GetOrderKind(array_value_) ==
-           InternalValue::kIgnoresOrder) &&
-          array_value_.num_elements() > 1) {
+    bool has_multiple_columns = include_position_ || array_values_.size() > 1;
+    if (next_element_idx_ == max_num_elements_) {
+      // Done iterating over the arrays. The output is non-deterministic if any
+      // of the arrays is unordered and has multiple elements, and the output
+      // tuple contains multiple columns (slots). The multiple columns can show
+      // up when there is an array offset column, or there are multiple arrays.
+      bool ignore_order = false;
+      for (const auto& array : array_values_) {
+        if (InternalValue::GetOrderKind(array) ==
+                InternalValue::kIgnoresOrder &&
+            !array.is_null() && array.num_elements() > 1) {
+          // We don't need to check if unordered array with more than 1 element
+          // contains equivalent elements. If that happens, it indicates a bug
+          // in the origin who provides the unordered array.
+          ignore_order = true;
+          break;
+        }
+      }
+      if (has_multiple_columns && ignore_order) {
         context_->SetNonDeterministicOutput();
       }
-
       return nullptr;
     }
 
@@ -3722,19 +4088,31 @@ class ArrayScanTupleIterator : public TupleIterator {
       return nullptr;
     }
 
-    const Value& element = array_value_.element(next_element_idx_);
-    for (int i = 0; i < field_list_.size(); ++i) {
-      current_.mutable_slot(i)->SetValue(
-          element.field(field_list_[i]->field_index()));
+    // We only prepend field list columns if they are populated.
+    if (!field_list_.empty()) {
+      ABSL_DCHECK(!array_values_[0].is_null());
+      ABSL_DCHECK(next_element_idx_ < array_values_[0].num_elements());
+      const Value& element_of_first_array =
+          array_values_[0].element(next_element_idx_);
+      for (int i = 0; i < field_list_.size(); ++i) {
+        current_.mutable_slot(i)->SetValue(
+            element_of_first_array.field(field_list_[i]->field_index()));
+      }
     }
-    int next_value_idx = field_list_.size();
+    int next_slot_idx = static_cast<int>(field_list_.size());
     if (include_element_) {
-      current_.mutable_slot(next_value_idx)->SetValue(element);
-
-      ++next_value_idx;
+      for (int i = 0; i < array_values_.size(); ++i) {
+        Value value =
+            (array_values_[i].is_null() ||
+             next_element_idx_ >= array_values_[i].num_elements())
+                ? Null(array_values_[i].type()->AsArray()->element_type())
+                : array_values_[i].element(next_element_idx_);
+        current_.mutable_slot(next_slot_idx)->SetValue(value);
+        next_slot_idx++;
+      }
     }
     if (include_position_) {
-      current_.mutable_slot(next_value_idx)->SetValue(Int64(next_element_idx_));
+      current_.mutable_slot(next_slot_idx)->SetValue(Int64(next_element_idx_));
     }
     ++next_element_idx_;
 
@@ -3744,7 +4122,10 @@ class ArrayScanTupleIterator : public TupleIterator {
   absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
-    return ArrayScanOp::GetIteratorDebugString(array_value_.DebugString());
+    return ArrayScanOp::GetIteratorDebugString(absl::StrJoin(
+        array_values_, ", ", [](std::string* out, const Value& value) {
+          absl::StrAppend(out, value.DebugString());
+        }));
   }
 
   absl::Status Cancel() {
@@ -3753,10 +4134,11 @@ class ArrayScanTupleIterator : public TupleIterator {
   }
 
  private:
-  const Value array_value_;
+  const std::vector<Value> array_values_;
   const std::unique_ptr<TupleSchema> schema_;
   const bool include_element_;
   const bool include_position_;
+  const int max_num_elements_;
   const std::vector<const ArrayScanOp::FieldArg*> field_list_;
   TupleData current_;
   int next_element_idx_ = 0;
@@ -3764,34 +4146,81 @@ class ArrayScanTupleIterator : public TupleIterator {
   absl::Status status_;
   EvaluationContext* context_;
 };
+
+int OutputArrayLength(functions::ArrayZipEnums::ArrayZipMode mode,
+                      int min_length, int max_length) {
+  return mode == functions::ArrayZipEnums::PAD ? max_length : min_length;
+}
+
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<TupleIterator>> ArrayScanOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
-  TupleSlot array_slot;
-  absl::Status status;
-  if (!array_expr()->EvalSimple(params, context, &array_slot, &status))
-    return status;
-  std::unique_ptr<TupleIterator> iter =
-      std::make_unique<ArrayScanTupleIterator>(
-          array_slot.value(), element(), position(), field_list(),
-          CreateOutputSchema(), num_extra_slots, context);
+  absl::Span<const ExprArg* const> array_exprs = array_expr_list();
+  ZETASQL_RET_CHECK(!array_exprs.empty());
+  std::vector<Value> array_values(array_exprs.size());
+  std::vector<int> array_lengths(array_exprs.size());
+  for (int i = 0; i < array_exprs.size(); ++i) {
+    TupleSlot array_slot;
+    absl::Status status;
+    if (!array_exprs[i]->value_expr()->EvalSimple(params, context, &array_slot,
+                                                  &status)) {
+      return status;
+    }
+    array_values[i] = array_slot.value();
+    array_lengths[i] =
+        array_slot.value().is_null() ? 0 : array_slot.value().num_elements();
+  }
+
+  // If the mode argument is unspecified, its value defaults to "PAD".
+  const ValueExpr* mode_expr = zip_mode_expr();
+  functions::ArrayZipEnums::ArrayZipMode mode = functions::ArrayZipEnums::PAD;
+  if (mode_expr != nullptr) {
+    TupleSlot mode_slot;
+    absl::Status status;
+    if (!mode_expr->EvalSimple(params, context, &mode_slot, &status)) {
+      return status;
+    }
+    ZETASQL_RET_CHECK(mode_slot.value().type()->IsEnum());
+    if (mode_slot.value().is_null()) {
+      return absl::OutOfRangeError("UNNEST does not allow NULL mode argument");
+    }
+    mode = static_cast<functions::ArrayZipEnums::ArrayZipMode>(
+        mode_slot.value().enum_value());
+  }
+
+  // Throw error against unequal arrays if `mode` is set to "STRICT".
+  const auto [min_length, max_length] =
+      std::minmax_element(array_lengths.begin(), array_lengths.end());
+  if (mode == functions::ArrayZipEnums::STRICT && *min_length != *max_length) {
+    return absl::OutOfRangeError(
+        "Unnested arrays under STRICT mode must have equal lengths");
+  }
+
+  std::unique_ptr<TupleIterator> iter = std::make_unique<
+      ArrayScanTupleIterator>(
+      array_values, /*include_element=*/!elements().empty(),
+      /*include_position=*/position().is_valid(),
+      /*max_num_elements=*/OutputArrayLength(mode, *min_length, *max_length),
+      field_list(), CreateOutputSchema(), num_extra_slots, context);
   return MaybeReorder(std::move(iter), context);
 }
 
 std::unique_ptr<TupleSchema> ArrayScanOp::CreateOutputSchema() const {
   // Returns the variables to use for the scan of an
   // ArrayScanTupleIterator. These are the variables in field_list, followed by
-  // 'element' (if it is valid), followed by 'position' (if it is valid). See
+  // valid `elements`, followed by `position` (if it is valid). See
   // the class comment for ArrayScanTupleIterator for more details.
   std::vector<VariableId> vars;
-  vars.reserve(field_list().size() + 2);
+  vars.reserve(field_list().size() + elements().size() + 1);
   for (const ArrayScanOp::FieldArg* field : field_list()) {
     vars.push_back(field->variable());
   }
-  if (element().is_valid()) {
-    vars.push_back(element());
+  for (const ExprArg* element : elements()) {
+    // The elements vector only contains valid VariableId, thus, we can directly
+    // use it.
+    vars.push_back(element->variable());
   }
   if (position().is_valid()) {
     vars.push_back(position());
@@ -3807,26 +4236,50 @@ std::string ArrayScanOp::DebugInternal(const std::string& indent,
                                        bool verbose) const {
   std::string indent_child = indent + kIndentSpace;
   std::string indent_input = indent + kIndentFork;
-  const Type* element_type =
-      array_expr()->output_type()->AsArray()->element_type();
+  // Field list can only be used when there is only one array expression. It
+  // can not be used with multiway UNNEST.
+  const Type* element_type;
+  if (!field_list().empty()) {
+    ABSL_DCHECK_EQ(array_expr_list().size(), 1);
+    element_type = array_expr_list()[0]
+                       ->value_expr()
+                       ->output_type()
+                       ->AsArray()
+                       ->element_type();
+  }
   std::vector<std::string> fstr;
   for (auto ch : field_list()) {
     const std::string& field_name =
         element_type->AsStruct()->field(ch->field_index()).name;
-    fstr.push_back(absl::StrCat(ch->DebugInternal(indent, verbose), ":",
-                                field_name, ",", indent_input));
+    fstr.push_back(absl::StrCat(indent_input,
+                                ch->DebugInternal(indent, verbose), ":",
+                                field_name, ","));
   }
   std::sort(fstr.begin(), fstr.end());
-  return absl::StrCat(
-      "ArrayScanOp(", indent_input,
-      (!element().is_valid() ? ""
-                             : absl::StrCat(GetArg(kElement)->DebugString(),
-                                            " := element,", indent_input)),
-      (!position().is_valid() ? ""
-                              : absl::StrCat(GetArg(kPosition)->DebugString(),
-                                             " := position,", indent_input)),
-      absl::StrJoin(fstr, ""),
-      "array: ", array_expr()->DebugInternal(indent_child, verbose), ")");
+  std::string out = "ArrayScanOp(";
+  for (const auto* element : GetArgs<ExprArg>(kElement)) {
+    absl::StrAppend(&out, indent_input,
+                    !element->variable().is_valid()
+                        ? ""
+                        : absl::StrCat(element->DebugString(), " := element,"));
+  }
+  absl::StrAppend(
+      &out, !position().is_valid()
+                ? ""
+                : absl::StrCat(indent_input, GetArg(kPosition)->DebugString(),
+                               " := position,"));
+  if (num_arrays() > 1 && zip_mode_expr() != nullptr) {
+    absl::StrAppend(&out, indent_input, "mode: ",
+                    GetArg(kMode)->DebugInternal(indent_child, verbose));
+  }
+  absl::StrAppend(&out, absl::StrJoin(fstr, ""));
+  for (const auto* array_expr : array_expr_list()) {
+    absl::StrAppend(
+        &out, indent_input, "array: ",
+        array_expr->value_expr()->DebugInternal(indent_child, verbose));
+  }
+  absl::StrAppend(&out, ")");
+  return out;
 }
 
 ArrayScanOp::ArrayScanOp(const VariableId& element, const VariableId& position,
@@ -3834,13 +4287,22 @@ ArrayScanOp::ArrayScanOp(const VariableId& element, const VariableId& position,
                          std::unique_ptr<ValueExpr> array) {
   ABSL_CHECK(array->output_type()->IsArray());
   const Type* element_type = array->output_type()->AsArray()->element_type();
-  SetArg(kElement, !element.is_valid()
-                       ? nullptr
-                       : std::make_unique<ExprArg>(element, element_type));
+  std::vector<std::unique_ptr<ExprArg>> elements;
+  if (element.is_valid()) {
+    // Only valid VariableId get populated into the elements vector.
+    // Note that, the only case that `elements` is empty is when the user of
+    // ArrayScanOp only supplies one array and explicitly asked for no element
+    // column in the schema.
+    elements.push_back(std::make_unique<ExprArg>(element, element_type));
+  }
+
+  SetArgs(kElement, std::move(elements));
   SetArg(kPosition, !position.is_valid() ? nullptr
                                          : std::make_unique<ExprArg>(
                                                position, types::Int64Type()));
-  SetArg(kArray, std::make_unique<ExprArg>(std::move(array)));
+  std::vector<std::unique_ptr<ExprArg>> arrays(1);
+  arrays[0] = std::make_unique<ExprArg>(std::move(array));
+  SetArgs(kArray, std::move(arrays));
   std::vector<std::unique_ptr<FieldArg>> field_args;
   field_args.reserve(fields.size());
   for (const auto& f : fields) {
@@ -3848,30 +4310,52 @@ ArrayScanOp::ArrayScanOp(const VariableId& element, const VariableId& position,
         f.first, f.second, element_type->AsStruct()->field(f.second).type));
   }
   SetArgs<FieldArg>(kField, std::move(field_args));
+  // The singleton array scan does not support `mode` argument.
+  SetArg(kMode, nullptr);
 }
 
-const ValueExpr* ArrayScanOp::array_expr() const {
-  return GetArg(kArray)->value_expr();
+ArrayScanOp::ArrayScanOp(std::vector<std::unique_ptr<ExprArg>> elements,
+                         std::unique_ptr<ExprArg> position,
+                         std::vector<std::unique_ptr<ExprArg>> arrays,
+                         std::unique_ptr<ExprArg> zip_mode_expr) {
+  // Factory method `Create` has already validated the size and output_type of
+  // array expressions.
+  SetArgs(kElement, std::move(elements));
+  SetArg(kPosition, std::move(position));
+  SetArg(kMode, std::move(zip_mode_expr));
+  SetArgs(kArray, std::move(arrays));
+  std::vector<std::unique_ptr<FieldArg>> field_args;
+  SetArgs<FieldArg>(kField, std::move(field_args));
 }
 
-ValueExpr* ArrayScanOp::mutable_array_expr() {
-  return GetMutableArg(kArray)->mutable_value_expr();
+absl::Span<const ExprArg* const> ArrayScanOp::array_expr_list() const {
+  return GetArgs<ExprArg>(kArray);
+}
+
+absl::Span<ExprArg* const> ArrayScanOp::mutable_array_expr_list() {
+  return GetMutableArgs<ExprArg>(kArray);
 }
 
 absl::Span<const ArrayScanOp::FieldArg* const> ArrayScanOp::field_list() const {
   return GetArgs<FieldArg>(kField);
 }
 
-const VariableId& ArrayScanOp::element() const {
-  static const VariableId* empty_str = new VariableId();
-  return GetArg(kElement) != nullptr ? GetArg(kElement)->variable()
-                                     : *empty_str;
+absl::Span<const ExprArg* const> ArrayScanOp::elements() const {
+  return GetArgs<ExprArg>(kElement);
 }
 
 const VariableId& ArrayScanOp::position() const {
   static const VariableId* empty_str = new VariableId();
   return GetArg(kPosition) != nullptr ? GetArg(kPosition)->variable()
                                       : *empty_str;
+}
+
+int ArrayScanOp::num_arrays() const {
+  return static_cast<int>(GetArgs<ExprArg>(kArray).size());
+}
+
+const ValueExpr* ArrayScanOp::zip_mode_expr() const {
+  return GetArg(kMode) != nullptr ? GetArg(kMode)->value_expr() : nullptr;
 }
 
 // -------------------------------------------------------

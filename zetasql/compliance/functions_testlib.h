@@ -99,6 +99,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast();
 std::vector<QueryParamsWithResult>
 GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls);
 
+// Casts involving TOKENLIST values.
+std::vector<QueryParamsWithResult> GetFunctionTestsCastTokenList();
+
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseNot();
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseOr();
 std::vector<QueryParamsWithResult> GetFunctionTestsBitwiseXor();
@@ -248,6 +251,7 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp();
 std::vector<FunctionTestCall> GetFunctionTestsRegexp2(bool include_feature_set);
 std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr();
 std::vector<FunctionTestCall> GetFunctionTestsFormat();
+std::vector<FunctionTestCall> GetFunctionTestsFormatWithExternalModeFloatType();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();
 std::vector<FunctionTestCall> GetFunctionTestsBase2();
@@ -291,6 +295,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractStringArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQueryArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
+std::vector<FunctionTestCall> GetFunctionTestsJsonQueryLax();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString();
 std::vector<FunctionTestCall> GetFunctionTestsToJson();
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
@@ -334,7 +339,14 @@ GetFunctionTestsGenerateDatetimeRangeArrayExtras();
 std::vector<FunctionTestCall> GetFunctionTestsRangeContains();
 
 std::vector<FunctionTestCall> GetFunctionTestsCosineDistance();
+std::vector<FunctionTestCall> GetFunctionTestsApproxCosineDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEuclideanDistance();
+std::vector<FunctionTestCall> GetFunctionTestsApproxEuclideanDistance();
+std::vector<FunctionTestCall> GetFunctionTestsDotProduct();
+std::vector<FunctionTestCall> GetFunctionTestsApproxDotProduct();
+std::vector<FunctionTestCall> GetFunctionTestsManhattanDistance();
+std::vector<FunctionTestCall> GetFunctionTestsL1Norm();
+std::vector<FunctionTestCall> GetFunctionTestsL2Norm();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistanceBytes();
 

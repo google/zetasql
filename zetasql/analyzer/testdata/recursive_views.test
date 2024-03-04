@@ -475,9 +475,10 @@ CreateMaterializedViewStmt
 |       |   |       +-right_scan=
 |       |   |       | +-RecursiveRefScan(column_list=[$view.n#8])
 |       |   |       +-join_expr=
-|       |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-|       |   |           +-ColumnRef(type=INT64, column=x-y.z.n#7)
-|       |   |           +-ColumnRef(type=INT64, column=$view.n#8)
+|       |   |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|       |   |       |   +-ColumnRef(type=INT64, column=x-y.z.n#7)
+|       |   |       |   +-ColumnRef(type=INT64, column=$view.n#8)
+|       |   |       +-has_using=TRUE
 |       |   +-recursive=TRUE
 |       +-output_column_list=[x-y.z.n#7]
 +-sql="SELECT 1 AS n\n  UNION ALL (\n    WITH RECURSIVE `x-y.z` AS (\n       SELECT 1 AS n\n       UNION ALL\n       SELECT n + 1 FROM `x-y.z`\n    ) SELECT * FROM `x-y.z` INNER JOIN `a-b.c`.d USING (n)\n  )"

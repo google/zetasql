@@ -1,0 +1,177 @@
+# Without language feature V_1_4_MAP_TYPE, map functions are not defined.
+SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
+--
+ERROR: Function not found: MAP_FROM_ARRAY [at 1:8]
+SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
+       ^
+==
+
+[default language_features=V_1_4_MAP_TYPE]
+
+SELECT MAP_FROM_ARRAY([("a", 1), ("b", 2)]);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}, {"b", 2}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_FROM_ARRAY([STRUCT(1 AS foo, 2 AS bar), STRUCT(2, 4)]);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<INT64, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<foo INT64, bar INT64>>) -> MAP<INT64, INT64>)
+    |     +-Literal(type=ARRAY<STRUCT<foo INT64, bar INT64>>, value=[{foo:1, bar:2}, {foo:2, bar:4}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Struct field names hold no special meaning; only field order matters.
+SELECT MAP_FROM_ARRAY([STRUCT(1 AS value, "a" AS key), STRUCT(2, "b")]);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<INT64, STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<value INT64, key STRING>>) -> MAP<INT64, STRING>)
+    |     +-Literal(type=ARRAY<STRUCT<value INT64, key STRING>>, value=[{value:1, key:"a"}, {value:2, key:"b"}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, INT64>>));
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<INT64, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<INT64, INT64>>) -> MAP<INT64, INT64>)
+    |     +-Literal(type=ARRAY<STRUCT<INT64, INT64>>, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<INT64, INT64>>));
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<INT64, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<INT64, INT64>>) -> MAP<INT64, INT64>)
+    |     +-Literal(type=ARRAY<STRUCT<INT64, INT64>>, value=[], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT MAP_FROM_ARRAY({{|"a"| [("a", "b")], "extra_arg"}})
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for function MAP_FROM_ARRAY. Supported signature: MAP_FROM_ARRAY(ARRAY<STRUCT<T1, T2>>) [at 1:8]
+SELECT MAP_FROM_ARRAY()
+       ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: No matching signature for function MAP_FROM_ARRAY for argument types: STRING. Supported signature: MAP_FROM_ARRAY(ARRAY) [at 1:8]
+SELECT MAP_FROM_ARRAY("a")
+       ^
+--
+ALTERNATION GROUP:  [("a", "b")], "extra_arg"
+--
+ERROR: No matching signature for function MAP_FROM_ARRAY. Supported signature: MAP_FROM_ARRAY(ARRAY<STRUCT<T1, T2>>) [at 1:8]
+SELECT MAP_FROM_ARRAY( [("a", "b")], "extra_arg")
+       ^
+==
+
+SELECT MAP_FROM_ARRAY(NULL);
+--
+ERROR: MAP_FROM_ARRAY result type cannot be determined from argument NULL. Consider casting the argument to ARRAY<STRUCT<T1, T2>> so that key type T1 and value type T2 can be determined from the argument [at 1:8]
+SELECT MAP_FROM_ARRAY(NULL);
+       ^
+==
+
+SELECT MAP_FROM_ARRAY([]);
+--
+ERROR: MAP_FROM_ARRAY result type cannot be determined from argument []. Consider casting the argument to ARRAY<STRUCT<T1, T2>> so that key type T1 and value type T2 can be determined from the argument [at 1:8]
+SELECT MAP_FROM_ARRAY([]);
+       ^
+==
+
+SELECT MAP_FROM_ARRAY([1,2,3,4]);
+--
+ERROR: MAP_FROM_ARRAY input argument must be an array of structs, but got type ARRAY<INT64> [at 1:8]
+SELECT MAP_FROM_ARRAY([1,2,3,4]);
+       ^
+==
+
+SELECT MAP_FROM_ARRAY([(true, true, "oops")]);
+--
+ERROR: MAP_FROM_ARRAY input array must be of type ARRAY<STRUCT<T1, T2>>, but found a struct member with 3 fields [at 1:8]
+SELECT MAP_FROM_ARRAY([(true, true, "oops")]);
+       ^
+==
+
+# Error for non-groupable key
+SELECT MAP_FROM_ARRAY([(new zetasql_test__.EmptyMessage(), true)]);
+--
+ERROR: MAP_FROM_ARRAY expected a groupable key, but got a key of type `zetasql_test__.EmptyMessage`, which does not support grouping [at 1:8]
+SELECT MAP_FROM_ARRAY([(new zetasql_test__.EmptyMessage(), true)]);
+       ^
+==
+
+# No error for non-groupable value
+SELECT MAP_FROM_ARRAY([(true, new zetasql_test__.EmptyMessage())]);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [MAP<BOOL, PROTO<zetasql_test__.EmptyMessage>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<BOOL, PROTO<zetasql_test__.EmptyMessage>>>) -> MAP<BOOL, PROTO<zetasql_test__.EmptyMessage>>)
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<BOOL, PROTO<zetasql_test__.EmptyMessage>>) -> ARRAY<STRUCT<BOOL, PROTO<zetasql_test__.EmptyMessage>>>)
+    |       +-MakeStruct
+    |         +-type=STRUCT<BOOL, PROTO<zetasql_test__.EmptyMessage>>
+    |         +-field_list=
+    |           +-Literal(type=BOOL, value=true)
+    |           +-MakeProto(type=PROTO<zetasql_test__.EmptyMessage>)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+SELECT MAP_FROM_ARRAY([('a', true), (COLLATE('Z', 'und:ci'), false)]);
+--
+ERROR: Collation is not allowed on argument 1 ([<"und:ci",_>]) [at 1:8]
+SELECT MAP_FROM_ARRAY([('a', true), (COLLATE('Z', 'und:ci'), false)]);
+       ^
+==

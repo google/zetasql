@@ -215,7 +215,7 @@ absl::Status Resolver::ResolveAlterActions(
         std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
         ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
             action->GetAsOrDie<ASTSetOptionsAction>()->options_list(),
-            &resolved_options));
+            /*allow_alter_array_operators=*/false, &resolved_options));
         alter_actions->push_back(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
@@ -519,7 +519,8 @@ absl::Status Resolver::ResolveAlterActions(
 
         std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
         ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
-            ast_add_sub_entity_action->options_list(), &resolved_options));
+            ast_add_sub_entity_action->options_list(),
+            /*allow_alter_array_operators=*/false, &resolved_options));
 
         auto resolved_add_sub_entity_action = MakeResolvedAddSubEntityAction(
             ast_add_sub_entity_action->type()->GetAsString(),
@@ -584,6 +585,25 @@ absl::Status Resolver::ResolveAlterSchemaStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveAlterExternalSchemaStatement(
+    const ASTAlterExternalSchemaStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  // path() should never be null here because EXTERNAL SCHEMA is a
+  // schema_object_kind not a generic_entity_type.
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "EXTERNAL SCHEMA", output,
+                                      &has_only_set_options_action,
+                                      &resolved_alter_actions));
+
+  *output = MakeResolvedAlterExternalSchemaStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists());
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveAlterTableStatement(
     const ASTAlterTableStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -617,7 +637,7 @@ absl::Status Resolver::ResolveAlterTableStatement(
     for (const ASTAlterAction* const action : action_list->actions()) {
       ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
           action->GetAsOrDie<ASTSetOptionsAction>()->options_list(),
-          &resolved_options));
+          /*allow_alter_array_operators=*/false, &resolved_options));
     }
     *output = MakeResolvedAlterTableSetOptionsStmt(
         alter_statement->name_path(), std::move(resolved_options),
@@ -946,8 +966,9 @@ absl::Status Resolver::ResolveAlterColumnOptionsAction(
     }
   }
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
-  ZETASQL_RETURN_IF_ERROR(
-      ResolveOptionsList(action->options_list(), &resolved_options));
+  ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(action->options_list(),
+                                     /*allow_alter_array_operators=*/true,
+                                     &resolved_options));
   *alter_action = MakeResolvedAlterColumnOptionsAction(
       action->is_if_exists(), column_name.ToString(),
       std::move(resolved_options));

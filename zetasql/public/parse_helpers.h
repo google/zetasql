@@ -125,7 +125,7 @@ struct StatementProperties {
 //
 // Returns OK for invalid syntax, with an UNKNOWN statement node kind.  Only
 // returns internal errors.
-absl::Status GetStatementProperties(const std::string& input,
+absl::Status GetStatementProperties(absl::string_view input,
                                     const LanguageOptions& language_options,
                                     StatementProperties* statement_properties);
 

@@ -193,35 +193,6 @@ cc_test(
 )
 
 cc_library(
-    name = "like",
-    srcs = ["like.cc"],
-    hdrs = ["like.h"],
-    deps = [
-        "//zetasql/base",
-        "//zetasql/base:status",
-        "//zetasql/public:type_cc_proto",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_googlesource_code_re2//:re2",
-    ],
-)
-
-cc_test(
-    name = "like_test",
-    size = "small",
-    srcs = ["like_test.cc"],
-    deps = [
-        ":like",
-        "//zetasql/base:status",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/strings",
-        "@com_googlesource_code_re2//:re2",
-    ],
-)
-
-cc_library(
     name = "format_max_output_width",
     srcs = ["format_max_output_width.cc"],
     hdrs = ["format_max_output_width.h"],
@@ -282,6 +253,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:civil_time",
+        "//zetasql/public:value",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
@@ -292,6 +264,7 @@ cc_test(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -307,6 +280,7 @@ cc_test(
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -545,6 +519,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
         "@icu//:headers",
     ],
 )
@@ -771,6 +746,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
         "@icu//:headers",
     ],
@@ -914,6 +890,7 @@ cc_library(
     srcs = ["json_internal.cc"],
     hdrs = ["json_internal.h"],
     deps = [
+        "//zetasql/base:case",
         "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/base:strings",
@@ -939,17 +916,22 @@ cc_library(
         ":json_format",
         ":json_internal",
         ":to_json",
+        "//zetasql/base:lossless_convert",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
-        "//zetasql/common:int_ops_util",
         "//zetasql/public:json_value",
+        "//zetasql/public:language_options",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -977,6 +959,7 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -988,6 +971,7 @@ cc_library(
         ":arithmetics",
         ":math",
         "//zetasql/base:edit_distance",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public:value",
         "//zetasql/public/types",
@@ -997,6 +981,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
         "@icu//:headers",
     ],
 )
@@ -1017,6 +1002,7 @@ cc_test(
         "@com_google_absl//absl/random:distributions",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -1065,6 +1051,7 @@ cc_library(
         "//zetasql/common:utf_util",
         "//zetasql/public:civil_time",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googleapis//google/type:latlng_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
@@ -1255,6 +1242,9 @@ cc_library(
         "//zetasql/common:errors",
         "//zetasql/public:civil_time",
         "//zetasql/public:interval_value",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -1275,6 +1265,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:civil_time",
         "//zetasql/public:interval_value",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:type",
@@ -1287,5 +1278,34 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
+    name = "like",
+    srcs = ["like.cc"],
+    hdrs = ["like.h"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:type_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_test(
+    name = "like_test",
+    size = "small",
+    srcs = ["like_test.cc"],
+    deps = [
+        ":like",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
     ],
 )

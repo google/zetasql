@@ -304,6 +304,12 @@ class Unparser : public ParseTreeVisitor {
   void visitASTAliasedQuery(const ASTAliasedQuery* node, void* data) override;
   void visitASTAliasedQueryList(const ASTAliasedQueryList* node,
                                 void* data) override;
+  void visitASTAliasedQueryModifiers(const ASTAliasedQueryModifiers* node,
+                                     void* data) override;
+  void visitASTRecursionDepthModifier(const ASTRecursionDepthModifier* node,
+                                      void* data) override;
+  void visitASTIntOrUnbounded(const ASTIntOrUnbounded* node,
+                              void* data) override;
   void visitASTIntoAlias(const ASTIntoAlias* node, void* data) override;
   void visitASTFromClause(const ASTFromClause* node, void* data) override;
   void visitASTTransformClause(const ASTTransformClause* node,
@@ -378,6 +384,8 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTBracedNewConstructor(const ASTBracedNewConstructor* node,
                                     void* data) override;
+  void visitASTStructBracedConstructor(const ASTStructBracedConstructor* node,
+                                       void* data) override;
   void visitASTInferredTypeColumnSchema(const ASTInferredTypeColumnSchema* node,
                                         void* data) override;
   void visitASTArrayConstructor(const ASTArrayConstructor* node,
@@ -402,7 +410,11 @@ class Unparser : public ParseTreeVisitor {
   void visitASTJSONLiteral(const ASTJSONLiteral* node, void* data) override;
   void visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) override;
   void visitASTStringLiteral(const ASTStringLiteral* node, void* data) override;
+  void visitASTStringLiteralComponent(const ASTStringLiteralComponent* node,
+                                      void* data) override;
   void visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) override;
+  void visitASTBytesLiteralComponent(const ASTBytesLiteralComponent* node,
+                                     void* data) override;
   void visitASTBooleanLiteral(const ASTBooleanLiteral* node,
                               void* data) override;
   void visitASTNullLiteral(const ASTNullLiteral* node, void* data) override;
@@ -636,6 +648,8 @@ class Unparser : public ParseTreeVisitor {
                                       void* data) override;
   void visitASTAlterSchemaStatement(const ASTAlterSchemaStatement* node,
                                     void* data) override;
+  void visitASTAlterExternalSchemaStatement(
+      const ASTAlterExternalSchemaStatement* node, void* data) override;
   void visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                    void* data) override;
   void visitASTAlterViewStatement(const ASTAlterViewStatement* node,
@@ -850,7 +864,7 @@ class Unparser : public ParseTreeVisitor {
   void UnparseASTTableDataSource(const ASTTableDataSource* node, void* data);
   void VisitCheckConstraintSpec(const ASTCheckConstraint* node, void* data);
   void VisitForeignKeySpec(const ASTForeignKey* node, void* data);
-  void UnparseLeafNode(const ASTLeaf* leaf_node);
+  void UnparseLeafNode(const ASTPrintableLeaf* leaf_node);
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
   void VisitASTDropIndexStatement(const ASTDropIndexStatement* node,

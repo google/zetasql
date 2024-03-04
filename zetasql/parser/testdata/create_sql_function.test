@@ -439,7 +439,8 @@ CreateFunctionStatement [0-114] [create function...ons', 99)  )]
             PathExpression [89-94] [int32]
               Identifier(int32) [89-94] [int32]
       StructConstructorArg [96-106] ['balloons']
-        StringLiteral('balloons') [96-106] ['balloons']
+        StringLiteral [96-106] ['balloons']
+          StringLiteralComponent('balloons') [96-106] ['balloons']
       StructConstructorArg [108-110] [99]
         IntLiteral(99) [108-110] [99]
 --
@@ -472,7 +473,8 @@ CreateFunctionStatement [0-87] [create function...', true) )]
           Identifier(boolean) [56-63] [boolean]
   SqlFunctionBody [70-87] [( ('abc', true) )]
     StructConstructorWithParens [72-85] [('abc', true)]
-      StringLiteral('abc') [73-78] ['abc']
+      StringLiteral [73-78] ['abc']
+        StringLiteralComponent('abc') [73-78] ['abc']
       BooleanLiteral(true) [80-84] [true]
 --
 CREATE FUNCTION myfunc()
@@ -495,7 +497,8 @@ CreateFunctionStatement [0-66] [create function...llo world' )]
     PathExpression [37-43] [string]
       Identifier(string) [37-43] [string]
   SqlFunctionBody [49-66] [( 'hello world' )]
-    StringLiteral('hello world') [51-64] ['hello world']
+    StringLiteral [51-64] ['hello world']
+      StringLiteralComponent('hello world') [51-64] ['hello world']
 --
 CREATE FUNCTION myfunc()
 RETURNS string AS (
@@ -522,7 +525,8 @@ CreateFunctionStatement [0-73] [create function...llo world' )]
     PathExpression [44-50] [string]
       Identifier(string) [44-50] [string]
   SqlFunctionBody [56-73] [( 'hello world' )]
-    StringLiteral('hello world') [58-71] ['hello world']
+    StringLiteral [58-71] ['hello world']
+      StringLiteralComponent('hello world') [58-71] ['hello world']
 --
 CREATE FUNCTION myfunc(string)
 RETURNS string AS (
@@ -563,7 +567,8 @@ CreateFunctionStatement [0-99] [create function...llo world' )]
     PathExpression [70-76] [string]
       Identifier(string) [70-76] [string]
   SqlFunctionBody [82-99] [( 'hello world' )]
-    StringLiteral('hello world') [84-97] ['hello world']
+    StringLiteral [84-97] ['hello world']
+      StringLiteralComponent('hello world') [84-97] ['hello world']
 --
 CREATE FUNCTION myfunc(string, s string, int32, i int32)
 RETURNS string AS (

@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
@@ -37,7 +36,6 @@
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -81,7 +79,7 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // The result is the last column in the output scan's column list.
   absl::StatusOr<std::unique_ptr<ResolvedScan>> FlattenToScan(
       std::unique_ptr<ResolvedExpr> flatten_expr,
-      const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
+      absl::Span<const std::unique_ptr<const ResolvedExpr>> get_field_list,
       std::unique_ptr<ResolvedScan> input_scan, bool order_results,
       bool in_subquery);
 
@@ -91,10 +89,14 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
 absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
     const ResolvedArrayScan* node) {
-  if (!node->array_expr()->Is<ResolvedFlatten>()) {
+  // Multiway UNNEST with more than one array, if containing any FLATTEN
+  // expression, will be handled by `VisitResolvedFlatten` instead.
+  if (node->array_expr_list_size() > 1 ||
+      !node->array_expr_list(0)->Is<ResolvedFlatten>()) {
     return CopyVisitResolvedArrayScan(node);
   }
-  const ResolvedFlatten* flatten = node->array_expr()->GetAs<ResolvedFlatten>();
+  const ResolvedFlatten* flatten =
+      node->array_expr_list(0)->GetAs<ResolvedFlatten>();
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> input_scan,
                    ProcessNode(node->input_scan()));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> join_expr,
@@ -139,10 +141,15 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
         /*in_expr=*/nullptr, std::move(scan));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedColumnHolder> offset_column,
                      ProcessNode(node->array_offset_column()));
+    std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list;
+    array_expr_list.push_back(std::move(subquery));
+    std::vector<ResolvedColumn> element_column_list;
+    element_column_list.push_back(node->element_column());
     PushNodeToStack(MakeResolvedArrayScan(
-        node->column_list(), std::move(input_scan), std::move(subquery),
-        node->element_column(), std::move(offset_column), std::move(join_expr),
-        node->is_outer()));
+        node->column_list(), std::move(input_scan), std::move(array_expr_list),
+        std::move(element_column_list), std::move(offset_column),
+        std::move(join_expr), node->is_outer(),
+        /*array_zip_mode=*/nullptr));
     return absl::OkStatus();
   }
 
@@ -228,7 +235,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
 absl::StatusOr<std::unique_ptr<ResolvedScan>>
 FlattenRewriterVisitor::FlattenToScan(
     std::unique_ptr<ResolvedExpr> flatten_expr,
-    const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
+    absl::Span<const std::unique_ptr<const ResolvedExpr>> get_field_list,
     std::unique_ptr<ResolvedScan> input_scan, bool order_results,
     bool in_subquery) {
   std::vector<ResolvedColumn> column_list;
@@ -246,10 +253,17 @@ FlattenRewriterVisitor::FlattenToScan(
     column_list.push_back(offset_column);
   }
 
+  std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list_233;
+  array_expr_list_233.push_back(std::move(flatten_expr));
+  std::vector<ResolvedColumn> element_column_list_233;
+  element_column_list_233.push_back(column);
   std::unique_ptr<ResolvedScan> scan = MakeResolvedArrayScan(
-      column_list, std::move(input_scan), std::move(flatten_expr), column,
+      column_list, std::move(input_scan), std::move(array_expr_list_233),
+      std::move(element_column_list_233),
       order_results ? MakeResolvedColumnHolder(offset_column) : nullptr,
-      /*join_expr=*/nullptr, /*is_outer=*/false);
+      /*join_expr=*/nullptr,
+      /*is_outer=*/false,
+      /*array_zip_mode=*/nullptr);
 
   // Keep track of pending Get*Field on non-array fields.
   std::unique_ptr<const ResolvedExpr> input;
@@ -299,11 +313,17 @@ FlattenRewriterVisitor::FlattenToScan(
         offset_columns.push_back(offset_column);
         column_list.push_back(offset_column);
       }
+      std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list;
+      array_expr_list.push_back(std::move(get_field));
+      std::vector<ResolvedColumn> element_column_list;
+      element_column_list.push_back(column);
       scan = MakeResolvedArrayScan(
-          column_list, std::move(scan), std::move(get_field), column,
+          column_list, std::move(scan), std::move(array_expr_list),
+          std::move(element_column_list),
           order_results ? MakeResolvedColumnHolder(offset_column) : nullptr,
           /*join_expr=*/nullptr,
-          /*is_outer=*/false);
+          /*is_outer=*/false,
+          /*array_zip_mode=*/nullptr);
     }
   }
 

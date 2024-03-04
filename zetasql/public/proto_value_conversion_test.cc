@@ -40,6 +40,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/struct_type.h"
@@ -48,7 +49,6 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -94,7 +94,7 @@ class ProtoValueConversionTest : public ::testing::Test {
 
   ~ProtoValueConversionTest() override = default;
 
-  absl::Status ParseLiteralExpression(const std::string& expression_sql,
+  absl::Status ParseLiteralExpression(absl::string_view expression_sql,
                                       Value* value_out) {
     std::unique_ptr<const AnalyzerOutput> output;
     LanguageOptions language_options;
@@ -104,6 +104,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
     language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
     language_options.EnableLanguageFeature(FEATURE_INTERVAL_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_TOKENIZED_SEARCH);
     language_options.EnableLanguageFeature(FEATURE_RANGE_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(expression_sql,
                                       AnalyzerOptions(language_options),
@@ -150,14 +151,14 @@ class ProtoValueConversionTest : public ::testing::Test {
 
   // Performs the round-trip test for the given SQL expression and options.
   // Returns true if no test error was encountered and false otherwise.
-  bool RoundTripTest(const std::string& expression_sql,
+  bool RoundTripTest(absl::string_view expression_sql,
                      const ConvertTypeToProtoOptions& options) {
     DoRoundTripTest(expression_sql, options);
     return !::testing::Test::HasFailure();
   }
 
   absl::StatusOr<std::unique_ptr<google::protobuf::Message>> LiteralValueToProto(
-      const std::string& expression_sql,
+      absl::string_view expression_sql,
       const ConvertTypeToProtoOptions& options) {
     Value value;
     ZETASQL_RETURN_IF_ERROR(ParseLiteralExpression(expression_sql, &value));
@@ -191,7 +192,7 @@ class ProtoValueConversionTest : public ::testing::Test {
   TypeFactory type_factory_;
 
  private:
-  void DoRoundTripTest(const std::string& expression_sql,
+  void DoRoundTripTest(absl::string_view expression_sql,
                        const ConvertTypeToProtoOptions& options) {
     // Print out the current state in case of failure.
     SCOPED_TRACE(absl::Substitute(
@@ -274,6 +275,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "AS BIGNUMERIC))",
       "STRUCT(CAST(NULL AS GEOGRAPHY))",
       "STRUCT(CAST(NULL AS JSON))",
+      "STRUCT(CAST(NULL AS TOKENLIST))",
       "STRUCT(RANGE<DATE> '[2022-12-06, 2022-12-07)')",
       "STRUCT(CAST(NULL AS RANGE<DATE>))",
       "STRUCT(RANGE<DATETIME> '[2022-12-05 16:44:00.000007, 2022-12-05 "
@@ -369,8 +371,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(NULL AS STRUCT<ARRAY<INT64>>)]",
       "[CAST(NULL AS zetasql.ProtoTypeProto)]", "[CAST(NULL AS NUMERIC)]",
       "[CAST(NULL AS BIGNUMERIC)]", "[CAST(NULL AS GEOGRAPHY)]",
-      "[CAST(NULL AS RANGE<DATE>)]", "[CAST(NULL AS RANGE<DATETIME>)]",
-      "[CAST(NULL AS RANGE<TIMESTAMP>)]",
+      "[CAST(NULL AS TOKENLIST)]", "[CAST(NULL AS RANGE<DATE>)]",
+      "[CAST(NULL AS RANGE<DATETIME>)]", "[CAST(NULL AS RANGE<TIMESTAMP>)]",
       "[CAST(NULL AS JSON)]"};
 
   for (bool array_wrappers : {true, false}) {
@@ -728,6 +730,25 @@ TEST_F(ProtoValueConversionTest, InvalidRange) {
                                                       &result_value),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Too few bytes to read RANGE")));
+}
+
+// Go through the motions on a non-NULL tokenlist.
+TEST_F(ProtoValueConversionTest, TokenListRoundTrip) {
+  const Value t = TokenListFromStringArray({"tokenlist"});
+
+  const StructType* struct_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory_.MakeStructType({{"t", type_factory_.get_tokenlist()}},
+                                         &struct_type));
+
+  const Value value = Value::Struct(struct_type, {&t, 1});
+  const ConvertTypeToProtoOptions options;
+  std::unique_ptr<google::protobuf::Message> proto;
+  ZETASQL_ASSERT_OK(ValueToProto(value, options, &proto));
+
+  Value result_value;
+  ZETASQL_ASSERT_OK(ConvertProtoMessageToStructOrArrayValue(*proto, value.type(),
+                                                    &result_value));
+  EXPECT_EQ(result_value.field(0), t);
 }
 
 // Verify MergeValueToProtoField using various combinations of destination proto

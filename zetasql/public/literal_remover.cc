@@ -40,6 +40,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -218,7 +219,7 @@ absl::Status AddLimitOffsetLiteralsToIgnoringSet(
 }  // namespace
 
 absl::Status ReplaceLiteralsByParameters(
-    const std::string& sql,
+    absl::string_view sql,
     const LiteralReplacementOptions& literal_replacement_options,
     const AnalyzerOptions& analyzer_options, const ResolvedStatement* stmt,
     LiteralReplacementMap* literal_map,

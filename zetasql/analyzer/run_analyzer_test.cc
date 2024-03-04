@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -268,7 +269,9 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id());
+        output.undeclared_positional_parameters(),
+        output.max_column_id()
+    );
   } else if (output.resolved_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_expr()->Accept(&visitor));
     ret = std::make_unique<AnalyzerOutput>(
@@ -277,7 +280,9 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id());
+        output.undeclared_positional_parameters(),
+        output.max_column_id()
+    );
   }
 
   ZETASQL_RET_CHECK(ret) << "No resolved AST in AnalyzerOutput";
@@ -2323,6 +2328,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_MODEL_STMT:
       case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_ALTER_SCHEMA_STMT:
+      case RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT:
       case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:
       case RESOLVED_ALTER_TABLE_STMT:
       case RESOLVED_ALTER_VIEW_STMT:
@@ -2342,6 +2348,7 @@ class AnalyzerTestRunner {
       case RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT:
       case RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_CREATE_SCHEMA_STMT:
+      case RESOLVED_CREATE_EXTERNAL_SCHEMA_STMT:
       case RESOLVED_CREATE_SNAPSHOT_TABLE_STMT:
       case RESOLVED_CREATE_TABLE_FUNCTION_STMT:
       case RESOLVED_CREATE_VIEW_STMT:
@@ -2479,9 +2486,9 @@ class AnalyzerTestRunner {
   }
 
   bool CompareColumnDefinitionList(
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
           output_col_list,
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
           unparsed_col_list) {
     if (output_col_list.size() != unparsed_col_list.size()) {
       return false;

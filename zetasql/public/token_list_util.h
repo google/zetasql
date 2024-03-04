@@ -14,16 +14,19 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_SET_OPERATION_CORRESPONDING_REWRITER_H_
-#define ZETASQL_ANALYZER_REWRITERS_SET_OPERATION_CORRESPONDING_REWRITER_H_
+#ifndef ZETASQL_PUBLIC_TOKEN_LIST_UTIL_H_
+#define ZETASQL_PUBLIC_TOKEN_LIST_UTIL_H_
 
-#include "zetasql/public/rewriter_interface.h"
+#include <string>
+#include <vector>
+
+#include "zetasql/public/simple_token_list.h"
+#include "zetasql/public/value.h"
 
 namespace zetasql {
 
-// Gets a pointer to the singleton SetOperationCorresponding rewriter.
-const Rewriter* GetSetOperationCorrespondingRewriter();
+Value TokenListFromStringArray(std::vector<std::string> tokens);
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_REWRITERS_SET_OPERATION_CORRESPONDING_REWRITER_H_
+#endif  // ZETASQL_PUBLIC_TOKEN_LIST_UTIL_H_

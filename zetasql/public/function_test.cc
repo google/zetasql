@@ -16,7 +16,6 @@
 
 #include "zetasql/public/function.h"
 
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -30,6 +29,7 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.pb.h"
@@ -45,7 +45,11 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 
 // Note - test coverage for the 'Function' class interface is primarily
 // provided by builtin_function_test.cc which instantiates the concrete
@@ -211,6 +215,49 @@ TEST(SimpleFunctionTests, WindowSupportTests) {
   EXPECT_TRUE(analytic_function.SupportsWindowOrdering());
   EXPECT_FALSE(analytic_function.SupportsWindowFraming());
   EXPECT_FALSE(analytic_function.RequiresWindowOrdering());
+}
+
+static void AddFunctionToSet(
+    const absl::flat_hash_map<std::string, std::unique_ptr<Function>>&
+        functions,
+    absl::string_view name,
+    absl::flat_hash_set<const Function*>& scoping_functions) {
+  auto it = functions.find(name);
+  ASSERT_TRUE(it != functions.end()) << "Function not found: " << name;
+  scoping_functions.insert(it->second.get());
+}
+
+TEST(ConditionalEvaluationFunctionsTest,
+     VerifyListOfBuiltinFunctionsScopeingSideEffects) {
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  // Even functions that are "in_development" should serialize properly.
+  language_options.EnableMaximumLanguageFeaturesForDevelopment();
+
+  absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+  absl::flat_hash_map<std::string, const Type*> types_ignored;
+  ZETASQL_ASSERT_OK(
+      GetBuiltinFunctionsAndTypes(BuiltinFunctionOptions(language_options),
+                                  type_factory, functions, types_ignored));
+
+  absl::flat_hash_set<const Function*> scoping_functions;
+  AddFunctionToSet(functions, "if", scoping_functions);
+  AddFunctionToSet(functions, "ifnull", scoping_functions);
+  AddFunctionToSet(functions, "$case_with_value", scoping_functions);
+  AddFunctionToSet(functions, "$case_no_value", scoping_functions);
+  AddFunctionToSet(functions, "coalesce", scoping_functions);
+  AddFunctionToSet(functions, "iferror", scoping_functions);
+  AddFunctionToSet(functions, "iserror", scoping_functions);
+  AddFunctionToSet(functions, "nulliferror", scoping_functions);
+
+  EXPECT_EQ(scoping_functions.size(), 8);
+  for (const auto& [_, function] : functions) {
+    if (scoping_functions.contains(function)) {
+      EXPECT_TRUE(function->MaySuppressSideEffects());
+    } else {
+      EXPECT_FALSE(function->MaySuppressSideEffects());
+    }
+  }
 }
 
 class AnyAndRelatedTypeSimpleFunctionTests
@@ -450,7 +497,7 @@ TEST_F(FunctionSerializationTests, BuiltinFunctions) {
   // Test a function with a signature that triggers a deprecation warning.
   ASSERT_FALSE(functions.empty());
   Function* function = functions.begin()->second.get();
-  ASSERT_GT(function->NumSignatures(), 0);
+  ASSERT_GT(function->NumSignatures(), 0) << function->Name();
   FunctionSignature new_signature = *function->GetSignature(0);
   new_signature.SetAdditionalDeprecationWarnings({CreateDeprecationWarning()});
   CheckSerializationAndDeserialization(*function);

@@ -65,6 +65,15 @@ class ParseLocationPoint {
   // a negative value for invalid ParseLocationPoints.
   int GetByteOffset() const { return byte_offset_; }
 
+  // Sets the byte offset without changing the filename_.
+  void SetByteOffset(int byte_offset) { byte_offset_ = byte_offset; }
+
+  // Increments the offset without changing the filename_.
+  void IncrementByteOffset(int increment) {
+    ABSL_DCHECK(IsValid());
+    byte_offset_ += increment;
+  }
+
   // Returns true if the <byte_offset_> is non-negative.
   bool IsValid() const { return byte_offset_ >= 0; }
 
@@ -123,12 +132,17 @@ class ParseLocationPoint {
 class ParseLocationRange {
  public:
   ParseLocationRange() = default;
+  ParseLocationRange(ParseLocationPoint start, ParseLocationPoint end)
+      : start_(start), end_(end) {}
 
   void set_start(ParseLocationPoint start) { start_ = start; }
   void set_end(ParseLocationPoint end) { end_ = end; }
 
   ParseLocationPoint start() const { return start_; }
   ParseLocationPoint end() const { return end_; }
+
+  ParseLocationPoint& mutable_start() { return start_; }
+  ParseLocationPoint& mutable_end() { return end_; }
 
   absl::StatusOr<ParseLocationRangeProto> ToProto() const {
     // The ParseLocationProto only has a single field for the filename, so it

@@ -38,13 +38,66 @@ TEST(ExprResolverHelperTest, LambdaInputArgumentType) {
   arg_ast_nodes.push_back(&int_literal);
   arguments.push_back(MakeResolvedLiteral(Value::Int64(1)));
 
-  GetInputArgumentTypesForGenericArgumentList(arg_ast_nodes, arguments,
-                                              &input_arguments);
+  GetInputArgumentTypesForGenericArgumentList(
+      arg_ast_nodes, arguments,
+      /*pick_default_type_for_untyped_expr=*/false, &input_arguments);
   ASSERT_EQ(input_arguments.size(), 2);
   ASSERT_TRUE(input_arguments[0].is_lambda());
   ASSERT_EQ(input_arguments[0].type(), nullptr);
 
   ASSERT_FALSE(input_arguments[1].is_lambda());
+  ASSERT_TRUE(input_arguments[1].is_literal());
+  EXPECT_TRUE(input_arguments[1].type()->IsInt64());
+}
+
+TEST(ExprResolverHelperTest, LambdaInputArgumentTypeWithNull) {
+  ASTLambda astLambda;
+  std::vector<const ASTNode*> arg_ast_nodes;
+  arg_ast_nodes.push_back(&astLambda);
+  std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+  arguments.push_back(nullptr);
+  std::vector<InputArgumentType> input_arguments;
+  ASTIntLiteral int_literal;
+  arg_ast_nodes.push_back(&int_literal);
+  ASTNullLiteral null_literal;
+  arg_ast_nodes.push_back(&null_literal);
+  arguments.push_back(MakeResolvedLiteral(Value::Int64(1)));
+  arguments.push_back(MakeResolvedLiteral(Value::NullFloat()));
+
+  {
+    GetInputArgumentTypesForGenericArgumentList(
+        arg_ast_nodes, arguments,
+        /*pick_default_type_for_untyped_expr=*/false, &input_arguments);
+    ASSERT_EQ(input_arguments.size(), 3);
+    ASSERT_TRUE(input_arguments[0].is_lambda());
+    ASSERT_EQ(input_arguments[0].type(), nullptr);
+
+    ASSERT_FALSE(input_arguments[1].is_lambda());
+    ASSERT_TRUE(input_arguments[1].is_literal());
+    EXPECT_TRUE(input_arguments[1].type()->IsInt64());
+
+    ASSERT_FALSE(input_arguments[2].is_lambda());
+    ASSERT_TRUE(input_arguments[2].is_untyped_null());
+    EXPECT_TRUE(input_arguments[2].type()->IsInt64());
+  }
+
+  {
+    GetInputArgumentTypesForGenericArgumentList(
+        arg_ast_nodes, arguments,
+        /*pick_default_type_for_untyped_expr=*/true, &input_arguments);
+    ASSERT_EQ(input_arguments.size(), 3);
+    ASSERT_TRUE(input_arguments[0].is_lambda());
+    ASSERT_EQ(input_arguments[0].type(), nullptr);
+
+    ASSERT_FALSE(input_arguments[1].is_lambda());
+    ASSERT_TRUE(input_arguments[1].is_literal());
+    EXPECT_TRUE(input_arguments[1].type()->IsInt64());
+
+    ASSERT_FALSE(input_arguments[2].is_lambda());
+    ASSERT_FALSE(input_arguments[2].is_untyped_null());
+    ASSERT_TRUE(input_arguments[2].is_literal());
+    EXPECT_TRUE(input_arguments[2].type()->IsFloat());
+  }
 }
 
 }  // namespace zetasql

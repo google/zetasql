@@ -23,7 +23,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "zetasql/base/exactfloat.h"
 
 namespace zetasql_base {

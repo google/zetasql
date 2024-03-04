@@ -155,17 +155,17 @@ table called `students`.
 
 ```sql
 SELECT WITH DIFFERENTIAL_PRIVACY
-  OPTIONS (epsilon=1.09, delta=1e-5, privacy_unit_column=id)
+  OPTIONS (epsilon=10, delta=.01, privacy_unit_column=id)
   item,
-  COUNT(*)
+  COUNT(*, contribution_bounds_per_group=>(0, 100))
 FROM students;
 ```
 
 ```sql
 SELECT WITH DIFFERENTIAL_PRIVACY
-  OPTIONS (epsilon=1.09, delta=1e-5, privacy_unit_column=members.id)
+  OPTIONS (epsilon=10, delta=.01, privacy_unit_column=members.id)
   item,
-  COUNT(*)
+  COUNT(*, contribution_bounds_per_group=>(0, 100))
 FROM (SELECT * FROM students) AS members;
 ```
 
@@ -178,9 +178,10 @@ table expressions][dp-from-rules].
 
 ```sql {.bad}
 -- This produces an error
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+SELECT WITH DIFFERENTIAL_PRIVACY
+  OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
+  item,
+  AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
 FROM {{USERNAME}}.view_on_professors, {{USERNAME}}.view_on_students
 GROUP BY item;
 ```
@@ -362,7 +363,7 @@ individual's ID, you could expose sensitive data.
 
 [qs-remove-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
-[qs-limit-groups]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_groups
+[qs-limit-groups]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_groups_for_privacy_unit
 
 [data-types-groupable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#groupable_data_types
 

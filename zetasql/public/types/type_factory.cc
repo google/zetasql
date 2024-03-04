@@ -49,6 +49,7 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
@@ -73,6 +74,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
@@ -180,6 +182,33 @@ absl::Status TypeFactoryHelper::MakeOpaqueEnumType(
 
 }  // namespace internal
 
+// The set of types for which the static type factory should be used during
+// Array and Map type construction.
+static const auto* StaticTypeSet() {
+  static const auto* kStaticTypeSet = new absl::flat_hash_set<const Type*>{
+      types::Int32Type(),
+      types::Int64Type(),
+      types::Uint32Type(),
+      types::Uint64Type(),
+      types::BoolType(),
+      types::FloatType(),
+      types::DoubleType(),
+      types::StringType(),
+      types::BytesType(),
+      types::TimestampType(),
+      types::DateType(),
+      types::DatetimeType(),
+      types::TimeType(),
+      types::IntervalType(),
+      types::GeographyType(),
+      types::NumericType(),
+      types::BigNumericType(),
+      types::JsonType(),
+      types::TokenListType(),
+  };
+  return kStaticTypeSet;
+}
+
 // Staticly initialize a few commonly used types.
 static TypeFactory* s_type_factory() {
   static TypeFactory* s_type_factory = new TypeFactory();
@@ -242,6 +271,7 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
          internal::GetExternallyAllocatedMemoryEstimate(cached_proto_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_enum_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_range_types_) +
+         internal::GetExternallyAllocatedMemoryEstimate(cached_map_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(
              cached_proto_types_with_catalog_name_) +
          internal::GetExternallyAllocatedMemoryEstimate(
@@ -302,6 +332,7 @@ const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
+const Type* TypeFactory::get_tokenlist() { return types::TokenListType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   ABSL_CHECK(Type::IsSimpleType(kind))
@@ -313,27 +344,7 @@ const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
 
 absl::Status TypeFactory::MakeArrayType(const Type* element_type,
                                         const ArrayType** result) {
-  static const auto* kStaticTypeSet = new absl::flat_hash_set<const Type*>{
-      types::Int32Type(),
-      types::Int64Type(),
-      types::Uint32Type(),
-      types::Uint64Type(),
-      types::BoolType(),
-      types::FloatType(),
-      types::DoubleType(),
-      types::StringType(),
-      types::BytesType(),
-      types::TimestampType(),
-      types::DateType(),
-      types::DatetimeType(),
-      types::TimeType(),
-      types::IntervalType(),
-      types::GeographyType(),
-      types::NumericType(),
-      types::BigNumericType(),
-      types::JsonType(),
-  };
-  if (this != s_type_factory() && kStaticTypeSet->contains(element_type)) {
+  if (this != s_type_factory() && StaticTypeSet()->contains(element_type)) {
     return s_type_factory()->MakeArrayType(element_type, result);
   }
 
@@ -493,6 +504,7 @@ absl::Status TypeFactory::MakeProtoType(
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
     absl::Span<const std::string> catalog_name_path) {
+  ZETASQL_RET_CHECK_NE(enum_descriptor, nullptr);
   *result =
       MakeEnumTypeImpl(enum_descriptor, catalog_name_path, /*is_opaque=*/false);
   return absl::OkStatus();
@@ -501,6 +513,7 @@ absl::Status TypeFactory::MakeEnumType(
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result,
     absl::Span<const std::string> catalog_name_path) {
+  ZETASQL_RET_CHECK_NE(enum_descriptor, nullptr);
   *result =
       MakeEnumTypeImpl(enum_descriptor, catalog_name_path, /*is_opaque=*/false);
   return absl::OkStatus();
@@ -525,12 +538,12 @@ absl::Status TypeFactory::MakeRangeType(const Type* element_type,
            << "> is not supported";
   }
 
-  static const auto* kStaticTypeSet = new absl::flat_hash_set<const Type*>{
+  static const auto* kStaticRangeTypeSet = new absl::flat_hash_set<const Type*>{
       types::TimestampType(),
       types::DateType(),
       types::DatetimeType(),
   };
-  ABSL_DCHECK(kStaticTypeSet->contains(element_type));
+  ABSL_DCHECK(kStaticRangeTypeSet->contains(element_type));
   if (this != s_type_factory()) {
     return s_type_factory()->MakeRangeType(element_type, result);
   }
@@ -574,6 +587,38 @@ absl::Status TypeFactory::MakeRangeType(const google::protobuf::FieldDescriptor*
   }
   ZETASQL_RETURN_IF_ERROR(MakeRangeType(element_type, result));
   return absl::OkStatus();
+}
+
+// Note: all future MakeType methods should use absl::StatusOr.
+absl::StatusOr<const Type*> TypeFactory::MakeMapType(const Type* key_type,
+                                                     const Type* value_type) {
+  if (this != s_type_factory() && StaticTypeSet()->contains(key_type) &&
+      StaticTypeSet()->contains(value_type)) {
+    return s_type_factory()->MakeMapType(key_type, value_type);
+  }
+
+  AddDependency(key_type);
+  AddDependency(value_type);
+
+  const int depth_limit = nesting_depth_limit();
+  if (std::max(key_type->nesting_depth(), value_type->nesting_depth()) + 1 >
+      depth_limit) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Map type would exceed nesting depth limit of " << depth_limit;
+  }
+
+  // Cannot use TypeFactory::MakeTypeWithChildElementType here because we have a
+  // pair of types.
+  absl::MutexLock lock(&store_->mutex_);
+  auto type_pair = std::make_pair(key_type, value_type);
+  auto it = cached_map_types_.find(type_pair);
+  if (it == cached_map_types_.end()) {
+    auto [inserted_it, _] = cached_map_types_.insert(
+        {type_pair,
+         TakeOwnershipLocked(new MapType(this, key_type, value_type))});
+    it = inserted_it;
+  }
+  return it->second;
 }
 
 absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
@@ -968,6 +1013,12 @@ static const Type* s_json_type() {
   return s_json_type;
 }
 
+static const Type* s_tokenlist_type() {
+  static const Type* s_tokenlist_type =
+      new SimpleType(s_type_factory(), TYPE_TOKENLIST);
+  return s_tokenlist_type;
+}
+
 static const EnumType* s_date_part_enum_type() {
   static const EnumType* s_date_part_enum_type = [] {
     const EnumType* enum_type;
@@ -1171,6 +1222,12 @@ static const ArrayType* s_json_array_type() {
   return s_json_array_type;
 }
 
+static const ArrayType* s_tokenlist_array_type() {
+  static const ArrayType* s_tokenlist_array_type =
+      MakeArrayType(s_type_factory()->get_tokenlist());
+  return s_tokenlist_array_type;
+}
+
 static const EnumType* GetArrayZipModeEnumType() {
   static const EnumType* s_array_zip_mode_enum_type = [] {
     const EnumType* enum_type;
@@ -1204,6 +1261,7 @@ const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
 const Type* JsonType() { return s_json_type(); }
+const Type* TokenListType() { return s_tokenlist_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
@@ -1246,6 +1304,8 @@ const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
 
 const ArrayType* JsonArrayType() { return s_json_array_type(); }
 
+const ArrayType* TokenListArrayType() { return s_tokenlist_array_type(); }
+
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
     case TYPE_INT32:
@@ -1284,6 +1344,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericType();
     case TYPE_JSON:
       return JsonType();
+    case TYPE_TOKENLIST:
+      return TokenListType();
     default:
       ZETASQL_VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -1329,6 +1391,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericArrayType();
     case TYPE_JSON:
       return JsonArrayType();
+    case TYPE_TOKENLIST:
+      return TokenListArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);

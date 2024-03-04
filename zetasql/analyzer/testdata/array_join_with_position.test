@@ -222,9 +222,10 @@ QueryStmt
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$array_offset.pos#2)
-            +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$array_offset.pos#2)
+        |   +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+        +-has_using=TRUE
 ==
 
 # Joining two unnest expressions with USING where the visible columns is from
@@ -288,11 +289,12 @@ QueryStmt
         |   | +-Literal(type=ARRAY<UINT32>, value=[1, 2], has_explicit_type=TRUE)
         |   +-element_column_list=[$array.t1#2]
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
-            +-Cast(INT32 -> INT64)
-            | +-ColumnRef(type=INT32, column=$array.t1#1)
-            +-Cast(UINT32 -> UINT64)
-              +-ColumnRef(type=UINT32, column=$array.t1#2)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
+        |   +-Cast(INT32 -> INT64)
+        |   | +-ColumnRef(type=INT32, column=$array.t1#1)
+        |   +-Cast(UINT32 -> UINT64)
+        |     +-ColumnRef(type=UINT32, column=$array.t1#2)
+        +-has_using=TRUE
 ==
 
 # Joining two unnest expressions with USING where the visible column is from lhs
@@ -562,13 +564,14 @@ QueryStmt
         |   +-array_offset_column=
         |     +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
-            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            | +-ColumnRef(type=INT64, column=$array.val#1)
-            | +-ColumnRef(type=INT64, column=$array.val#3)
-            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-              +-ColumnRef(type=INT64, column=$array_offset.pos#2)
-              +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+        | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+        |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   | +-ColumnRef(type=INT64, column=$array.val#1)
+        |   | +-ColumnRef(type=INT64, column=$array.val#3)
+        |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |     +-ColumnRef(type=INT64, column=$array_offset.pos#2)
+        |     +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+        +-has_using=TRUE
 ==
 
 select *

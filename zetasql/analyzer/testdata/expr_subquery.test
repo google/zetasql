@@ -332,9 +332,10 @@ QueryStmt
     | |           +-right_scan=
     | |           | +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0], alias="kv2")
     | |           +-join_expr=
-    | |             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    | |               +-ColumnRef(type=INT64, column=KeyValue.Key#18)
-    | |               +-ColumnRef(type=INT64, column=KeyValue.Key#20)
+    | |           | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    | |           |   +-ColumnRef(type=INT64, column=KeyValue.Key#18)
+    | |           |   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
+    | |           +-has_using=TRUE
     | +-$col6#30 :=
     |   +-SubqueryExpr
     |     +-type=ARRAY<STRING>

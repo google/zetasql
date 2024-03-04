@@ -60,6 +60,23 @@ struct ExprResolutionInfo;
 //   constant if all arguments are constant
 absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr);
 
+// Return true if `expr` is an appropriate argument for a function argument
+// marked 'must_be_constant'.
+//
+// The current definition uses these rules.
+// - literals, parameters, and CONSTANT references are appropriate.
+// - a cast with an input expression that satisfies one of the above
+absl::StatusOr<bool> IsConstantFunctionArg(const ResolvedExpr* expr);
+
+// Return true if `expr` is an appropriate argument for an aggregate function
+// argument that is labeled "NON AGGREGATE".
+//
+// The current definition uses these rules.
+// - literals, parameters, and CONSTANT references are appropriate.
+// - a reference to a non-aggregate arg from a containing function.
+// - a cast with an input expression that satisfies one of the above
+absl::StatusOr<bool> IsNonAggregateFunctionArg(const ResolvedExpr* expr);
+
 // Helper for representing if we're allowed to flatten (ie: allowed to dot into
 // the fields of a proto/struct/json array), and if so, if we're already in a
 // ResolvedFlatten from having previously done so.
@@ -155,8 +172,8 @@ struct ExprResolutionInfo {
                      const ASTExpression* top_level_ast_expr_in = nullptr,
                      IdString column_alias_in = IdString());
 
-  // Construct an ExprResolutionInfo that allows both aggregation and
-  // analytic expressions.
+  // Construct an ExprResolutionInfo that allows analytic expressions.
+  // Aggregation is allowed unless <clause_name_in> is passed in.
   // Does not take ownership of <query_resolution_info_in>.
   // Currently used for initially resolving select list columns, and
   // resolving LIMIT with an empty NameScope, so never resolves against
@@ -164,7 +181,8 @@ struct ExprResolutionInfo {
   ExprResolutionInfo(const NameScope* name_scope_in,
                      QueryResolutionInfo* query_resolution_info_in,
                      const ASTExpression* top_level_ast_expr_in = nullptr,
-                     IdString column_alias_in = IdString());
+                     IdString column_alias_in = IdString(),
+                     const char* clause_name_in = nullptr);
 
   // Construct an ExprResolutionInfo that disallows aggregation and analytic
   // expressions.
@@ -224,12 +242,12 @@ struct ExprResolutionInfo {
   // functions are not allowed in this clause, e.g. "WHERE clause".  It is
   // also used in error messages related to path expression resolution
   // after GROUP BY.
-  // This can be empty if both aggregations and analytic functions are
+  // This can be "" (not null) if both aggregations and analytic functions are
   // allowed, or if there is no clear clause name to use in error messages
   // (for instance when resolving correlated path expressions that are in
   // a subquery's SELECT list but the subquery itself is in the outer
   // query's ORDER BY clause).
-  const char* const clause_name;
+  const char* const clause_name = "";
 
   // Mutable info.
 
@@ -259,10 +277,10 @@ struct ExprResolutionInfo {
   // field is set only when resolving SELECT columns. Not owned.
   const ASTExpression* const top_level_ast_expr = nullptr;
 
-  // The column alias of the top-level AST expression in SELECT list, which will
-  // be used as the name of the resolved column when the top-level AST
-  // expression being resolved is an aggregate or an analytic function. This
-  // field is set only when resolving SELECT columns.
+  // The alias for `top_level_ast_expr` in the SELECT list.  This will
+  // be used as the ResolvedColumn name if a column is created for that
+  // top-level AST expression as output of an aggregate or an analytic function.
+  // This field is set only when resolving SELECT columns.
   const IdString column_alias = IdString();
 
   // Context around if we can flatten and if we're currently actively doing so.

@@ -423,8 +423,9 @@ class IntervalValue final {
   }
 
   // Interval constructor from integer for given datetime part field.
+  // If allow_nanos=false, an error is return when NANOSECOND part is provided.
   static absl::StatusOr<IntervalValue> FromInteger(
-      int64_t value, functions::DateTimestampPart part);
+      int64_t value, functions::DateTimestampPart part, bool allow_nanos);
 
  private:
   IntervalValue(int64_t months, int64_t days, int64_t micros = 0) {
@@ -504,9 +505,16 @@ absl::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v);
 // have the same sign.
 absl::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v);
 
-// Normalizes 24 hour time periods into full days, and after thatn 30 day time
+// Normalizes 24 hour time periods into full days, and after than 30 day time
 // periods into full months. Adjusts all date parts to have the same sign.
 absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v);
+
+// Checks if the two INTERVAL values are identical.
+// This is different from the behavior of the equality operator, which treats
+// some different INTERVAL values as equal (e.g.
+// INTERVAL 1 MONTH == INTERVAL 30 DAY). This functions treats INTERVAL values
+// as identical only when all their parts are equal.
+bool IdenticalIntervals(const IntervalValue& v1, const IntervalValue& v2);
 
 }  // namespace zetasql
 

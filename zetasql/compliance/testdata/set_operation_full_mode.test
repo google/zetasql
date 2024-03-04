@@ -5,7 +5,7 @@
 
 # CORRESPONDING literal coercion FULL mode
 [name=corresponding_literal_coercion_full]
-[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+[default required_features=V_1_4_CORRESPONDING_FULL]
 SELECT 1 AS a, 1 AS b
 FULL UNION ALL CORRESPONDING
 SELECT CAST(1 AS INT32) AS a
@@ -126,7 +126,6 @@ ARRAY<STRUCT<a DOUBLE, b DOUBLE, c INT64>>[unknown order:
 # ===== Start section: FULL CORRESPONDING with EXCEPT ===== #
 
 # FULL CORRESPONDING both inputs have padded null. [row, row] EXCEPT ALL [row] = [row]
-[default required_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
 [name=full_corresponding_both_input_padded_null_except_all_2row_1row]
 WITH Table1 AS (SELECT CAST(NULL AS INT64) AS a UNION ALL SELECT NULL)
 SELECT a FROM Table1

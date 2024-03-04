@@ -3086,9 +3086,9 @@ QueryStmt
 SELECT STRUCT(ANY_VALUE(t).*)
 FROM (SELECT 1 a, 2 b) as t;
 --
-ERROR: Syntax error: Expected ")" or "," but got "." [at 1:27]
+ERROR: Syntax error: Unexpected "*" [at 1:28]
 SELECT STRUCT(ANY_VALUE(t).*)
-                          ^
+                           ^
 ==
 
 SELECT

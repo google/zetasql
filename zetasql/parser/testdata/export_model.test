@@ -12,7 +12,8 @@ ExportModelStatement [0-80] [export model...destination")]
   OptionsList [61-80] [(uri="destination")]
     OptionsEntry [62-79] [uri="destination"]
       Identifier(uri) [62-65] [uri]
-      StringLiteral("destination") [66-79] ["destination"]
+      StringLiteral [66-79] ["destination"]
+        StringLiteralComponent("destination") [66-79] ["destination"]
 --
 EXPORT MODEL model.name WITH CONNECTION connection_id OPTIONS(uri = "destination")
 ==
@@ -27,7 +28,8 @@ ExportModelStatement [0-52] [export model...destination")]
   OptionsList [31-52] [(uri = "destination")]
     OptionsEntry [32-51] [uri = "destination"]
       Identifier(uri) [32-35] [uri]
-      StringLiteral("destination") [38-51] ["destination"]
+      StringLiteral [38-51] ["destination"]
+        StringLiteralComponent("destination") [38-51] ["destination"]
 --
 EXPORT MODEL model.name OPTIONS(uri = "destination")
 ==

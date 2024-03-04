@@ -45,6 +45,8 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // clang-format off
       // (broken link) start
       REWRITE_INLINE_SQL_TVFS,
+      // TODO: Remove this after resolving memory leak in direct UDA eval.
+      REWRITE_INLINE_SQL_UDAS,
       REWRITE_INLINE_SQL_VIEWS,
       // (broken link) end
       // clang-format on

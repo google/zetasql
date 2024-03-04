@@ -2086,3 +2086,60 @@ QueryStmt
     | +-$col1#1 := Literal(type=INTERVAL, value=1-2 3 4:5:6.789)
     +-input_scan=
       +-SingleRowScan
+==
+
+[show_unparsed]
+[language_features={{|V_1_4_LITERAL_CONCATENATION}}]
+select 'x' "y"
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: Concatenation of subsequent string literals is not supported. Did you mean to use the || operator? [at 1:12]
+select 'x' "y"
+           ^
+--
+ALTERNATION GROUP: V_1_4_LITERAL_CONCATENATION
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRING, value="xy")
+    +-input_scan=
+      +-SingleRowScan
+
+[UNPARSED_SQL]
+SELECT
+  "xy" AS a_1;
+==
+
+[show_unparsed]
+[language_features={{|V_1_4_LITERAL_CONCATENATION}}]
+select b'x' b"y"
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Concatenation of subsequent bytes literals is not supported. Did you mean to use the || operator? [at 1:13]
+select b'x' b"y"
+            ^
+--
+ALTERNATION GROUP: V_1_4_LITERAL_CONCATENATION
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=BYTES, value=b"xy")
+    +-input_scan=
+      +-SingleRowScan
+
+[UNPARSED_SQL]
+SELECT
+  b"xy" AS a_1;

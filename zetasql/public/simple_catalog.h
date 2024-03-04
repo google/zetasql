@@ -38,6 +38,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/base/macros.h"
 #include "absl/base/thread_annotations.h"
@@ -174,21 +175,20 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddModel(absl::string_view name, const Model* model)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedModel(const std::string& name,
-                     std::unique_ptr<const Model> model)
+  void AddOwnedModel(absl::string_view name, std::unique_ptr<const Model> model)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(std::unique_ptr<const Model> model)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedModel(const std::string& name, const Model* model);
+  void AddOwnedModel(absl::string_view name, const Model* model);
   void AddOwnedModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedModelIfNotPresent(std::unique_ptr<const Model> model)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Connections
-  void AddConnection(const std::string& name, const Connection* connection)
+  void AddConnection(absl::string_view name, const Connection* connection)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddConnection(const Connection* connection) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedConnection(const std::string& name,
+  void AddOwnedConnection(absl::string_view name,
                           std::unique_ptr<const Connection> connection)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedConnection(std::unique_ptr<const Connection> connection)
@@ -208,7 +208,7 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Catalogs
-  void AddCatalog(const std::string& name, Catalog* catalog)
+  void AddCatalog(absl::string_view name, Catalog* catalog)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedCatalog(const std::string& name,
@@ -218,7 +218,7 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedCatalog(const std::string& name, Catalog* catalog);
   void AddOwnedCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
-  bool AddOwnedCatalogIfNotPresent(const std::string& name,
+  bool AddOwnedCatalogIfNotPresent(absl::string_view name,
                                    std::unique_ptr<Catalog> catalog)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
@@ -243,7 +243,7 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Table Valued Functions
-  void AddTableValuedFunction(const std::string& name,
+  void AddTableValuedFunction(absl::string_view name,
                               const TableValuedFunction* function)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddTableValuedFunction(const TableValuedFunction* function)
@@ -254,7 +254,7 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedTableValuedFunction(
       std::unique_ptr<const TableValuedFunction> function);
   bool AddOwnedTableValuedFunctionIfNotPresent(
-      const std::string& name,
+      absl::string_view name,
       std::unique_ptr<TableValuedFunction>* table_function);
   bool AddOwnedTableValuedFunctionIfNotPresent(
       std::unique_ptr<TableValuedFunction>* table_function);
@@ -266,18 +266,18 @@ class SimpleCatalog : public EnumerableCatalog {
   // Procedures
   void AddProcedure(absl::string_view name, const Procedure* procedure);
   void AddProcedure(const Procedure* procedure) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedProcedure(const std::string& name,
+  void AddOwnedProcedure(absl::string_view name,
                          std::unique_ptr<const Procedure> procedure);
   void AddOwnedProcedure(std::unique_ptr<const Procedure> procedure)
       ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedProcedureIfNotPresent(std::unique_ptr<Procedure> procedure)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedProcedure(const std::string& name, const Procedure* procedure);
+  void AddOwnedProcedure(absl::string_view name, const Procedure* procedure);
   void AddOwnedProcedure(const Procedure* procedure)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Constants
-  void AddConstant(const std::string& name, const Constant* constant);
+  void AddConstant(absl::string_view name, const Constant* constant);
   void AddConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedConstant(const std::string& name,
                         std::unique_ptr<const Constant> constant);
@@ -450,6 +450,14 @@ class SimpleCatalog : public EnumerableCatalog {
       const SimpleCatalogProto& proto,
       absl::Span<const google::protobuf::DescriptorPool* const> pools,
       const ExtendedTypeDeserializer* extended_type_deserializer = nullptr);
+  // Same as the `Deserialize()` above, except that callers of this function
+  // could provide a `type_factory`. If the provided `type_factory` is nullptr,
+  // it will fallback to the above `Deserialize()`.
+  static absl::StatusOr<std::unique_ptr<SimpleCatalog>> Deserialize(
+      const SimpleCatalogProto& proto,
+      absl::Span<const google::protobuf::DescriptorPool* const> pools,
+      zetasql::TypeFactory* type_factory,
+      const ExtendedTypeDeserializer* extended_type_deserializer);
   ABSL_DEPRECATED("Inline me!")
   static absl::Status Deserialize(
       const SimpleCatalogProto& proto,
@@ -481,6 +489,8 @@ class SimpleCatalog : public EnumerableCatalog {
       absl::flat_hash_set<const Type*>* output) const override;
   absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const override;
+  absl::Status GetTableValuedFunctions(
+      absl::flat_hash_set<const TableValuedFunction*>* output) const override;
 
   // Accessors for reading a copy of the object lists in this SimpleCatalog.
   // This is intended primarily for tests.
@@ -524,24 +534,24 @@ class SimpleCatalog : public EnumerableCatalog {
   // Helper methods for adding objects while holding <mutex_>.
   void AddCatalogLocked(absl::string_view name, Catalog* catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddOwnedCatalogLocked(const std::string& name,
+  void AddOwnedCatalogLocked(absl::string_view name,
                              std::unique_ptr<Catalog> catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   // TODO: Refactor the Add*() methods for other object types
   // to use a common locked implementation, similar to these for Function.
-  void AddFunctionLocked(const std::string& name, const Function* function)
+  void AddFunctionLocked(absl::string_view name, const Function* function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedFunctionLocked(const std::string& name,
                               std::unique_ptr<const Function> function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddTableValuedFunctionLocked(const std::string& name,
+  void AddTableValuedFunctionLocked(absl::string_view name,
                                     const TableValuedFunction* table_function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedTableValuedFunctionLocked(
-      const std::string& name,
+      absl::string_view name,
       std::unique_ptr<const TableValuedFunction> table_function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddConstantLocked(const std::string& name, const Constant* constant)
+  void AddConstantLocked(absl::string_view name, const Constant* constant)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   int RemoveFunctionsLocked(
@@ -649,7 +659,7 @@ class SimpleTable : public Table {
   SimpleTable(absl::string_view name, const std::vector<NameAndType>& columns,
               int64_t serialization_id = 0);
   SimpleTable(absl::string_view name,
-              const std::vector<NameAndAnnotatedType>& columns,
+              absl::Span<const NameAndAnnotatedType> columns,
               int64_t serialization_id = 0);
 
   // Make a table with the given Columns.
@@ -762,7 +772,7 @@ class SimpleTable : public Table {
   // CreateEvaluatorTableIterator() is called.
   // CAVEAT: This is not preserved by serialization/deserialization.  It is only
   // relevant to users of the evaluator API defined in public/evaluator.h.
-  void SetContents(const std::vector<std::vector<Value>>& rows);
+  void SetContents(absl::Span<const std::vector<Value>> rows);
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(
@@ -912,8 +922,8 @@ class SimpleModel : public Model {
   // Make a model with input and output columns with the given names and types.
   // Crashes if there are duplicate column names.
   typedef std::pair<std::string, const Type*> NameAndType;
-  SimpleModel(const std::string& name, const std::vector<NameAndType>& inputs,
-              const std::vector<NameAndType>& outputs, int64_t id = 0);
+  SimpleModel(const std::string& name, absl::Span<const NameAndType> inputs,
+              absl::Span<const NameAndType> outputs, int64_t id = 0);
 
   // Make a model with the given inputs and outputs.
   // Crashes if there are duplicate column names.

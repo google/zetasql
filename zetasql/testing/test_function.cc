@@ -24,15 +24,18 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/float_margin.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -42,7 +45,7 @@ QueryParamsWithResult::QueryParamsWithResult(
     : params_(ValueConstructor::ToValues(arguments)), result_(result, status) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& arguments,
+    absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, FloatMargin float_margin_arg,
     absl::Status status)
     : params_(ValueConstructor::ToValues(arguments)),
@@ -146,7 +149,7 @@ QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeatures(
 }
 
 std::vector<QueryParamsWithResult> InvertResults(
-    const std::vector<QueryParamsWithResult>& tests) {
+    absl::Span<const QueryParamsWithResult> tests) {
   std::vector<QueryParamsWithResult> new_tests;
   new_tests.reserve(tests.size());
   for (const QueryParamsWithResult& test : tests) {

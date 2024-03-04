@@ -145,7 +145,7 @@ literals and parameters can also be coerced. See
       <td><code>STRING</code></td>
       <td>
 
-<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>BYTES</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br /><span><code>ENUM</code></span><br /><span><code>PROTO</code></span><br />
+<span><code>BOOL</code></span><br /><span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>STRING</code></span><br /><span><code>BYTES</code></span><br /><span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIME</code></span><br /><span><code>TIMESTAMP</code></span><br /><span><code>ENUM</code></span><br /><span><code>PROTO</code></span><br /><span><code>RANGE</code></span><br />
 
       </td>
       <td>&nbsp;</td>
@@ -245,6 +245,15 @@ literals and parameters can also be coerced. See
 
       </td>
       <td><code>PROTO</code> (with the same <code>PROTO</code> name)</td>
+    </tr>
+
+    <tr>
+      <td><code>RANGE</code></td>
+      <td>
+
+<span><code>RANGE</code></span><br /><span><code>STRING</code></span><br />
+</td>
+      <td>&nbsp;</td>
     </tr>
 
   </tbody>
@@ -579,6 +588,11 @@ or more supertypes, including itself, which defines its set of supertypes.
 
 <span><code>GEOGRAPHY</code></span><br />
 </td>
+    </tr>
+
+    <tr>
+      <td><code>RANGE</code></td>
+      <td><code>RANGE</code> with the same subtype.</td>
     </tr>
 
   </tbody>

@@ -40,6 +40,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -83,7 +84,7 @@ static bool AllArgumentsHaveType(const std::vector<ArgumentType>& arguments) {
 // is non-empty.
 template <class ArgumentType>
 static std::string GetExtractFunctionSignatureString(
-    const std::string& explicit_datepart_name,
+    absl::string_view explicit_datepart_name,
     const std::vector<ArgumentType>& arguments, ProductMode product_mode,
     bool include_bracket) {
   if (arguments.empty()) {
@@ -103,10 +104,6 @@ static std::string GetExtractFunctionSignatureString(
     //
     // ABSL_DCHECK validated - given the non-standard function call syntax for
     // EXTRACT, the parser enforces 2 or 3 arguments in the language.
-    if (arguments.size() != 2 && arguments.size() != 3) {
-      return absl::StrCat("Expected 2 or 3 arguments to EXTRACT, but found ",
-                          arguments.size());
-    }
     // Expected invariant - the 1th argument is the date part argument.
     ABSL_DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
 
@@ -142,12 +139,17 @@ static std::string GetExtractFunctionSignatureString(
 }
 
 static std::string NoMatchingSignatureForExtractFunction(
-    const std::string& explicit_datepart_name,
+    absl::string_view explicit_datepart_name,
     absl::string_view qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
   if (arguments.empty()) {
-    return "No matching signature for function EXTRACT,"
-           " at least 1 argument must be provided";
+    return "No matching signature for function EXTRACT with no arguments";
+  }
+  if (explicit_datepart_name.empty() && arguments.size() != 2 &&
+      arguments.size() != 3) {
+    return absl::StrCat("No matching signature for function EXTRACT with ",
+                        arguments.size(), " argument",
+                        arguments.size() == 1 ? "" : "s");
   }
   std::string msg =
       "No matching signature for function EXTRACT for argument types: ";
@@ -155,6 +157,18 @@ static std::string NoMatchingSignatureForExtractFunction(
                             explicit_datepart_name, arguments, product_mode,
                             /*include_bracket=*/false));
   return msg;
+}
+
+static std::string ExtractSignatureText(
+    const std::string& explicit_datepart_name,
+    const LanguageOptions& language_options, const Function& function,
+    const FunctionSignature& signature) {
+  return absl::StrCat(
+      "EXTRACT(",
+      GetExtractFunctionSignatureString(
+          explicit_datepart_name, signature.arguments(),
+          language_options.product_mode(), true /* include_bracket */),
+      ")");
 }
 
 static std::string ExtractSupportedSignatures(
@@ -173,11 +187,9 @@ static std::string ExtractSupportedSignatures(
       absl::StrAppend(&supported_signatures, "; ");
     }
     absl::StrAppend(
-        &supported_signatures, "EXTRACT(",
-        GetExtractFunctionSignatureString(
-            explicit_datepart_name, signature.arguments(),
-            language_options.product_mode(), true /* include_bracket */),
-        ")");
+        &supported_signatures,
+        ExtractSignatureText(explicit_datepart_name, language_options, function,
+                             signature));
   }
   return supported_signatures;
 }
@@ -219,6 +231,8 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
           .set_no_matching_signature_callback(
               absl::bind_front(&NoMatchingSignatureForExtractFunction,
                                /*explicit_datepart_name=*/""))
+          .set_signature_text_callback(absl::bind_front(
+              &ExtractSignatureText, /*explicit_datepart_name=*/""))
           .set_supported_signatures_callback(
               absl::bind_front(&ExtractSupportedSignatures,
                                /*explicit_datepart_name=*/""))
@@ -237,8 +251,10 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
           .set_sql_name("extract")
           .set_no_matching_signature_callback(
               absl::bind_front(&NoMatchingSignatureForExtractFunction, "DATE"))
-          .set_supported_signatures_callback(
-              absl::bind_front(&ExtractSupportedSignatures, "DATE"))
+          .set_signature_text_callback(absl::bind_front(
+              &ExtractSignatureText, /*explicit_datepart_name=*/"DATE"))
+          .set_supported_signatures_callback(absl::bind_front(
+              &ExtractSupportedSignatures, /*explicit_datepart_name=*/"DATE"))
           .set_get_sql_callback(
               absl::bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
 
@@ -255,6 +271,8 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
           .set_sql_name("extract")
           .set_no_matching_signature_callback(
               absl::bind_front(&NoMatchingSignatureForExtractFunction, "TIME"))
+          .set_signature_text_callback(absl::bind_front(
+              &ExtractSignatureText, /*explicit_datepart_name=*/"TIME"))
           .set_supported_signatures_callback(
               absl::bind_front(&ExtractSupportedSignatures, "TIME"))
           .set_get_sql_callback(
@@ -272,6 +290,8 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
           .set_sql_name("extract")
           .set_no_matching_signature_callback(absl::bind_front(
               &NoMatchingSignatureForExtractFunction, "DATETIME"))
+          .set_signature_text_callback(absl::bind_front(
+              &ExtractSignatureText, /*explicit_datepart_name=*/"DATETIME"))
           .set_supported_signatures_callback(
               absl::bind_front(&ExtractSupportedSignatures, "DATETIME"))
           .set_get_sql_callback(
@@ -530,7 +550,7 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
 template <int arg_index1, int arg_index2 = -1>
 std::string NoLiteralOrParameterString(
     const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   for (int i = 0; i < arguments.size(); i++) {
     if (i != arg_index1 && i != arg_index2) {
       continue;
@@ -1964,12 +1984,14 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "$equal", SCALAR,
-      {{bool_type,
-        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-        FN_EQUAL,
-        FunctionSignatureOptions().set_uses_operation_collation()},
-       {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
-       {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64}},
+      {
+          {bool_type,
+           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+           FN_EQUAL,
+           FunctionSignatureOptions().set_uses_operation_collation()},
+          {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
+          {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64}
+      },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("=")
@@ -1981,12 +2003,14 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "$not_equal", SCALAR,
-      {{bool_type,
-        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-        FN_NOT_EQUAL,
-        FunctionSignatureOptions().set_uses_operation_collation()},
-       {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
-       {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64}},
+      {
+          {bool_type,
+           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+           FN_NOT_EQUAL,
+           FunctionSignatureOptions().set_uses_operation_collation()},
+          {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
+          {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64}
+      },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("!=")
@@ -2188,7 +2212,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_no_matching_signature_callback(
                 &NoMatchingSignatureForLikeExprFunction)
             .set_sql_name("like any")
-            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAnyFunctionSQL));
 
     InsertFunction(
@@ -2205,8 +2229,49 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_no_matching_signature_callback(
                 &NoMatchingSignatureForLikeExprFunction)
             .set_sql_name("like all")
-            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAllFunctionSQL));
+
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL)) {
+      InsertFunction(
+          functions, options, "$not_like_any", SCALAR,
+          {{bool_type,
+            {string_type, {string_type, REPEATED}},
+            FN_STRING_NOT_LIKE_ANY,
+            FunctionSignatureOptions().set_uses_operation_collation()},
+           {bool_type,
+            {byte_type, {byte_type, REPEATED}},
+            FN_BYTE_NOT_LIKE_ANY}},
+          FunctionOptions()
+              .set_supports_safe_error_mode(false)
+              .set_post_resolution_argument_constraint(absl::bind_front(
+                  &CheckArgumentsSupportEquality, "NOT LIKE ANY"))
+              .set_no_matching_signature_callback(
+                  &NoMatchingSignatureForLikeExprFunction)
+              .set_sql_name("not like any")
+              .set_hide_supported_signatures(true)
+              .set_get_sql_callback(&NotLikeAnyFunctionSQL));
+
+      InsertFunction(
+          functions, options, "$not_like_all", SCALAR,
+          {{bool_type,
+            {string_type, {string_type, REPEATED}},
+            FN_STRING_NOT_LIKE_ALL,
+            FunctionSignatureOptions().set_uses_operation_collation()},
+           {bool_type,
+            {byte_type, {byte_type, REPEATED}},
+            FN_BYTE_NOT_LIKE_ALL}},
+          FunctionOptions()
+              .set_supports_safe_error_mode(false)
+              .set_post_resolution_argument_constraint(absl::bind_front(
+                  &CheckArgumentsSupportEquality, "NOT LIKE ALL"))
+              .set_no_matching_signature_callback(
+                  &NoMatchingSignatureForLikeExprFunction)
+              .set_sql_name("not like all")
+              .set_hide_supported_signatures(true)
+              .set_get_sql_callback(&NotLikeAllFunctionSQL));
+    }
   }
 
   if (options.language_options.LanguageFeatureEnabled(
@@ -2215,9 +2280,11 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
     InsertFunction(
         functions, options, "$like_any_array", SCALAR,
         {{bool_type,
-          {string_type, array_string_type},
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
           FN_STRING_ARRAY_LIKE_ANY,
-          FunctionSignatureOptions().set_rejects_collation()},
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -2229,15 +2296,17 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_no_matching_signature_callback(
                 &NoMatchingSignatureForLikeExprArrayFunction)
             .set_sql_name("like any unnest")
-            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAnyArrayFunctionSQL));
 
     InsertFunction(
         functions, options, "$like_all_array", SCALAR,
         {{bool_type,
-          {string_type, array_string_type},
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
           FN_STRING_ARRAY_LIKE_ALL,
-          FunctionSignatureOptions().set_rejects_collation()},
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -2249,8 +2318,59 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
             .set_no_matching_signature_callback(
                 &NoMatchingSignatureForLikeExprArrayFunction)
             .set_sql_name("like all unnest")
-            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_hide_supported_signatures(true)
             .set_get_sql_callback(&LikeAllArrayFunctionSQL));
+
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL)) {
+      InsertFunction(
+          functions, options, "$not_like_any_array", SCALAR,
+          {{bool_type,
+            {string_type,
+             {array_string_type, FunctionArgumentTypeOptions()
+                                     .set_uses_array_element_for_collation()}},
+            FN_STRING_ARRAY_NOT_LIKE_ANY,
+            FunctionSignatureOptions().set_uses_operation_collation()},
+           {bool_type,
+            {byte_type, array_byte_type},
+            FN_BYTE_ARRAY_NOT_LIKE_ANY}},
+          FunctionOptions()
+              .set_supports_safe_error_mode(false)
+              .set_pre_resolution_argument_constraint(
+                  // Verifies for <expr> NOT LIKE ANY|SOME UNNEST(<array_expr>)
+                  // * Argument to UNNEST is an array.
+                  // * <expr> and elements of <array_expr> are comparable.
+                  &CheckLikeExprArrayArguments)
+              .set_no_matching_signature_callback(
+                  &NoMatchingSignatureForLikeExprArrayFunction)
+              .set_sql_name("not like any unnest")
+              .set_hide_supported_signatures(true)
+              .set_get_sql_callback(&NotLikeAnyArrayFunctionSQL));
+
+      InsertFunction(
+          functions, options, "$not_like_all_array", SCALAR,
+          {{bool_type,
+            {string_type,
+             {array_string_type, FunctionArgumentTypeOptions()
+                                     .set_uses_array_element_for_collation()}},
+            FN_STRING_ARRAY_NOT_LIKE_ALL,
+            FunctionSignatureOptions().set_uses_operation_collation()},
+           {bool_type,
+            {byte_type, array_byte_type},
+            FN_BYTE_ARRAY_NOT_LIKE_ALL}},
+          FunctionOptions()
+              .set_supports_safe_error_mode(false)
+              .set_pre_resolution_argument_constraint(
+                  // Verifies for <expr> NOT LIKE ALL UNNEST(<array_expr>)
+                  // * Argument to UNNEST is an array.
+                  // * <expr> and elements of <array_expr> are comparable.
+                  &CheckLikeExprArrayArguments)
+              .set_no_matching_signature_callback(
+                  &NoMatchingSignatureForLikeExprArrayFunction)
+              .set_sql_name("not like all unnest")
+              .set_hide_supported_signatures(true)
+              .set_get_sql_callback(&NotLikeAllArrayFunctionSQL));
+    }
   }
 
   // TODO: Do we want to support IN for non-compatible integers, i.e.,
@@ -2266,7 +2386,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_post_resolution_argument_constraint(
               absl::bind_front(&CheckArgumentsSupportEquality, "IN"))
           .set_no_matching_signature_callback(&NoMatchingSignatureForInFunction)
-          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_hide_supported_signatures(true)
           .set_get_sql_callback(&InListFunctionSQL));
 
   // TODO: Do we want to support:
@@ -2289,7 +2409,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForInArrayFunction)
           .set_sql_name("in unnest")
-          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_hide_supported_signatures(true)
           .set_get_sql_callback(&InArrayFunctionSQL));
   return absl::OkStatus();
 }

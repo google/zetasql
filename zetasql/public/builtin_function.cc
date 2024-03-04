@@ -162,6 +162,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetKllQuantilesFunctions(&type_factory, options, &functions);
   ZETASQL_RETURN_IF_ERROR(
       GetProto3ConversionFunctions(&type_factory, options, &functions));
+  // TODO: Move language feature checks to function declarations.
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_ANALYTIC_FUNCTIONS)) {
     GetAnalyticFunctions(&type_factory, options, &functions);
@@ -191,6 +192,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetArrayFilteringFunctions(&type_factory, options, &functions);
   GetArrayTransformFunctions(&type_factory, options, &functions);
   GetArrayIncludesFunctions(&type_factory, options, &functions);
+  GetElementWiseAggregationFunctions(&type_factory, options, &functions);
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS)) {
     ZETASQL_RETURN_IF_ERROR(
@@ -201,6 +203,9 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
     ZETASQL_RETURN_IF_ERROR(
         GetArrayZipFunctions(&type_factory, options, &functions, &types));
   }
+  ZETASQL_RETURN_IF_ERROR(
+      GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
+  GetMapCoreFunctions(&type_factory, options, &functions);
   return absl::OkStatus();
 }
 

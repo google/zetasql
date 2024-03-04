@@ -23,6 +23,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -71,7 +72,7 @@ absl::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
                                           TimeValue* output) {
   if (!IsValidProto3TimeOfDay(input)) {
     return MakeEvalError() << "Invalid Proto3 TimeOfDay input: "
-                           << input.DebugString();
+                           << absl::StrCat(input);
   }
   if (scale == kMicroseconds) {
     *output = TimeValue::FromHMSAndMicros(input.hours(), input.minutes(),

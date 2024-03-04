@@ -23,7 +23,9 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/strings/string_view.h"
+#include "zetasql/base/check.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 

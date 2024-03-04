@@ -34,9 +34,11 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
@@ -913,8 +915,8 @@ class TestCppValuesOp : public RelationalOp {
   // output_vars: Variables to use in the output schema. Requirement:
   //   output_vars.size() == tuple_vars.size() + cpp_vars.size()
   TestCppValuesOp(std::vector<VariableId> tuple_vars,
-                       std::vector<VariableId> cpp_vars,
-                       std::vector<VariableId> output_vars)
+                  std::vector<VariableId> cpp_vars,
+                  std::vector<VariableId> output_vars)
       : cpp_vars_(cpp_vars), output_vars_(output_vars) {
     // Initialize slot indices for tuple variables to -1, we'll substitute in
     // the actual values during SetSchemasForEvaluation().
@@ -3248,10 +3250,17 @@ TEST_F(CreateIteratorTest, ArrayScanOp) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param,
                        DerefExpr::Create(param, proto_array_type_));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(deref_param));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto mode_expr, ConstExpr::Create(Value::Enum(
+                                           types::ArrayZipModeEnumType(),
+                                           functions::ArrayZipEnums::PAD)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op,
-      ArrayScanOp::Create(a, p, /*fields=*/{}, std::move(deref_param)));
+      ArrayScanOp::Create(/*elements=*/{a}, /*position=*/p,
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
   EXPECT_EQ(scan_op->IteratorDebugString(), "ArrayScanTupleIterator(<array>)");
   EXPECT_EQ(
       "ArrayScanOp(\n"
@@ -3318,8 +3327,16 @@ TEST_F(CreateIteratorTest, ArrayScanOpNonDeterministic) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto array_expr,
       ConstExpr::Create(Array({Int64(1), Int64(2)}, kIgnoresOrder)));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto scan_op,
-                       ArrayScanOp::Create(a, p, {}, std::move(array_expr)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(array_expr));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto mode_expr, ConstExpr::Create(Value::Enum(
+                                           types::ArrayZipModeEnumType(),
+                                           functions::ArrayZipEnums::PAD)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op,
+      ArrayScanOp::Create(/*elements=*/{a}, /*position=*/p,
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
 
   EvaluationContext context((EvaluationOptions()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -3350,14 +3367,271 @@ TEST_F(CreateIteratorTest, ArrayScanOpNonDeterministic) {
   EXPECT_FALSE(context.IsDeterministicOutput());
 }
 
+TEST_F(CreateIteratorTest, ArrayScanOpMultiwayUnnest) {
+  VariableId arr1("arr1"), arr2("arr2"), p("p");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr1,
+                       ConstExpr::Create(Array({Int64(1), Int64(2), Int64(3)},
+                                               kPreservesOrder)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr2, ConstExpr::Create(Array(
+                                             {String("hello"), String("world")},
+                                             kPreservesOrder)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(array_expr1));
+  arrays.push_back(std::move(array_expr2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto mode_expr, ConstExpr::Create(Value::Enum(
+                                           types::ArrayZipModeEnumType(),
+                                           functions::ArrayZipEnums::PAD)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op_without_position,
+      ArrayScanOp::Create(/*elements=*/{arr1, arr2}, /*position=*/VariableId(),
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
+  EXPECT_EQ(scan_op_without_position->IteratorDebugString(),
+            "ArrayScanTupleIterator(<array>)");
+  EXPECT_EQ(
+      "ArrayScanOp(\n"
+      "+-$arr1 := element,\n"
+      "+-$arr2 := element,\n"
+      "+-mode: ConstExpr(PAD)\n"
+      "+-array: ConstExpr([1, 2, 3])\n"
+      "+-array: ConstExpr([\"hello\", \"world\"]))",
+      scan_op_without_position->DebugString());
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       scan_op_without_position->CreateIterator(
+                           EmptyParams(), /*num_extra_slots=*/0, &context));
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 3);
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
+            "<arr1:1,arr2:\"hello\">");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
+            "<arr1:2,arr2:\"world\">");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(),
+            "<arr1:3,arr2:NULL>");
+  // Check for no extra slots.
+  EXPECT_EQ(data[0].num_slots(), 2);
+  EXPECT_EQ(data[1].num_slots(), 2);
+  EXPECT_EQ(data[2].num_slots(), 2);
+  // If all arrays are ordered in multiway UNNEST, the results are
+  // deterministic.
+  EXPECT_TRUE(context.IsDeterministicOutput());
+
+  // Check that scrambling works.
+  EvaluationContext scramble_context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, scan_op_without_position->CreateIterator(
+                EmptyParams(), /*num_extra_slots=*/0, &scramble_context));
+  EXPECT_FALSE(iter->PreservesOrder());
+
+  // Unordered array with only one element.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto array_expr3,
+      ConstExpr::Create(Array({String("hello")}, kIgnoresOrder)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto array_expr4,
+      ConstExpr::Create(Array({Int64(1), Int64(2)}, kPreservesOrder)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays2;
+  arrays2.push_back(std::move(array_expr3));
+  arrays2.push_back(std::move(array_expr4));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto mode_expr2,
+      ConstExpr::Create(Value::Enum(types::ArrayZipModeEnumType(),
+                                    functions::ArrayZipEnums::TRUNCATE)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op_with_position,
+      ArrayScanOp::Create(/*elements=*/{arr1, arr2}, /*position=*/VariableId(),
+                          /*arrays=*/std::move(arrays2),
+                          /*zip_mode_expr=*/std::move(mode_expr2)));
+  EXPECT_EQ(scan_op_with_position->IteratorDebugString(),
+            "ArrayScanTupleIterator(<array>)");
+  EXPECT_EQ(
+      "ArrayScanOp(\n"
+      "+-$arr1 := element,\n"
+      "+-$arr2 := element,\n"
+      "+-mode: ConstExpr(TRUNCATE)\n"
+      "+-array: ConstExpr([\"hello\"])\n"
+      "+-array: ConstExpr([1, 2]))",
+      scan_op_with_position->DebugString());
+
+  EvaluationContext context2((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter2,
+                       scan_op_with_position->CreateIterator(
+                           EmptyParams(), /*num_extra_slots=*/0, &context2));
+  // Unordered arrays with only one element does not cause the output rows to be
+  // non-deterministic.
+  EXPECT_TRUE(iter2->PreservesOrder());
+  EXPECT_TRUE(context2.IsDeterministicOutput());
+}
+
+static std::unique_ptr<ValueExpr> DivByZeroErrorExpr() {
+  std::vector<std::unique_ptr<ValueExpr>> div_args;
+  div_args.push_back(ConstExpr::Create(Int64(1)).value());
+  div_args.push_back(ConstExpr::Create(Int64(0)).value());
+
+  return ScalarFunctionCallExpr::Create(
+             CreateFunction(FunctionKind::kDiv, Int64Type()),
+             std::move(div_args), DEFAULT_ERROR_MODE)
+      .value();
+}
+
+TEST_F(CreateIteratorTest, ArrayScanOpBadModeExpr) {
+  VariableId arr1("arr1"), arr2("arr2"), x("x");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr1,
+                       ConstExpr::Create(Array({Int64(1), Int64(2), Int64(3)},
+                                               kPreservesOrder)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr2, ConstExpr::Create(Array(
+                                             {String("hello"), String("world")},
+                                             kPreservesOrder)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(array_expr1));
+  arrays.push_back(std::move(array_expr2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto body, ConstExpr::Create(Value::Enum(
+                                      types::ArrayZipModeEnumType(),
+                                      functions::ArrayZipEnums::TRUNCATE)));
+  std::vector<std::unique_ptr<ExprArg>> let_assign;
+  let_assign.push_back(std::make_unique<ExprArg>(x, DivByZeroErrorExpr()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto mode_expr, WithExpr::Create(std::move(let_assign), std::move(body)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op_without_position,
+      ArrayScanOp::Create(/*elements=*/{arr1, arr2}, /*position=*/VariableId(),
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
+
+  EvaluationContext context((EvaluationOptions()));
+  EXPECT_THAT(
+      scan_op_without_position->CreateIterator(EmptyParams(),
+                                               /*num_extra_slots=*/0, &context),
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("division by zero")));
+}
+
+TEST_F(CreateIteratorTest, ArrayScanOpNonDeterministicMultiwayUnnest) {
+  VariableId arr1("arr1"), arr2("arr2");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr1,
+                       ConstExpr::Create(Array({Int64(1), Int64(2), Int64(3)},
+                                               kPreservesOrder)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr2,
+                       ConstExpr::Create(Array(
+                           {String("hello"), String("world")}, kIgnoresOrder)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(array_expr1));
+  arrays.push_back(std::move(array_expr2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto mode_expr, ConstExpr::Create(Value::Enum(
+                                           types::ArrayZipModeEnumType(),
+                                           functions::ArrayZipEnums::PAD)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op,
+      ArrayScanOp::Create(/*elements=*/{arr1, arr2}, /*position=*/VariableId(),
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0, &context));
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 3);
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
+            "<arr1:1,arr2:\"hello\">");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
+            "<arr1:2,arr2:\"world\">");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(),
+            "<arr1:3,arr2:NULL>");
+  // Check for no extra slots.
+  EXPECT_EQ(data[0].num_slots(), 2);
+  EXPECT_EQ(data[1].num_slots(), 2);
+  EXPECT_EQ(data[2].num_slots(), 2);
+  // Unordered arrays used in multiway UNNEST are non-deterministic if there is
+  // more than one element.
+  EXPECT_FALSE(context.IsDeterministicOutput());
+
+  // Check that scrambling works.
+  EvaluationContext scramble_context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
+                                    &scramble_context));
+  EXPECT_FALSE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 3);
+  // Don't look at 'data' in more detail because it is scrambled.
+  EXPECT_FALSE(context.IsDeterministicOutput());
+}
+
+TEST_F(CreateIteratorTest,
+       ArrayScanOpNonDeterministicMultiwayUnnestWithPosition) {
+  VariableId arr1("arr1"), arr2("arr2"), p("p");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto array_expr1,
+      ConstExpr::Create(Array({Int64(1), Int64(2), Int64(3)}, kIgnoresOrder)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr2, ConstExpr::Create(Array(
+                                             {String("hello"), String("world")},
+                                             kPreservesOrder)));
+  std::vector<std::unique_ptr<ValueExpr>> arrays;
+  arrays.push_back(std::move(array_expr1));
+  arrays.push_back(std::move(array_expr2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto mode_expr, ConstExpr::Create(Value::Enum(
+                                           types::ArrayZipModeEnumType(),
+                                           functions::ArrayZipEnums::PAD)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op,
+      ArrayScanOp::Create(/*elements=*/{arr1, arr2}, /*position=*/p,
+                          /*arrays=*/std::move(arrays),
+                          /*zip_mode_expr=*/std::move(mode_expr)));
+
+  EvaluationContext context((EvaluationOptions()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0, &context));
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 3);
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(),
+            "<arr1:1,arr2:\"hello\",p:0>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
+            "<arr1:2,arr2:\"world\",p:1>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(),
+            "<arr1:3,arr2:NULL,p:2>");
+  // Check for no extra slots.
+  EXPECT_EQ(data[0].num_slots(), 3);
+  EXPECT_EQ(data[1].num_slots(), 3);
+  EXPECT_EQ(data[2].num_slots(), 3);
+  // Unordered arrays with position variables are non-deterministic if there is
+  // more than one element.
+  EXPECT_FALSE(context.IsDeterministicOutput());
+
+  // Check that scrambling works.
+  EvaluationContext scramble_context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
+                                    &scramble_context));
+  EXPECT_FALSE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 3);
+  // Don't look at 'data' in more detail because it is scrambled.
+  EXPECT_FALSE(context.IsDeterministicOutput());
+}
+
 TEST_F(CreateIteratorTest, ScanArrayOfStructs) {
   VariableId x("x"), v1("v1"), v2("v2");
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto array_expr,
       ConstExpr::Create(Array({Struct({"foo", "bar"}, {Int64(1), Int64(2)})})));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto scan_op,
-                       ArrayScanOp::Create(x, VariableId(), {{v1, 0}, {v2, 1}},
-                                           std::move(array_expr)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op,
+      ArrayScanOp::Create(/*element=*/x, /*position=*/VariableId(),
+                          /*fields=*/{{v1, 0}, {v2, 1}},
+                          /*array=*/std::move(array_expr)));
   EXPECT_EQ(
       "ArrayScanOp(\n"
       "+-$x := element,\n"
@@ -3384,16 +3658,16 @@ TEST_F(CreateIteratorTest, ScanArrayOfStructs) {
 
 TEST_F(CreateIteratorTest, TableScanAsArray) {
   VariableId v1("v1"), v2("v2");
-  Value table = Array({
-      Struct({"a", "b"}, {Int64(1), Int64(2)}),
-      Struct({"a", "b"}, {Int64(3), Int64(4)})});
+  Value table = Array({Struct({"a", "b"}, {Int64(1), Int64(2)}),
+                       Struct({"a", "b"}, {Int64(3), Int64(4)})});
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto table_as_array_expr,
       TableAsArrayExpr::Create("mytable", table.type()->AsArray()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op,
-      ArrayScanOp::Create(VariableId(), VariableId(), {{v1, 0}, {v2, 1}},
-                          std::move(table_as_array_expr)));
+      ArrayScanOp::Create(/*element=*/VariableId(), /*position=*/VariableId(),
+                          /*fields=*/{{v1, 0}, {v2, 1}},
+                          /*array=*/std::move(table_as_array_expr)));
   EXPECT_EQ(
       "ArrayScanOp(\n"
       "+-$v1 := field[0]:a,\n"

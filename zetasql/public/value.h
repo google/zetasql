@@ -17,12 +17,11 @@
 #ifndef ZETASQL_PUBLIC_VALUE_H_
 #define ZETASQL_PUBLIC_VALUE_H_
 
-#include <stddef.h>
-
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <iosfwd>
 #include <memory>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -35,23 +34,28 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
+#include "zetasql/base/map_view.h"
 
 namespace zetasql {
 
@@ -157,6 +161,9 @@ class Value {
   std::string EnumDisplayName() const;    // REQUIRES: enum type
   const absl::Cord& proto_value() const;  // REQUIRES: proto type
 
+  // Returns date value as a absl::CivilDay.
+  absl::CivilDay ToCivilDay() const;  // REQUIRES: date type
+
   // Returns timestamp value as absl::Time at nanoseconds precision.
   absl::Time ToTime() const;  // REQUIRES: timestamp type
 
@@ -200,6 +207,8 @@ class Value {
   // Returns the string representing stored JSON value.
   std::string json_string() const;
 
+  const tokens::TokenList& tokenlist_value() const;  // REQUIRES: tokenlist type
+
   // Returns the value content of extended type.
   // REQUIRES: type_kind() == TYPE_EXTENDED
   ValueContent extended_value() const;
@@ -219,7 +228,8 @@ class Value {
   // Use of this method for timestamp_ values is DEPRECATED.
   double ToDouble() const;  // For bool, int_, date, timestamp_, enum, Numeric,
                             // BigNumeric types.
-  absl::Cord ToCord() const;  // For string, bytes, and protos
+  absl::Cord ToCord() const;     // For string, bytes, and protos
+  std::string ToString() const;  // For string, bytes, and protos
 
   // Convert this value to a dynamically allocated proto Message.
   //
@@ -253,11 +263,19 @@ class Value {
   // Does not find anonymous fields (those with empty names).
   const Value& FindFieldByName(absl::string_view name) const;
 
-  // Array-specific methods. REQUIRES: !is_null().
+  // Array and Map-specific methods.
+  // REQUIRES: !is_null()
+  // REQUIRES: (type_kind() == TYPE_ARRAY or type_kind() == TYPE_MAP).
   bool empty() const;
   int num_elements() const;
+
+  // Array-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_ARRAY.
   const Value& element(int i) const;
   const std::vector<Value>& elements() const;
+
+  // Map-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_MAP.
+  // Returns the entries of the map. Note that a stable order is not guaranteed.
+  zetasql_base::MapView<Value, Value> map_entries() const;
 
   // Range-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_RANGE
   const Value& start() const;
@@ -370,14 +388,36 @@ class Value {
   // GetSQLLiteral() is used in ZetaSQL's FORMAT() function implementation
   // (Format() in zetasql/public_functions/format.cc) so we cannot change
   // the output without breaking existing ZetaSQL function semantics.
-  std::string GetSQL(ProductMode mode = PRODUCT_EXTERNAL) const;
+  // Setting `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated.
+  std::string GetSQL(ProductMode mode, bool use_external_float32) const;
+  std::string GetSQL(ProductMode mode) const {
+    return GetSQL(mode, /*use_external_float32=*/false);
+  }
+  ABSL_DEPRECATED("Use signature taking ProductMode.")
+  std::string GetSQL() const {
+    return GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/false);
+  }
 
   // Returns a SQL expression that is compatible as a literal for this value.
   // This won't include CASTs except for non-finite floating point values, and
   // won't necessarily produce the exact same type when parsed on its own, but
   // it should be the closest SQL literal form for this value.  Returned type
   // names are sensitive to the SQL ProductMode (INTERNAL or EXTERNAL).
-  std::string GetSQLLiteral(ProductMode mode = PRODUCT_EXTERNAL) const;
+  // Setting `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated.
+  std::string GetSQLLiteral(ProductMode mode, bool use_external_float32) const;
+  std::string GetSQLLiteral(ProductMode mode) const {
+    return GetSQLLiteral(mode, /*use_external_float32=*/false);
+  }
+  ABSL_DEPRECATED("Use signature taking ProductMode.")
+  std::string GetSQLLiteral() const {
+    return GetSQLLiteral(PRODUCT_EXTERNAL, /*use_external_float32=*/false);
+  }
 
   // We do not define < operator to prevent accidental use of values of mixed
   // types in STL set and map.
@@ -435,6 +475,10 @@ class Value {
   // Creates a Value that stores parsed JSON document using representation
   // optimized for member access operations.
   static Value Json(JSONValue value);
+
+  // TODO: as of 2021Q4, the encoding is a work-in-progress
+  // and subject to change.  Avoid storing on disk.
+  static Value TokenList(tokens::TokenList value);
 
   // Creates a value of extended type with the given content.
   static Value Extended(const ExtendedType* type, const ValueContent& value);
@@ -534,6 +578,7 @@ class Value {
   static Value NullNumeric();
   static Value NullBigNumeric();
   static Value NullJson();
+  static Value NullTokenList();
 
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
@@ -678,6 +723,27 @@ class Value {
   static absl::StatusOr<Value> MakeRangeFromValidatedInputs(
       const RangeType* range_type, const Value& start, const Value& end);
 
+#ifndef SWIG  // TODO: Investigate SWIG compatibility for MAP.
+  // Creates a map of the given 'map_type' initialized with 'map_entries' as the
+  // key/value pairs. The type of each key and value must match the key and
+  // value types in map_type, otherwise returns an error (in debug mode).
+  // 'map_type' must outlive the returned object. A map_entries containing
+  // multiple equivalent keys will result in an OutOfRange error.
+  //
+  // REQUIRES: map_type.type_kind() == MAP_TYPE
+  // REQUIRES: map_entries key and value types match map_type
+  // REQUIRES: map_entries does not contain any entries with equivalent keys.
+  static absl::StatusOr<Value> MakeMap(
+      const Type* map_type,
+      absl::Span<const std::pair<const Value, const Value>> map_entries);
+
+  static absl::StatusOr<Value> MakeMap(
+      const Type* map_type, std::vector<std::pair<Value, Value>>&& map_entries);
+  static absl::StatusOr<Value> MakeMap(
+      const Type* map_type,
+      std::initializer_list<std::pair<Value, Value>> map_entries);
+#endif
+
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);
   // Creates an invalid value.
@@ -709,9 +775,13 @@ class Value {
   FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructWithAnonymousFieldsDebugMode);
+  FRIEND_TEST(MapTest, FormatValueContentSQLLiteralMode);
+  FRIEND_TEST(MapTest, FormatValueContentSQLExpressionMode);
+  FRIEND_TEST(MapTestFormatValueContentDebugMode, FormatValueContentDebugMode);
+  FRIEND_TEST(MapTest, FormatValueContentDebugModeEmptyMap);
 
   template <bool as_literal, bool maybe_add_simple_type_prefix>
-  std::string GetSQLInternal(ProductMode mode) const;
+  std::string GetSQLInternal(ProductMode mode, bool use_external_float32) const;
 
   template <typename H>
   H HashValueInternal(H h) const;
@@ -720,6 +790,7 @@ class Value {
   friend struct InternalComparer;  // Defined in value.cc.
   friend struct InternalHasher;    // Defined in value.cc
   class TypedList;                 // Defined in value_inl.h
+  class TypedMap;                  // Defined in value_inl.h
 
   // Specifies whether an array value preserves or ignores order (public array
   // values always preserve order). The enum values are designed to be used with
@@ -733,19 +804,22 @@ class Value {
       __TypeKind__switch_must_have_a_default__;
 
   // Constructs an empty (where content contains zeros) or NULL value of the
-  // given 'type'. Argument order_kind is currently used only for arrays and
-  // should always be set to kPreservesOrder for all other types.
+  // given 'type'. Argument order_kind is currently used only for arrays.
+  // kPreservesOrder should be set for all other types, except for Map which
+  // always sets kIgnoresOrder regardless of the supplied order_kind.
   Value(const Type* type, bool is_null, OrderPreservationKind order_kind);
 
   // Constructs a typed NULL of the given 'type'.
   explicit Value(const Type* type)
-      : Value(type, /*is_null=*/true, kPreservesOrder) {}
+      : Value(type, /*is_null=*/true,
+              type->kind() == TYPE_MAP ? kIgnoresOrder : kPreservesOrder) {}
 #ifndef SWIG
   // SWIG has trouble with constexpr.
   constexpr
 #endif
       explicit Value(TypeKind kind)
-      : metadata_(kind, /*is_null=*/true, kPreservesOrder,
+      : metadata_(kind, /*is_null=*/true,
+                  kind == TYPE_MAP ? kIgnoresOrder : kPreservesOrder,
                   /*value_extended_content=*/0) {
   }
 
@@ -780,6 +854,9 @@ class Value {
 
   // Takes ownership of 'json_ptr' without increasing its ref count.
   explicit Value(internal::JSONRef* json_ptr);
+
+  // Constructs a TOKENLIST value.
+  explicit Value(tokens::TokenList tokenlist);
 
   // Constructs an enum.
   Value(const EnumType* enum_type, int64_t value,
@@ -832,6 +909,18 @@ class Value {
       bool is_validated, const Value& start, const Value& end,
       const RangeType* range_type = nullptr);
 
+#ifndef SWIG  // TODO: Investigate SWIG compatibility for MAP.
+
+  // Creates a map of the given 'map_type' initialized with the entries in
+  // 'map_entries'.
+  // A map_entries containing duplicate keys will result in out of range error.
+  // A map_entries containing values with types that do not match the provided
+  //   type will result in system error, but only in debug mode.
+  static absl::StatusOr<Value> MakeMapInternal(
+      const Type* type, std::vector<std::pair<Value, Value>> map_entries);
+
+#endif
+
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
   // 'force_type' causes the top-level value to print its type. By
@@ -849,6 +938,11 @@ class Value {
            metadata_.type_kind() == TYPE_STRUCT ||
            metadata_.type_kind() == TYPE_RANGE;
   }
+
+  // Type cannot create a list of Values because it cannot depend on
+  // "value" package. Thus for Map type that needs a list of values, we
+  // will create them from Value directly.
+  bool DoesTypeUseValueMap() const { return metadata_.type_kind() == TYPE_MAP; }
 
   // Gets Value's content. Requires: has_content() == true.
   ValueContent GetContent() const;
@@ -995,6 +1089,10 @@ class Value {
     internal::JSONRef* json_ptr_;  // Owned. Used for values of TYPE_JSON.
     internal::IntervalRef*
         interval_ptr_;  // Owned. Used for values of TYPE_INTERVAL.
+    internal::TokenListRef*
+        tokenlist_ptr_;  // Owned. Used for values of TYPE_TOKENLIST.
+    internal::ValueContentMapRef*
+        map_ptr_;  // Owned. Used for values of TYPE_MAP.
   };
   // Intentionally copyable.
 };

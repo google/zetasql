@@ -21,7 +21,6 @@
 
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
@@ -39,7 +38,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 

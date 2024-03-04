@@ -214,6 +214,7 @@ class TypeFactory {
   const Type* get_numeric();
   const Type* get_bignumeric();
   const Type* get_json();
+  const Type* get_tokenlist();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -226,8 +227,7 @@ class TypeFactory {
   // created the <type> must outlive this TypeFactory.
   absl::Status MakeArrayType(const Type* element_type,
                              const ArrayType** result);
-  absl::Status MakeArrayType(const Type* element_type,
-                             const Type** result);
+  absl::Status MakeArrayType(const Type* element_type, const Type** result);
 
   // Make a struct type.
   // The field names must be valid.
@@ -267,6 +267,12 @@ class TypeFactory {
   absl::Status MakeRangeType(const Type* element_type, const Type** result);
   absl::Status MakeRangeType(const google::protobuf::FieldDescriptor* field,
                              const Type** result);
+
+  // Make a map type.
+  // <key_type> must support grouping for the type to be supported.
+  // <value_type> can be any type.
+  absl::StatusOr<const Type*> MakeMapType(const Type* key_type,
+                                          const Type* value_type);
 
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
@@ -329,13 +335,6 @@ class TypeFactory {
   absl::Status GetProtoFieldType(
       bool ignore_annotations, const google::protobuf::FieldDescriptor* field_descr,
       absl::Span<const std::string> catalog_name_path, const Type** type);
-  ABSL_DEPRECATED("Inline me!")
-  absl::Status GetProtoFieldType(bool ignore_annotations,
-                                 const google::protobuf::FieldDescriptor* field_descr,
-                                 const Type** type) {
-    return GetProtoFieldType(ignore_annotations, field_descr,
-                             /*catalog_name_path=*/{}, type);
-  }
 
   // Get the Type for a proto field.
   // This is the same as the above signature with ignore_annotations = false.
@@ -347,16 +346,6 @@ class TypeFactory {
       absl::Span<const std::string> catalog_name_path, const Type** type) {
     return GetProtoFieldType(/*ignore_annotations=*/false, field_descr,
                              catalog_name_path, type);
-  }
-
-  // Get the Type for a proto field.
-  // This is the same as the above signature with <ignore_annotations> = false
-  // and an empty <catalog_name_path>.
-  ABSL_DEPRECATED("Inline me!")
-  absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
-                                 const Type** type) {
-    return GetProtoFieldType(/*ignore_annotations=*/false, field_descr,
-                             /*catalog_name_path=*/{}, type);
   }
 
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
@@ -547,6 +536,9 @@ class TypeFactory {
   absl::flat_hash_map<const Type*, const RangeType*> cached_range_types_
       ABSL_GUARDED_BY(store_->mutex_);
 
+  absl::flat_hash_map<std::pair<const Type*, const Type*>, const Type*>
+      cached_map_types_ ABSL_GUARDED_BY(store_->mutex_);
+
   // The key is a descriptor and a catalog name path.
   absl::flat_hash_map<
       std::pair<const google::protobuf::Descriptor*, const internal::CatalogName*>,
@@ -596,6 +588,7 @@ const Type* GeographyType();
 const Type* NumericType();
 const Type* BigNumericType();
 const Type* JsonType();
+const Type* TokenListType();
 const StructType* EmptyStructType();
 
 // ArrayTypes
@@ -617,6 +610,7 @@ const ArrayType* GeographyArrayType();
 const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
+const ArrayType* TokenListArrayType();
 
 // RangeTypes
 const RangeType* DateRangeType();

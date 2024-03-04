@@ -22,7 +22,6 @@
 #include <limits>
 
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "zetasql/base/logging.h"
 #include "zetasql/base/mathutil.h"
 

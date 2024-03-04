@@ -197,6 +197,12 @@ constexpr absl::string_view kTimeResolutionNanosLabel =
 constexpr absl::string_view kTimeResolutionMicrosLabel =
     "TimeResolution:MicrosOnly";
 
+// We include broken [prepare_database] statements with this name in some
+// test files to make sure the framework is handling things correctly when
+// an engine does not support something inside a function or view definition.
+constexpr absl::string_view kSkipFailedReferenceSetup =
+    "skip_failed_reference_setup";
+
 // For a long string, a signature is generated, which is the left 8
 // characters of the string, followed by the fingerprint of the string,
 // followed by the right 8 characters of the string.
@@ -1478,7 +1484,6 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
   // Enable all possible language features.
   options.EnableMaximumLanguageFeaturesForDevelopment();
-  options.EnableLanguageFeature(FEATURE_TEXTMAPPER_PARSER);
   options.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
@@ -1758,6 +1763,52 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
   }
 }
 
+absl::Status SQLTestBase::AddViews(
+    absl::Span<const std::string> create_view_stmts, bool cache_stmts) {
+  bool is_testing_test_framework =
+      test_case_options_->name() == kSkipFailedReferenceSetup;
+  absl::Status reference_status =
+      reference_driver()->AddViews(create_view_stmts);
+  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
+      << reference_status;
+  absl::Status driver_status = driver()->AddViews(create_view_stmts);
+  if (!driver_status.ok()) {
+    // We don't want to fail the test because of a database setup failure.
+    // Any test statements that depend on this schema object should cause
+    // the test to fail in a more useful way.
+    ABSL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
+  }
+  if (cache_stmts && reference_status.ok() && driver_status.ok()) {
+    for (const auto& stmt : create_view_stmts) {
+      view_stmt_cache_.push_back(stmt);
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status SQLTestBase::AddFunctions(
+    absl::Span<const std::string> create_function_stmts, bool cache_stmts) {
+  bool is_testing_test_framework =
+      test_case_options_->name() == kSkipFailedReferenceSetup;
+  absl::Status reference_status =
+      reference_driver()->AddSqlUdfs(create_function_stmts);
+  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
+      << reference_status;
+  absl::Status driver_status = driver()->AddSqlUdfs(create_function_stmts);
+  if (!driver_status.ok()) {
+    // We don't want to fail the test because of a database setup failure.
+    // Any test statements that depend on this schema object should cause
+    // the test to fail in a more useful way.
+    ABSL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
+  }
+  if (cache_stmts && reference_status.ok() && driver_status.ok()) {
+    for (const auto& stmt : create_function_stmts) {
+      udf_stmt_cache_.push_back(stmt);
+    }
+  }
+  return absl::OkStatus();
+}
+
 void SQLTestBase::StepPrepareDatabase() {
   if (test_case_options_ != nullptr &&
       !test_case_options_->prepare_database()) {
@@ -1798,48 +1849,20 @@ void SQLTestBase::StepPrepareDatabase() {
     CheckCancellation(status, "Wrong placement of prepare_database");
   }
 
-  // We include broken [prepare_database] statements with this name in some
-  // test files to make sure the framework is handling things correctly when
-  // an engine does not support something inside a function or view definition.
-  constexpr absl::string_view kSkipFailedReferenceSetup =
-      "skip_failed_reference_setup";
-
   if (GetStatementKind(sql_) == RESOLVED_CREATE_FUNCTION_STMT) {
-    bool is_testing_test_framework =
-        test_case_options_->name() == kSkipFailedReferenceSetup;
-    absl::Status reference_status = reference_driver()->AddSqlUdfs({sql_});
-    EXPECT_NE(reference_status.ok(), is_testing_test_framework)
-        << reference_status;
-    absl::Status driver_status = driver()->AddSqlUdfs({sql_});
-    if (!driver_status.ok()) {
-      // We don't want to fail the test because of a database setup failure.
-      // Any test statements that depend on this schema object should cause
-      // the test to fail in a more useful way.
-      ABSL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
-    }
+    ZETASQL_EXPECT_OK(AddFunctions({sql_}, /*cache_stmts=*/true));
     return;
   }
 
   if (GetStatementKind(sql_) == RESOLVED_CREATE_VIEW_STMT) {
-    bool is_testing_test_framework =
-        test_case_options_->name() == kSkipFailedReferenceSetup;
-    absl::Status reference_status = reference_driver()->AddViews({sql_});
-    EXPECT_NE(reference_status.ok(), is_testing_test_framework)
-        << reference_status;
-    absl::Status driver_status = driver()->AddViews({sql_});
-    if (!driver_status.ok()) {
-      // We don't want to fail the test because of a database setup failure.
-      // Any test statements that depend on this schema object should cause
-      // the test to fail in a more useful way.
-      ABSL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
-    }
+    ZETASQL_EXPECT_OK(AddViews({sql_}, /*cache_stmts=*/true));
     return;
   }
 
   if (GetStatementKind(sql_) == RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
     ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-    ABSL_CHECK(test_setup_driver_->language_options().LanguageFeatureEnabled(
-        FEATURE_TEXTMAPPER_PARSER));
+    ABSL_CHECK(!test_setup_driver_->language_options().LanguageFeatureEnabled(
+        FEATURE_DISABLE_TEXTMAPPER_PARSER));
     ABSL_CHECK(test_setup_driver_->language_options().LanguageFeatureEnabled(
         FEATURE_SHADOW_PARSING));
     CheckCancellation(
@@ -2164,12 +2187,11 @@ bool SQLTestBase::IsFeatureFalselyRequired(
   language_options.SetEnabledLanguageFeatures(features_minus_one);
   reference_driver()->SetLanguageOptions(language_options);
   auto modified_run_result = RunSQL(sql, param_map);
-  if (!modified_run_result.ok() &&
-      modified_run_result.status() == initial_run_status) {
-    // The test case is expecting an error with error message. We see the same
-    // expected error and message with and without 'feature', we can conclude
-    // that 'feature' is not actually required.
-    return true;
+  if (!modified_run_result.ok()) {
+    // The test case is expecting an error with error message. If we see the
+    // same expected error and message with and without 'feature', we can
+    // conclude that 'feature' is not actually required.
+    return modified_run_result.status() == initial_run_status;
   }
 
   if (absl::IsOutOfRange(initial_run_status) &&
@@ -2183,8 +2205,8 @@ bool SQLTestBase::IsFeatureFalselyRequired(
     return false;
   }
 
-  // The test case is expecting a result. We see the same result with
-  // and without 'feature'. We can conclude that 'feature' is not
+  // The test case is expecting a result. If we see the same result with
+  // and without 'feature', we can conclude that 'feature' is not
   // actually required.
   return ::testing::Value(
       modified_run_result,
@@ -2345,6 +2367,8 @@ std::string SQLTestBase::ValueToSafeString(const Value& value) const {
       return absl::StrCat("_", SignatureOfString(value.DebugString()));
     case TYPE_ENUM:
       return absl::StrCat("_", value.DebugString());
+    case TYPE_TOKENLIST:
+      return absl::StrCat("_", SignatureOfString(value.DebugString()));
     case TYPE_DATE:
     case TYPE_ARRAY:
     case TYPE_STRUCT:
@@ -2403,7 +2427,8 @@ std::string SQLTestBase::GenerateCodeBasedStatementName(
   param_strs.reserve(parameters.size());
   for (const std::pair<const std::string, Value>& entry : parameters) {
     param_strs.emplace_back(absl::StrCat(
-        absl::StrReplaceAll(entry.second.type()->TypeName(product_mode()),
+        absl::StrReplaceAll(entry.second.type()->TypeName(
+                                product_mode(), use_external_float32()),
                             {{".", "_"}}),
         ValueToSafeString(entry.second)));
   }
@@ -2600,6 +2625,13 @@ ProductMode SQLTestBase::product_mode() const {
   return driver()->GetSupportedLanguageOptions().product_mode();
 }
 
+bool SQLTestBase::use_external_float32() const {
+  return driver()->GetSupportedLanguageOptions().product_mode() ==
+             ProductMode::PRODUCT_EXTERNAL &&
+         !driver()->GetSupportedLanguageOptions().LanguageFeatureEnabled(
+             LanguageFeature::FEATURE_V_1_4_DISABLE_FLOAT32);
+}
+
 void SQLTestBase::SetUp() { ZETASQL_EXPECT_OK(CreateDatabase(TestDatabase{})); }
 
 absl::Status SQLTestBase::CreateDatabase() {
@@ -2611,6 +2643,13 @@ absl::Status SQLTestBase::CreateDatabase() {
   // test_db_.
   ZETASQL_RETURN_IF_ERROR(driver()->CreateDatabase(test_db_));
   ZETASQL_RETURN_IF_ERROR(reference_driver()->CreateDatabase(test_db_));
+
+  if (!udf_stmt_cache_.empty()) {
+    ZETASQL_RETURN_IF_ERROR(AddFunctions(udf_stmt_cache_, /*cache_stmts=*/false));
+  }
+  if (!view_stmt_cache_.empty()) {
+    ZETASQL_RETURN_IF_ERROR(AddViews(view_stmt_cache_, /*cache_stmts=*/false));
+  }
 
   // Only create test database once.
   test_db_.clear();

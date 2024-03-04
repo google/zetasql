@@ -32,11 +32,11 @@
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -65,7 +65,7 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
   // Rewrites array function calls after choosing the appropriate template
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
-    // If not empty, the template that has null hanlding and ordering.
+    // If not empty, the template that has null handling and ordering.
     absl::string_view rewrite_template;
 
     switch (node->signature().context_id()) {

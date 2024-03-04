@@ -51,6 +51,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -205,7 +206,7 @@ class FunctionSignatureMatcher {
   // counts.
   // Returns a non-OK status for any internal error.
   absl::StatusOr<FunctionArgumentTypeList> GetConcreteArguments(
-      const std::vector<InputArgumentType>& input_arguments,
+      absl::Span<const InputArgumentType> input_arguments,
       const FunctionSignature& signature, int repetitions, int optionals,
       const ArgKindToResolvedTypeMap& templated_argument_map,
       std::vector<ArgIndexEntry>* arg_index_mapping) const;
@@ -239,7 +240,7 @@ class FunctionSignatureMatcher {
   //   signature matches. <arg_overrides> is undefined otherwise.
   absl::StatusOr<bool> CheckArgumentTypesAndCollectTemplatedArguments(
       const std::vector<const ASTNode*>& arg_ast_nodes,
-      const std::vector<InputArgumentType>& input_arguments,
+      absl::Span<const InputArgumentType> input_arguments,
       const FunctionSignature& signature, int repetitions,
       const ResolveLambdaCallback* resolve_lambda_callback,
       ArgKindToInputTypesMap* templated_argument_map,
@@ -470,7 +471,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
 
 absl::StatusOr<FunctionArgumentTypeList>
 FunctionSignatureMatcher::GetConcreteArguments(
-    const std::vector<InputArgumentType>& input_arguments,
+    absl::Span<const InputArgumentType> input_arguments,
     const FunctionSignature& signature, int repetitions, int optionals,
     const ArgKindToResolvedTypeMap& templated_argument_map,
     std::vector<ArgIndexEntry>* arg_index_mapping) const {
@@ -878,7 +879,7 @@ bool FunctionSignatureMatcher::
 absl::StatusOr<bool>
 FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
     const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
+    absl::Span<const InputArgumentType> input_arguments,
     const FunctionSignature& signature, int repetitions,
     const ResolveLambdaCallback* resolve_lambda_callback,
     ArgKindToInputTypesMap* templated_argument_map,
@@ -908,8 +909,7 @@ FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
             resolve_lambda_callback, templated_argument_map,
             signature_match_result, arg_overrides)) {
       ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
-                !signature_match_result->mismatch_message().empty() ||
-                !signature_match_result->tvf_mismatch_message().empty())
+                !signature_match_result->mismatch_message().empty())
           << "Mismatch error message should have been set.";
       return false;
     }
@@ -1248,11 +1248,11 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                .second) {
         // There was a duplicate column name in the input relation. This is
         // invalid.
-        signature_match_result->set_tvf_mismatch_message(absl::StrCat(
+        signature_match_result->set_mismatch_message(absl::StrCat(
             "Table-valued function does not allow duplicate input ",
             "columns named \"", provided_col_name, "\" for argument ",
             arg_idx + 1));
-        signature_match_result->set_tvf_bad_argument_index(arg_idx);
+        signature_match_result->set_bad_argument_index(arg_idx);
         *signature_matches = false;
         return absl::OkStatus();
       }
@@ -1262,10 +1262,10 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                !provided_schema.is_value_table()) {
       // There was a column name in the input relation not specified in the
       // required output schema, and the signature does not allow this.
-      signature_match_result->set_tvf_mismatch_message(
+      signature_match_result->set_mismatch_message(
           absl::StrCat("Function does not allow extra input column named \"",
                        provided_col_name, "\" for argument ", arg_idx + 1));
-      signature_match_result->set_tvf_bad_argument_index(arg_idx);
+      signature_match_result->set_bad_argument_index(arg_idx);
       *signature_matches = false;
       return absl::OkStatus();
     }
@@ -1289,12 +1289,12 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
         // The required value table was not found in the provided input
         // relation. Generate a descriptive error message.
         ZETASQL_RET_CHECK_EQ(1, required_schema.num_columns());
-        signature_match_result->set_tvf_mismatch_message(
+        signature_match_result->set_mismatch_message(
             absl::StrCat("Expected value table of type ",
                          required_schema.column(0).type->ShortTypeName(
                              language_.product_mode()),
                          " for argument ", arg_idx + 1));
-        signature_match_result->set_tvf_bad_argument_index(arg_idx);
+        signature_match_result->set_bad_argument_index(arg_idx);
         *signature_matches = false;
         return absl::OkStatus();
       }
@@ -1304,10 +1304,10 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
       if (lookup == nullptr) {
         // The required column name was not found in the provided input
         // relation. Generate a descriptive error message.
-        signature_match_result->set_tvf_mismatch_message(absl::StrCat(
+        signature_match_result->set_mismatch_message(absl::StrCat(
             "Required column \"", required_col_name,
             "\" not found in table passed as argument ", arg_idx + 1));
-        signature_match_result->set_tvf_bad_argument_index(arg_idx);
+        signature_match_result->set_bad_argument_index(arg_idx);
         *signature_matches = false;
         return absl::OkStatus();
       }
@@ -1330,7 +1330,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
     } else {
       // The provided column type is invalid. Mark the argument index and
       // column name to return a descriptive error later.
-      signature_match_result->set_tvf_mismatch_message(absl::StrCat(
+      signature_match_result->set_mismatch_message(absl::StrCat(
           "Invalid type ",
           provided_col_type->ShortTypeName(language_.product_mode()),
           (required_schema.is_value_table()
@@ -1338,7 +1338,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                : absl::StrCat(" for column \"", required_col_name, " ")),
           required_col_type->ShortTypeName(language_.product_mode()),
           "\" of argument ", arg_idx + 1));
-      signature_match_result->set_tvf_bad_argument_index(arg_idx);
+      signature_match_result->set_bad_argument_index(arg_idx);
       *signature_matches = false;
       return absl::OkStatus();
     }
@@ -1570,8 +1570,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   if (!match) {
     signature_match_result->UpdateFromResult(local_signature_match_result);
     ZETASQL_RET_CHECK(!signature_match_result->allow_mismatch_message() ||
-              !signature_match_result->mismatch_message().empty() ||
-              !signature_match_result->tvf_mismatch_message().empty());
+              !signature_match_result->mismatch_message().empty());
     return false;
   }
 

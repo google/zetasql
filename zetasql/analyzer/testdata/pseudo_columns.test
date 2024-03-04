@@ -336,9 +336,10 @@ QueryStmt
         +-right_scan=
         | +-TableScan(column_list=[AllPseudoColumns.Key#3], table=AllPseudoColumns, column_index_list=[0], alias="t2")
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
-            +-ColumnRef(type=INT32, column=AllPseudoColumns.Key#1)
-            +-ColumnRef(type=INT32, column=AllPseudoColumns.Key#3)
+        | +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+        |   +-ColumnRef(type=INT32, column=AllPseudoColumns.Key#1)
+        |   +-ColumnRef(type=INT32, column=AllPseudoColumns.Key#3)
+        +-has_using=TRUE
 ==
 
 # Pseudo-columns don't show up in GROUP BY ordinals.

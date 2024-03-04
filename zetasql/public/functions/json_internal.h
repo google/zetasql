@@ -48,8 +48,12 @@ namespace json_internal {
 
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr);
 
-// Bi-directed iterator over JSON path tokens. Functions in this class are
-// inlined due to performance reasons.
+// This class acts both like an STL container and iterator over JSON path
+// tokens. The input JSONPath is parsed and underlying memory for the tokens are
+// owned by this class. This is a read-only interface and JSONPath tokens cannot
+// be modified after initialization as part of the contract.
+//
+// Functions in this class are inlined due to performance reasons.
 template <typename Token>
 class JSONPathIterator {
  public:
@@ -75,6 +79,12 @@ class JSONPathIterator {
   inline const Token& operator*() const {
     ABSL_DCHECK(depth_ > 0 && depth_ <= tokens_.size());
     return tokens_[depth_ - 1];
+  }
+
+  // Undefined behavior if `i` is out of bounds.
+  inline const Token& GetToken(int i) const {
+    ABSL_DCHECK(i >= 0 && i < tokens_.size());
+    return tokens_[i];
   }
 
   inline bool NoSuffixToken() { return depth_ == tokens_.size(); }
@@ -130,7 +140,17 @@ class ValidJSONPathIterator final : public JSONPathIterator<std::string> {
 //
 // Strict notation only allows '[]' to refer to an array location and .property
 // to refer to an object member.
-absl::Status IsValidJSONPathStrict(absl::string_view text);
+//
+// If `enable_lax_mode` is set to true, enables lax path notation.
+absl::Status IsValidJSONPathStrict(absl::string_view text,
+                                   bool enable_lax_mode = false);
+
+// Returns whether the given JSON path is valid and contains lax modifier.
+// Returns:
+// 1) True - The path is valid and in lax mode.
+// 2) False - The path is valid but not in lax mode.
+// 3) Error - Invalid path.
+absl::StatusOr<bool> IsValidAndLaxJSONPath(absl::string_view text);
 
 // Represents a strict parsed token.
 class StrictJSONPathToken {
@@ -161,13 +181,30 @@ class StrictJSONPathToken {
 class StrictJSONPathIterator final
     : public JSONPathIterator<StrictJSONPathToken> {
  public:
-  // JSON path much be in standard SQL.
+  // Specified path options for input JSONPath. The option fields can only be
+  // set to true if `enable_lax_mode`= true.
+  struct JsonPathOptions {
+    bool lax = false;
+    // Invariant: `recursive`= true only if `lax`= true. This is verified
+    // during path parsing.
+    bool recursive = false;
+  };
+
+  // JSON path must be in standard SQL. If `enable_lax_mode` is set to true,
+  // enables lax path notation.
   static absl::StatusOr<std::unique_ptr<StrictJSONPathIterator>> Create(
-      absl::string_view json_path);
+      absl::string_view json_path, bool enable_lax_mode = false);
+
+  // Returns the path options specified by `json_path`.
+  JsonPathOptions GetJsonPathOptions() const { return json_path_options_; }
 
  private:
-  explicit StrictJSONPathIterator(std::vector<StrictJSONPathToken> tokens)
-      : JSONPathIterator(std::move(tokens)) {}
+  StrictJSONPathIterator(std::vector<StrictJSONPathToken> tokens,
+                         JsonPathOptions json_path_options)
+      : JSONPathIterator(std::move(tokens)),
+        json_path_options_(std::move(json_path_options)) {}
+
+  JsonPathOptions json_path_options_;
 };
 
 //
@@ -295,6 +332,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
     // Stack Usage Invariant: !accept_ && match_
     if (!accept_ && extend_match_) {
       stack_.pop();
+      has_index_token_ = false;
     }
     MaintainInvariantMovingUp();
     return !stop_on_first_match_;
@@ -482,6 +520,15 @@ class JSONPathExtractor : public zetasql::JSONParser {
   // To report all matches remove this variable.
   bool stop_on_first_match_ = false;
   bool parsed_null_result_ = false;
+  // `has_index_token_` is set when:
+  //    - The start of an array is seen, AND
+  //    - Tokens match till curr_depth_-1 (i.e. `extend_match_`= true ), AND
+  //    - The sub-tree is not accepted (i.e. `accept_` = false), AND
+  //    - The current token given by `path_iterator` is a valid index.
+  // `has_index_token_` must be reset when:
+  //    - The end of an array is seen, AND
+  //    - Tokens match till curr_depth_-1 (i.e. `extend_match_`= true ), AND
+  //    - The sub-tree is not accepted (i.e. `accept_` = false).
   bool has_index_token_ = false;
   unsigned int index_token_;
   // Whether to escape special JSON characters (e.g. newlines).

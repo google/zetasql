@@ -593,6 +593,11 @@ absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
         return status;
       }
       return IntervalValue::FromMicros(value);
+    case functions::MILLISECOND:
+      ZETASQL_RETURN_IF_ERROR(internal::Multiply(kMicrosInMilli, value, &value));
+      return IntervalValue::FromMicros(value);
+    case functions::MICROSECOND:
+      return IntervalValue::FromMicros(value);
     default:
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Unsupported interval datetime field "
@@ -1122,7 +1127,7 @@ absl::StatusOr<IntervalValue> IntervalValue::Parse(absl::string_view input,
 }
 
 absl::StatusOr<IntervalValue> IntervalValue::FromInteger(
-    int64_t value, functions::DateTimestampPart part) {
+    int64_t value, functions::DateTimestampPart part, bool allow_nanos) {
   switch (part) {
     case functions::YEAR:
       return IntervalValue::FromYMDHMS(value, 0, 0, 0, 0, 0);
@@ -1136,6 +1141,20 @@ absl::StatusOr<IntervalValue> IntervalValue::FromInteger(
       return IntervalValue::FromYMDHMS(0, 0, 0, 0, value, 0);
     case functions::SECOND:
       return IntervalValue::FromYMDHMS(0, 0, 0, 0, 0, value);
+    case functions::MILLISECOND:
+      if (absl::Status status =
+              internal::Multiply(kMicrosInMilli, value, &value);
+          !status.ok()) {
+        return status;
+      }
+      return IntervalValue::FromMicros(value);
+    case functions::MICROSECOND:
+      return IntervalValue::FromMicros(value);
+    case functions::NANOSECOND:
+      if (!allow_nanos) {
+        break;
+      }
+      return IntervalValue::FromNanos(value);
     case functions::QUARTER: {
       if (absl::Status status = internal::Multiply(
               IntervalValue::kMonthsInQuarter, value, &value);
@@ -1153,10 +1172,11 @@ absl::StatusOr<IntervalValue> IntervalValue::FromInteger(
       return IntervalValue::FromYMDHMS(0, 0, value, 0, 0, 0);
     }
     default:
-      return ::zetasql_base::OutOfRangeErrorBuilder()
-             << "Invalid interval datetime field "
-             << functions::DateTimestampPart_Name(part);
+      break;
   }
+  return ::zetasql_base::OutOfRangeErrorBuilder()
+         << "Invalid interval datetime field "
+         << functions::DateTimestampPart_Name(part);
 }
 
 absl::StatusOr<int64_t> IntervalValue::Extract(
@@ -1278,6 +1298,12 @@ absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v) {
     days++;
   }
   return IntervalValue::FromMonthsDaysNanos(months, days, nanos);
+}
+
+bool IdenticalIntervals(const IntervalValue& v1, const IntervalValue& v2) {
+  return v1.get_months() == v2.get_months() && v1.get_days() == v2.get_days() &&
+         v1.get_micros() == v2.get_micros() &&
+         v1.get_nano_fractions() == v2.get_nano_fractions();
 }
 
 }  // namespace zetasql

@@ -16,20 +16,14 @@
 
 #include "zetasql/public/cast.h"
 
-#include <cmath>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/arena.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/utf_util.h"
@@ -53,13 +47,15 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
+#include "absl/algorithm/container.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -218,6 +214,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(BYTES,      BYTES,      IMPLICIT);
   ADD_TO_MAP(BYTES,      STRING,     EXPLICIT);
   ADD_TO_MAP(BYTES,      PROTO,      EXPLICIT_OR_LITERAL_OR_PARAMETER);
+  ADD_TO_MAP(BYTES,      TOKENLIST,  EXPLICIT);
 
   ADD_TO_MAP(DATE,       DATE,       IMPLICIT);
   ADD_TO_MAP(DATE,       DATETIME,   IMPLICIT);
@@ -248,6 +245,9 @@ const CastHashMap* InitializeZetaSQLCasts() {
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
 
+  ADD_TO_MAP(TOKENLIST,  TOKENLIST,  IMPLICIT);
+  ADD_TO_MAP(TOKENLIST,  BYTES,      EXPLICIT);
+
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(ENUM,       INT32,      EXPLICIT);
@@ -268,6 +268,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(ARRAY,      ARRAY,      IMPLICIT);
   ADD_TO_MAP(STRUCT,     STRUCT,     IMPLICIT);
   ADD_TO_MAP(RANGE,      RANGE,      IMPLICIT);
+  ADD_TO_MAP(MAP,        MAP,        IMPLICIT);
   // clang-format on
 
   return map;
@@ -398,6 +399,10 @@ absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
   absl::Cord bytes;
   ABSL_CHECK(message->SerializeToCord(&bytes));
   return Value::Proto(to_proto_type, bytes);
+}
+
+static std::string ValueOrUnbounded(std::optional<std::string> value) {
+  return value ? *value : "UNBOUNDED";
 }
 
 }  // namespace
@@ -980,6 +985,13 @@ absl::StatusOr<Value> CastContext::CastValue(
       // Opaque proto support does not affect this implementation, which does
       // no validation.
       return Value::Proto(to_type->AsProto(), absl::Cord(v.bytes_value()));
+    case FCT(TYPE_BYTES, TYPE_TOKENLIST): {
+      auto tokenlist = tokens::TokenList::FromBytes(v.bytes_value());
+      if (!tokenlist.IsValid()) {
+        return MakeEvalError() << "Invalid tokenlist encoding";
+      }
+      return Value::TokenList(std::move(tokenlist));
+    }
     case FCT(TYPE_DATE, TYPE_STRING): {
       std::string date;
       if (format.has_value()) {
@@ -1126,6 +1138,9 @@ absl::StatusOr<Value> CastContext::CastValue(
       return Value::Interval(interval);
     }
 
+    case FCT(TYPE_TOKENLIST, TYPE_BYTES):
+      return Value::Bytes(v.tokenlist_value().GetBytes());
+
     case FCT(TYPE_STRUCT, TYPE_STRUCT): {
       const StructType* v_type = v.type()->AsStruct();
       std::vector<Value> casted_field_values(v_type->num_fields());
@@ -1271,6 +1286,24 @@ absl::StatusOr<Value> CastContext::CastValue(
                                         element_type, format));
       }
       return Value::MakeRange(start, end);
+    }
+    case FCT(TYPE_RANGE, TYPE_STRING): {
+      if (v.is_null()) {
+        return Value::NullString();
+      }
+      std::optional<std::string> start = std::nullopt;
+      if (!v.start().is_null()) {
+        ZETASQL_ASSIGN_OR_RETURN(Value start_str,
+                         CastValue(v.start(), to_type, format));
+        start = start_str.string_value();
+      }
+      std::optional<std::string> end = std::nullopt;
+      if (!v.end().is_null()) {
+        ZETASQL_ASSIGN_OR_RETURN(Value end_str, CastValue(v.end(), to_type, format));
+        end = end_str.string_value();
+      }
+      return Value::String(absl::StrFormat("[%s, %s)", ValueOrUnbounded(start),
+                                           ValueOrUnbounded(end)));
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

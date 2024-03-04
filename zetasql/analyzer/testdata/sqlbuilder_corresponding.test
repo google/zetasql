@@ -12935,30 +12935,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$union_all2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$union_all2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$union_all2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$union_all2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13003,30 +13011,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$union_distinct2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$union_distinct2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$union_distinct2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$union_distinct2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13071,30 +13087,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$except_all2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$except_all2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$except_all2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$except_all2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13139,30 +13163,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$except_distinct2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$except_distinct2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$except_distinct2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$except_distinct2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13207,30 +13239,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$intersect_all2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$intersect_all2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$intersect_all2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$intersect_all2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13275,30 +13315,38 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[a#3, b#4]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[a#3, b#4, a#3]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-ProjectScan
-    | | |   |   +-column_list=$subquery1.[a#1, b#2]
-    | | |   |   +-expr_list=
-    | | |   |   | +-a#1 := Literal(type=INT64, value=1)
-    | | |   |   | +-b#2 := Literal(type=INT64, value=2)
-    | | |   |   +-input_scan=
-    | | |   |     +-SingleRowScan
-    | | |   +-group_by_list=
-    | | |     +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
-    | | |     +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[a#3, b#4]
+    | | |       +-input_scan=
+    | | |       | +-ProjectScan
+    | | |       |   +-column_list=$subquery1.[a#1, b#2]
+    | | |       |   +-expr_list=
+    | | |       |   | +-a#1 := Literal(type=INT64, value=1)
+    | | |       |   | +-b#2 := Literal(type=INT64, value=2)
+    | | |       |   +-input_scan=
+    | | |       |     +-SingleRowScan
+    | | |       +-group_by_list=
+    | | |         +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    | | |         +-b#4 := ColumnRef(type=INT64, column=$subquery1.b#2)
     | | +-output_column_list=$distinct.[a#3, b#4, a#3]
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=$intersect_distinct2.[col3#5, col1#6, col2#7]
-    |   |   +-expr_list=
-    |   |   | +-col3#5 := Literal(type=INT64, value=1)
-    |   |   | +-col1#6 := Literal(type=INT64, value=1)
-    |   |   | +-col2#7 := Literal(type=INT64, value=2)
+    |   |   +-column_list=$intersect_distinct2.[col1#6, col2#7, col3#5]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-SingleRowScan
+    |   |     +-ProjectScan
+    |   |       +-column_list=$intersect_distinct2.[col3#5, col1#6, col2#7]
+    |   |       +-expr_list=
+    |   |       | +-col3#5 := Literal(type=INT64, value=1)
+    |   |       | +-col1#6 := Literal(type=INT64, value=1)
+    |   |       | +-col2#7 := Literal(type=INT64, value=2)
+    |   |       +-input_scan=
+    |   |         +-SingleRowScan
     |   +-output_column_list=$intersect_distinct2.[col1#6, col2#7, col3#5]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -13745,13 +13793,17 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[int64#19, int32#20]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[int32#20, int64#19]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
-    | | |   +-group_by_list=
-    | | |     +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | | |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[int64#19, int32#20]
+    | | |       +-input_scan=
+    | | |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |       +-group_by_list=
+    | | |         +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | |         +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     | | +-output_column_list=$distinct.[int32#20, int64#19]
     | +-SetOperationItem
     |   +-scan=
@@ -13815,13 +13867,17 @@ QueryStmt
     +-input_item_list=
     | +-SetOperationItem
     | | +-scan=
-    | | | +-AggregateScan
-    | | |   +-column_list=$distinct.[int64#19, int32#20]
+    | | | +-ProjectScan
+    | | |   +-column_list=$distinct.[int32#20, int64#19]
+    | | |   +-node_source="resolver_set_operation_corresponding"
     | | |   +-input_scan=
-    | | |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
-    | | |   +-group_by_list=
-    | | |     +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | | |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | | |     +-AggregateScan
+    | | |       +-column_list=$distinct.[int64#19, int32#20]
+    | | |       +-input_scan=
+    | | |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
+    | | |       +-group_by_list=
+    | | |         +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | | |         +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     | | +-output_column_list=$distinct.[int32#20, int64#19]
     | +-SetOperationItem
     |   +-scan=

@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/evaluation.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
@@ -85,10 +87,32 @@ absl::Status ValidateFirstColumnPrimaryKey(
 }
 
 EvaluationContext::EvaluationContext(const EvaluationOptions& options)
+    : EvaluationContext(
+          options,
+          std::make_shared<MemoryAccountant>(options.max_intermediate_byte_size,
+                                             "max_intermediate_byte_size"),
+          /*parent_context=*/nullptr) {}
+EvaluationContext::EvaluationContext(
+    const EvaluationOptions& options,
+    std::shared_ptr<MemoryAccountant> memory_accountant,
+    EvaluationContext* parent_context)
     : options_(options),
-      memory_accountant_(options.max_intermediate_byte_size,
-                         "max_intermediate_byte_size"),
-      deterministic_output_(true) {}
+      memory_accountant_(memory_accountant),
+      deterministic_output_(true),
+      parent_context_(parent_context) {}
+
+std::unique_ptr<EvaluationContext> EvaluationContext::MakeChildContext() const {
+  EvaluationContext* mutable_parent_ref = const_cast<EvaluationContext*>(this);
+  std::unique_ptr<EvaluationContext> child_context = absl::WrapUnique(
+      new EvaluationContext(options_, memory_accountant_, mutable_parent_ref));
+  child_context->SetLanguageOptions(language_options_);
+  child_context->SetSessionUser(session_user_);
+  child_context->SetStatementEvaluationDeadline(statement_eval_deadline_);
+  if (!IsDeterministicOutput()) {
+    child_context->SetNonDeterministicOutput();
+  }
+  return child_context;
+}
 
 absl::Status EvaluationContext::AddTableAsArray(
     absl::string_view table_name, bool is_value_table, Value array,
@@ -152,6 +176,16 @@ void EvaluationContext::InitializeDefaultTimeZone() {
 }
 
 void EvaluationContext::InitializeCurrentTimestamp() {
+  if (parent_context_ != nullptr) {
+    current_timestamp_ = parent_context_->GetCurrentTimestamp();
+    current_date_in_default_timezone_ =
+        parent_context_->GetCurrentDateInDefaultTimezone();
+    current_datetime_in_default_timezone_ =
+        parent_context_->GetCurrentDatetimeInDefaultTimezone();
+    current_time_in_default_timezone_ =
+        parent_context_->GetCurrentTimeInDefaultTimezone();
+    return;
+  }
   current_timestamp_ = absl::ToUnixMicros(clock_->TimeNow());
 
   LazilyInitializeDefaultTimeZone();
@@ -170,6 +204,21 @@ void EvaluationContext::InitializeCurrentTimestamp() {
   ZETASQL_CHECK_OK(functions::ConvertTimestampToTime(
       functions::MakeTime(current_timestamp_.value(), functions::kMicroseconds),
       default_timezone_.value(), &current_time_in_default_timezone_));
+}
+
+void EvaluationContext::SetNonDeterministicOutput() {
+  deterministic_output_ = false;
+  if (parent_context_ != nullptr) {
+    parent_context_->SetNonDeterministicOutput();
+  }
+}
+
+absl::TimeZone EvaluationContext::GetDefaultTimeZone() {
+  if (parent_context_ != nullptr) {
+    return parent_context_->GetDefaultTimeZone();
+  }
+  LazilyInitializeDefaultTimeZone();
+  return default_timezone_.value();
 }
 
 // Indicate which errors should be converted to NULL in SAFE mode.

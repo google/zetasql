@@ -44,6 +44,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -82,7 +83,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
   }
 
   template <typename ProtoType = KitchenSinkPB>
-  absl::StatusOr<Value> ReadField(const std::string& field_name,
+  absl::StatusOr<Value> ReadField(absl::string_view field_name,
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   const absl::Cord& bytes,
@@ -97,7 +98,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
     return value;
   }
 
-  absl::StatusOr<Value> ReadField(const std::string& field_name,
+  absl::StatusOr<Value> ReadField(absl::string_view field_name,
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   bool get_has_bit = false) {
@@ -108,7 +109,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
                      get_has_bit);
   }
 
-  absl::StatusOr<Value> ReadHasBit(const std::string& name,
+  absl::StatusOr<Value> ReadHasBit(absl::string_view name,
                                    FieldFormat::Format format,
                                    const Type* type) {
     Value default_value;

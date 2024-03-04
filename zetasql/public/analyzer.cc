@@ -29,10 +29,10 @@
 #include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/analyzer/analyzer_impl.h"
 #include "zetasql/analyzer/analyzer_output_mutator.h"
-#include "zetasql/analyzer/anonymization_rewriter.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
+#include "zetasql/analyzer/rewriters/anonymization_rewriter.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -284,7 +284,8 @@ static absl::Status AnalyzeStatementHelper(
             options.error_message_options(), sql,
             resolver.deprecation_warnings()),
         *type_assignments, resolver.undeclared_positional_parameters(),
-        resolver.max_column_id());
+        resolver.max_column_id()
+    );
     ZETASQL_RETURN_IF_ERROR(
         RewriteResolvedAstImpl(options, sql, catalog, type_factory, **output));
     if (options.fields_accessed_mode() ==
@@ -702,7 +703,8 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
         /*parser_output=*/nullptr, analyzer_output.deprecation_warnings(),
         analyzer_output.undeclared_parameters(),
         analyzer_output.undeclared_positional_parameters(),
-        column_factory.max_column_id());
+        column_factory.max_column_id()
+    );
     if (analyzer_options.fields_accessed_mode() ==
         AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS) {
       AnalyzerOutputMutator(ret).resolved_node()->ClearFieldsAccessed();

@@ -184,9 +184,10 @@ QueryStmt
         +-right_scan=
         | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        +-has_using=TRUE
 ==
 
 select 1 from KeyValue kv1 natural join KeyValue kv2 using (key);
@@ -430,9 +431,10 @@ QueryStmt
             +-right_scan=
             | +-TableScan(column_list=KeyValue2.[Key#3, Value2#4], table=KeyValue2, column_index_list=[0, 1], alias="k2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-                +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+            | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |   +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+            +-has_using=TRUE
 ==
 
 SELECT *
@@ -464,9 +466,10 @@ QueryStmt
             +-right_scan=
             | +-TableScan(column_list=KeyValue2.[Key#3, Value2#4], table=KeyValue2, column_index_list=[0, 1], alias="k2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-                +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+            | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |   +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+            +-has_using=TRUE
 ==
 
 # Test various combinations of join types, mixing comma and JOIN.
@@ -668,9 +671,10 @@ QueryStmt
         +-right_scan=
         | +-TableScan(column_list=KeyValueNested.[Key#3, Value#4], table=nested_catalog.KeyValueNested, column_index_list=[0, 1])
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            +-ColumnRef(type=INT64, column=KeyValueNested.Key#3)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-ColumnRef(type=INT64, column=KeyValueNested.Key#3)
+        +-has_using=TRUE
 ==
 
 [no_run_unparser]
@@ -701,18 +705,21 @@ QueryStmt
 | +-ArrayTypes.ProtoArray#15 AS ProtoArray [ARRAY<PROTO<zetasql_test__.TestExtraPB>>]
 | +-ArrayTypes.StructArray#16 AS StructArray [ARRAY<STRUCT<a INT32, b STRING>>]
 | +-ArrayTypes.JsonArray#17 AS JsonArray [ARRAY<JSON>]
-| +-Int32Array.Int32Array#18 AS Int32Array [ARRAY<INT32>]
+| +-ArrayTypes.NumericArray#18 AS NumericArray [ARRAY<NUMERIC>]
+| +-ArrayTypes.BigNumericArray#19 AS BigNumericArray [ARRAY<BIGNUMERIC>]
+| +-ArrayTypes.IntervalArray#20 AS IntervalArray [ARRAY<INTERVAL>]
+| +-Int32Array.Int32Array#21 AS Int32Array [ARRAY<INT32>]
 +-query=
   +-ProjectScan
-    +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, Int32Array.Int32Array#18]
+    +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, ArrayTypes.NumericArray#18, ArrayTypes.BigNumericArray#19, ArrayTypes.IntervalArray#20, Int32Array.Int32Array#21]
     +-input_scan=
       +-JoinScan
-        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, Int32Array.Int32Array#18]
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, ArrayTypes.NumericArray#18, ArrayTypes.BigNumericArray#19, ArrayTypes.IntervalArray#20, Int32Array.Int32Array#21]
         +-join_type=RIGHT
         +-left_scan=
-        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, Int64Array#2, UInt32Array#3, UInt64Array#4, StringArray#5, BytesArray#6, BoolArray#7, FloatArray#8, DoubleArray#9, DateArray#10, TimestampSecondsArray#11, TimestampMillisArray#12, TimestampMicrosArray#13, TimestampArray#14, ProtoArray#15, StructArray#16, JsonArray#17], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, Int64Array#2, UInt32Array#3, UInt64Array#4, StringArray#5, BytesArray#6, BoolArray#7, FloatArray#8, DoubleArray#9, DateArray#10, TimestampSecondsArray#11, TimestampMillisArray#12, TimestampMicrosArray#13, TimestampArray#14, ProtoArray#15, StructArray#16, JsonArray#17, NumericArray#18, BigNumericArray#19, IntervalArray#20], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
         +-right_scan=
-        | +-TableScan(column_list=[Int32Array.Int32Array#18], table=ArrayTableOrCatalog.Int32Array, column_index_list=[0])
+        | +-TableScan(column_list=[Int32Array.Int32Array#21], table=ArrayTableOrCatalog.Int32Array, column_index_list=[0])
         +-join_expr=
           +-Literal(type=BOOL, value=true)
 ==
@@ -745,17 +752,20 @@ QueryStmt
 | +-ArrayTypes.ProtoArray#16 AS ProtoArray [ARRAY<PROTO<zetasql_test__.TestExtraPB>>]
 | +-ArrayTypes.StructArray#17 AS StructArray [ARRAY<STRUCT<a INT32, b STRING>>]
 | +-ArrayTypes.JsonArray#18 AS JsonArray [ARRAY<JSON>]
+| +-ArrayTypes.NumericArray#19 AS NumericArray [ARRAY<NUMERIC>]
+| +-ArrayTypes.BigNumericArray#20 AS BigNumericArray [ARRAY<BIGNUMERIC>]
+| +-ArrayTypes.IntervalArray#21 AS IntervalArray [ARRAY<INTERVAL>]
 +-query=
   +-ProjectScan
-    +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18]
+    +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18, ArrayTypes.NumericArray#19, ArrayTypes.BigNumericArray#20, ArrayTypes.IntervalArray#21]
     +-input_scan=
       +-JoinScan
-        +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18]
+        +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18, ArrayTypes.NumericArray#19, ArrayTypes.BigNumericArray#20, ArrayTypes.IntervalArray#21]
         +-join_type=RIGHT
         +-left_scan=
         | +-TableScan(column_list=[Int32Array.Int32Array#1], table=ArrayTableOrCatalog.Int32Array, column_index_list=[0])
         +-right_scan=
-        | +-TableScan(column_list=ArrayTypes.[Int32Array#2, Int64Array#3, UInt32Array#4, UInt64Array#5, StringArray#6, BytesArray#7, BoolArray#8, FloatArray#9, DoubleArray#10, DateArray#11, TimestampSecondsArray#12, TimestampMillisArray#13, TimestampMicrosArray#14, TimestampArray#15, ProtoArray#16, StructArray#17, JsonArray#18], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#2, Int64Array#3, UInt32Array#4, UInt64Array#5, StringArray#6, BytesArray#7, BoolArray#8, FloatArray#9, DoubleArray#10, DateArray#11, TimestampSecondsArray#12, TimestampMillisArray#13, TimestampMicrosArray#14, TimestampArray#15, ProtoArray#16, StructArray#17, JsonArray#18, NumericArray#19, BigNumericArray#20, IntervalArray#21], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
         +-join_expr=
           +-Literal(type=BOOL, value=true)
 ==

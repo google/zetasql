@@ -18,6 +18,7 @@
 
 #include "zetasql/reference_impl/functions/hash.h"
 #include "zetasql/reference_impl/functions/json.h"
+#include "zetasql/reference_impl/functions/map.h"
 #include "zetasql/reference_impl/functions/range.h"
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 #include "zetasql/reference_impl/functions/uuid.h"
@@ -30,6 +31,7 @@ void RegisterAllOptionalBuiltinFunctions() {
   RegisterBuiltinHashFunctions();
   RegisterBuiltinStringWithCollationFunctions();
   RegisterBuiltinRangeFunctions();
+  RegisterBuiltinMapFunctions();
 }
 
 }  // namespace zetasql

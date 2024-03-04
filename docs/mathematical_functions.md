@@ -10,6 +10,147 @@ All mathematical functions have the following behaviors:
 +  They return `NULL` if any of the input parameters is `NULL`.
 +  They return `NaN` if any of the arguments is `NaN`.
 
+### Categories
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Functions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Trigonometric</td>
+      <td>
+        <a href="#acos"><code>ACOS</code></a>&nbsp;&nbsp;
+        <a href="#acosh"><code>ACOSH</code></a>&nbsp;&nbsp;
+        <a href="#asin"><code>ASIN</code></a>&nbsp;&nbsp;
+        <a href="#asinh"><code>ASINH</code></a>&nbsp;&nbsp;
+        <a href="#atan"><code>ATAN</code></a>&nbsp;&nbsp;
+        <a href="#atan2"><code>ATAN2</code></a>&nbsp;&nbsp;
+        <a href="#atanh"><code>ATANH</code></a>&nbsp;&nbsp;
+        <a href="#cos"><code>COS</code></a>&nbsp;&nbsp;
+        <a href="#cosh"><code>COSH</code></a>&nbsp;&nbsp;
+        <a href="#cot"><code>COT</code></a>&nbsp;&nbsp;
+        <a href="#coth"><code>COTH</code></a>&nbsp;&nbsp;
+        <a href="#csc"><code>CSC</code></a>&nbsp;&nbsp;
+        <a href="#csch"><code>CSCH</code></a>&nbsp;&nbsp;
+        <a href="#sec"><code>SEC</code></a>&nbsp;&nbsp;
+        <a href="#sech"><code>SECH</code></a>&nbsp;&nbsp;
+        <a href="#sin"><code>SIN</code></a>&nbsp;&nbsp;
+        <a href="#sinh"><code>SINH</code></a>&nbsp;&nbsp;
+        <a href="#tan"><code>TAN</code></a>&nbsp;&nbsp;
+        <a href="#tanh"><code>TANH</code></a>&nbsp;&nbsp;
+      </td>
+    <tr>
+      <td>
+        Exponential and<br />
+        logarithmic
+      </td>
+      <td>
+        <a href="#exp"><code>EXP</code></a>&nbsp;&nbsp;
+        <a href="#ln"><code>LN</code></a>&nbsp;&nbsp;
+        <a href="#log"><code>LOG</code></a>&nbsp;&nbsp;
+        <a href="#log10"><code>LOG10</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Rounding and<br />
+        truncation
+      </td>
+      <td>
+        <a href="#ceil"><code>CEIL</code></a>&nbsp;&nbsp;
+        <a href="#ceiling"><code>CEILING</code></a>&nbsp;&nbsp;
+        <a href="#floor"><code>FLOOR</code></a>&nbsp;&nbsp;
+        <a href="#round"><code>ROUND</code></a>&nbsp;&nbsp;
+        <a href="#trunc"><code>TRUNC</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Power and<br />
+        root
+      </td>
+      <td>
+        <a href="#cbrt"><code>CBRT</code></a>&nbsp;&nbsp;
+        <a href="#pow"><code>POW</code></a>&nbsp;&nbsp;
+        <a href="#power"><code>POWER</code></a>&nbsp;&nbsp;
+        <a href="#sqrt"><code>SQRT</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    <tr>
+      <td>Sign</td>
+      <td>
+        <a href="#abs"><code>ABS</code></a>&nbsp;&nbsp;
+        <a href="#sign"><code>SIGN</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    <tr>
+      <td>
+        Distance
+      </td>
+      <td>
+        <a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>&nbsp;&nbsp;
+        <a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    <tr>
+      <td>
+        Comparison
+      </td>
+      <td>
+        <a href="#greatest"><code>GREATEST</code></a>&nbsp;&nbsp;
+        <a href="#least"><code>LEAST</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    <tr>
+      <td>Random number generator</td>
+      <td>
+        <a href="#rand"><code>RAND</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    <tr>
+      <td>Arithmetic and error handling</td>
+      <td>
+        <a href="#div"><code>DIV</code></a>&nbsp;&nbsp;
+        <a href="#ieee_divide"><code>IEEE_DIVIDE</code></a>&nbsp;&nbsp;
+        <a href="#is_inf"><code>IS_INF</code></a>&nbsp;&nbsp;
+        <a href="#is_nan"><code>IS_NAN</code></a>&nbsp;&nbsp;
+        <a href="#mod"><code>MOD</code></a>&nbsp;&nbsp;
+        <a href="#safe_add"><code>SAFE_ADD</code></a>&nbsp;&nbsp;
+        <a href="#safe_divide"><code>SAFE_DIVIDE</code></a>&nbsp;&nbsp;
+        <a href="#safe_multiply"><code>SAFE_MULTIPLY</code></a>&nbsp;&nbsp;
+        <a href="#safe_negate"><code>SAFE_NEGATE</code></a>&nbsp;&nbsp;
+        <a href="#safe_subtract"><code>SAFE_SUBTRACT</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    <tr>
+      <td>Bucket</td>
+      <td>
+        <a href="#range_bucket"><code>RANGE_BUCKET</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>Numerical constants</td>
+      <td>
+        <a href="#pi"><code>PI</code></a>&nbsp;&nbsp;
+        <a href="#pi_bignumeric"><code>PI_BIGNUMERIC</code></a>&nbsp;&nbsp;
+        <a href="#pi_numeric"><code>PI_NUMERIC</code></a>&nbsp;&nbsp;
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
+
 ### Function list
 
 <table>
@@ -353,6 +494,16 @@ All mathematical functions have the following behaviors:
     Generates a pseudo-random value of type
     <code>DOUBLE</code> in the range of
     <code>[0, 1)</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#range_bucket"><code>RANGE_BUCKET</code></a>
+
+</td>
+  <td>
+    Scans through a sorted array and returns the 0-based position
+    of a point's upper bound.
   </td>
 </tr>
 
@@ -1093,100 +1244,103 @@ Generates an error if overflow occurs.
 
 ### `COSINE_DISTANCE`
 
-<aside class="beta">
-  <p><strong>Preview</strong></p>
-  <p>
-    This product or feature is subject to the "Pre-GA Offerings Terms"
-    in the General Service Terms section of the
-    <a href="/terms/service-terms">Service Specific Terms</a>.
-    Pre-GA products and features are available "as is" and might have
-    limited support. For more information, see the
-    <a href="/products#product-launch-stages">launch stage descriptions</a>.
-  </p>
-</aside>
-
 ```sql
 COSINE_DISTANCE(vector1, vector2)
 ```
 
 **Description**
 
-Computes the [cosine distance][cosine-distance] between two vectors.
+Computes the [cosine distance][wiki-cosine-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: The first vector.
-+   `vector2`: The second vector.
++   `vector1`: A vector that is represented by an
+    `ARRAY<T>` value or a sparse vector that is
+    represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
++   `vector2`: A vector that is represented by an
+    `ARRAY<T>` value or a sparse vector that is
+    represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
 **Details**
 
-Each vector represents a quantity that includes magnitude and direction.
-The following vector types are supported:
++   `ARRAY<T>` can be used to represent a vector. Each zero-based index in this
+    array represents a dimension. The value for each element in this array
+    represents a magnitude.
 
-+   Dense vector: `ARRAY<value>` that represents
-    the vector and its numerical values. `value` is of type
-    `DOUBLE`.
+    `T` can represent the following and must be the same for both
+    vectors:
 
-    This is an example of a dense vector:
+    
+    
+    
 
-    ```
-    [1.0, 0.0, 3.0]
-    ```
-+   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
-    `STRUCT` contains a dimension-value pair for each numerical value in the
-    vector. This information is used to generate a dense vector.
+    + `FLOAT`
+    + `DOUBLE`
 
-    + `dimension`: A `STRING` or `INT64` value that represents the
-      specific dimension for `value` in a vector.
+    
+    
 
-    + `value`: A `DOUBLE` value that represents the
-      numerical value for `dimension`.
-
-    A sparse vector contains mostly zeros, with only a few non-zero elements.
-    It's a useful data structure for representing data that is mostly empty or
-    has a lot of zeros. For example, if you have a vector of length 10,000 and
-    only 10 elements are non-zero, then it is a sparse vector. As a result,
-    it's more efficient to describe a sparse vector by only mentioning its
-    non-zero elements. If an element isn't present in the
-    sparse representation, its value can be implicitly understood to be zero.
-
-    The following `INT64` sparse vector
+    In the following example vector, there are four dimensions. The magnitude
+    is `10.0` for dimension `0`, `55.0` for dimension `1`, `40.0` for
+    dimension `2`, and `34.0` for dimension `3`:
 
     ```
-    [(0, 1.0), (2, 3.0)]
+    [10.0, 55.0, 40.0, 34.0]
+    ```
++   `ARRAY<STRUCT<dimension,magnitude>>` can be used to represent a
+    sparse vector. With a sparse vector, you only need to include
+    dimension-magnitude pairs for non-zero magnitudes. If a magnitude isn't
+    present in the sparse vector, the magnitude is implicitly understood to be
+    zero.
+
+    For example, if you have a vector with 10,000 dimensions, but only 10
+    dimensions have non-zero magnitudes, then the vector is a sparse vector.
+    As a result, it's more efficient to describe a sparse vector by only
+    mentioning its non-zero magnitudes.
+
+    In `ARRAY<STRUCT<dimension,magnitude>>`, `STRUCT<dimension,magnitude>`
+    represents a dimension-magnitude pair for each non-zero magnitude in a
+    sparse vector. These parts need to be included for each dimension-magnitude
+    pair:
+
+    + `dimension`: A `STRING` or `INT64` value that represents a
+      dimension in a vector.
+
+    + `magnitude`: A `DOUBLE` value that represents a
+      non-zero magnitude for a specific dimension in a vector.
+
+    You don't need to include empty dimension-magnitude pairs in a
+    sparse vector. For example, the following sparse vector and
+    non-sparse vector are equivalent:
+
+    ```sql
+    -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
+    [(1, 10.0), (2: 30.0), (5, 40.0)]
     ```
 
-    is converted to this dense vector:
-
-    ```
-    [1.0, 0.0, 3.0]
-    ```
-
-    The following `STRING` sparse vector
-
-    ```
-    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```sql
+    -- vector ARRAY<DOUBLE>
+    [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
 
-    is converted to this dense vector:
+    In a sparse vector, dimension-magnitude pairs don't need to be in any
+    particular order. The following sparse vectors are equivalent:
 
+    ```sql
+    [('a', 10.0), ('b': 30.0), ('d': 40.0)]
     ```
-    [1.0, 3.0, 0.0, 4.0]
+
+    ```sql
+    [('d': 40.0), ('a', 10.0), ('b': 30.0)]
     ```
-
-The ordering of numeric values in a vector doesn't impact the results
-produced by this function if the dimensions of the vectors are aligned.
-
-A vector can have one or more dimensions. Both vectors in this function must
-share these same dimensions, and if they don't, an error is produced.
-
-A vector can't be a zero vector. A vector is a zero vector if all elements in
-the vector are `0`. For example, `[0.0, 0.0]`. If a zero vector is encountered,
-an error is produced.
-
-An error is produced if an element or field in a vector is `NULL`.
-
-If `vector1` or `vector2` is `NULL`, `NULL` is returned.
++   Both  non-sparse vectors
+    in this function must share the same dimensions, and if they don't, an error
+    is produced.
++   A vector can't be a zero vector. A vector is a zero vector if it has
+    no dimensions or all dimensions have a magnitude of `0`, such as `[]` or
+    `[0.0, 0.0]`. If a zero vector is encountered, an error is produced.
++   An error is produced if a magnitude in a vector is `NULL`.
++   If a vector is `NULL`, `NULL` is returned.
 
 **Return type**
 
@@ -1194,8 +1348,8 @@ If `vector1` or `vector2` is `NULL`, `NULL` is returned.
 
 **Examples**
 
-In the following example, dense vectors are used to compute the
-cosine distance:
+In the following example, non-sparsevectors
+are used to compute the cosine distance:
 
 ```sql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
@@ -1228,11 +1382,17 @@ even though the numeric values in each vector is in a different order:
 
 ```sql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
+```
 
+```sql
 SELECT COSINE_DISTANCE([2.0, 1.0], [4.0, 3.0]) AS results;
+```
 
+```sql
 SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+```
 
+```sql
  /*----------*
   | results  |
   +----------+
@@ -1248,9 +1408,14 @@ the first vector, which is a zero vector:
 SELECT COSINE_DISTANCE([0.0, 0.0], [3.0, 4.0]) AS results;
 ```
 
-Both dense vectors must have the same dimensions. If not, an error is produced.
-In the following examples, the first vector has two dimensions and the second
-vector has three:
+```sql
+-- ERROR
+SELECT COSINE_DISTANCE([(1, 0.0), (2, 0.0)], [(1, 3.0), (2, 4.0)]) AS results;
+```
+
+Both non-sparse vectors must have the same
+dimensions. If not, an error is produced. In the following example, the
+first vector has two dimensions and the second vector has three:
 
 ```sql
 -- ERROR
@@ -1266,7 +1431,7 @@ SELECT COSINE_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
 ```
 
-[cosine-distance]: https://en.wikipedia.org/wiki/Cosine_similarity#Cosine_distance
+[wiki-cosine-distance]: https://en.wikipedia.org/wiki/Cosine_similarity#Cosine_distance
 
 ### `COT`
 
@@ -1638,99 +1803,103 @@ result overflows.
 
 ### `EUCLIDEAN_DISTANCE`
 
-<aside class="beta">
-  <p><strong>Preview</strong></p>
-  <p>
-    This product or feature is subject to the "Pre-GA Offerings Terms"
-    in the General Service Terms section of the
-    <a href="/terms/service-terms">Service Specific Terms</a>.
-    Pre-GA products and features are available "as is" and might have
-    limited support. For more information, see the
-    <a href="/products#product-launch-stages">launch stage descriptions</a>.
-  </p>
-</aside>
-
 ```sql
 EUCLIDEAN_DISTANCE(vector1, vector2)
 ```
 
 **Description**
 
-Computes the [Euclidean distance][euclidean-distance] between two vectors.
+Computes the [Euclidean distance][wiki-euclidean-distance] between two vectors.
 
 **Definitions**
 
-+   `vector1`: The first vector.
-+   `vector2`: The second vector.
++   `vector1`: A vector that is represented by an
+    `ARRAY<T>` value or a sparse vector that is
+    represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
++   `vector2`: A vector that is represented by an
+    `ARRAY<T>` value or a sparse vector that is
+    represented by an `ARRAY<STRUCT<dimension,magnitude>>` value.
 
 **Details**
 
-Each vector represents a quantity that includes magnitude and direction.
-The following vector types are supported:
++   `ARRAY<T>` can be used to represent a vector. Each zero-based index in this
+    array represents a dimension. The value for each element in this array
+    represents a magnitude.
 
-+   Dense vector: `ARRAY<value>` that represents
-    the vector and its numerical values. `value` is of type
-    `DOUBLE`.
+    `T` can represent the following and must be the same for both
+    vectors:
 
-    This is an example of a dense vector:
+    
+    
+    
 
-    ```
-    [1.0, 0.0, 3.0]
-    ```
-+   Sparse vector: `ARRAY<STRUCT<dimension,value>>`, where
-    `STRUCT` contains a dimension-value pair for each numerical value in the
-    vector. This information is used to generate a dense vector.
+    + `FLOAT`
+    + `DOUBLE`
 
-    + `dimension`: A `STRING` or `INT64` value that represents the
-      specific dimension for `value` in a vector.
+    
+    
 
-    + `value`: A `DOUBLE` value that represents a
-      numerical value for `dimension`.
-
-    A sparse vector contains mostly zeros, with only a few non-zero elements.
-    It's a useful data structure for representing data that is mostly empty or
-    has a lot of zeros. For example, if you have a vector of length 10,000 and
-    only 10 elements are non-zero, then it is a sparse vector. As a result,
-    it's more efficient to describe a sparse vector by only mentioning its
-    non-zero elements. If an element isn't present in the
-    sparse representation, its value can be implicitly understood to be zero.
-
-    The following `INT64` sparse vector
+    In the following example vector, there are four dimensions. The magnitude
+    is `10.0` for dimension `0`, `55.0` for dimension `1`, `40.0` for
+    dimension `2`, and `34.0` for dimension `3`:
 
     ```
-    [(0, 1.0), (2, 3.0)]
+    [10.0, 55.0, 40.0, 34.0]
+    ```
++   `ARRAY<STRUCT<dimension,magnitude>>` can be used to represent a
+    sparse vector. With a sparse vector, you only need to include
+    dimension-magnitude pairs for non-zero magnitudes. If a magnitude isn't
+    present in the sparse vector, the magnitude is implicitly understood to be
+    zero.
+
+    For example, if you have a vector with 10,000 dimensions, but only 10
+    dimensions have non-zero magnitudes, then the vector is a sparse vector.
+    As a result, it's more efficient to describe a sparse vector by only
+    mentioning its non-zero magnitudes.
+
+    In `ARRAY<STRUCT<dimension,magnitude>>`, `STRUCT<dimension,magnitude>`
+    represents a dimension-magnitude pair for each non-zero magnitude in a
+    sparse vector. These parts need to be included for each dimension-magnitude
+    pair:
+
+    + `dimension`: A `STRING` or `INT64` value that represents a
+      dimension in a vector.
+
+    + `magnitude`: A `DOUBLE` value that represents a
+      non-zero magnitude for a specific dimension in a vector.
+
+    You don't need to include empty dimension-magnitude pairs in a
+    sparse vector. For example, the following sparse vector and
+    non-sparse vector are equivalent:
+
+    ```sql
+    -- sparse vector ARRAY<STRUCT<INT64, DOUBLE>>
+    [(1, 10.0), (2: 30.0), (5, 40.0)]
     ```
 
-    is converted to this dense vector:
-
-    ```
-    [1.0, 0.0, 3.0]
-    ```
-
-    The following `STRING` sparse vector
-
-    ```
-    [('d': 4.0), ('a', 1.0), ('b': 3.0)]
+    ```sql
+    -- vector ARRAY<DOUBLE>
+    [0.0, 10.0, 30.0, 0.0, 0.0, 40.0]
     ```
 
-    is converted to this dense vector:
+    In a sparse vector, dimension-magnitude pairs don't need to be in any
+    particular order. The following sparse vectors are equivalent:
 
+    ```sql
+    [('a', 10.0), ('b': 30.0), ('d': 40.0)]
     ```
-    [1.0, 3.0, 0.0, 4.0]
+
+    ```sql
+    [('d': 40.0), ('a', 10.0), ('b': 30.0)]
     ```
-
-The ordering of numeric values in a vector doesn't impact the results
-produced by this function if the dimensions of the vectors are aligned.
-
-A vector can have one or more dimensions. Both vectors in this function must
-share these same dimensions, and if they don't, an error is produced.
-
-A vector can be a zero vector. A vector is a zero vector if all elements in
-the vector are `0`. For example, `[0.0, 0.0]`.
-
-An error is produced if an element or field in a vector is `NULL`.
-
-If `vector1` or `vector2` is `NULL`, `NULL` is returned.
++   Both  non-sparse vectors
+    in this function must share the same dimensions, and if they don't, an error
+    is produced.
++   A vector can be a zero vector. A vector is a zero vector if it has
+    no dimensions or all dimensions have a magnitude of `0`, such as `[]` or
+    `[0.0, 0.0]`.
++   An error is produced if a magnitude in a vector is `NULL`.
++   If a vector is `NULL`, `NULL` is returned.
 
 **Return type**
 
@@ -1738,8 +1907,8 @@ If `vector1` or `vector2` is `NULL`, `NULL` is returned.
 
 **Examples**
 
-In the following example, dense vectors are used to compute the
-Euclidean distance:
+In the following example, non-sparse vectors
+are used to compute the Euclidean distance:
 
 ```sql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
@@ -1766,17 +1935,23 @@ SELECT EUCLIDEAN_DISTANCE(
   *----------*/
 ```
 
-The ordering of numeric values in a vector doesn't impact the results
+The ordering of magnitudes in a vector doesn't impact the results
 produced by this function. For example these queries produce the same results
-even though the numeric values in each vector is in a different order:
+even though the magnitudes in each vector is in a different order:
 
 ```sql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]);
+```
 
+```sql
 SELECT EUCLIDEAN_DISTANCE([2.0, 1.0], [4.0, 3.0]);
+```
 
+```sql
 SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
+```
 
+```sql
  /*----------*
   | results  |
   +----------+
@@ -1784,9 +1959,9 @@ SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results
   *----------*/
 ```
 
-Both dense vectors must have the same dimensions. If not, an error is produced.
-In the following examples, the first vector has two dimensions and the second
-vector has three:
+Both non-sparse vectors must have the same
+dimensions. If not, an error is produced. In the following example, the first
+vector has two dimensions and the second vector has three:
 
 ```sql
 -- ERROR
@@ -1802,7 +1977,7 @@ SELECT EUCLIDEAN_DISTANCE(
   [(1, 9.0), (2, 7.0), (2, 8.0)], [(1, 8.0), (2, 4.0), (3, 5.0)]) AS results;
 ```
 
-[euclidean-distance]: https://en.wikipedia.org/wiki/Euclidean_distance
+[wiki-euclidean-distance]: https://en.wikipedia.org/wiki/Euclidean_distance
 
 ### `FLOOR`
 
@@ -2557,6 +2732,121 @@ RAND()
 
 Generates a pseudo-random value of type `DOUBLE` in
 the range of [0, 1), inclusive of 0 and exclusive of 1.
+
+### `RANGE_BUCKET`
+
+```sql
+RANGE_BUCKET(point, boundaries_array)
+```
+
+**Description**
+
+`RANGE_BUCKET` scans through a sorted array and returns the 0-based position
+of the point's upper bound. This can be useful if you need to group your data to
+build partitions, histograms, business-defined rules, and more.
+
+`RANGE_BUCKET` follows these rules:
+
++  If the point exists in the array, returns the index of the next larger value.
+
+   ```sql
+   RANGE_BUCKET(20, [0, 10, 20, 30, 40]) -- 3 is return value
+   RANGE_BUCKET(20, [0, 10, 20, 20, 40, 40]) -- 4 is return value
+   ```
++  If the point does not exist in the array, but it falls between two values,
+   returns the index of the larger value.
+
+   ```sql
+   RANGE_BUCKET(25, [0, 10, 20, 30, 40]) -- 3 is return value
+   ```
++  If the point is smaller than the first value in the array, returns 0.
+
+   ```sql
+   RANGE_BUCKET(-10, [5, 10, 20, 30, 40]) -- 0 is return value
+   ```
++  If the point is greater than or equal to the last value in the array,
+   returns the length of the array.
+
+   ```sql
+   RANGE_BUCKET(80, [0, 10, 20, 30, 40]) -- 5 is return value
+   ```
++  If the array is empty, returns 0.
+
+   ```sql
+   RANGE_BUCKET(80, []) -- 0 is return value
+   ```
++  If the point is `NULL` or `NaN`, returns `NULL`.
+
+   ```sql
+   RANGE_BUCKET(NULL, [0, 10, 20, 30, 40]) -- NULL is return value
+   ```
++  The data type for the point and array must be compatible.
+
+   ```sql
+   RANGE_BUCKET('a', ['a', 'b', 'c', 'd']) -- 1 is return value
+   RANGE_BUCKET(1.2, [1, 1.2, 1.4, 1.6]) -- 2 is return value
+   RANGE_BUCKET(1.2, [1, 2, 4, 6]) -- execution failure
+   ```
+
+Execution failure occurs when:
+
++  The array has a `NaN` or `NULL` value in it.
+
+   ```sql
+   RANGE_BUCKET(80, [NULL, 10, 20, 30, 40]) -- execution failure
+   ```
++  The array is not sorted in ascending order.
+
+   ```sql
+   RANGE_BUCKET(30, [10, 30, 20, 40, 50]) -- execution failure
+   ```
+
+**Parameters**
+
++  `point`: A generic value.
++  `boundaries_array`: A generic array of values.
+
+Note: The data type for `point` and the element type of `boundaries_array`
+must be equivalent. The data type must be [comparable][data-type-properties].
+
+**Return Value**
+
+`INT64`
+
+**Examples**
+
+In a table called `students`, check to see how many records would
+exist in each `age_group` bucket, based on a student's age:
+
++  age_group 0 (age < 10)
++  age_group 1 (age >= 10, age < 20)
++  age_group 2 (age >= 20, age < 30)
++  age_group 3 (age >= 30)
+
+```sql
+WITH students AS
+(
+  SELECT 9 AS age UNION ALL
+  SELECT 20 AS age UNION ALL
+  SELECT 25 AS age UNION ALL
+  SELECT 31 AS age UNION ALL
+  SELECT 32 AS age UNION ALL
+  SELECT 33 AS age
+)
+SELECT RANGE_BUCKET(age, [10, 20, 30]) AS age_group, COUNT(*) AS count
+FROM students
+GROUP BY 1
+
+/*--------------+-------*
+ | age_group    | count |
+ +--------------+-------+
+ | 0            | 1     |
+ | 2            | 2     |
+ | 3            | 3     |
+ *--------------+-------*/
+```
+
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### `ROUND`
 

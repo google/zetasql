@@ -563,13 +563,34 @@ CreateFunctionStmt
 ==
 
 # Limit only accepts constants, which doesn't include arguments currently.
-[language_features=CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE]
+[language_features={{CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE|CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS}}]
 create aggregate function myfunc(x bytes, y int64 NOT AGGREGATE) as
 ( array_agg(x limit y) )
 --
-ERROR: Syntax error: Unexpected identifier "y" [at 2:21]
+ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE
+--
+ERROR: LIMIT expects an integer literal or parameter [at 2:21]
 ( array_agg(x limit y) )
                     ^
+--
+ALTERNATION GROUP: CREATE_AGGREGATE_FUNCTION,ANALYTIC_FUNCTIONS,V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+CreateFunctionStmt
++-name_path=myfunc
++-return_type=ARRAY<BYTES>
++-argument_name_list=[x, y]
++-signature=(BYTES x, INT64 {is_not_aggregate: true} y) -> ARRAY<BYTES>
++-is_aggregate=TRUE
++-language="SQL"
++-code="array_agg(x limit y)"
++-aggregate_expression_list=
+| +-$agg1#1 :=
+|   +-AggregateFunctionCall(ZetaSQL:array_agg(BYTES) -> ARRAY<BYTES>)
+|     +-ArgumentRef(parse_location=80-81, type=BYTES, name="x", argument_kind=AGGREGATE)
+|     +-limit=
+|       +-ArgumentRef(type=INT64, name="y", argument_kind=NOT_AGGREGATE)
++-function_expression=
+  +-ColumnRef(type=ARRAY<BYTES>, column=$aggregate.$agg1#1)
 ==
 
 # Aggregate UDF using DISTINCT modifiers on the aggregates.
@@ -940,3 +961,27 @@ AS (
 ERROR: An aggregate function that has both DISTINCT and ORDER BY arguments can only ORDER BY expressions that are arguments to the function [at 5:51]
   ARRAY_TO_STRING(ARRAY_AGG(DISTINCT foo ORDER BY foo), delimiter)
                                                   ^
+==
+
+[language_features=CREATE_AGGREGATE_FUNCTION,V_1_4_GROUPING_BUILTIN]
+CREATE TEMP AGGREGATE FUNCTION MyGroupingFunc(x STRING)
+RETURNS BOOL
+AS (
+  GROUPING(x)
+);
+--
+ERROR: GROUPING function is not supported in SQL function body. [at 1:1]
+CREATE TEMP AGGREGATE FUNCTION MyGroupingFunc(x STRING)
+^
+==
+
+[language_features=CREATE_AGGREGATE_FUNCTION,V_1_4_GROUPING_BUILTIN]
+CREATE TEMP AGGREGATE FUNCTION MyAggFunc(x STRING, y INT64, z int32 NOT AGGREGATE)
+RETURNS BOOL
+AS (
+  GROUPING(x) + MAX(y) + z
+);
+--
+ERROR: GROUPING function is not supported in SQL function body. [at 1:1]
+CREATE TEMP AGGREGATE FUNCTION MyAggFunc(x STRING, y INT64, z int32 NOT AGGRE...
+^

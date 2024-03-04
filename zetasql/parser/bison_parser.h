@@ -25,7 +25,7 @@
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/location.hh"
+#include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
@@ -103,6 +103,7 @@ class BisonParser {
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
       const LanguageOptions& language_options,
+      const macros::MacroCatalog* macro_catalog,
       std::unique_ptr<zetasql::ASTNode>* output,
       std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
       ASTStatementProperties* ast_statement_properties,
@@ -112,10 +113,7 @@ class BisonParser {
   // returned characters will remain valid throughout Parse().
   template <typename Location>
   absl::string_view GetInputText(const Location& bison_location) const {
-    ABSL_DCHECK_GE(bison_location.end.column, bison_location.begin.column);
-    return absl::string_view(
-        input_.data() + bison_location.begin.column,
-        bison_location.end.column - bison_location.begin.column);
+    return bison_location.GetTextFrom(input_);
   }
 
   // Creates an ASTNode of type T with a unique id. Sets its location to
@@ -176,10 +174,8 @@ class BisonParser {
   // 'bison_location'.
   template <typename Location>
   void SetNodeLocation(const Location& bison_location, ASTNode* node) {
-    node->set_start_location(zetasql::ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), bison_location.begin.column));
-    node->set_end_location(zetasql::ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), bison_location.end.column));
+    node->set_start_location(bison_location.start());
+    node->set_end_location(bison_location.end());
   }
 
   // Sets the node location of 'node' to the ZetaSQL equivalent of the
@@ -188,26 +184,15 @@ class BisonParser {
   template <typename Location>
   void SetNodeLocation(Location& bison_location_start,
                        Location& bison_location_end, ASTNode* node) {
-    node->set_start_location(zetasql::ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), bison_location_start.begin.column));
-    node->set_end_location(zetasql::ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), bison_location_end.end.column));
-  }
-
-  static zetasql_bison_parser::location GetBisonLocation(
-      const zetasql::ParseLocationRange& location_range) {
-    zetasql_bison_parser::location result;
-    result.begin.column = location_range.start().GetByteOffset();
-    result.end.column = location_range.end().GetByteOffset();
-    return result;
+    node->set_start_location(bison_location_start.start());
+    node->set_end_location(bison_location_end.end());
   }
 
   // Sets the start location of 'node' to the start of 'location', and returns
   // 'node'.
   template <typename ASTNodeType, typename Location>
   ASTNodeType* WithStartLocation(ASTNodeType* node, const Location& location) {
-    node->set_start_location(ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), location.begin.column));
+    node->set_start_location(location.start());
     return node;
   }
 
@@ -215,18 +200,15 @@ class BisonParser {
   // 'node'.
   template <typename ASTNodeType, typename Location>
   ASTNodeType* WithEndLocation(ASTNodeType* node, const Location& location) {
-    node->set_end_location(ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), location.end.column));
+    node->set_end_location(location.end());
     return node;
   }
 
   // Sets the location of 'node' to 'location', and returns 'node'.
   template <typename ASTNodeType, typename Location>
   ASTNodeType* WithLocation(ASTNodeType* node, const Location& location) {
-    node->set_start_location(ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), location.begin.column));
-    node->set_end_location(ParseLocationPoint::FromByteOffset(
-        filename_.ToStringView(), location.end.column));
+    node->set_start_location(location.start());
+    node->set_end_location(location.end());
     return node;
   }
 
@@ -254,7 +236,7 @@ class BisonParser {
   // Returns true if there is whitespace between `left` and `right`.
   template <typename Location>
   bool HasWhitespace(const Location& left, const Location& right) {
-    return left.end.column != right.begin.column;
+    return left.end().GetByteOffset() != right.start().GetByteOffset();
   }
 
   template <typename Location>
@@ -301,6 +283,7 @@ class BisonParser {
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
       const LanguageOptions& language_options,
+      const macros::MacroCatalog* macro_catalog,
       std::unique_ptr<zetasql::ASTNode>* output,
       std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
       ASTStatementProperties* ast_statement_properties,

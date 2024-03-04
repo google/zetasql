@@ -24,12 +24,14 @@
 // (Do NOT set the --report-file to a path on citc, because then the file will
 // be truncated at 1MB for some reason.)
 
-#include "zetasql/parser/location.hh"
+#include <cstdint>
+
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/join_processor.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_internal.h"
 #include "zetasql/parser/statement_properties.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
@@ -43,12 +45,28 @@
 #define YYDEBUG 0
 #endif
 
+// Define the handling of our custom ParseLocationRange.
+# define YYLLOC_DEFAULT(Cur, Rhs, N)           \
+do                                             \
+  if (N)                                       \
+  {                                            \
+    (Cur).set_start(YYRHSLOC(Rhs, 1).start()); \
+    (Cur).set_end(YYRHSLOC(Rhs, N).end());     \
+  }                                            \
+  else                                         \
+  {                                            \
+    (Cur).set_start(YYRHSLOC(Rhs, 0).end());   \
+    (Cur).set_end(YYRHSLOC(Rhs, 0).end());     \
+  }                                            \
+while (0)
 }
 
 %defines
 %skeleton "lalr1.cc"
 %define parse.error verbose
 %define api.parser.class {BisonParserImpl}
+%define api.location.type {zetasql::ParseLocationRange}
+
 %initial-action
 {
 #if YYDEBUG
@@ -68,8 +86,8 @@
 
 // Parameters for the parser. The tokenizer gets passed through into the lexer
 // as well, so it is declared with "%lex-param" too.
-%lex-param {zetasql::parser::ZetaSqlFlexTokenizer* tokenizer}
-%parse-param {zetasql::parser::ZetaSqlFlexTokenizer* tokenizer}
+%lex-param {zetasql::parser::DisambiguatorLexer* tokenizer}
+%parse-param {zetasql::parser::DisambiguatorLexer* tokenizer}
 %parse-param {zetasql::parser::BisonParser* parser}
 %parse-param {zetasql::ASTNode** ast_node_result}
 %parse-param {zetasql::parser::ASTStatementProperties*
@@ -262,6 +280,10 @@
 %union {
   bool boolean;
   int64_t int64_val;
+  struct {
+    const char* str;
+    size_t len;
+  } string_view;
   const char* string_constant;
   zetasql::TypeKind type_kind;
   zetasql::ASTFunctionCall::NullHandlingModifier null_handling_modifier;
@@ -323,6 +345,10 @@
   zetasql::ASTUnpivotClause* unpivot_clause;
   zetasql::ASTSetOperationType* set_operation_type;
   zetasql::ASTSetOperationAllOrDistinct* set_operation_all_or_distinct;
+  zetasql::ASTBytesLiteral* bytes_literal;
+  zetasql::ASTBytesLiteralComponent* bytes_literal_component;
+  zetasql::ASTStringLiteral* string_literal;
+  zetasql::ASTStringLiteralComponent* string_literal_component;
   struct {
     zetasql::ASTPivotClause* pivot_clause;
     zetasql::ASTUnpivotClause* unpivot_clause;
@@ -373,6 +399,13 @@
     zetasql::ASTQuery* query;
     zetasql::ASTPathExpression* replica_source;
   } query_or_replica_source_info;
+  struct {
+    zetasql::ASTNode* hint;
+  } group_by_preamble;
+  zetasql::ASTStructBracedConstructor* struct_braced_constructor;
+  zetasql::ASTBracedConstructor* braced_constructor;
+  zetasql::ASTBracedConstructorField* braced_constructor_field;
+  zetasql::ASTBracedConstructorFieldValue* braced_constructor_field_value;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -391,7 +424,8 @@
 %token BYTES_LITERAL "bytes literal"
 %token INTEGER_LITERAL "integer literal"
 %token FLOATING_POINT_LITERAL "floating point literal"
-%token IDENTIFIER "identifier"
+%token <string_view> IDENTIFIER "identifier"
+%token BACKSLASH      // Only for lenient macro expansion
 
 // Script labels. This is set apart from IDENTIFIER for two reasons:
 // - Identifiers should still be disallowed at statement beginnings in all
@@ -435,8 +469,7 @@
 %token '/' "/"
 %token '~' "~"
 %token '.' "."
-%token KW_DOT_STAR ".*"
-%token KW_OPEN_HINT "@{"
+%token KW_OPEN_HINT "@ for hint"
 %token '}' "}"
 %token '?' "?"
 %token KW_OPEN_INTEGER_HINT "@n"
@@ -528,6 +561,7 @@ using namespace zetasql::parser_internal;
 %token KW_CROSS "CROSS"
 %token KW_CURRENT "CURRENT"
 %token KW_DEFAULT "DEFAULT"
+%token KW_DEFINE_FOR_MACROS "DEFINE for macros"
 %token KW_DEFINE "DEFINE"
 %token KW_DESC "DESC"
 %token KW_DISTINCT "DISTINCT"
@@ -541,7 +575,6 @@ using namespace zetasql::parser_internal;
 %token KW_FOLLOWING "FOLLOWING"
 %token KW_FROM "FROM"
 %token KW_FULL "FULL"
-%token KW_FULL_IN_SET_OP
 %token KW_GROUP "GROUP"
 %token KW_GROUPING "GROUPING"
 %token KW_HASH "HASH"
@@ -622,6 +655,7 @@ using namespace zetasql::parser_internal;
 
 %token KW_WITH_STARTING_WITH_EXPRESSION "WITH starting with expression"
 %token KW_EXCEPT_IN_SET_OP "EXCEPT in set operation"
+%token KW_FULL_IN_SET_OP
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
 // confuse the operator precedence parsing. Boolean NOT has a different
 // precedence than NOT BETWEEN/IN/LIKE.
@@ -679,6 +713,7 @@ using namespace zetasql::parser_internal;
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
 %token KW_DELETION "DELETION"
+%token KW_DEPTH "DEPTH"
 %token KW_DESCRIBE "DESCRIBE"
 %token KW_DESCRIPTOR "DESCRIPTOR"
 %token KW_DETERMINISTIC "DETERMINISTIC"
@@ -841,6 +876,7 @@ using namespace zetasql::parser_internal;
 // enumerate all token kinds to implement the macro body rule.
 %token MACRO_BODY_TOKEN
 
+%token CUSTOM_MODE_START  // Gets disambiguated to one of the modes below.
 %token MODE_STATEMENT
 %token MODE_SCRIPT
 %token MODE_NEXT_STATEMENT
@@ -871,7 +907,8 @@ using namespace zetasql::parser_internal;
 %type <path_expression_with_scope> maybe_dashed_path_expression_with_scope
 %type <expression> bignumeric_literal
 %type <expression> boolean_literal
-%type <expression> bytes_literal
+%type <bytes_literal> bytes_literal
+%type <bytes_literal_component> bytes_literal_component
 %type <node> call_statement
 %type <node> call_statement_with_args_prefix
 %type <expression> case_expression
@@ -967,7 +1004,7 @@ using namespace zetasql::parser_internal;
 %type <node> grantee_list_with_parens_prefix
 %type <node> group_by_clause_prefix
 %type <node> group_by_all
-%type <node> group_by_preamble
+%type <group_by_preamble> group_by_preamble
 %type <node> grouping_item
 %type <node> grouping_set
 %type <node> grouping_set_list
@@ -1032,6 +1069,7 @@ using namespace zetasql::parser_internal;
 %type <node> insert_values_row
 %type <node> insert_values_row_prefix
 %type <expression> int_literal_or_parameter
+%type <expression> opt_int_literal_or_parameter
 %type <expression> integer_literal
 %type <node> join
 %type <node> join_input
@@ -1054,13 +1092,14 @@ using namespace zetasql::parser_internal;
 %type <node> new_constructor_arg
 %type <expression> new_constructor_prefix
 %type <expression> new_constructor_prefix_no_arg
-%type <expression> braced_constructor_field_value
-%type <node> braced_constructor_field
-%type <node> braced_constructor_extension
-%type <expression> braced_constructor_start
-%type <expression> braced_constructor_prefix
-%type <expression> braced_constructor
+%type <braced_constructor_field_value> braced_constructor_field_value
+%type <braced_constructor_field> braced_constructor_field
+%type <braced_constructor_field> braced_constructor_extension
+%type <braced_constructor> braced_constructor_start
+%type <braced_constructor> braced_constructor_prefix
+%type <braced_constructor> braced_constructor
 %type <expression> braced_new_constructor
+%type <expression> struct_braced_constructor
 %type <node> next_statement
 %type <node> next_script_statement
 %type <expression> null_literal
@@ -1255,6 +1294,7 @@ using namespace zetasql::parser_internal;
 %type <identifier> show_target
 %type <expression> signed_numerical_literal
 %type <node> simple_column_schema_inner
+%type <string_literal_component> string_literal_component
 %type <node> sql_function_body
 %type <node> star_except_list
 %type <node> star_except_list_prefix
@@ -1266,9 +1306,8 @@ using namespace zetasql::parser_internal;
 %type <node> sql_statement_body
 %type <statement_list> statement_list
 %type <node> script
-%type <statement_list> non_empty_statement_list
 %type <statement_list> unterminated_non_empty_statement_list
-%type <expression> string_literal
+%type <string_literal> string_literal
 %type <expression> string_literal_or_parameter
 %type <expression> struct_constructor
 %type <node> struct_constructor_arg
@@ -1298,7 +1337,6 @@ using namespace zetasql::parser_internal;
 %type <node> table_primary
 %type <node> table_subquery
 %type <node> templated_parameter_type
-%type <node> terminated_statement
 %type <node> transaction_mode
 %type <node> transaction_mode_list
 %type <node> truncate_statement
@@ -1337,6 +1375,9 @@ using namespace zetasql::parser_internal;
 %type <node> with_connection_clause
 %type <node> aliased_query
 %type <node> aliased_query_list
+%type <node> aliased_query_modifiers
+%type <node> possibly_unbounded_int_literal_or_parameter
+%type <node> recursion_depth_modifier
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
@@ -1371,6 +1412,7 @@ using namespace zetasql::parser_internal;
 %type <index_type_keywords> opt_index_type
 %type <boolean> opt_access
 %type <boolean> opt_aggregate
+%type <ordering_spec> asc_or_desc
 %type <ordering_spec> opt_asc_or_desc
 %type <boolean> opt_filter
 %type <boolean> opt_if_exists
@@ -1484,8 +1526,7 @@ next_script_statement:
     unterminated_statement ";"
       {
         // The semicolon marks the end of the statement.
-        tokenizer->SetForceTerminate();
-        *statement_end_byte_offset = @2.end.column;
+        SetForceTerminate(tokenizer, statement_end_byte_offset);
         $$ = $1;
       }
     | unterminated_statement
@@ -1500,8 +1541,7 @@ next_statement:
     unterminated_sql_statement ";"
       {
         // The semicolon marks the end of the statement.
-        tokenizer->SetForceTerminate();
-        *statement_end_byte_offset = @2.end.column;
+        SetForceTerminate(tokenizer, statement_end_byte_offset);
         $$ = $1;
       }
     | unterminated_sql_statement
@@ -1538,13 +1578,6 @@ unterminated_script_statement:
     | continue_statement
     | return_statement
     | raise_statement
-    ;
-
-terminated_statement:
-    unterminated_statement ";"
-      {
-        $$ = $1;
-      }
     ;
 
 sql_statement_body:
@@ -1602,19 +1635,33 @@ sql_statement_body:
     ;
 
 define_macro_statement:
-    "DEFINE" "MACRO" identifier[name]
+    // Use a special version of KW_DEFINE which indicates that this macro
+    // definition was "original", not expanded from other macros.
+    "DEFINE for macros" "MACRO" identifier[name]
       {
         if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_4_SQL_MACROS)) {
           YYERROR_AND_ABORT_AT(@2, "Macros are not supported");
         }
-        tokenizer->PushBisonParserMode(
+        PushBisonParserMode(tokenizer,
             zetasql::parser::BisonParserMode::kMacroBody);
       }
       macro_body[tokens]
       {
-        tokenizer->PopBisonParserMode();
+        PopBisonParserMode(tokenizer);
         $$ = MAKE_NODE(ASTDefineMacroStatement, @$, {$name, $tokens});
+      }
+    | "DEFINE" "MACRO"[kw_macro]
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_SQL_MACROS)) {
+          YYERROR_AND_ABORT_AT(@2, "Macros are not supported");
+        }
+        // Rule to capture wrong usage, where DEFINE MACRO is resulting from
+        // expanding other macros, instead of being original user input.
+        YYERROR_AND_ABORT_AT(@kw_macro,
+                             "Syntax error: DEFINE MACRO statements cannot be "
+                             "composed from other expansions.");
       }
     ;
 
@@ -1946,6 +1993,8 @@ schema_object_kind:
            $$ = zetasql::SchemaObjectKind::kExternalTable;
         }
       }
+    | "EXTERNAL" "SCHEMA"
+      { $$ = zetasql::SchemaObjectKind::kExternalSchema; }
     | "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kFunction; }
     | "INDEX"
@@ -1987,6 +2036,8 @@ alter_statement:
           node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kSchema) {
           node = MAKE_NODE(ASTAlterSchemaStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kExternalSchema) {
+          node = MAKE_NODE(ASTAlterExternalSchemaStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kView) {
           node = MAKE_NODE(ASTAlterViewStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kMaterializedView) {
@@ -2288,7 +2339,7 @@ unordered_options_body:
           parser->AddWarning(parser->GenerateWarning(
               "The preferred style places the OPTIONS clause before the "
               "function body.",
-              (@options).begin.column));
+              (@options).start().GetByteOffset()));
         }
         $$.options = $options;
         $$.body = $body;
@@ -2931,13 +2982,13 @@ create_external_schema_statement:
 
 undrop_statement:
     "UNDROP" schema_object_kind opt_if_not_exists path_expression
-    opt_at_system_time
+    opt_at_system_time opt_options_list
       {
         if ($schema_object_kind != zetasql::SchemaObjectKind::kSchema) {
           YYERROR_AND_ABORT_AT(@schema_object_kind, absl::StrCat("UNDROP ", absl::AsciiStrToUpper(
             parser->GetInputText(@schema_object_kind)), " is not supported"));
         }
-        auto* undrop = MAKE_NODE(ASTUndropStatement, @$, {$path_expression, $opt_at_system_time});
+        auto* undrop = MAKE_NODE(ASTUndropStatement, @$, {$path_expression, $opt_at_system_time, $opt_options_list});
         undrop->set_schema_object_kind($schema_object_kind);
         undrop->set_is_if_not_exists($opt_if_not_exists);
         $$ = undrop;
@@ -4101,14 +4152,15 @@ create_view_statement:
       }
     ;
 query_or_replica_source:
-    query
+    query[q]
     {
-      $$.query = $1;
+      $$ = {.query = $q, .replica_source = nullptr };
     }
     |
-    "REPLICA" "OF" maybe_dashed_path_expression
+    "REPLICA" "OF" maybe_dashed_path_expression[path]
     {
-      $$.replica_source = static_cast<zetasql::ASTPathExpression*>($3);
+      $$ = {.query = nullptr,
+            .replica_source = static_cast<zetasql::ASTPathExpression*>($path)};
     }
     ;
 
@@ -4826,13 +4878,13 @@ hint_entry:
     ;
 
 hint_with_body_prefix:
-    KW_OPEN_INTEGER_HINT integer_literal "@{" hint_entry
+    KW_OPEN_INTEGER_HINT integer_literal KW_OPEN_HINT "{" hint_entry[entry]
       {
-        $$ = MAKE_NODE(ASTHint, @$, {$2, $4});
+        $$ = MAKE_NODE(ASTHint, @$, {$2, $entry});
       }
-    | "@{" hint_entry
+    | KW_OPEN_HINT "{" hint_entry[entry]
       {
-        $$ = MAKE_NODE(ASTHint, @$, {$2});
+        $$ = MAKE_NODE(ASTHint, @$, {$entry});
       }
     | hint_with_body_prefix "," hint_entry
       {
@@ -4954,15 +5006,15 @@ select_column:
         auto* alias = MAKE_NODE(ASTAlias, @2, {$2});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {$1, alias});
       }
-    | expression ".*"
+    | expression[expr] "." "*"
       {
-        auto* dot_star = MAKE_NODE(ASTDotStar, @1, @2, {$1});
+        auto* dot_star = MAKE_NODE(ASTDotStar, @$, {$expr});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star});
       }
-    | expression ".*" star_modifiers
+    | expression "." "*" star_modifiers[modifiers]
       {
         auto* dot_star_with_modifiers =
-            MAKE_NODE(ASTDotStarWithModifiers, @1, @3, {$1, $3});
+            MAKE_NODE(ASTDotStarWithModifiers, @$, {$1, $modifiers});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star_with_modifiers});
       }
     | "*"
@@ -5018,6 +5070,10 @@ opt_natural:
     ;
 
 opt_outer: "OUTER" | %empty ;
+
+opt_int_literal_or_parameter:
+    int_literal_or_parameter
+    | %empty { $$ = nullptr; }
 
 int_literal_or_parameter:
     integer_literal
@@ -5257,15 +5313,13 @@ opt_pivot_or_unpivot_clause_and_alias:
   | "AS" identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
     $$.alias = parser->WithEndLocation($$.alias, @2);
-    $$.pivot_clause = WithExtraChildren($3,
-        {static_cast<zetasql::ASTAlias*>($4)});
+    $$.pivot_clause = WithExtraChildren($3, {$4});
     $$.unpivot_clause = nullptr;
   }
   | "AS" identifier unpivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
     $$.alias = parser->WithEndLocation($$.alias, @2);
-    $$.unpivot_clause = WithExtraChildren($3,
-        {static_cast<zetasql::ASTAlias*>($4)});
+    $$.unpivot_clause = WithExtraChildren($3, {$4});
     $$.pivot_clause = nullptr;
   }
   | "AS" identifier qualify_clause_nonreserved {
@@ -5276,14 +5330,12 @@ opt_pivot_or_unpivot_clause_and_alias:
   }
   | identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
-    $$.pivot_clause = WithExtraChildren($2,
-        {static_cast<zetasql::ASTAlias*>($3)});
+    $$.pivot_clause = WithExtraChildren($2, {$3});
     $$.unpivot_clause = nullptr;
   }
   | identifier unpivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
-    $$.unpivot_clause = WithExtraChildren($2,
-        {static_cast<zetasql::ASTAlias*>($3)});
+    $$.unpivot_clause = WithExtraChildren($2, {$3});
     $$.pivot_clause = nullptr;
   }
   | identifier qualify_clause_nonreserved {
@@ -5294,14 +5346,12 @@ opt_pivot_or_unpivot_clause_and_alias:
   }
   | pivot_clause opt_as_alias {
     $$.alias = nullptr;
-    $$.pivot_clause = WithExtraChildren($1,
-        {static_cast<zetasql::ASTAlias*>($2)});
+    $$.pivot_clause = WithExtraChildren($1, {$2});
     $$.unpivot_clause = nullptr;
   }
   | unpivot_clause opt_as_alias {
     $$.alias = nullptr;
-    $$.unpivot_clause = WithExtraChildren($1,
-        {static_cast<zetasql::ASTAlias*>($2)});
+    $$.unpivot_clause = WithExtraChildren($1, {$2});
     $$.pivot_clause = nullptr;
   }
   | qualify_clause_nonreserved {
@@ -5963,16 +6013,18 @@ grouping_item:
     ;
 
 group_by_preamble:
-    "GROUP" opt_hint "BY"
+    "GROUP" opt_hint
+        "BY"
       {
-        $$ = $opt_hint;
+        $$.hint = $opt_hint;
       }
     ;
 
 group_by_clause_prefix:
-    group_by_preamble[hint] grouping_item[item]
+    group_by_preamble[preamble] grouping_item[item]
       {
-        $$ = MAKE_NODE(ASTGroupBy, @$, {$hint, $item});
+        auto* node = MAKE_NODE(ASTGroupBy, @$, {$preamble.hint, $item});
+        $$ = node;
       }
     | group_by_clause_prefix[prefix] "," grouping_item[item]
       {
@@ -5981,10 +6033,11 @@ group_by_clause_prefix:
     ;
 
 group_by_all:
-    group_by_preamble[hint] KW_ALL[all]
+    group_by_preamble[preamble] KW_ALL[all]
       {
         auto* group_by_all = MAKE_NODE(ASTGroupByAll, @all, {});
-        $$ = MAKE_NODE(ASTGroupBy, @$, {$hint, group_by_all});
+        auto* node = MAKE_NODE(ASTGroupBy, @$, {$preamble.hint, group_by_all});
+        $$ = node;
       }
     ;
 
@@ -6068,12 +6121,12 @@ qualify_clause_nonreserved:
     ;
 
 limit_offset_clause:
-    "LIMIT" possibly_cast_int_literal_or_parameter
-    "OFFSET" possibly_cast_int_literal_or_parameter
+    "LIMIT" expression
+    "OFFSET" expression
       {
         $$ = MAKE_NODE(ASTLimitOffset, @$, {$2, $4});
       }
-    | "LIMIT" possibly_cast_int_literal_or_parameter
+    | "LIMIT" expression
       {
         $$ = MAKE_NODE(ASTLimitOffset, @$, {$2});
       }
@@ -6138,10 +6191,57 @@ opt_null_handling_modifier:
       }
     ;
 
+possibly_unbounded_int_literal_or_parameter:
+    int_literal_or_parameter { $$ = MAKE_NODE(ASTIntOrUnbounded, @$, {$1}); }
+    | "UNBOUNDED" { $$ = MAKE_NODE(ASTIntOrUnbounded, @$, {}); }
+    ;
+
+recursion_depth_modifier:
+    "WITH" "DEPTH" opt_as_alias_with_required_as[alias]
+      {
+        auto empty_location = LocationFromOffset(@alias.end());
+
+        // By default, they're unbounded when unspecified.
+        auto* lower_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
+        auto* upper_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
+        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
+                       {$alias, lower_bound, upper_bound});
+      }
+      // TODO: Clean up BETWEEN ... AND ... syntax once
+      // we move to TextMapper.
+    | "WITH" "DEPTH" opt_as_alias_with_required_as[alias]
+      "BETWEEN" possibly_unbounded_int_literal_or_parameter[lower_bound]
+      "AND for BETWEEN" possibly_unbounded_int_literal_or_parameter[upper_bound]
+      {
+        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
+                       {$alias, $lower_bound, $upper_bound});
+      }
+    | "WITH" "DEPTH" opt_as_alias_with_required_as[alias]
+      "MAX" possibly_unbounded_int_literal_or_parameter[upper_bound]
+      {
+        auto empty_location = LocationFromOffset(@alias.end());
+
+        // Lower bound is unspecified in this case.
+        auto* lower_bound = MAKE_NODE(ASTIntOrUnbounded, empty_location, {});
+        $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
+                       {$alias, lower_bound, $upper_bound});
+      }
+    ;
+
+aliased_query_modifiers:
+    recursion_depth_modifier
+      {
+        $$ = MAKE_NODE(ASTAliasedQueryModifiers, @$,
+                       {$recursion_depth_modifier});
+      }
+    | %empty { $$ = nullptr; }
+    ;
+
 aliased_query:
     identifier "AS" parenthesized_query[query]
+                    aliased_query_modifiers[modifiers]
       {
-        $$ = MAKE_NODE(ASTAliasedQuery, @$, {$1, $query});
+        $$ = MAKE_NODE(ASTAliasedQuery, @$, {$1, $query, $modifiers});
       }
     ;
 
@@ -6190,10 +6290,13 @@ with_clause_with_trailing_comma:
       }
     ;
 
-// Returns true for DESC, false for ASC (which is the default).
-opt_asc_or_desc:
+asc_or_desc:
     "ASC" { $$ = zetasql::ASTOrderingExpression::ASC; }
     | "DESC" { $$ = zetasql::ASTOrderingExpression::DESC; }
+    ;
+
+opt_asc_or_desc:
+    asc_or_desc { $$ = $1; }
     | %empty { $$ = zetasql::ASTOrderingExpression::UNSPECIFIED; }
     ;
 
@@ -6214,7 +6317,7 @@ opt_null_order:
     ;
 
 string_literal_or_parameter:
-    string_literal
+    string_literal { $$ = $string_literal; }
     | parameter_expression
     | system_variable_expression;
 
@@ -6585,8 +6688,8 @@ expression_maybe_parenthesized:
 expression_not_parenthesized:
     null_literal
     | boolean_literal
-    | string_literal
-    | bytes_literal
+    | string_literal { $$ = $string_literal; }
+    | bytes_literal { $$ = $bytes_literal; }
     | integer_literal
     | numeric_literal
     | bignumeric_literal
@@ -6598,8 +6701,9 @@ expression_not_parenthesized:
     | system_variable_expression
     | array_constructor
     | new_constructor
-    | braced_constructor
+    | braced_constructor[ctor] { $$ = $ctor; }
     | braced_new_constructor
+    | struct_braced_constructor
     | case_expression
     | cast_expression
     | extract_expression
@@ -7623,12 +7727,9 @@ raw_type:
 type_parameter:
       integer_literal
     | boolean_literal
-    | string_literal
-    | bytes_literal
-    | floating_point_literal
-      {
-        $$ = $1;
-      }
+    | string_literal { $$ = $string_literal; }
+    | bytes_literal { $$ = $bytes_literal; }
+    | floating_point_literal { $$ = $floating_point_literal; }
     | "MAX"
       {
         $$ = MAKE_NODE(ASTMaxLiteral, @1, {});
@@ -7755,6 +7856,7 @@ braced_constructor_field_value:
     ":" expression
       {
         $$ = MAKE_NODE(ASTBracedConstructorFieldValue, @$, {$2});
+        $$->set_colon_prefixed(true);
       }
     | braced_constructor
       {
@@ -7803,6 +7905,7 @@ braced_constructor_prefix:
     | braced_constructor_prefix "," braced_constructor_field
       {
         $$ = WithExtraChildren($1, {$3});
+        $3->set_comma_separated(true);
       }
     | braced_constructor_prefix braced_constructor_field
       {
@@ -7821,6 +7924,7 @@ braced_constructor_prefix:
     | braced_constructor_prefix "," braced_constructor_extension
       {
         $$ = WithExtraChildren($1, {$3});
+        $3->set_comma_separated(true);
       }
     ;
 
@@ -7844,6 +7948,17 @@ braced_new_constructor:
     "NEW" type_name braced_constructor
       {
         $$ = MAKE_NODE(ASTBracedNewConstructor, @$, {$2, $3});
+      }
+    ;
+
+struct_braced_constructor:
+    struct_type[type] braced_constructor[ctor]
+      {
+        $$ = MAKE_NODE(ASTStructBracedConstructor, @$, {$type, $ctor});
+      }
+    | "STRUCT" braced_constructor[ctor]
+      {
+        $$ = MAKE_NODE(ASTStructBracedConstructor, @$, {$ctor});
       }
     ;
 
@@ -8524,7 +8639,7 @@ boolean_literal:
       }
     ;
 
-string_literal:
+string_literal_component:
     STRING_LITERAL
       {
         const absl::string_view input_text = parser->GetInputText(@1);
@@ -8535,7 +8650,7 @@ string_literal:
             input_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
           auto location = @1;
-          location.begin.column += error_offset;
+          location.mutable_start().IncrementByteOffset(error_offset);
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
@@ -8546,7 +8661,7 @@ string_literal:
                                             parse_status.message()));
         }
 
-        auto* literal = MAKE_NODE(ASTStringLiteral, @1);
+        auto* literal = MAKE_NODE(ASTStringLiteralComponent, @1);
         literal->set_string_value(std::move(str));
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
@@ -8555,7 +8670,35 @@ string_literal:
       }
     ;
 
-bytes_literal:
+// Can be a concatenation of multiple string literals
+string_literal:
+    string_literal_component[component]
+      {
+        $$ = MAKE_NODE(ASTStringLiteral, @$, {$component});
+        $$->set_string_value($component->string_value());
+      }
+    | string_literal[list] string_literal_component[component]
+      {
+        if (@component.start().GetByteOffset() == @list.end().GetByteOffset()) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: concatenated string literals must be separated by whitespace or comments");
+        }
+
+        $$ = WithExtraChildren($list, {$component});
+        // TODO: append the value in place, instead of StrCat()
+        // then set().
+        $$->set_string_value(
+              absl::StrCat($$->string_value(), $component->string_value()));
+      }
+    | string_literal bytes_literal_component[component]
+      {
+        // Capture this case to provide a better error message
+        YYERROR_AND_ABORT_AT(
+          @component,
+          "Syntax error: string and bytes literals cannot be concatenated.");
+      }
+    ;
+
+bytes_literal_component:
     BYTES_LITERAL
       {
         const absl::string_view input_text = parser->GetInputText(@1);
@@ -8566,7 +8709,7 @@ bytes_literal:
             input_text, &bytes, &error_string, &error_offset);
         if (!parse_status.ok()) {
           auto location = @1;
-          location.begin.column += error_offset;
+          location.mutable_start().IncrementByteOffset(error_offset);
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
@@ -8580,12 +8723,41 @@ bytes_literal:
         // The identifier is parsed *again* in the resolver. The output of the
         // parser maintains the original image.
         // TODO: Fix this wasted work when the JavaCC parser is gone.
-        auto* literal = MAKE_NODE(ASTBytesLiteral, @1);
+        auto* literal = MAKE_NODE(ASTBytesLiteralComponent, @1);
         literal->set_bytes_value(std::move(bytes));
         // TODO: Migrate to absl::string_view or avoid having to
         // set this at all if the client isn't interested.
         literal->set_image(std::string(input_text));
         $$ = literal;
+      }
+    ;
+
+
+// Can be a concatenation of multiple string literals
+bytes_literal:
+    bytes_literal_component[component]
+      {
+        $$ = MAKE_NODE(ASTBytesLiteral, @$, {$component});
+        $$->set_bytes_value($component->bytes_value());
+      }
+    | bytes_literal[list] bytes_literal_component[component]
+      {
+        if (@component.start().GetByteOffset() == @list.end().GetByteOffset()) {
+          YYERROR_AND_ABORT_AT(
+            @2,
+            "Syntax error: concatenated bytes literals must be separated by whitespace or comments");
+        }
+
+        $$ = WithExtraChildren($list, {$component});
+        // TODO: append the value in place, instead of StrCat()
+        // then set().
+        $$->set_bytes_value(
+              absl::StrCat($$->bytes_value(), $2->bytes_value()));
+      }
+    | bytes_literal string_literal_component[component]
+      {
+        // Capture this case to provide a better error message
+        YYERROR_AND_ABORT_AT(@component, "Syntax error: string and bytes literals cannot be concatenated.");
       }
     ;
 
@@ -8604,11 +8776,9 @@ numeric_literal_prefix:
     ;
 
 numeric_literal:
-    numeric_literal_prefix STRING_LITERAL
+    numeric_literal_prefix string_literal
       {
-        auto* literal = MAKE_NODE(ASTNumericLiteral, @$);
-        literal->set_image(std::string(parser->GetInputText(@2)));
-        $$ = literal;
+        $$ = MAKE_NODE(ASTNumericLiteral, @$, {$2});
       }
     ;
 
@@ -8618,20 +8788,16 @@ bignumeric_literal_prefix:
     ;
 
 bignumeric_literal:
-    bignumeric_literal_prefix STRING_LITERAL
+    bignumeric_literal_prefix string_literal
       {
-        auto* literal = MAKE_NODE(ASTBigNumericLiteral, @$);
-        literal->set_image(std::string(parser->GetInputText(@2)));
-        $$ = literal;
+        $$ = MAKE_NODE(ASTBigNumericLiteral, @$, {$2});
       }
     ;
 
 json_literal:
-    "JSON" STRING_LITERAL
+    "JSON" string_literal
       {
-        auto* literal = MAKE_NODE(ASTJSONLiteral, @$);
-        literal->set_image(std::string(parser->GetInputText(@2)));
-        $$ = literal;
+        $$ = MAKE_NODE(ASTJSONLiteral, @$, {$2});
       }
     ;
 
@@ -8647,7 +8813,7 @@ floating_point_literal:
 identifier:
     IDENTIFIER
       {
-        const absl::string_view identifier_text = parser->GetInputText(@1);
+        const absl::string_view identifier_text($1.str, $1.len);
         // The tokenizer rule already validates that the identifier is valid,
         // except for backquoted identifiers.
         if (identifier_text[0] == '`') {
@@ -8659,7 +8825,7 @@ identifier:
                   identifier_text, &str, &error_string, &error_offset);
           if (!parse_status.ok()) {
             auto location = @1;
-            location.begin.column += error_offset;
+            location.mutable_start().IncrementByteOffset(error_offset);
             if (!error_string.empty()) {
               YYERROR_AND_ABORT_AT(location,
                                    absl::StrCat("Syntax error: ",
@@ -8696,7 +8862,7 @@ label:
                 label_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
           auto location = @1;
-          location.begin.column += error_offset;
+          location.mutable_start().IncrementByteOffset(error_offset);
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ",
@@ -8772,6 +8938,7 @@ keyword_as_identifier:
     | "DEFINER"
     | "DELETE"
     | "DELETION"
+    | "DEPTH"
     | "DESCRIBE"
     | "DETERMINISTIC"
     | "DO"
@@ -8854,7 +9021,7 @@ keyword_as_identifier:
           // we have the engine-specific root URI to use.
           parser->AddWarning(parser->GenerateWarningForFutureKeywordReservation(
                                         zetasql::parser::kQualify,
-                                        (@1).begin.column));
+                                        (@1).start().GetByteOffset()));
       }
     | "RAISE"
     | "READ"
@@ -9203,18 +9370,18 @@ insert_statement_prefix:
             if (element->node_kind() != zetasql::AST_PATH_EXPRESSION) {
               if (element->node_kind() == zetasql::AST_DEFAULT_LITERAL) {
                 YYERROR_AND_ABORT_AT(
-                    parser->GetBisonLocation(element->GetParseLocationRange()),
+                    element->GetParseLocationRange(),
                     "Syntax error: Expected column name, got keyword DEFAULT");
               }
               YYERROR_AND_ABORT_AT(
-                  parser->GetBisonLocation(element->GetParseLocationRange()),
+                  element->GetParseLocationRange(),
                   "Syntax error: Expected column name");
             }
             auto* path_expression =
                 element->GetAsOrDie<zetasql::ASTPathExpression>();
             if (path_expression->num_children() != 1) {
               YYERROR_AND_ABORT_AT(
-                  parser->GetBisonLocation(element->GetParseLocationRange()),
+                  element->GetParseLocationRange(),
                   "Syntax error: Expected column name");
             }
             column_list->AddChild(path_expression->mutable_child(0));
@@ -9225,8 +9392,7 @@ insert_statement_prefix:
             // first list for being correct as a column list, because we assume
             // that the user intended it as a VALUES list.
             YYERROR_AND_ABORT_AT(
-                parser->GetBisonLocation(
-                    row_list->child(1)->GetParseLocationRange()),
+                row_list->child(1)->GetParseLocationRange(),
                 "Syntax error: Unexpected multiple column lists");
           }
           insert->AddChild(column_list);
@@ -9880,7 +10046,6 @@ drop_statement:
       }
     ;
 
-
 index_type:
     KW_SEARCH
       { $$ = IndexTypeKeywords::kSearch; }
@@ -9891,24 +10056,14 @@ opt_index_type:
     index_type
     | %empty { $$ = IndexTypeKeywords::kNone; };
 
-non_empty_statement_list:
-    terminated_statement
-      {
-        $$ = MAKE_NODE(ASTStatementList, @$, {$1});
-      }
-    | non_empty_statement_list terminated_statement
-      {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
-      };
-
 unterminated_non_empty_statement_list:
-    unterminated_statement
+    unterminated_statement[stmt]
       {
-        $$ = MAKE_NODE(ASTStatementList, @$, {$1});
+        $$ = MAKE_NODE(ASTStatementList, @$, {$stmt});
       }
-    | non_empty_statement_list unterminated_statement
+    | unterminated_non_empty_statement_list ';' unterminated_statement[new_stmt]
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$new_stmt}), @$);
       };
 
 opt_execute_into_clause:
@@ -9967,15 +10122,15 @@ execute_immediate:
   ;
 
 script:
-  non_empty_statement_list
+  unterminated_non_empty_statement_list
   {
     $1->set_variable_declarations_allowed(true);
     $$ = MAKE_NODE(ASTScript, @$, {$1});
   }
-  | unterminated_non_empty_statement_list
+  | unterminated_non_empty_statement_list ';'
   {
     $1->set_variable_declarations_allowed(true);
-    $$ = MAKE_NODE(ASTScript, @$, {$1});
+    $$ = MAKE_NODE(ASTScript, @$, {parser->WithEndLocation($1, @$)});
   }
   | %empty
     {
@@ -9987,9 +10142,9 @@ script:
   ;
 
 statement_list:
-    non_empty_statement_list
+  unterminated_non_empty_statement_list ';'
     {
-      $$ = $1;
+      $$ = parser->WithEndLocation($1, @$);
     }
   | %empty
     {
@@ -10342,7 +10497,7 @@ next_statement_kind:
         // The parser will complain about the remainder of the input if we let
         // the tokenizer continue to produce tokens, because we don't have any
         // grammar for the rest of the input.
-        tokenizer->SetForceTerminate();
+        SetForceTerminate(tokenizer, /*end_byte_offset=*/nullptr);
         $$ = $2;
       }
     ;
@@ -10382,7 +10537,7 @@ next_statement_kind_without_hint:
     | next_statement_kind_parenthesized_select
     | "DEFINE" "TABLE"
       { $$ = zetasql::ASTDefineTableStatement::kConcreteNodeKind; }
-    | "DEFINE" "MACRO"
+    | "DEFINE for macros" "MACRO"
       { $$ = zetasql::ASTDefineMacroStatement::kConcreteNodeKind; }
     | "EXECUTE" "IMMEDIATE"
       { $$ = zetasql::ASTExecuteImmediateStatement::kConcreteNodeKind; }
@@ -10444,6 +10599,7 @@ next_statement_kind_without_hint:
         }
       }
     | "GRANT" { $$ = zetasql::ASTGrantStatement::kConcreteNodeKind; }
+    | "GRAPH" { $$ = zetasql::ASTQueryStatement::kConcreteNodeKind; }
     | "REVOKE" { $$ = zetasql::ASTRevokeStatement::kConcreteNodeKind; }
     | "RENAME" { $$ = zetasql::ASTRenameStatement::kConcreteNodeKind; }
     | "START" { $$ = zetasql::ASTBeginStatement::kConcreteNodeKind; }
@@ -10471,6 +10627,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterDatabaseStatement::kConcreteNodeKind; }
     | "ALTER" "SCHEMA"
       { $$ = zetasql::ASTAlterSchemaStatement::kConcreteNodeKind; }
+    | "ALTER" "EXTERNAL" "SCHEMA"
+      { $$ = zetasql::ASTAlterExternalSchemaStatement::kConcreteNodeKind; }
     | "ALTER" "TABLE"
       { $$ = zetasql::ASTAlterTableStatement::kConcreteNodeKind; }
     | "ALTER" "PRIVILEGE"
@@ -10751,9 +10909,8 @@ spanner_set_on_delete_action:
 %%
 
 void zetasql_bison_parser::BisonParserImpl::error(
-    const zetasql_bison_parser::location& loc,
+    const zetasql::ParseLocationRange& loc,
     const std::string& msg) {
   *error_message = msg;
-  *error_location = zetasql::ParseLocationPoint::FromByteOffset(
-      parser->filename().ToStringView(), loc.begin.column);
+  *error_location = loc.start();
 }

@@ -31,6 +31,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -103,6 +104,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_CREATE_APPROX_VIEW_STMT;
     case AST_CREATE_SCHEMA_STATEMENT:
       return RESOLVED_CREATE_SCHEMA_STMT;
+    case AST_CREATE_EXTERNAL_SCHEMA_STATEMENT:
+      return RESOLVED_CREATE_EXTERNAL_SCHEMA_STMT;
     case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
       return RESOLVED_CREATE_SNAPSHOT_TABLE_STMT;
     case AST_CREATE_TABLE_STATEMENT:
@@ -174,6 +177,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_ALTER_DATABASE_STMT;
     case AST_ALTER_SCHEMA_STATEMENT:
       return RESOLVED_ALTER_SCHEMA_STMT;
+    case AST_ALTER_EXTERNAL_SCHEMA_STATEMENT:
+      return RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT;
     case AST_ALTER_TABLE_STATEMENT:
       return RESOLVED_ALTER_TABLE_STMT;
     case AST_ALTER_VIEW_STATEMENT:
@@ -228,7 +233,7 @@ ResolvedNodeKind GetNextStatementKind(
       RESOLVED_CREATE_TABLE_AS_SELECT_STMT : GetStatementKind(node_kind);
 }
 
-absl::Status GetStatementProperties(const std::string& input,
+absl::Status GetStatementProperties(absl::string_view input,
                                     const LanguageOptions& language_options,
                                     StatementProperties* statement_properties) {
   return GetNextStatementProperties(ParseResumeLocation::FromStringView(input),
@@ -242,7 +247,7 @@ absl::Status GetNextStatementProperties(
   // Parsing the next statement properties may return an AST for statement
   // level hints, so we create an arena here to own the AST nodes.
   ParserOptions parser_options;
-  parser_options.set_language_options(&language_options);
+  parser_options.set_language_options(language_options);
   parser_options.CreateDefaultArenasIfNotSet();
 
   parser::ASTStatementProperties ast_statement_properties;
@@ -278,6 +283,7 @@ absl::Status GetNextStatementProperties(
     case AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT:
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
     case AST_ALTER_SCHEMA_STATEMENT:
+    case AST_ALTER_EXTERNAL_SCHEMA_STATEMENT:
     case AST_ALTER_TABLE_STATEMENT:
     case AST_ALTER_VIEW_STATEMENT:
     case AST_ALTER_MODEL_STATEMENT:
@@ -294,6 +300,7 @@ absl::Status GetNextStatementProperties(
     case AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT:
     case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
     case AST_CREATE_SCHEMA_STATEMENT:
+    case AST_CREATE_EXTERNAL_SCHEMA_STATEMENT:
     case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
     case AST_CREATE_TABLE_FUNCTION_STATEMENT:
     case AST_CREATE_TABLE_STATEMENT:
@@ -313,6 +320,7 @@ absl::Status GetNextStatementProperties(
     case AST_UNDROP_STATEMENT:
     case AST_RENAME_STATEMENT:
     case AST_CREATE_SNAPSHOT_STATEMENT:
+    case AST_DEFINE_MACRO_STATEMENT:
       statement_properties->statement_category = StatementProperties::DDL;
       break;
     case AST_DELETE_STATEMENT:

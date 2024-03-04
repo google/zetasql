@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <optional>
 #include <string>
@@ -40,12 +41,17 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.h"  
+#include "zetasql/public/value_content.h"
+#include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -83,6 +89,57 @@ class Value::TypedList : public internal::ValueContentContainer {
 
  private:
   std::vector<Value> values_;
+};
+
+struct ValueComparator {
+  bool operator()(const Value& a, const Value& b) const {
+    return a.LessThan(b);
+  }
+};
+
+using ValueMap = absl::btree_map<Value, Value, ValueComparator>;
+
+class Value::TypedMap : public internal::ValueContentMap {
+ public:
+  explicit TypedMap(std::vector<std::pair<Value, Value>>& values)
+      : map_(values.begin(), values.end()) {}
+  TypedMap(const TypedMap&) = delete;
+  TypedMap& operator=(const TypedMap&) = delete;
+  ~TypedMap() override;
+
+  const ValueMap& entries() const { return map_; }
+
+  uint64_t physical_byte_size() const override {
+    uint64_t size = sizeof(TypedMap);
+    for (const auto& entry : map_) {
+      size += (entry.first.physical_byte_size() +
+               entry.second.physical_byte_size());
+    }
+    return size;
+  }
+
+  int64_t num_elements() const override { return map_.size(); }
+  std::vector<std::pair<internal::ValueContentContainerElement,
+                        internal::ValueContentContainerElement>>
+  value_content_entries() const override {
+    std::vector<std::pair<internal::ValueContentContainerElement,
+                          internal::ValueContentContainerElement>>
+        elements;
+    elements.reserve(map_.size());
+    for (const auto& [key, value] : map_) {
+      elements.push_back(std::make_pair(
+          key.is_null()
+              ? internal::ValueContentContainerElement()
+              : internal::ValueContentContainerElement(key.GetContent()),
+          value.is_null()
+              ? internal::ValueContentContainerElement()
+              : internal::ValueContentContainerElement(value.GetContent())));
+    }
+    return elements;
+  }
+
+ private:
+  ValueMap map_;
 };
 
 // -------------------------------------------------------
@@ -205,6 +262,10 @@ inline Value::Value(const IntervalValue& interval)
     : metadata_(TypeKind::TYPE_INTERVAL),
       interval_ptr_(new internal::IntervalRef(interval)) {}
 
+inline Value::Value(tokens::TokenList tokenlist)
+    : metadata_(TypeKind::TYPE_TOKENLIST),
+      tokenlist_ptr_(new internal::TokenListRef(std::move(tokenlist))) {}
+
 inline absl::StatusOr<Value> Value::MakeStruct(const StructType* type,
                                                std::vector<Value>&& values) {
   return MakeStructInternal(/*already_validated=*/false, type,
@@ -268,6 +329,23 @@ inline Value Value::EmptyArray(const ArrayType* array_type) {
   return *MakeArrayFromValidatedInputs(array_type, std::vector<Value>{});
 }
 
+inline absl::StatusOr<Value> Value::MakeMap(
+    const Type* map_type,
+    absl::Span<const std::pair<const Value, const Value>> map_entries) {
+  return MakeMapInternal(map_type, std::vector<std::pair<Value, Value>>(
+                                       map_entries.begin(), map_entries.end()));
+}
+inline absl::StatusOr<Value> Value::MakeMap(
+    const Type* map_type, std::vector<std::pair<Value, Value>>&& map_entries) {
+  return MakeMapInternal(map_type, map_entries);
+}
+inline absl::StatusOr<Value> Value::MakeMap(
+    const Type* map_type,
+    std::initializer_list<std::pair<Value, Value>> map_entries) {
+  return MakeMapInternal(map_type, std::vector<std::pair<Value, Value>>(
+                                       map_entries.begin(), map_entries.end()));
+}
+
 inline Value Value::Int32(int32_t v) { return Value(v); }
 inline Value Value::Int64(int64_t v) { return Value(v); }
 inline Value Value::Uint32(uint32_t v) { return Value(v); }
@@ -328,6 +406,10 @@ inline Value Value::UnvalidatedJsonString(std::string v) {
 inline Value Value::Json(JSONValue v) {
   return Value(new internal::JSONRef(std::move(v)));
 }
+inline Value Value::TokenList(tokens::TokenList value) {
+  return Value(std::move(value));
+}
+
 inline Value Value::Enum(const EnumType* type, int64_t value,
                          bool allow_unknown_enum_values) {
   return Value(type, value, allow_unknown_enum_values);
@@ -363,6 +445,7 @@ inline Value Value::NullBigNumeric() {
   return Value(TypeKind::TYPE_BIGNUMERIC);
 }
 inline Value Value::NullJson() { return Value(TypeKind::TYPE_JSON); }
+inline Value Value::NullTokenList() { return Value(types::TokenListType()); }
 inline Value Value::EmptyGeography() {
   ABSL_CHECK(false);
   return NullGeography();
@@ -548,12 +631,21 @@ inline std::string Value::json_string() const {
   return *json_ptr_->unparsed_string();
 }
 
+inline const tokens::TokenList& Value::tokenlist_value() const {
+  ABSL_CHECK_EQ(TYPE_TOKENLIST, metadata_.type_kind()) << "Not a tokenlist type";
+  ABSL_CHECK(!metadata_.is_null()) << "Null value";
+  return tokenlist_ptr_->value();
+}
+
 inline bool Value::empty() const {
   return elements().empty();
 }
 
 inline int Value::num_elements() const {
-  return elements().size();
+  if (type()->IsMap()) {
+    return static_cast<int>(map_entries().size());
+  }
+  return static_cast<int>(elements().size());
 }
 
 inline int Value::num_fields() const {
@@ -915,6 +1007,7 @@ inline Value NullGeography() { return Value::NullGeography(); }
 inline Value NullNumeric() { return Value::NullNumeric(); }
 inline Value NullBigNumeric() { return Value::NullBigNumeric(); }
 inline Value NullJson() { return Value::NullJson(); }
+inline Value NullTokenList() { return Value::NullTokenList(); }
 inline Value Null(const Type* type) { return Value::Null(type); }
 
 inline Value Invalid() { return Value::Invalid(); }

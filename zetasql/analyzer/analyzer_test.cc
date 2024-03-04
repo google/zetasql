@@ -653,6 +653,65 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageFormat) {
                               "    ^"));
 }
 
+TEST_F(AnalyzerOptionsTest, ErrorMessageStability_ResolutionError) {
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  const std::string query = "select *\nfrom BadTable";
+  const std::string expr = "1 +\n2 + BadCol +\n3";
+
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+            options_.error_message_stability());
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+            options_.error_message_options().stability);
+
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError(
+          "Table not found: BadTable; Did you mean abTable? [at 2:6]"));
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("Unrecognized name: BadCol [at 2:5]"));
+
+  options_.set_error_message_stability(ERROR_MESSAGE_STABILITY_TEST_REDACTED);
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+}
+
+TEST_F(AnalyzerOptionsTest, ErrorMessageStability_SyntaxError) {
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  const std::string query = "select 1 1 1";
+  const std::string expr = "1 + + + ";
+
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+            options_.error_message_stability());
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+            options_.error_message_options().stability);
+
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError(
+          R"(Syntax error: Expected end of input but got integer literal "1" [at 1:10])"));
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError(
+          "Syntax error: Unexpected end of expression [at 1:8]"));
+
+  options_.set_error_message_stability(ERROR_MESSAGE_STABILITY_TEST_REDACTED);
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+}
+
 TEST_F(AnalyzerOptionsTest, NestedCatalogTypesErrorMessageFormat) {
   std::unique_ptr<const AnalyzerOutput> output;
 
@@ -1771,8 +1830,10 @@ TEST(SQLBuilderTest, Int32ParameterForLimit) {
   ZETASQL_ASSERT_OK(sql_builder.Process(*limit_offset_scan));
   std::string formatted_sql;
   ZETASQL_ASSERT_OK(FormatSql(sql_builder.sql(), &formatted_sql));
-  EXPECT_EQ("SELECT\n  1\nLIMIT CAST(2 AS INT32) OFFSET CAST(1 AS INT32);",
-            formatted_sql);
+  EXPECT_EQ(
+      "SELECT\n  1\nLIMIT CAST(CAST(2 AS INT32) AS INT64) OFFSET CAST(CAST(1 "
+      "AS INT32) AS INT64);",
+      formatted_sql);
 }
 
 // Adding specific unit test to input provided by Random Query Generator tree.
@@ -1943,10 +2004,17 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       type_factory.get_bool(), ResolvedSubqueryExpr::ARRAY,
       /*parameter_list=*/{}, /*in_expr=*/nullptr,
       /*subquery=*/MakeResolvedSingleRowScan());
-  auto array_scan = MakeResolvedArrayScan(
-      {scan_column}, std::move(table_scan), std::move(array_expr), array_column,
-      /*array_offset_column=*/nullptr,
-      /*join_expr=*/nullptr, /*is_outer=*/true);
+  std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list;
+  array_expr_list.push_back(std::move(array_expr));
+  std::vector<ResolvedColumn> element_column_list;
+  element_column_list.push_back(array_column);
+  auto array_scan = MakeResolvedArrayScan({scan_column}, std::move(table_scan),
+                                          std::move(array_expr_list),
+                                          std::move(element_column_list),
+                                          /*array_offset_column=*/nullptr,
+                                          /*join_expr=*/nullptr,
+                                          /*is_outer=*/true,
+                                          /*array_zip_mode=*/nullptr);
   std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entry_list;
   with_entry_list.emplace_back(
       MakeResolvedWithEntry(with_query_name, std::move(array_scan)));

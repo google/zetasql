@@ -16,15 +16,13 @@
 
 #include "zetasql/parser/join_processor.h"
 
-#include <deque>
 #include <memory>
 #include <stack>
 #include <string>
 
-#include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/bison_parser.bison.h"
-#include "absl/memory/memory.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/parse_location.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -154,17 +152,16 @@ static std::stack<ASTNode*> FlattenJoinExpression(ASTNode* node) {
   return q;
 }
 
-ASTNode* MakeInternalError(
-    ErrorInfo* error_info,
-    const zetasql_bison_parser::location& error_location,
-    absl::string_view error_message) {
+ASTNode* MakeInternalError(ErrorInfo* error_info,
+                           const ParseLocationRange& error_location,
+                           absl::string_view error_message) {
   error_info->location = error_location;
   error_info->message = absl::StrCat("Internal error: ", error_message);
   return nullptr;
 }
 
 ASTNode* MakeSyntaxError(ErrorInfo* error_info,
-                         const zetasql_bison_parser::location& error_location,
+                         const ParseLocationRange& error_location,
                          absl::string_view error_message) {
   error_info->location = error_location;
   error_info->message = absl::StrCat("Syntax error: ", error_message);
@@ -258,8 +255,7 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
                               const BisonParser* parser,
                               std::stack<ASTNode*>* stack,
                               ErrorInfo* error_info) {
-  zetasql_bison_parser::location location =
-      parser->GetBisonLocation(stack->top()->GetParseLocationRange());
+  ParseLocationRange location = stack->top()->GetParseLocationRange();
 
   // We report the error at the first qualified join of the join block, which is
   // the bottomest qualified, not created, join in the stack. Search for this
@@ -284,8 +280,7 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
                             ? "INNER"
                             : join->GetSQLForJoinType();
   return MakeSyntaxError(
-      error_info,
-      parser->GetBisonLocation(join->join_location()->GetParseLocationRange()),
+      error_info, join->join_location()->GetParseLocationRange(),
       absl::StrCat("The number of join conditions is ",
                    error_tracker.join_condition_count(),
                    " but the number of joins that require a join condition is ",
@@ -296,8 +291,8 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
 ASTNode* ProcessFlattenedJoinExpression(
     BisonParser* parser, std::stack<ASTNode*>* flattened_join_expression,
     ErrorInfo* error_info) {
-  zetasql_bison_parser::location location = parser->GetBisonLocation(
-      flattened_join_expression->top()->GetParseLocationRange());
+  ParseLocationRange location =
+      flattened_join_expression->top()->GetParseLocationRange();
 
   std::stack<ASTNode*> stack;
   JoinErrorTracker error_tracker;
@@ -310,10 +305,8 @@ ASTNode* ProcessFlattenedJoinExpression(
       // If it's CROSS, COMMA, or NATURAL JOIN, create a new CROSS, COMMA,
       // NATURAL JOIN.
       if (stack.empty()) {
-        return MakeInternalError(
-            error_info,
-            parser->GetBisonLocation(item->GetParseLocationRange()),
-            "Stack should not be empty");
+        return MakeInternalError(error_info, item->GetParseLocationRange(),
+                                 "Stack should not be empty");
       }
 
       ASTNode* lhs = stack.top();
@@ -322,12 +315,10 @@ ASTNode* ProcessFlattenedJoinExpression(
       flattened_join_expression->pop();
 
       ASTLocation* join_location =
-          parser->MakeLocation(parser->GetBisonLocation(
-              join->join_location()->GetParseLocationRange()));
+          parser->MakeLocation(join->join_location()->GetParseLocationRange());
 
       ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
-          zetasql_bison_parser::location(),
-          {lhs, GetJoinHint(join), join_location, rhs});
+          ParseLocationRange(), {lhs, GetJoinHint(join), join_location, rhs});
       new_join->set_join_type(join->join_type());
       new_join->set_join_hint(join->join_hint());
       new_join->set_natural(join->natural());
@@ -341,8 +332,7 @@ ASTNode* ProcessFlattenedJoinExpression(
       // Create JOIN with on/using clause.
       if (stack.size() < 3) {
         return MakeInternalError(
-            error_info,
-            parser->GetBisonLocation(item->GetParseLocationRange()),
+            error_info, item->GetParseLocationRange(),
             "Stack should contain at least 3 items at this point");
       }
       error_tracker.increment_join_condition_count();
@@ -355,8 +345,7 @@ ASTNode* ProcessFlattenedJoinExpression(
       stack.pop();
 
       ASTLocation* join_location =
-          parser->MakeLocation(parser->GetBisonLocation(
-              join->join_location()->GetParseLocationRange()));
+          parser->MakeLocation(join->join_location()->GetParseLocationRange());
 
       ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
           location, {lhs, GetJoinHint(join), join_location, rhs, item});
@@ -414,9 +403,9 @@ static const ASTJoin::ParseError* GetParseError(const ASTNode* node) {
   return nullptr;
 }
 
-ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
-                        const zetasql_bison_parser::location& end_location,
-                        ASTNode* lhs, bool natural, ASTJoin::JoinType join_type,
+ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
+                        const ParseLocationRange& end_location, ASTNode* lhs,
+                        bool natural, ASTJoin::JoinType join_type,
                         ASTJoin::JoinHint join_hint, ASTNode* hint,
                         ASTNode* table_primary,
                         ASTNode* on_or_using_clause_list,
@@ -442,8 +431,7 @@ ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
     if (ContainsCommaJoin(lhs)) {
       auto* error_node = clause_list->child(1);
       return MakeSyntaxError(
-          error_info,
-          parser->GetBisonLocation(error_node->GetParseLocationRange()),
+          error_info, error_node->GetParseLocationRange(),
           absl::StrCat(
               "Unexpected keyword ",
               (error_node->node_kind() == AST_ON_CLAUSE ? "ON" : "USING")));
@@ -493,10 +481,8 @@ ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
 
     if (clause_count >= 2) {
       // Consecutive ON/USING clauses are used. Returns the error in this case.
-      return MakeSyntaxError(
-          error_info,
-          parser->GetBisonLocation(error_node->GetParseLocationRange()),
-          message);
+      return MakeSyntaxError(error_info, error_node->GetParseLocationRange(),
+                             message);
     } else {
       // Does not throw the error to maintain the backward compatibility. Saves
       // the error instead.
@@ -508,11 +494,11 @@ ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
   return join;
 }
 
-ASTNode* CommaJoinRuleAction(
-    const zetasql_bison_parser::location& start_location,
-    const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    ASTNode* table_primary, ASTLocation* comma_location, BisonParser* parser,
-    ErrorInfo* error_info) {
+ASTNode* CommaJoinRuleAction(const ParseLocationRange& start_location,
+                             const ParseLocationRange& end_location,
+                             ASTNode* lhs, ASTNode* table_primary,
+                             ASTLocation* comma_location, BisonParser* parser,
+                             ErrorInfo* error_info) {
   if (IsTransformationNeeded(lhs)) {
     return MakeSyntaxError(
         error_info, start_location,

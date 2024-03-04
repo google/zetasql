@@ -29,6 +29,7 @@
 #include "zetasql/public/type.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -236,7 +237,7 @@ absl::Status ConvertTableToProto(
 // SQL tables to structs.  For value tables, <columns> must have
 // exactly one column.
 absl::Status ConvertTableToProto(
-    const std::vector<std::pair<std::string, const Type*>>& columns,
+    absl::Span<const std::pair<std::string, const Type*>> columns,
     bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options = ConvertTypeToProtoOptions());
 

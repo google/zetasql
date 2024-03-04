@@ -48,6 +48,7 @@ import com.google.zetasql.resolvedast.ResolvedInsertStmtEnums.InsertMode;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedCast;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedComputedColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedConstant;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedDeferredComputedColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExtendedCastElement;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedFunctionCallBase;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedMakeProtoField;
@@ -328,6 +329,17 @@ class DebugStrings {
    * children.
    */
   static void collectDebugStringFields(ResolvedComputedColumn node, List<DebugStringField> fields) {
+    fields.clear();
+    node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
+  }
+
+  /**
+   * ResolvedDeferredComputedColumn gets formatted as "name := expr" with expr's children printed as
+   * its own children.
+   */
+  static void collectDebugStringFields(
+      ResolvedDeferredComputedColumn node, List<DebugStringField> fields) {
+    fields.clear();
     node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
   }
 
@@ -457,7 +469,18 @@ class DebugStrings {
   }
 
   static String getNameForDebugString(ResolvedComputedColumn node) {
-    return node.getExpr().getNameForDebugStringWithNameFormat(node.getColumn().shortDebugString());
+    String name = node.getColumn().shortDebugString();
+    return node.getExpr().getNameForDebugStringWithNameFormat(name);
+  }
+
+  static String getNameForDebugString(ResolvedDeferredComputedColumn node) {
+    String name =
+        node.getColumn().shortDebugString()
+            + " ["
+            + ((ResolvedDeferredComputedColumn) node).getSideEffectColumn().shortDebugString()
+            + "]";
+
+    return node.getExpr().getNameForDebugStringWithNameFormat(name);
   }
 
   static String getNameForDebugString(ResolvedOutputColumn node) {

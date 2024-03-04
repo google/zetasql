@@ -630,3 +630,12 @@ SELECT
 FROM
   T
 ORDER BY 1 NULLS LAST, first DESC NULLS FIRST, last ASC NULLS LAST
+==
+
+# Trailing commas don't work.
+select a from t
+order by 1,
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:12]
+order by 1,
+           ^

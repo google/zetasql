@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
@@ -195,17 +194,21 @@ cc_library(
         ":test_schema_cc_proto",
         "//zetasql/base",
         "//zetasql/base:check",
+        "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:anon_function",
+        "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
         "//zetasql/public:cycle_detector",
         "//zetasql/public:deprecation_warning_cc_proto",
         "//zetasql/public:error_location_cc_proto",
+        "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:language_options",
@@ -215,7 +218,6 @@ cc_library(
         "//zetasql/public:simple_catalog_util",
         "//zetasql/public:sql_function",
         "//zetasql/public:sql_tvf",
-        "//zetasql/public:sql_view",
         "//zetasql/public:strings",
         "//zetasql/public:templated_sql_function",
         "//zetasql/public:templated_sql_tvf",
@@ -227,11 +229,17 @@ cc_library(
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
     ],
 )

@@ -5,8 +5,8 @@ SELECT 3{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-10] [SELECT 3;]
-  StatementList [0-10] [SELECT 3;]
+Script [0-9] [SELECT 3;]
+  StatementList [0-9] [SELECT 3;]
     QueryStatement [0-8] [SELECT 3]
       Query [0-8] [SELECT 3]
         Select [0-8] [SELECT 3]
@@ -48,8 +48,8 @@ SELECT 3; SELECT 4{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-20] [SELECT 3; SELECT 4;]
-  StatementList [0-20] [SELECT 3; SELECT 4;]
+Script [0-19] [SELECT 3; SELECT 4;]
+  StatementList [0-19] [SELECT 3; SELECT 4;]
     QueryStatement [0-8] [SELECT 3]
       Query [0-8] [SELECT 3]
         Select [0-8] [SELECT 3]
@@ -115,7 +115,7 @@ Script [0-55] [IF true then...SELECT 11]
   StatementList [0-55] [IF true then...SELECT 11]
     IfStatement [0-44] [IF true then...10; end if]
       BooleanLiteral(true) [3-7] [true]
-      StatementList [15-38] [select 9;   select 10;]
+      StatementList [15-37] [select 9;   select 10;]
         QueryStatement [15-23] [select 9]
           Query [15-23] [select 9]
             Select [15-23] [select 9]
@@ -159,8 +159,8 @@ ERROR: Syntax error: Unexpected integer literal "7" [at 1:1]
 SELECT 1;
 EXECUTE IMMEDIATE x;
 --
-Script [0-31] [SELECT 1; EXECUTE IMMEDIATE x;]
-  StatementList [0-31] [SELECT 1; EXECUTE IMMEDIATE x;]
+Script [0-30] [SELECT 1; EXECUTE IMMEDIATE x;]
+  StatementList [0-30] [SELECT 1; EXECUTE IMMEDIATE x;]
     QueryStatement [0-8] [SELECT 1]
       Query [0-8] [SELECT 1]
         Select [0-8] [SELECT 1]
@@ -182,8 +182,8 @@ INSERT UPDATE UPDATE (a) VALUES (1);
 INSERT UPDATE VALUE (a) VALUES (1);
 SELECT 1;
 --
-Script [0-93] [SELECT 1;...SELECT 1;]
-  StatementList [0-93] [SELECT 1;...SELECT 1;]
+Script [0-92] [SELECT 1;...SELECT 1;]
+  StatementList [0-92] [SELECT 1;...SELECT 1;]
     QueryStatement [0-8] [SELECT 1]
       Query [0-8] [SELECT 1]
         Select [0-8] [SELECT 1]
@@ -236,10 +236,10 @@ INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci
 VALUES (1, 2), (5, 6);
 END;
 --
-Script [0-255] [BEGIN INSERT..., 6); END;]
-  StatementList [0-255] [BEGIN INSERT..., 6); END;]
+Script [0-254] [BEGIN INSERT..., 6); END;]
+  StatementList [0-254] [BEGIN INSERT..., 6); END;]
     BeginEndBlock [0-253] [BEGIN INSERT...5, 6); END]
-      StatementList [6-115] [INSERT OR...), (3, 4);]
+      StatementList [6-114] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [6-113] [INSERT OR...2), (3, 4)]
           PathExpression [29-49] [table_collated_types]
             Identifier(table_collated_types) [29-49] [table_collated_types]
@@ -253,9 +253,9 @@ Script [0-255] [BEGIN INSERT..., 6); END;]
             InsertValuesRow [107-113] [(3, 4)]
               IntLiteral(3) [108-109] [3]
               IntLiteral(4) [111-112] [4]
-      ExceptionHandlerList [115-250] [EXCEPTION...), (5, 6);]
-        ExceptionHandler [125-250] [WHEN ERROR...), (5, 6);]
-          StatementList [141-250] [INSERT OR...), (5, 6);]
+      ExceptionHandlerList [115-249] [EXCEPTION...), (5, 6);]
+        ExceptionHandler [125-249] [WHEN ERROR...), (5, 6);]
+          StatementList [141-249] [INSERT OR...), (5, 6);]
             InsertStatement(insert_mode=REPLACE) [141-248] [INSERT OR...2), (5, 6)]
               PathExpression [164-184] [table_collated_types]
                 Identifier(table_collated_types) [164-184] [table_collated_types]
@@ -290,10 +290,10 @@ INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci
 VALUES (1, 2), (3, 4);
 END LOOP;
 --
-Script [0-124] [LOOP INSERT...END LOOP;]
-  StatementList [0-124] [LOOP INSERT...END LOOP;]
+Script [0-123] [LOOP INSERT...END LOOP;]
+  StatementList [0-123] [LOOP INSERT...END LOOP;]
     WhileStatement [0-122] [LOOP INSERT...; END LOOP]
-      StatementList [5-114] [INSERT OR...), (3, 4);]
+      StatementList [5-113] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [5-112] [INSERT OR...2), (3, 4)]
           PathExpression [28-48] [table_collated_types]
             Identifier(table_collated_types) [28-48] [table_collated_types]
@@ -322,10 +322,10 @@ VALUES (1, 2), (3, 4);
 UNTIL FALSE
 END REPEAT;
 --
-Script [0-140] [REPEAT INSERT...END REPEAT;]
-  StatementList [0-140] [REPEAT INSERT...END REPEAT;]
+Script [0-139] [REPEAT INSERT...END REPEAT;]
+  StatementList [0-139] [REPEAT INSERT...END REPEAT;]
     RepeatStatement [0-138] [REPEAT INSERT...END REPEAT]
-      StatementList [7-116] [INSERT OR...), (3, 4);]
+      StatementList [7-115] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [7-114] [INSERT OR...2), (3, 4)]
           PathExpression [30-50] [table_collated_types]
             Identifier(table_collated_types) [30-50] [table_collated_types]
@@ -356,11 +356,11 @@ INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci
 VALUES (1, 2), (3, 4);
 END WHILE;
 --
-Script [0-134] [WHILE TRUE...END WHILE;]
-  StatementList [0-134] [WHILE TRUE...END WHILE;]
+Script [0-133] [WHILE TRUE...END WHILE;]
+  StatementList [0-133] [WHILE TRUE...END WHILE;]
     WhileStatement [0-132] [WHILE TRUE...END WHILE]
       BooleanLiteral(TRUE) [6-10] [TRUE]
-      StatementList [14-123] [INSERT OR...), (3, 4);]
+      StatementList [14-122] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [14-121] [INSERT OR...2), (3, 4)]
           PathExpression [37-57] [table_collated_types]
             Identifier(table_collated_types) [37-57] [table_collated_types]
@@ -389,8 +389,8 @@ INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci
 VALUES (1, 2), (3, 4);
 END FOR;
 --
-Script [0-148] [FOR t IN (...; END FOR;]
-  StatementList [0-148] [FOR t IN (...; END FOR;]
+Script [0-147] [FOR t IN (...; END FOR;]
+  StatementList [0-147] [FOR t IN (...; END FOR;]
     ForInStatement [0-146] [FOR t IN (...); END FOR]
       Identifier(t) [4-5] [t]
       Query [10-25] [SELECT * FROM T]
@@ -402,7 +402,7 @@ Script [0-148] [FOR t IN (...; END FOR;]
             TablePathExpression [24-25] [T]
               PathExpression [24-25] [T]
                 Identifier(T) [24-25] [T]
-      StatementList [30-139] [INSERT OR...), (3, 4);]
+      StatementList [30-138] [INSERT OR...), (3, 4);]
         InsertStatement(insert_mode=REPLACE) [30-137] [INSERT OR...2), (3, 4)]
           PathExpression [53-73] [table_collated_types]
             Identifier(table_collated_types) [53-73] [table_collated_types]

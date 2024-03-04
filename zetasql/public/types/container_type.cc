@@ -20,10 +20,15 @@
 #include <stack>
 #include <string>
 
+#include "zetasql/base/check.h"
+
 namespace zetasql {
 
 // Format container in non-recursive way. The users might give a deeply
 // nested struct and cause stack overflow crashes for recursive methods
+// TODO: Refactor for MAP type support. MapType is a container but
+// does not inherit from the (now incorrectly named) ContainerType. Investigate
+// factoring the heap-based stack structure out into a common supertype.
 std::string ContainerType::FormatValueContent(
     const ValueContent& value_content,
     const Type::FormatValueContentOptions& options) const {

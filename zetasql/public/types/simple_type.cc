@@ -54,6 +54,7 @@
 #include "absl/functional/any_invocable.h"
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -114,7 +115,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bool", {TYPE_BOOL}},
       {"boolean", {TYPE_BOOL}},
       {"float", {TYPE_FLOAT, true}},
-      {"float32", {TYPE_FLOAT, true}},
+      {"float32", {TYPE_FLOAT}},
       {"float64", {TYPE_DOUBLE}},
       {"double", {TYPE_DOUBLE, true}},
       {"bytes", {TYPE_BYTES}},
@@ -130,6 +131,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bignumeric", {TYPE_BIGNUMERIC}},
       {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
+      {"tokenlist", {TYPE_TOKENLIST}},
   };
   return *result;
 }
@@ -142,29 +144,78 @@ struct TypeKindInfo {
   bool internal_product_mode_only = false;
   // If present, then the feature controls whether the type kind is enabled.
   // If absent, then the type kind does not require any language feature.
+  // Only one of `type_feature` or `disabling_type_feature` should be set.
   std::optional<LanguageFeature> type_feature;
+  // If present, then the feature controls whether the type kind is enabled.
+  // If absent, then the type kind does not require any language feature.
+  // Only one of `type_feature` or `disabling_type_feature` should be set.
+  std::optional<LanguageFeature> disabling_type_feature;
+
+  // Builds a TypeKindInfo for both product modes.
+  static TypeKindInfo Build() {
+    return TypeKindInfo(/*internal_product_mode_only=*/false, std::nullopt,
+                        std::nullopt);
+  }
+
+  // Builds a TypeKindInfo for `PRODUCT_INTERNAL`.
+  static TypeKindInfo BuildInternalOnly() {
+    return TypeKindInfo(/*internal_product_mode_only=*/true, std::nullopt,
+                        std::nullopt);
+  }
+
+  // Builds a TypeKindInfo for both product modes, controlled by `type_feature`.
+  static TypeKindInfo BuildWithTypeFeature(LanguageFeature type_feature) {
+    return TypeKindInfo(/*internal_product_mode_only=*/false, type_feature,
+                        std::nullopt);
+  }
+
+  // Builds a TypeKindInfo for both product modes, controlled by
+  // `disabling_type_feature`.
+  static TypeKindInfo BuildWithDisablingTypeFeature(
+      LanguageFeature disabling_type_feature) {
+    return TypeKindInfo(/*internal_product_mode_only=*/false, std::nullopt,
+                        disabling_type_feature);
+  }
+
+ private:
+  TypeKindInfo(bool internal_product_mode_only,
+               std::optional<LanguageFeature> type_feature,
+               std::optional<LanguageFeature> disabling_type_feature)
+      : internal_product_mode_only(internal_product_mode_only) {
+    ABSL_CHECK(!(type_feature.has_value() &&  // Crash OK
+            disabling_type_feature.has_value()))
+        << "Only one of type_feature or disabling_type_feature should be set.";
+    this->type_feature = type_feature;
+    this->disabling_type_feature = disabling_type_feature;
+  }
 };
 
 const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
   static auto result = new std::map<TypeKind, TypeKindInfo>{
-      {TYPE_INT32, {true}},
-      {TYPE_UINT32, {true}},
-      {TYPE_INT64, {}},
-      {TYPE_UINT64, {true}},
-      {TYPE_BOOL, {}},
-      {TYPE_FLOAT, {true}},
-      {TYPE_DOUBLE, {}},
-      {TYPE_BYTES, {}},
-      {TYPE_STRING, {}},
-      {TYPE_DATE, {}},
-      {TYPE_TIMESTAMP, {}},
-      {TYPE_TIME, {false, FEATURE_V_1_2_CIVIL_TIME}},
-      {TYPE_DATETIME, {false, FEATURE_V_1_2_CIVIL_TIME}},
-      {TYPE_INTERVAL, {false, FEATURE_INTERVAL_TYPE}},
-      {TYPE_GEOGRAPHY, {false, FEATURE_GEOGRAPHY}},
-      {TYPE_NUMERIC, {false, FEATURE_NUMERIC_TYPE}},
-      {TYPE_BIGNUMERIC, {false, FEATURE_BIGNUMERIC_TYPE}},
-      {TYPE_JSON, {false, FEATURE_JSON_TYPE}},
+      {TYPE_INT32, TypeKindInfo::BuildInternalOnly()},
+      {TYPE_UINT32, TypeKindInfo::BuildInternalOnly()},
+      {TYPE_INT64, TypeKindInfo::Build()},
+      {TYPE_UINT64, TypeKindInfo::BuildInternalOnly()},
+      {TYPE_BOOL, TypeKindInfo::Build()},
+      {TYPE_FLOAT, TypeKindInfo::BuildWithDisablingTypeFeature(
+                       FEATURE_V_1_4_DISABLE_FLOAT32)},
+      {TYPE_DOUBLE, TypeKindInfo::Build()},
+      {TYPE_BYTES, TypeKindInfo::Build()},
+      {TYPE_STRING, TypeKindInfo::Build()},
+      {TYPE_DATE, TypeKindInfo::Build()},
+      {TYPE_TIMESTAMP, TypeKindInfo::Build()},
+      {TYPE_TIME, TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
+      {TYPE_DATETIME,
+       TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_2_CIVIL_TIME)},
+      {TYPE_INTERVAL,
+       TypeKindInfo::BuildWithTypeFeature(FEATURE_INTERVAL_TYPE)},
+      {TYPE_GEOGRAPHY, TypeKindInfo::BuildWithTypeFeature(FEATURE_GEOGRAPHY)},
+      {TYPE_NUMERIC, TypeKindInfo::BuildWithTypeFeature(FEATURE_NUMERIC_TYPE)},
+      {TYPE_BIGNUMERIC,
+       TypeKindInfo::BuildWithTypeFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {TYPE_JSON, TypeKindInfo::BuildWithTypeFeature(FEATURE_JSON_TYPE)},
+      {TYPE_TOKENLIST,
+       TypeKindInfo::BuildWithTypeFeature(FEATURE_TOKENIZED_SEARCH)},
   };
   return *result;
 }
@@ -175,6 +226,7 @@ struct TypeInfo {
   bool internal_product_mode_only = false;
   std::optional<LanguageFeature> type_feature;
   std::optional<LanguageFeature> alias_feature;
+  std::optional<LanguageFeature> disabling_type_feature;
 };
 
 // A map joining SimpleTypeNameInfoMap and SimpleTypeKindInfoMap.
@@ -195,7 +247,8 @@ std::map<absl::string_view, TypeInfo>* BuildSimpleTypeInfoMap() {
         TypeInfo{type_kind,
                  type_name_info.internal_product_mode_only ||
                      type_kind_info.internal_product_mode_only,
-                 type_kind_info.type_feature, type_name_info.alias_feature});
+                 type_kind_info.type_feature, type_name_info.alias_feature,
+                 type_kind_info.disabling_type_feature});
   }
   return result;
 }
@@ -226,6 +279,10 @@ std::string GetJsonString(const ValueContent& value) {
 
 const IntervalValue& GetIntervalValue(const ValueContent& value) {
   return value.GetAs<internal::IntervalRef*>()->value();
+}
+
+const tokens::TokenList& GetTokenListValue(const ValueContent& value) {
+  return value.GetAs<internal::TokenListRef*>()->value();
 }
 
 std::string AddTypePrefix(absl::string_view value, const Type* type,
@@ -260,8 +317,7 @@ SimpleType::SimpleType(const TypeFactory* factory, TypeKind kind)
   ABSL_CHECK(IsSimpleType(kind)) << kind;
 }
 
-SimpleType::~SimpleType() {
-}
+SimpleType::~SimpleType() = default;
 
 bool SimpleType::IsSupportedType(
     const LanguageOptions& language_options) const {
@@ -279,7 +335,12 @@ bool SimpleType::IsSupportedType(
   if (info.type_feature.has_value() &&
       !language_options.LanguageFeatureEnabled(info.type_feature.value())) {
     return false;
+  } else if (info.disabling_type_feature.has_value() &&
+             language_options.LanguageFeatureEnabled(
+                 *info.disabling_type_feature)) {
+    return false;
   }
+
   return true;
 }
 
@@ -295,13 +356,15 @@ absl::Status SimpleType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   return absl::OkStatus();
 }
 
-std::string SimpleType::TypeName(ProductMode mode) const {
-  return TypeKindToString(kind(), mode);
+std::string SimpleType::TypeName(ProductMode mode,
+                                 bool use_external_float32) const {
+  return TypeKindToString(kind(), mode, use_external_float32);
 }
 
 absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
-    const TypeModifiers& type_modifiers, ProductMode mode) const {
-  std::string result_type_name = TypeName(mode);
+    const TypeModifiers& type_modifiers, ProductMode mode,
+    bool use_external_float32) const {
+  std::string result_type_name = TypeName(mode, use_external_float32);
   const TypeParameters& type_params = type_modifiers.type_parameters();
   // Prepares string for type parameters to append to type name.
   if (!type_params.IsEmpty()) {
@@ -350,7 +413,7 @@ absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
 
 TypeKind SimpleType::GetTypeKindIfSimple(
     absl::string_view type_name, ProductMode mode,
-    const LanguageOptions::LanguageFeatureSet* language_features) {
+    const LanguageOptions::LanguageFeatureSet* enabled_language_features) {
   static const std::map<absl::string_view, TypeInfo>* type_map =
       BuildSimpleTypeInfoMap();
   const TypeInfo* type_info =
@@ -361,13 +424,17 @@ TypeKind SimpleType::GetTypeKindIfSimple(
   if (mode == PRODUCT_EXTERNAL && type_info->internal_product_mode_only) {
     return TYPE_UNKNOWN;
   }
-  if (language_features != nullptr) {
+  if (enabled_language_features != nullptr) {
     if (type_info->type_feature.has_value() &&
-        !language_features->contains(type_info->type_feature.value())) {
+        !enabled_language_features->contains(*type_info->type_feature)) {
+      return TYPE_UNKNOWN;
+    } else if (type_info->disabling_type_feature.has_value() &&
+               enabled_language_features->contains(
+                   *type_info->disabling_type_feature)) {
       return TYPE_UNKNOWN;
     }
     if (type_info->alias_feature.has_value() &&
-        !language_features->contains(type_info->alias_feature.value())) {
+        !enabled_language_features->contains(*type_info->alias_feature)) {
       return TYPE_UNKNOWN;
     }
   }
@@ -377,8 +444,7 @@ TypeKind SimpleType::GetTypeKindIfSimple(
 bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
                                       const Type** no_grouping_type) const {
   const bool supports_grouping =
-      !this->IsGeography() &&
-      !this->IsJson() &&
+      !this->IsGeography() && !this->IsJson() && !this->IsTokenList() &&
       !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
                                        FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {
@@ -408,6 +474,9 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
       break;
     case TYPE_JSON:
       from.GetAs<internal::JSONRef*>()->Ref();
+      break;
+    case TYPE_TOKENLIST:
+      from.GetAs<internal::TokenListRef*>()->Ref();
       break;
     default:
       break;
@@ -442,6 +511,9 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
     case TYPE_JSON:
       value.GetAs<internal::JSONRef*>()->Unref();
       return;
+    case TYPE_TOKENLIST:
+      value.GetAs<internal::TokenListRef*>()->Unref();
+      return;
     default:
       return;
   }
@@ -465,6 +537,8 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
       return sizeof(internal::BigNumericRef);
     case TYPE_JSON:
       return value.GetAs<internal::JSONRef*>()->physical_byte_size();
+    case TYPE_TOKENLIST:
+      return value.GetAs<internal::TokenListRef*>()->physical_byte_size();
     default:
       return 0;
   }
@@ -473,6 +547,15 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
 absl::HashState SimpleType::HashTypeParameter(absl::HashState state) const {
   return state;  // Simple types don't have parameters.
 }
+
+namespace {
+
+absl::HashState HashTokenList(const ValueContent& value,
+                              absl::HashState state) {
+  return absl::HashState::combine(std::move(state), GetTokenListValue(value));
+}
+
+}  // namespace
 
 absl::HashState SimpleType::HashValueContent(const ValueContent& value,
                                              absl::HashState state) const {
@@ -539,6 +622,8 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       return absl::HashState::combine(std::move(state), kGeographyHashCode);
     case TYPE_JSON:
       return absl::HashState::combine(std::move(state), GetJsonString(value));
+    case TYPE_TOKENLIST:
+      return HashTokenList(value, std::move(state));
     default:
       ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();
       return state;
@@ -601,6 +686,8 @@ bool SimpleType::ValueContentEquals(
     case TYPE_JSON: {
       return GetJsonString(x) == GetJsonString(y);
     }
+    case TYPE_TOKENLIST:
+      return GetTokenListValue(x).EquivalentTo(GetTokenListValue(y));
     default:
       ABSL_LOG(FATAL) << "Unexpected simple type kind: " << kind();
   }
@@ -666,6 +753,74 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                   << DebugString();
       return false;
   }
+}
+
+// Formats 'token' into 'out'.
+void SimpleType::FormatTextToken(std::string& out,
+                                 const tokens::TextToken& token,
+                                 const FormatValueContentOptions& options) {
+  absl::StrAppendFormat(&out, "{text: '%s', is_display_only: true}",
+                        absl::Utf8SafeCEscape(token.text()));
+}
+
+std::string SimpleType::FormatTokenList(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  if (options.mode != FormatValueContentOptions::Mode::kDebug) {
+    // TOKENLIST doesn't have literals.
+    // TODO: generate expression with standard constructor
+    // functions when available.
+    return internal::GetCastExpressionString(
+        ToBytesLiteral(GetTokenListValue(value).GetBytes()), this,
+        options.product_mode);
+  }
+  std::vector<std::string> lines = FormatTokenLines(value, options);
+  if (lines.empty()) lines = {"<empty>"};
+  return absl::StrJoin(lines, "\n");
+}
+
+std::vector<std::string> SimpleType::FormatTokenLines(
+    const ValueContent& value, const FormatValueContentOptions& options) {
+  auto iter = GetTokenListValue(value).GetIterator();
+  if (!iter.ok()) {
+    return {iter.status().ToString()};
+  }
+  tokens::TextToken buf, cur;
+  int run_length = 0;
+  std::vector<std::string> lines;
+  auto add_token_line = [&](const tokens::TextToken& token, int run_length) {
+    std::string out;
+    FormatTextToken(out, token, options);
+    if (run_length > 1) absl::StrAppend(&out, " (", run_length, " times)");
+    lines.push_back(std::move(out));
+  };
+
+  while (!iter->done()) {
+    if (!iter->Next(cur).ok()) {
+      return {iter.status().ToString()};
+    }
+
+    if (!options.collapse_identical_tokens) {
+      std::string tok_str;
+      FormatTextToken(tok_str, cur, options);
+      lines.push_back(std::move(tok_str));
+    } else {
+      if (buf == cur) {
+        ++run_length;
+      } else {
+        if (run_length > 0) {
+          add_token_line(buf, run_length);
+        }
+        buf = std::move(cur);
+        run_length = 1;
+      }
+    }
+  }
+  if (options.collapse_identical_tokens && run_length > 0) {
+    // As long as there was at least one token, buf will contain a token that
+    // has yet to be printed.
+    add_token_line(buf, run_length);
+  }
+  return lines;
 }
 
 std::string SimpleType::FormatValueContent(
@@ -737,7 +892,7 @@ std::string SimpleType::FormatValueContent(
       if (!std::isfinite(float_value)) {
         return internal::GetCastExpressionString(
             ToStringLiteral(RoundTripFloatToString(float_value)), this,
-            options.product_mode);
+            options.product_mode, options.use_external_float32);
       } else {
         std::string s = RoundTripFloatToString(float_value);
         // Make sure that doubles always print with a . or an 'e' so they
@@ -748,7 +903,8 @@ std::string SimpleType::FormatValueContent(
         }
         return options.as_literal() ? s
                                     : internal::GetCastExpressionString(
-                                          s, this, options.product_mode);
+                                          s, this, options.product_mode,
+                                          options.use_external_float32);
       }
     }
     case TYPE_DOUBLE: {
@@ -799,6 +955,8 @@ std::string SimpleType::FormatValueContent(
                  ? absl::StrCat("JSON ", ToStringLiteral(s))
                  : s;
     }
+    case TYPE_TOKENLIST:
+      return FormatTokenList(value, options);
     default:
       ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();
       return "<Invalid simple type's value>";
@@ -867,6 +1025,9 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
     case TYPE_INTERVAL:
       value_proto->set_interval_value(
           GetIntervalValue(value).SerializeAsBytes());
+      break;
+    case TYPE_TOKENLIST:
+      value_proto->set_tokenlist_value(GetTokenListValue(value).GetBytes());
       break;
     default:
       return absl::Status(absl::StatusCode::kInternal,
@@ -1014,10 +1175,18 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       if (!value_proto.has_interval_value()) {
         return TypeMismatchError(value_proto);
       }
-      ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval_v,
-                       IntervalValue::DeserializeFromBytes(
-                           value_proto.interval_value()));
+      ZETASQL_ASSIGN_OR_RETURN(
+          IntervalValue interval_v,
+          IntervalValue::DeserializeFromBytes(value_proto.interval_value()));
       value->set(new internal::IntervalRef(interval_v));
+      break;
+    }
+    case TYPE_TOKENLIST: {
+      if (!value_proto.has_tokenlist_value()) {
+        return TypeMismatchError(value_proto);
+      }
+      value->set(new internal::TokenListRef(
+          tokens::TokenList::FromBytes(value_proto.tokenlist_value())));
       break;
     }
     default:
@@ -1107,7 +1276,7 @@ absl::StatusOr<TypeParameters> SimpleType::ValidateAndResolveTypeParameters(
 }
 
 absl::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParameters(
-    const std::vector<TypeParameterValue>& type_parameter_values,
+    absl::Span<const TypeParameterValue> type_parameter_values,
     ProductMode mode) const {
   if (type_parameter_values.size() != 1) {
     return MakeSqlError() << ShortTypeName(mode)
@@ -1137,7 +1306,7 @@ absl::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParameters(
 
 absl::StatusOr<TypeParameters>
 SimpleType::ResolveNumericBignumericTypeParameters(
-    const std::vector<TypeParameterValue>& type_parameter_values,
+    absl::Span<const TypeParameterValue> type_parameter_values,
     ProductMode mode) const {
   if (type_parameter_values.size() > 2) {
     return MakeSqlError() << ShortTypeName(mode)

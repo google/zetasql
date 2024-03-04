@@ -37,6 +37,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -151,20 +153,21 @@ std::string TableValuedFunction::DebugString() const {
 }
 
 std::string TableValuedFunction::GetTVFSignatureErrorMessage(
-    const std::string& tvf_name_string,
+    absl::string_view tvf_name_string,
     const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
-    const LanguageOptions& language_options) const {
-  // Merge of tvf_mismatch_message and mismatch_message should be considered
-  // when show_function_signature_mismatch_details is enabled by default.
-  if (!signature_match_result.tvf_mismatch_message().empty()) {
+    const LanguageOptions& language_options,
+    bool show_function_signature_mismatch_details) const {
+  // bad_argument_index is set for some specific tvf mismatch cases.
+  if (signature_match_result.bad_argument_index() != -1) {
     // TODO: Update this error message when we support more than one
     // TVF signature.
-    return absl::StrCat(signature_match_result.tvf_mismatch_message(), " of ",
+    return absl::StrCat(signature_match_result.mismatch_message(), " of ",
                         GetSupportedSignaturesUserFacingText(
                             language_options,
                             /*print_template_and_name_details=*/false));
-  } else if (!signature_match_result.mismatch_message().empty()) {
+  } else if (show_function_signature_mismatch_details &&
+             !signature_match_result.mismatch_message().empty()) {
     return absl::StrCat(
         Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
             tvf_name_string, input_arg_types, language_options.product_mode(),
@@ -643,7 +646,7 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize(
 absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::
     IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
         bool isTemplated,
-        const std::vector<TVFSchemaColumn>& extra_columns) const {
+        absl::Span<const TVFSchemaColumn> extra_columns) const {
   ZETASQL_RET_CHECK(isTemplated) << "Does not support non-templated argument type";
 
   absl::flat_hash_set<std::string> name_set;

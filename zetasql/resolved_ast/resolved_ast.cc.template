@@ -569,7 +569,7 @@ absl::StatusOr<const Constant*> RestoreFromImpl(
   if (proto.name().empty()) {
     return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
            << "Tried to parse function with blank name: "
-           << proto.DebugString();
+           << absl::StrCat(proto);
   }
 
   const Constant* constant;
@@ -596,7 +596,7 @@ absl::StatusOr<const Function*> RestoreFromImpl(
       absl::StrSplit(proto.name(), ":");
   if (group_and_name.empty()) {
     return zetasql_base::InvalidArgumentErrorBuilder(zetasql_base::SourceLocation::current())
-        << "Tried to parse function with blank name: " << proto.DebugString();
+        << "Tried to parse function with blank name: " << absl::StrCat(proto);
   }
 
   const Function* func;
@@ -864,15 +864,8 @@ static absl::Status SaveToImpl(
   for (const TVFInputArgumentType& arg : tvf_signature->input_arguments()) {
     TVFArgumentProto* arg_proto = proto->add_argument();
     if (arg.is_relation()) {
-      for (const TVFRelation::Column& col : arg.relation().columns()) {
-        TVFRelationColumnProto* col_proto =
-            arg_proto->mutable_relation_argument()->add_column();
-        col_proto->set_name(col.name);
-        ZETASQL_RETURN_IF_ERROR(SaveToImpl(
-            col.type, file_descriptor_set_map, col_proto->mutable_type()));
-      }
-      arg_proto->mutable_relation_argument()->set_is_value_table(
-          arg.relation().is_value_table());
+      ZETASQL_RETURN_IF_ERROR(arg.relation().Serialize(
+          file_descriptor_set_map, arg_proto->mutable_relation_argument()));
     } else if (arg.is_model()) {
       TVFModelProto* model_proto = arg_proto->mutable_model_argument();
       model_proto->set_name(arg.model().model()->Name());
@@ -902,21 +895,8 @@ static absl::Status SaveToImpl(
       }
     }
   }
-  TVFRelationProto* output_schema_proto = proto->mutable_output_schema();
-  for (const TVFRelation::Column& col :
-           tvf_signature->result_schema().columns()) {
-    TVFRelationColumnProto* col_proto = output_schema_proto->add_column();
-    col_proto->set_name(col.name);
-    col_proto->set_is_pseudo_column(col.is_pseudo_column);
-    ZETASQL_RETURN_IF_ERROR(SaveToImpl(
-        col.type, file_descriptor_set_map, col_proto->mutable_type()));
-    if (col.annotation_map != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(
-          col.annotation_map->Serialize(col_proto->mutable_annotation_map()));
-    }
-  }
-  output_schema_proto->set_is_value_table(
-      tvf_signature->result_schema().is_value_table());
+  ZETASQL_RETURN_IF_ERROR(tvf_signature->result_schema().Serialize(
+      file_descriptor_set_map, proto->mutable_output_schema()));
 
   for (const FreestandingDeprecationWarning& warning :
            tvf_signature->options().additional_deprecation_warnings) {
@@ -935,21 +915,10 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
   input_args.reserve(proto.argument_size());
   for (const TVFArgumentProto& argument : proto.argument()) {
     if (argument.has_relation_argument()) {
-      const TVFRelationProto& relation_arg = argument.relation_argument();
-      std::vector<TVFRelation::Column> cols;
-      cols.reserve(relation_arg.column_size());
-      const Type* type = nullptr;
-      for (const TVFRelationColumnProto& col_proto : relation_arg.column()) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            type, RestoreFromImpl<const Type*>(col_proto.type(), params));
-        cols.emplace_back(TVFRelation::Column(col_proto.name(), type));
-      }
-      if (relation_arg.is_value_table()) {
-        input_args.push_back(TVFInputArgumentType(
-            TVFRelation::ValueTable(type)));
-      } else {
-        input_args.push_back(TVFInputArgumentType(TVFRelation(cols)));
-      }
+      ZETASQL_ASSIGN_OR_RETURN(TVFRelation r, TVFRelation::Deserialize(
+          argument.relation_argument(),
+          TypeDeserializer(params.type_factory, params.pools)));
+      input_args.push_back(TVFInputArgumentType(r));
     } else if (argument.has_model_argument()) {
       const Model* model;
       const std::vector<std::string> path = absl::StrSplit(
@@ -986,22 +955,9 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
       }
     }
   }
-  std::vector<TVFRelation::Column> cols;
-  cols.reserve(proto.output_schema().column_size());
-  for (const TVFRelationColumnProto& col_proto :
-       proto.output_schema().column()) {
-    const Type* type = nullptr;
-    const AnnotationMap* annotation_map = nullptr;
-    ZETASQL_ASSIGN_OR_RETURN(
-        type, RestoreFromImpl<const Type*>(col_proto.type(), params));
-    if (col_proto.has_annotation_map()) {
-      ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeAnnotationMap(
-          col_proto.annotation_map(), &annotation_map));
-    }
-    cols.emplace_back(TVFRelation::Column(col_proto.name(),
-                                          {type, annotation_map},
-                                          col_proto.is_pseudo_column()));
-  }
+  ZETASQL_ASSIGN_OR_RETURN(TVFRelation table_schema, TVFRelation::Deserialize(
+      proto.output_schema(),
+      TypeDeserializer(params.type_factory, params.pools)));
 
   TVFSignatureOptions options;
   for (const FreestandingDeprecationWarning& warning :
@@ -1009,17 +965,8 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
     options.additional_deprecation_warnings.push_back(warning);
   }
 
-  if (proto.output_schema().is_value_table()) {
-    AnnotatedType annotated_type = cols[0].annotated_type();
-    cols.erase(cols.begin());
-    ZETASQL_ASSIGN_OR_RETURN(TVFRelation table_schema,
-                     TVFRelation::ValueTable(annotated_type, cols));
-    return std::shared_ptr<TVFSignature>(
-        new TVFSignature(input_args, std::move(table_schema), options));
-  } else {
-    return std::shared_ptr<TVFSignature>(
-        new TVFSignature(input_args, TVFRelation(cols), options));
-  }
+  return std::shared_ptr<TVFSignature>(
+      new TVFSignature(input_args, std::move(table_schema), options));
 }
 
 static absl::Status SaveToImpl(

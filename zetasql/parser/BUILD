@@ -47,6 +47,8 @@ py_binary(
     srcs = ["gen_extra_files.py"],
     main = "gen_extra_files.py",
     python_version = "PY3",
+    deps = [
+    ],
 )
 
 genrule(
@@ -186,8 +188,6 @@ cc_library(
         "ast_node_internal.h",
         "bison_parser.cc",
         "bison_parser.h",
-        "flex_tokenizer.cc",
-        "flex_tokenizer.h",
         "parser.cc",
         "unparser.cc",
     ],
@@ -210,10 +210,10 @@ cc_library(
         ":bison_parser_generated_lib",
         ":bison_parser_mode",
         ":flex_istream",
+        ":flex_tokenizer",
         ":keywords",
-        ":location",
         ":parse_tree",
-        ":tokenizer",
+        ":token_disambiguator",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -227,6 +227,8 @@ cc_library(
         "//zetasql/common:thread_stack",
         "//zetasql/common:timer_util",
         "//zetasql/common:utf_util",
+        "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/parser/macros:macro_expander",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:error_location_cc_proto",
         "//zetasql/public:id_string",
@@ -262,24 +264,74 @@ cc_library(
     ],
 )
 
-cc_test(
-    name = "flex_tokenizer_test",
-    srcs = [
-        "flex_tokenizer.h",
-        "flex_tokenizer_test.cc",
-    ],
+cc_library(
+    name = "flex_tokenizer",
+    srcs = ["flex_tokenizer.cc"],
+    hdrs = ["flex_tokenizer.h"],
     deps = [
-        ":bison_parser_generated_lib",
-        ":location",
-        ":parser",
-        ":tokenizer",
+        ":bison_parser_generated_lib",  # buildcleaner: keep
+        ":bison_parser_mode",
+        ":bison_token_codes",
+        ":flex_istream",
+        ":keywords",
         "//bazel:flex",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/parser:bison_parser_mode",
-        "//zetasql/parser:bison_token_codes",
+        "//zetasql/base:check",
+        "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "token_disambiguator",
+    srcs = ["token_disambiguator.cc"],
+    hdrs = ["token_disambiguator.h"],
+    deps = [
+        ":bison_parser_mode",
+        ":bison_token_codes",
+        ":flex_tokenizer",
+        "//zetasql/base:arena",
+        "//zetasql/base:check",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/parser/macros:flex_token_provider",
+        "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/parser/macros:macro_expander",
+        "//zetasql/parser/macros:token_with_location",
+        "//zetasql/public:error_helpers",
+        "//zetasql/public:language_options",
+        "//zetasql/public:parse_location",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "flex_tokenizer_test",
+    srcs = [
+        "flex_tokenizer_test.cc",
+    ],
+    deps = [
+        ":bison_parser_mode",
+        ":bison_token_codes",
+        ":flex_tokenizer",
+        ":token_disambiguator",
+        "//zetasql/base:check",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:language_options",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -300,16 +352,6 @@ cc_test(
         ":parse_tree_serializer",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-cc_library(
-    name = "tokenizer",
-    hdrs = ["tokenizer.h"],
-    deps = [
-        ":location",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -346,9 +388,7 @@ cc_library(
     deps = [
         ":bison_parser_mode",
         ":keywords",
-        ":location",
         ":parse_tree",
-        ":tokenizer",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -358,6 +398,8 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/common:errors",
         "//zetasql/common:timer_util",
+        "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:id_string",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
@@ -370,6 +412,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -415,6 +458,7 @@ cc_library(
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:status",
+        "//zetasql/parser/macros:macro_catalog",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public/proto:logging_cc_proto",
@@ -623,6 +667,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -638,12 +683,17 @@ cc_library(
         "//zetasql/public:catalog",
         "//zetasql/public:function",
         "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:strings",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public/types",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -652,6 +702,7 @@ cc_test(
     srcs = ["deidentify_test.cc"],
     deps = [
         ":deidentify",
+        ":parse_tree",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
     ],
@@ -671,16 +722,8 @@ genlex(
 genyacc(
     name = "bison_parser_generated",
     src = "bison_parser.y",
-    extra_outs = [
-        "location.hh",
-    ],
     header_out = "bison_parser.bison.h",
     source_out = "bison_parser.bison.cc",
-)
-
-cc_library(
-    name = "location",
-    hdrs = ["location.hh"],
 )
 
 [gen_parser_test(

@@ -128,7 +128,8 @@ CreateExternalSchemaStatement [0-73] [CREATE EXTERNAL..., c="def")]
         Identifier(b) [62-63] [b]
     OptionsEntry [65-72] [c="def"]
       Identifier(c) [65-66] [c]
-      StringLiteral("def") [67-72] ["def"]
+      StringLiteral [67-72] ["def"]
+        StringLiteralComponent("def") [67-72] ["def"]
 --
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz
 OPTIONS(a = b, c = "def")
@@ -206,4 +207,3 @@ CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar
 ERROR: Syntax error: Expected keyword OPTIONS but got end of statement [at 1:47]
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar
                                               ^
-==

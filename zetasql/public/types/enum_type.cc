@@ -37,6 +37,7 @@
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
@@ -135,7 +136,7 @@ std::string EnumType::TypeName() const {
   return absl::StrCat(catalog_name_path, ToIdentifierLiteral(RawEnumName()));
 }
 
-std::string EnumType::ShortTypeName(ProductMode mode_unused) const {
+std::string EnumType::ShortTypeName() const {
   // Special case for built-in zetasql enums. Since ShortTypeName is used in
   // the user facing error messages, we need to make these enum names look
   // as special language elements.
@@ -201,7 +202,7 @@ bool EnumType::IsValidEnumValue(
   return true;
 }
 
-bool EnumType::FindNumber(const std::string& name, int* number) const {
+bool EnumType::FindNumber(absl::string_view name, int* number) const {
   const google::protobuf::EnumValueDescriptor* value_descr =
       enum_descriptor_->FindValueByName(name);
   if (!IsValidEnumValue(value_descr)) {

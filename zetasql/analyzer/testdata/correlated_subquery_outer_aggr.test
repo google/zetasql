@@ -396,7 +396,7 @@ select tt.TestEnum, (select count(*) from tt.KitchenSink.repeated_int32_val)
 from TestTable tt
 group by 1;
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 1:43]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 1:43]
 select tt.TestEnum, (select count(*) from tt.KitchenSink.repeated_int32_val)
                                           ^
 ==
@@ -406,7 +406,7 @@ select distinct tt.TestEnum
 from TestTable tt
 order by (select count(*) from tt.KitchenSink.repeated_int32_val)
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 3:32]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 3:32]
 order by (select count(*) from tt.KitchenSink.repeated_int32_val)
                                ^
 ==
@@ -418,7 +418,7 @@ select sum(tt.KitchenSink.int32_val) +
 from TestTable tt
 where tt.KitchenSink.bool_val = true;
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 3:14]
+ERROR: FROM clause expression references tt.KitchenSink.nested_repeated_value which is neither grouped nor aggregated [at 3:14]
         FROM tt.KitchenSink.nested_repeated_value)
              ^
 ==
@@ -435,7 +435,7 @@ select tt.key as key, IF(EXISTS(select *
 from TestTable tt
 group by tt.key
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 2:38]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 2:38]
                                 from tt.KitchenSink.repeated_int32_val),
                                      ^
 ==
@@ -894,7 +894,6 @@ GROUP BY tt.struct1
          ^
 ==
 
-# TODO: the error message is misleading, 'tt' is not an array.
 SELECT tt.struct1
 from (select struct<sub_struct_1 struct <a int64, b int64>, sub_struct_2 struct<a int64, b int64>>((1, 2), (3, 4))
         as struct1) tt
@@ -902,7 +901,7 @@ GROUP BY tt.struct1
 HAVING (select count(*) from tt.struct1.sub_struct_1) > 0
 
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 5:30]
+ERROR: Values referenced in FROM clause must be arrays. tt.struct1.sub_struct_1 has type STRUCT<a INT64, b INT64> [at 5:30]
 HAVING (select count(*) from tt.struct1.sub_struct_1) > 0
                              ^
 ==
@@ -939,7 +938,7 @@ from TestTable tt
 GROUP BY tt.TestEnum
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:30]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:30]
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
                              ^
 ==
@@ -1053,7 +1052,7 @@ from TestTable tt
 GROUP BY tt.TestEnum
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:30]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:30]
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
                              ^
 ==
@@ -1064,7 +1063,7 @@ from TestTable tt
 GROUP BY tt.TestEnum, (select count(*) from tt.KitchenSink.repeated_int32_val)
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:30]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:30]
 HAVING (select count(*) from tt.KitchenSink.repeated_int32_val) > 0
                              ^
 ==
@@ -1195,7 +1194,7 @@ from TestTable tt
 GROUP BY tt.TestEnum
 ORDER BY (select count(*) from tt.KitchenSink.repeated_int32_val) DESC
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:32]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:32]
 ORDER BY (select count(*) from tt.KitchenSink.repeated_int32_val) DESC
                                ^
 ==
@@ -1512,7 +1511,7 @@ select tt.TestEnum,
 from TestTable tt
 group by 1;
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 2:38]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 2:38]
        (select (select count(*) from tt.KitchenSink.repeated_int32_val))
                                      ^
 ==
@@ -1871,7 +1870,7 @@ from TestTable tt
 GROUP BY tt.TestEnum
 HAVING (select (select count(*) from tt.KitchenSink.repeated_int32_val)) > 0
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:38]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:38]
 HAVING (select (select count(*) from tt.KitchenSink.repeated_int32_val)) > 0
                                      ^
 ==
@@ -2016,7 +2015,7 @@ from TestTable tt
 GROUP BY tt.TestEnum
 ORDER BY (select (select count(*) from tt.KitchenSink.repeated_int32_val))
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 4:40]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 4:40]
 ORDER BY (select (select count(*) from tt.KitchenSink.repeated_int32_val))
                                        ^
 ==
@@ -4678,9 +4677,10 @@ QueryStmt
         |   +-right_scan=
         |   | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   +-has_using=TRUE
         +-group_by_list=
           +-key#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
 --
@@ -4735,9 +4735,10 @@ QueryStmt
         |   +-right_scan=
         |   | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   +-has_using=TRUE
         +-group_by_list=
           +-key#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
 --

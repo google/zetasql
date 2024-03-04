@@ -15,29 +15,38 @@
 
 #include "zetasql/public/functions/json.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stack>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "zetasql/common/errors.h"
-#include "zetasql/common/int_ops_util.h"
 #include "zetasql/public/functions/convert.h"
 #include "zetasql/public/functions/convert_string.h"
+#include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/value.h"
 #include "absl/base/optimization.h"
+#include "absl/functional/function_ref.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/lossless_convert.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -337,21 +346,84 @@ absl::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
 }
 
 absl::StatusOr<int64_t> ConvertJsonToInt64(JSONValueConstRef input) {
+  int64_t output;
   if (input.IsInt64()) {
     return input.GetInt64();
   }
-
-  // There must be no fractional part if provided double as input
   if (input.IsDouble()) {
-    double input_as_double = input.GetDouble();
-    int64_t output;
-    if (LossLessConvertDoubleToInt64(input_as_double, &output)) {
+    if (zetasql_base::LosslessConvert(input.GetDouble(), &output)) {
       return output;
     }
-    return MakeEvalError() << "The provided JSON number: " << input_as_double
-                           << " cannot be converted to an integer";
+    return MakeEvalError() << "The provided JSON number: " << input.GetDouble()
+                           << " cannot be converted to an int64";
   }
+  return MakeEvalError() << "The provided JSON input is not an integer";
+}
 
+absl::StatusOr<int32_t> ConvertJsonToInt32(JSONValueConstRef input) {
+  int32_t output;
+  if (input.IsInt64()) {
+    if (zetasql_base::LosslessConvert(input.GetInt64(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetInt64()
+                           << " cannot be converted to an int32";
+  }
+  if (input.IsDouble()) {
+    if (zetasql_base::LosslessConvert(input.GetDouble(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetDouble()
+                           << " cannot be converted to an int32";
+  }
+  return MakeEvalError() << "The provided JSON input is not an integer";
+}
+
+absl::StatusOr<uint32_t> ConvertJsonToUint32(JSONValueConstRef input) {
+  uint32_t output;
+  if (input.IsUInt64()) {
+    if (zetasql_base::LosslessConvert(input.GetUInt64(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetUInt64()
+                           << " cannot be converted to an uint32";
+  }
+  if (input.IsInt64()) {
+    if (zetasql_base::LosslessConvert(input.GetInt64(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetInt64()
+                           << " cannot be converted to an uint32";
+  }
+  if (input.IsDouble()) {
+    if (zetasql_base::LosslessConvert(input.GetDouble(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetDouble()
+                           << " cannot be converted to an uint32";
+  }
+  return MakeEvalError() << "The provided JSON input is not an integer";
+}
+
+absl::StatusOr<uint64_t> ConvertJsonToUint64(JSONValueConstRef input) {
+  uint64_t output;
+  if (input.IsUInt64()) {
+    return input.GetUInt64();
+  }
+  if (input.IsInt64()) {
+    if (zetasql_base::LosslessConvert(input.GetInt64(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetInt64()
+                           << " cannot be converted to an uint64";
+  }
+  if (input.IsDouble()) {
+    if (zetasql_base::LosslessConvert(input.GetDouble(), &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input.GetDouble()
+                           << " cannot be converted to an uint64";
+  }
   return MakeEvalError() << "The provided JSON input is not an integer";
 }
 
@@ -372,6 +444,9 @@ absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input) {
 absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
                                            WideNumberMode wide_number_mode,
                                            ProductMode product_mode) {
+  std::string type_name =
+      product_mode == PRODUCT_EXTERNAL ? "FLOAT64" : "DOUBLE";
+
   if (input.IsDouble()) {
     return input.GetDouble();
   }
@@ -381,11 +456,9 @@ absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
     if (wide_number_mode == functions::WideNumberMode::kExact &&
         (value < kMinLosslessInt64ValueForJson ||
          value > kMaxLosslessInt64ValueForJson)) {
-      std::string function_name =
-          product_mode == PRODUCT_EXTERNAL ? "FLOAT64" : "DOUBLE";
       return MakeEvalError()
              << "JSON number: " << value << " cannot be converted to "
-             << function_name << " without loss of precision";
+             << type_name << " without loss of precision";
     }
     return double{static_cast<double>(value)};
   }
@@ -393,16 +466,130 @@ absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
     uint64_t value = input.GetUInt64();
     if (wide_number_mode == functions::WideNumberMode::kExact &&
         value > static_cast<uint64_t>(kMaxLosslessInt64ValueForJson)) {
-      std::string function_name =
-          product_mode == PRODUCT_EXTERNAL ? "FLOAT64" : "DOUBLE";
       return MakeEvalError()
              << "JSON number: " << value << " cannot be converted to "
-             << function_name << " without loss of precision";
+             << type_name << " without loss of precision";
     }
     return double{static_cast<double>(value)};
   }
 
   return MakeEvalError() << "The provided JSON input is not a number";
+}
+
+absl::StatusOr<float> ConvertJsonToFloat(JSONValueConstRef input,
+                                         WideNumberMode wide_number_mode,
+                                         ProductMode product_mode) {
+  std::string type_name =
+      product_mode == PRODUCT_EXTERNAL ? "FLOAT32" : "FLOAT";
+
+  float output;
+  if (input.IsDouble()) {
+    double value = input.GetDouble();
+    if (zetasql_base::LosslessConvert(value, &output)) {
+      return output;
+    }
+    if (wide_number_mode == functions::WideNumberMode::kExact) {
+      return MakeEvalError()
+             << "JSON number: " << value << " cannot be converted to "
+             << type_name << " without loss of precision";
+    }
+    // A static_cast can result in +/-INF, so check if input is in range.
+    absl::Status status;
+    if (!Convert(value, &output, &status)) {
+      return MakeEvalError() << "JSON number: " << value
+                             << " cannot be converted to " << type_name;
+    }
+    return output;
+  }
+  if (input.IsInt64()) {
+    int64_t value = input.GetInt64();
+    if (zetasql_base::LosslessConvert(value, &output)) {
+      return output;
+    }
+    if (wide_number_mode == functions::WideNumberMode::kExact) {
+      return MakeEvalError()
+             << "JSON number: " << value << " cannot be converted to "
+             << type_name << " without loss of precision";
+    }
+    return static_cast<float>(value);
+  }
+  if (input.IsUInt64()) {
+    uint64_t value = input.GetUInt64();
+    if (zetasql_base::LosslessConvert(value, &output)) {
+      return output;
+    }
+    if (wide_number_mode == functions::WideNumberMode::kExact) {
+      return MakeEvalError()
+             << "JSON number: " << value << " cannot be converted to "
+             << type_name << " without loss of precision";
+    }
+    return static_cast<float>(value);
+  }
+
+  return MakeEvalError() << "The provided JSON input is not a number";
+}
+
+template <typename T>
+absl::StatusOr<std::vector<T>> ConvertJsonToArray(
+    JSONValueConstRef input,
+    absl::FunctionRef<absl::StatusOr<T>(JSONValueConstRef)> converter) {
+  if (!input.IsArray()) {
+    return MakeEvalError() << "The provided JSON input is not an array";
+  }
+
+  std::vector<T> result;
+  result.reserve(input.GetArraySize());
+  for (int i = 0; i < input.GetArraySize(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(*std::back_inserter(result),
+                     converter(input.GetArrayElement(i)));
+  }
+  return result;
+}
+
+absl::StatusOr<std::vector<int64_t>> ConvertJsonToInt64Array(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<int64_t>(input, ConvertJsonToInt64);
+}
+
+absl::StatusOr<std::vector<int32_t>> ConvertJsonToInt32Array(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<int32_t>(input, ConvertJsonToInt32);
+}
+
+absl::StatusOr<std::vector<uint64_t>> ConvertJsonToUint64Array(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<uint64_t>(input, ConvertJsonToUint64);
+}
+
+absl::StatusOr<std::vector<uint32_t>> ConvertJsonToUint32Array(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<uint32_t>(input, ConvertJsonToUint32);
+}
+
+absl::StatusOr<std::vector<bool>> ConvertJsonToBoolArray(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<bool>(input, ConvertJsonToBool);
+}
+
+absl::StatusOr<std::vector<std::string>> ConvertJsonToStringArray(
+    JSONValueConstRef input) {
+  return ConvertJsonToArray<std::string>(input, ConvertJsonToString);
+}
+
+absl::StatusOr<std::vector<double>> ConvertJsonToDoubleArray(
+    JSONValueConstRef input, WideNumberMode mode, ProductMode product_mode) {
+  return ConvertJsonToArray<double>(
+      input, [mode, product_mode](JSONValueConstRef input) {
+        return ConvertJsonToDouble(input, mode, product_mode);
+      });
+}
+
+absl::StatusOr<std::vector<float>> ConvertJsonToFloatArray(
+    JSONValueConstRef input, WideNumberMode mode, ProductMode product_mode) {
+  return ConvertJsonToArray<float>(
+      input, [mode, product_mode](JSONValueConstRef input) {
+        return ConvertJsonToFloat(input, mode, product_mode);
+      });
 }
 
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
@@ -474,20 +661,20 @@ absl::StatusOr<std::optional<bool>> LaxConvertJsonToBool(
   return std::nullopt;
 }
 
-absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
-    JSONValueConstRef input) {
+template <typename T>
+absl::StatusOr<std::optional<T>> LaxConvertJsonToInt(JSONValueConstRef input) {
   if (input.IsBoolean()) {
     return input.GetBoolean() ? 1 : 0;
   } else if (input.IsInt64()) {
-    return input.GetInt64();
+    return ConvertNumericToNumeric<int64_t, T>(input.GetInt64());
   } else if (input.IsUInt64()) {
-    return ConvertNumericToNumeric<uint64_t, int64_t>(input.GetUInt64());
+    return ConvertNumericToNumeric<uint64_t, T>(input.GetUInt64());
   } else if (input.IsDouble()) {
-    return ConvertNumericToNumeric<double, int64_t>(input.GetDouble());
+    return ConvertNumericToNumeric<double, T>(input.GetDouble());
   } else if (input.IsString()) {
     BigNumericValue big_numeric_value;
     absl::Status status;
-    int64_t out;
+    T out;
     if (!StringToNumeric(input.GetString(), &big_numeric_value, &status) ||
         !Convert(big_numeric_value, &out, &status)) {
       return std::nullopt;
@@ -497,18 +684,50 @@ absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
   return std::nullopt;
 }
 
-absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
+absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
     JSONValueConstRef input) {
+  return LaxConvertJsonToInt<int64_t>(input);
+}
+
+absl::StatusOr<std::optional<int32_t>> LaxConvertJsonToInt32(
+    JSONValueConstRef input) {
+  return LaxConvertJsonToInt<int32_t>(input);
+}
+
+absl::StatusOr<std::optional<uint64_t>> LaxConvertJsonToUint64(
+    JSONValueConstRef input) {
+  return LaxConvertJsonToInt<uint64_t>(input);
+}
+
+absl::StatusOr<std::optional<uint32_t>> LaxConvertJsonToUint32(
+    JSONValueConstRef input) {
+  return LaxConvertJsonToInt<uint32_t>(input);
+}
+
+template <typename T>
+absl::StatusOr<std::optional<T>> LaxConvertJsonToFloat(
+    JSONValueConstRef input) {
+  // Note that unlike integers, we don't convert booleans into floats.
   if (input.IsInt64()) {
-    return ConvertNumericToNumeric<int64_t, double>(input.GetInt64());
+    return ConvertNumericToNumeric<int64_t, T>(input.GetInt64());
   } else if (input.IsUInt64()) {
-    return ConvertNumericToNumeric<uint64_t, double>(input.GetUInt64());
+    return ConvertNumericToNumeric<uint64_t, T>(input.GetUInt64());
   } else if (input.IsDouble()) {
-    return input.GetDouble();
+    return ConvertNumericToNumeric<double, T>(input.GetDouble());
   } else if (input.IsString()) {
-    return ConvertStringToNumeric<double>(input.GetString());
+    return ConvertStringToNumeric<T>(input.GetString());
   }
   return std::nullopt;
+}
+
+absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
+    JSONValueConstRef input) {
+  return LaxConvertJsonToFloat<double>(input);
+}
+
+absl::StatusOr<std::optional<float>> LaxConvertJsonToFloat32(
+    JSONValueConstRef input) {
+  return LaxConvertJsonToFloat<float>(input);
 }
 
 absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
@@ -525,6 +744,65 @@ absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
     return input.GetString();
   }
   return std::nullopt;
+}
+
+template <typename T>
+absl::StatusOr<std::optional<std::vector<std::optional<T>>>>
+LaxConvertJsonToArray(
+    JSONValueConstRef input,
+    absl::FunctionRef<absl::StatusOr<std::optional<T>>(JSONValueConstRef)>
+        converter) {
+  if (!input.IsArray()) {
+    return std::nullopt;
+  }
+
+  std::vector<std::optional<T>> result;
+  result.reserve(input.GetArraySize());
+  for (int i = 0; i < input.GetArraySize(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(*std::back_inserter(result),
+                     converter(input.GetArrayElement(i)));
+  }
+  return result;
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<bool>>>>
+LaxConvertJsonToBoolArray(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<bool>(input, LaxConvertJsonToBool);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<int64_t>>>>
+LaxConvertJsonToInt64Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<int64_t>(input, LaxConvertJsonToInt64);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<int32_t>>>>
+LaxConvertJsonToInt32Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<int32_t>(input, LaxConvertJsonToInt32);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<uint64_t>>>>
+LaxConvertJsonToUint64Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<uint64_t>(input, LaxConvertJsonToUint64);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<uint32_t>>>>
+LaxConvertJsonToUint32Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<uint32_t>(input, LaxConvertJsonToUint32);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<double>>>>
+LaxConvertJsonToFloat64Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<double>(input, LaxConvertJsonToFloat64);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<float>>>>
+LaxConvertJsonToFloat32Array(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<float>(input, LaxConvertJsonToFloat32);
+}
+
+absl::StatusOr<std::optional<std::vector<std::optional<std::string>>>>
+LaxConvertJsonToStringArray(JSONValueConstRef input) {
+  return LaxConvertJsonToArray<std::string>(input, LaxConvertJsonToString);
 }
 
 absl::StatusOr<JSONValue> JsonArray(absl::Span<const Value> args,
@@ -631,8 +909,8 @@ absl::StatusOr<bool> JsonRemove(JSONValueRef input,
         continue;
       }
     }
-    // Nonexistent member, invalid array index or type mismatch. Do nothing and
-    // exit.
+    // Nonexistent member, invalid array index or type mismatch. Do nothing
+    // and exit.
     return false;
   }
 
@@ -665,9 +943,9 @@ absl::Status JsonAddArrayElement(JSONValueRef input,
       // If the value is a NULL ARRAY ignore the operation.
       return absl::OkStatus();
     }
-    // If the value to be inserted is an array and add_each_element is true, the
-    // function adds each element separately instead of a single JSON array
-    // value.
+    // If the value to be inserted is an array and add_each_element is true,
+    // the function adds each element separately instead of a single JSON
+    // array value.
     elements_to_insert.reserve(value.num_elements());
     for (const Value& element : value.elements()) {
       ZETASQL_ASSIGN_OR_RETURN(
@@ -818,8 +1096,8 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
   // 1) If token in path exists in current JSON element, continue processing
   //    the JSON subtree with the next path token.
   // 2) If the member doesn't exist or the array index is out of bounds or
-  //    the current JSON element is null, then exit the loop. Auto-creation will
-  //    happen next.
+  //    the current JSON element is null, then exit the loop. Auto-creation
+  //    will happen next.
   // 3) If there is a type mismatch, this is not a valid Set operation so
   //    ignore operation and return early.
   for (; !path_iterator.End(); ++path_iterator) {
@@ -862,7 +1140,8 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
   }
 
   if (!path_iterator.End()) {
-    // Auto-creation will happen. Make sure it won't create an oversized array.
+    // Auto-creation will happen. Make sure it won't create an oversized
+    // array.
     size_t path_position = path_iterator.Depth() - 1;
     for (; !path_iterator.End(); ++path_iterator) {
       const StrictJSONPathToken& token = *path_iterator;
@@ -905,14 +1184,6 @@ absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
 
   input.Set(std::move(converted_value));
   return absl::OkStatus();
-}
-
-absl::Status JsonSet(JSONValueRef input, StrictJSONPathIterator& path_iterator,
-                     const Value& value,
-                     const LanguageOptions& language_options,
-                     bool canonicalize_zero) {
-  return JsonSet(input, path_iterator, value, /*create_if_missing==*/true,
-                 language_options, canonicalize_zero);
 }
 
 namespace {
@@ -1032,6 +1303,190 @@ absl::Status JsonStripNulls(JSONValueRef input,
   }
 
   return StripNullsImpl(input, include_arrays, options);
+}
+
+namespace {
+
+class JsonTreeWalker {
+ public:
+  JsonTreeWalker(JSONValueConstRef root, StrictJSONPathIterator* path_iterator);
+
+  // Processes matches for the provided JSONPath given the JSON tree.
+  absl::Status Process();
+
+  // Fetch the computed result. In order for the result to be valid must have
+  // called Process().
+  //
+  // Result only valid on first call.
+  JSONValue ConsumeResult() { return std::move(output_); }
+
+ private:
+  // Handles a matched JSONValue.
+  absl::Status HandleMatch(JSONValueConstRef json_value);
+
+  struct StackElement {
+   public:
+    // The current index of the JSONPathToken to process in the
+    // StrictJSONPathIterator. If `path_token_index` == path_iterator.size(),
+    // this indicates we have hit the end of the JSONPath and there are no
+    // tokens left to process.
+    int path_token_index;
+    // Matched subtree for a processed JSONPath prefix.
+    JSONValueConstRef subtree;
+  };
+
+  // If path_token referenced by `stack_element` contains an object
+  // key(string type), performs lax match operation in the `subtree`, updates
+  // `path_element_stack_`, and returns true. Returns false if path_token is
+  // not an object key which indicates no operation is performed.
+  bool MaybeProcessObjectKey(const StackElement& stack_element);
+  // If path_token referenced by `stack_element` contains an array
+  // index(int type), performs lax match operation in the `subtree`, updates
+  // `path_element_stack_`, and returns true. Returns false if path_token is
+  // not an array index which indicates no operation is performed.
+  bool MaybeProcessArrayIndex(const StackElement& stack_element);
+
+  // Represents the tuples of <path_token_index, JSONValue> to process.
+  std::vector<StackElement> path_element_stack_;
+  // The results.
+  JSONValue output_;
+  StrictJSONPathIterator* path_iterator_;
+};
+
+JsonTreeWalker::JsonTreeWalker(JSONValueConstRef root,
+                               StrictJSONPathIterator* path_iterator)
+    : path_iterator_(path_iterator) {
+  // Push the first JSONPathToken and root JSON to process. The 0th index of
+  // `path_iterator` is a no-op '$' token and we simply skip this.
+  path_element_stack_.push_back({.path_token_index = 1, .subtree = root});
+  output_.GetRef().SetToEmptyArray();
+}
+
+absl::Status JsonTreeWalker::HandleMatch(JSONValueConstRef json_value) {
+  // Add the matched JSON to output JSON Array.
+  ZETASQL_RETURN_IF_ERROR(
+      output_.GetRef().AppendArrayElement(JSONValue::CopyFrom(json_value)));
+  return absl::OkStatus();
+}
+
+absl::Status JsonTreeWalker::Process() {
+  while (!path_element_stack_.empty()) {
+    StackElement stack_element = path_element_stack_.back();
+    path_element_stack_.pop_back();
+
+    if (stack_element.path_token_index == path_iterator_->Size()) {
+      // We have finished processing the entire JSONPath. Add matched element
+      // to output.
+      ZETASQL_RETURN_IF_ERROR(HandleMatch(stack_element.subtree));
+      continue;
+    }
+
+    // The current path token expects an object.
+    //
+    // If failed to process, something has gone really wrong here. The
+    // JSONPathToken is guaranteed to be an object key or an array index.
+    // Reasoning: The beginning no-op token('$') is already processed.
+    ZETASQL_RET_CHECK(MaybeProcessObjectKey(stack_element) ||
+              MaybeProcessArrayIndex(stack_element))
+        << "Unexpected JSONPathToken type encountered during "
+           "JSON_QUERY_LAX matching.";
+  }
+  return absl::OkStatus();
+}
+
+bool JsonTreeWalker::MaybeProcessObjectKey(const StackElement& stack_element) {
+  const std::string* key =
+      path_iterator_->GetToken(stack_element.path_token_index)
+          .MaybeGetObjectKey();
+  if (key == nullptr) {
+    // The JSONPathToken is not an object key.
+    return false;
+  }
+  JSONValueConstRef subtree = stack_element.subtree;
+  if (subtree.IsObject()) {
+    // Path token and JSON subtree match OBJECT types.
+    auto maybe_member = subtree.GetMemberIfExists(*key);
+    if (!maybe_member.has_value()) {
+      // The JSON OBJECT does not contain the path token. This branch is not
+      // a match.
+      return true;
+    }
+    // Match the next path token.
+    path_element_stack_.push_back(
+        {.path_token_index = stack_element.path_token_index + 1,
+         .subtree = *maybe_member});
+  } else if (subtree.IsArray()) {
+    // The JSON subtree is an array and path token expects an object. We add
+    // elements in reverse order to stack as we need to add matched JSON
+    // path results in DFS in-order traversal.
+    const auto& elements = subtree.GetArrayElements();
+    for (auto it = elements.rbegin(); it != elements.rend(); ++it) {
+      JSONValueConstRef element = *it;
+      if (element.IsObject()) {
+        auto maybe_member = element.GetMemberIfExists(*key);
+        if (!maybe_member.has_value()) {
+          // The object doesn't contain the JSONPathToken. No match for this
+          // branch. Continue processing rest of array elements.
+          continue;
+        }
+        path_element_stack_.push_back(
+            {.path_token_index = stack_element.path_token_index + 1,
+             .subtree = *maybe_member});
+      } else if (path_iterator_->GetJsonPathOptions().recursive &&
+                 element.IsArray()) {
+        // This is a nested array element. Only process if `recursive` is set
+        // to true. Else, this branch is not a match.
+        path_element_stack_.push_back(
+            {.path_token_index = stack_element.path_token_index,
+             .subtree = element});
+      }
+      // Scalar value. No match for this branch.
+    }
+  }
+  // If `subtree` is not an object or an array this indicates it's a scalar
+  // value. A scalar value indicates no match for this branch so no further
+  // processing is required.
+  return true;
+}
+
+bool JsonTreeWalker::MaybeProcessArrayIndex(const StackElement& stack_element) {
+  const int64_t* array_index =
+      path_iterator_->GetToken(stack_element.path_token_index)
+          .MaybeGetArrayIndex();
+  if (array_index == nullptr) {
+    // The JSONPathToken is not an array index.
+    return false;
+  }
+  JSONValueConstRef subtree = stack_element.subtree;
+  if (subtree.IsArray()) {
+    // The subtree matches expected JSONPathToken array type.
+    if (*array_index < subtree.GetArraySize()) {
+      JSONValueConstRef matched_element = subtree.GetArrayElement(*array_index);
+      path_element_stack_.push_back(
+          {.path_token_index = stack_element.path_token_index + 1,
+           .subtree = matched_element});
+    }
+    // The JSONPathToken array_index is larger than the size of the array.
+    // This branch is not a match.
+  } else if (*array_index == 0) {
+    // The subtree is not an array. If the `array_index` = 0 implicitly
+    // autowrap and access the 0th element. Essentially an `array_index` = 0
+    // is a no-op JSONPathToken.
+    path_element_stack_.push_back(
+        {.path_token_index = stack_element.path_token_index + 1,
+         .subtree = subtree});
+  }
+  return true;
+}
+
+}  // namespace
+
+absl::StatusOr<JSONValue> JsonQueryLax(JSONValueConstRef input,
+                                       StrictJSONPathIterator& path_iterator) {
+  ZETASQL_RET_CHECK(path_iterator.GetJsonPathOptions().lax);
+  JsonTreeWalker walker(input, &path_iterator);
+  ZETASQL_RETURN_IF_ERROR(walker.Process());
+  return walker.ConsumeResult();
 }
 
 }  // namespace functions

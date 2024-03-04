@@ -273,7 +273,7 @@ public class AnalyzerOptionsTest {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AnalyzerOptions options = new AnalyzerOptions();
-    assertThat(options.getPositionalQueryParameters()).hasSize(0);
+    assertThat(options.getPositionalQueryParameters()).isEmpty();
     options.addPositionalQueryParameter(TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
     assertThat(options.getPositionalQueryParameters()).hasSize(1);
     assertThat(options.getPositionalQueryParameters().get(0).getKind())

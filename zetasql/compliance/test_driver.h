@@ -144,7 +144,7 @@ class TestTableOptions {
   }
 
   const std::string& userid_column() const { return userid_column_; }
-  void set_userid_column(const std::string& userid_column) {
+  void set_userid_column(absl::string_view userid_column) {
     userid_column_ = userid_column;
   }
 

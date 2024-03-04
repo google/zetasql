@@ -49,8 +49,7 @@ void SignatureMatchResult::UpdateFromResult(
   literals_coerced_ += other_result.literals_coerced_;
   literals_distance_ += other_result.literals_distance_;
   mismatch_message_ = other_result.mismatch_message();
-  tvf_mismatch_message_ = other_result.tvf_mismatch_message();
-  tvf_bad_argument_index_ = other_result.tvf_bad_argument_index();
+  bad_argument_index_ = other_result.bad_argument_index();
   tvf_relation_coercion_map_ = other_result.tvf_relation_coercion_map_;
 }
 

@@ -158,7 +158,8 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id);
+      int max_column_id
+  );
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -168,7 +169,8 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id);
+      int max_column_id
+  );
   AnalyzerOutput(const AnalyzerOutput&) = delete;
   AnalyzerOutput& operator=(const AnalyzerOutput&) = delete;
   ~AnalyzerOutput();

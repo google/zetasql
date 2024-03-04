@@ -176,7 +176,7 @@ void ClearErrorLocation(absl::Status* status) {
 static bool IsWordChar(char c) { return isalnum(c) || c == '_'; }
 
 // Return true if <column> (0-based) in <str> starts a word.
-static bool IsWordStart(const std::string& str, int column) {
+static bool IsWordStart(absl::string_view str, int column) {
   ABSL_DCHECK_LT(column, str.size());
   if (column == 0 || column >= str.size()) return true;
   return !IsWordChar(str[column - 1]) && IsWordChar(str[column]);
@@ -251,7 +251,7 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
 
 // Helper function to return an error string from an error line and column.
 static std::string GetErrorStringFromErrorLineAndColumn(
-    const std::string& error_line, const int error_column) {
+    absl::string_view error_line, const int error_column) {
   return absl::StrFormat("%s\n%*s^", error_line, error_column, "");
 }
 
@@ -398,7 +398,7 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
 }
 
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
-    const absl::Status& status, const std::string& filename) {
+    const absl::Status& status, absl::string_view filename) {
   ErrorLocation error_location;
   if (filename.empty() || !GetErrorLocation(status, &error_location)) {
     return status;

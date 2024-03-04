@@ -42,7 +42,7 @@ class AnonFunction : public Function {
   // three arguments with the second two being the CLAMPED BETWEEN clause. The
   // appropriate error message callbacks for rendering the function call with
   // CLAMPED BETWEEN syntax are automatically added.
-  AnonFunction(absl::string_view name, const std::string& group,
+  AnonFunction(absl::string_view name, absl::string_view group,
                const std::vector<FunctionSignature>& function_signatures,
                const FunctionOptions& function_options,
                const std::string& partial_aggregate_name);

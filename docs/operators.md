@@ -21,7 +21,7 @@ Common conventions:
 ### Operator precedence
 
 The following table lists all ZetaSQL operators from highest to
-lowest precedence, i.e. the order in which they will be evaluated within a
+lowest precedence, i.e., the order in which they will be evaluated within a
 statement.
 
 <table>
@@ -1465,7 +1465,7 @@ This operator throws an error if <code>Y</code> is negative.</td>
 <code>X</code>: Integer or <code>BYTES</code><br>
 <code>Y</code>: <code>INT64</code></td>
 <td>Shifts the first operand <code>X</code> to the right. This operator does not
-do sign bit extension with a signed type (i.e. it fills vacant bits on the left
+do sign bit extension with a signed type (i.e., it fills vacant bits on the left
 with <code>0</code>). This operator returns
 <code>0</code> or a byte sequence of
 <code>b'\x00'</code>
@@ -1564,187 +1564,190 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 
 ### Comparison operators
 
-Comparisons always return `BOOL`. Comparisons generally
-require both operands to be of the same type. If operands are of different
-types, and if ZetaSQL can convert the values of those types to a
-common type without loss of precision, ZetaSQL will generally coerce
-them to that common type for the comparison; ZetaSQL will generally
-coerce literals to the type of non-literals, where
-present. Comparable data types are defined in
-[Data Types][operators-link-to-data-types].
-NOTE: ZetaSQL allows comparisons
-between signed and unsigned integers.
+Compares operands and produces the results of the comparison as a `BOOL`
+value. These comparison operators are available:
 
-Structs support only these comparison operators: equal
-(`=`), not equal (`!=` and `<>`), and `IN`.
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Syntax</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Less Than</td>
+      <td><code>X &lt; Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is less than <code>Y</code>.
+        
 
-The comparison operators in this section cannot be used to compare
-`JSON` ZetaSQL literals with other `JSON` ZetaSQL literals.
-If you need to compare values inside of `JSON`, convert the values to
-SQL values first. For more information, see [`JSON` functions][json-functions].
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td>Less Than or Equal To</td>
+      <td><code>X &lt;= Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is less than or equal to
+        <code>Y</code>.
+        
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td>Greater Than</td>
+      <td><code>X &gt; Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is greater than
+        <code>Y</code>.
+        
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td>Greater Than or Equal To</td>
+      <td><code>X &gt;= Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is greater than or equal to
+        <code>Y</code>.
+        
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td>Equal</td>
+      <td><code>X = Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is equal to <code>Y</code>.
+        
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td>Not Equal</td>
+      <td><code>X != Y</code><br><code>X &lt;&gt; Y</code></td>
+      <td>
+        Returns <code>TRUE</code> if <code>X</code> is not equal to
+        <code>Y</code>.
+        
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+      </td>
+    </tr>
+    <tr>
+      <td><code>BETWEEN</code></td>
+      <td><code>X [NOT] BETWEEN Y AND Z</code></td>
+      <td>
+        <p>
+          Returns <code>TRUE</code> if <code>X</code> is [not] within the range
+          specified. The result of <code>X BETWEEN Y AND Z</code> is equivalent
+          to <code>Y &lt;= X AND X &lt;= Z</code> but <code>X</code> is
+          evaluated only once in the former.
+          
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>LIKE</code></td>
+      <td><code>X [NOT] LIKE Y</code></td>
+      <td>
+        See the <a href="#like_operator">`LIKE` operator</a>
+
+        for details.
+      </td>
+    </tr>
+    <tr>
+      <td><code>IN</code></td>
+      <td>Multiple</td>
+      <td>
+        See the <a href="#in_operator">`IN` operator</a>
+
+        for details.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+The following rules apply to operands in a comparison operator:
+
++   The operands must be [comparable][data-type-comparable].
++   A comparison operator generally requires both operands to be of the
+    same type.
++   If the operands are of different types, and the values of those types can be
+    converted to a common type without loss of precision,
+    they are generally coerced to that common type for the comparison.
++   A literal operand is generally coerced to the same data type of a
+    non-literal operand that is part of the comparison.
++   Comparisons between operands that are signed and unsigned integers is
+    allowed.
++   Struct operands support only these comparison operators: equal
+    (`=`), not equal (`!=` and `<>`), and `IN`.
 
 The following rules apply when comparing these data types:
 
-+  Floating point:
-   All comparisons with `NaN` return `FALSE`,
-   except for `!=` and `<>`, which return `TRUE`.
-+  `BOOL`: `FALSE` is less than `TRUE`.
-+  `STRING`: Strings are
-   compared codepoint-by-codepoint, which means that canonically equivalent
-   strings are only guaranteed to compare as equal if
-   they have been normalized first.
-+  `NULL`: The convention holds here: any operation with a `NULL` input returns
-   `NULL`.
++   Floating point:
+    All comparisons with `NaN` return `FALSE`,
+    except for `!=` and `<>`, which return `TRUE`.
++   `BOOL`: `FALSE` is less than `TRUE`.
++   `STRING`: Strings are compared codepoint-by-codepoint, which means that
+    canonically equivalent strings are only guaranteed to compare as equal if
+    they have been normalized first.
++   `JSON`: You can't compare JSON, but you can compare
+    the values inside of JSON if you convert the values to
+    SQL values first. For more information, see
+    [`JSON` functions][json-functions].
++   `NULL`: Any operation with a `NULL` input returns `NULL`.
++   `STRUCT`: When testing a struct for equality, it's possible that one or more
+    fields are `NULL`. In such cases:
 
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Less Than</td>
-<td><code>X &lt; Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is less than <code>Y</code>.
-  
+    +   If all non-`NULL` field values are equal, the comparison returns `NULL`.
+    +   If any non-`NULL` field values are not equal, the comparison returns
+        `FALSE`.
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+    The following table demonstrates how `STRUCT` data types are compared when
+    they have fields that are `NULL` valued.
 
-</td>
-</tr>
-<tr>
-<td>Less Than or Equal To</td>
-<td><code>X &lt;= Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is less than or equal to
-  <code>Y</code>.
-  
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-</td>
-</tr>
-<tr>
-<td>Greater Than</td>
-<td><code>X &gt; Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is greater than <code>Y</code>.
-  
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-</td>
-</tr>
-<tr>
-<td>Greater Than or Equal To</td>
-<td><code>X &gt;= Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is greater than or equal to
-  <code>Y</code>.
-  
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-</td>
-</tr>
-<tr>
-<td>Equal</td>
-<td><code>X = Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is equal to <code>Y</code>.
-  
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-</td>
-</tr>
-<tr>
-<td>Not Equal</td>
-<td><code>X != Y</code><br><code>X &lt;&gt; Y</code></td>
-<td>
-  Returns <code>TRUE</code> if <code>X</code> is not equal to <code>Y</code>.
-  
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-</td>
-</tr>
-<tr>
-<td><code>BETWEEN</code></td>
-<td><code>X [NOT] BETWEEN Y AND Z</code></td>
-<td>
-  <p>
-    Returns <code>TRUE</code> if <code>X</code> is [not] within the range
-    specified. The result of <code>X BETWEEN Y AND Z</code> is equivalent to
-    <code>Y &lt;= X AND X &lt;= Z</code> but <code>X</code> is evaluated only
-    once in the former.
-    
-
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
-  </p>
-</td>
-</tr>
-<tr>
-<td><code>LIKE</code></td>
-<td><code>X [NOT] LIKE Y</code></td>
-<td>
-  See the <a href="#like_operator">`LIKE` operator</a>
-
-  for details.
-</td>
-</tr>
-<tr>
-<td><code>IN</code></td>
-<td>Multiple</td>
-<td>
-  See the <a href="#in_operator">`IN` operator</a>
-
-  for details.
-</td>
-</tr>
-</tbody>
-</table>
-
-When testing values that have a struct data type for
-equality, it's possible that one or more fields are `NULL`. In such cases:
-
-+ If all non-`NULL` field values are equal, the comparison returns `NULL`.
-+ If any non-`NULL` field values are not equal, the comparison returns `FALSE`.
-
-The following table demonstrates how struct data
-types are compared when they have fields that are `NULL` valued.
-
-<table>
-<thead>
-<tr>
-<th>Struct1</th>
-<th>Struct2</th>
-<th>Struct1 = Struct2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>STRUCT(1, NULL)</code></td>
-<td><code>STRUCT(1, NULL)</code></td>
-<td><code>NULL</code></td>
-</tr>
-<tr>
-<td><code>STRUCT(1, NULL)</code></td>
-<td><code>STRUCT(2, NULL)</code></td>
-<td><code>FALSE</code></td>
-</tr>
-<tr>
-<td><code>STRUCT(1,2)</code></td>
-<td><code>STRUCT(1, NULL)</code></td>
-<td><code>NULL</code></td>
-</tr>
-</tbody>
-</table>
+    <table>
+      <thead>
+        <tr>
+          <th>Struct1</th>
+          <th>Struct2</th>
+          <th>Struct1 = Struct2</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>STRUCT(1, NULL)</code></td>
+          <td><code>STRUCT(1, NULL)</code></td>
+          <td><code>NULL</code></td>
+        </tr>
+        <tr>
+          <td><code>STRUCT(1, NULL)</code></td>
+          <td><code>STRUCT(2, NULL)</code></td>
+          <td><code>FALSE</code></td>
+        </tr>
+        <tr>
+          <td><code>STRUCT(1,2)</code></td>
+          <td><code>STRUCT(1, NULL)</code></td>
+          <td><code>NULL</code></td>
+        </tr>
+      </tbody>
+    </table>
 
 ### `EXISTS` operator 
 <a id="exists_operator"></a>
@@ -3002,6 +3005,8 @@ FROM UNNEST([
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
 
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
+[data-type-comparable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparable_data_types
 
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 

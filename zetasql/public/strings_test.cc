@@ -1268,7 +1268,7 @@ TEST(StringsTest, ParseIdentifierPath) {
         // Run each path through the parser to ensure that the vectors match.
         std::unique_ptr<ParserOutput> parser_output;
         ParserOptions parser_options;
-        parser_options.set_language_options(&language_options);
+        parser_options.set_language_options(language_options);
         ZETASQL_ASSERT_OK(ParseExpression(test.input, parser_options, &parser_output));
         const ASTPathExpression* parsed_path =
             parser_output->expression()->GetAs<ASTPathExpression>();
@@ -1372,7 +1372,7 @@ TEST(StringsTest, ParseIdentifierPathWithSlashes) {
         // FROM <str>".
         std::unique_ptr<zetasql::ParserOutput> parser_output;
         zetasql::ParserOptions parser_options;
-        parser_options.set_language_options(&language_options);
+        parser_options.set_language_options(language_options);
         ZETASQL_ASSERT_OK(zetasql::ParseStatement(
             absl::StrFormat("SELECT * FROM %s", test.input), parser_options,
             &parser_output));

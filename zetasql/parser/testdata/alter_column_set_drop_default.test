@@ -7,7 +7,8 @@ AlterTableStatement [0-57] [ALTER TABLE...my default']
   AlterActionList [16-57] [ALTER COLUMN...my default']
     AlterColumnSetDefaultAction [16-57] [ALTER COLUMN...my default']
       Identifier(bar) [29-32] [bar]
-      StringLiteral('my default') [45-57] ['my default']
+      StringLiteral [45-57] ['my default']
+        StringLiteralComponent('my default') [45-57] ['my default']
 --
 ALTER TABLE foo ALTER COLUMN bar SET DEFAULT 'my default'
 ==
@@ -58,7 +59,8 @@ AlterTableStatement [0-66] [ALTER TABLE...collate(y, 'x')]
           Identifier(`collate`) [51-58] [collate]
         PathExpression [59-60] [y]
           Identifier(y) [59-60] [y]
-        StringLiteral('x') [62-65] ['x']
+        StringLiteral [62-65] ['x']
+          StringLiteralComponent('x') [62-65] ['x']
 --
 ALTER TABLE foo ALTER COLUMN `collate` SET DEFAULT `collate`(y, 'x')
 ==
@@ -119,4 +121,3 @@ AlterTableStatement [0-55] [ALTER TABLE...DROP DEFAULT]
       Identifier(bar) [39-42] [bar]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP DEFAULT
-==

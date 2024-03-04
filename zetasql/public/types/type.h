@@ -33,6 +33,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/token_list.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -53,6 +54,7 @@ class ArrayType;
 class EnumType;
 class ExtendedType;
 class LanguageOptions;
+class MapType;
 class ProtoType;
 class RangeType;
 class StructType;
@@ -105,7 +107,9 @@ class Type {
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
   bool IsJsonType() const { return kind_ == TYPE_JSON; }
+  bool IsTokenListType() const { return kind_ == TYPE_TOKENLIST; }
   bool IsRangeType() const { return kind_ == TYPE_RANGE; }
+  bool IsMapType() const { return kind_ == TYPE_MAP; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -137,12 +141,14 @@ class Type {
 
   bool IsGeography() const { return kind_ == TYPE_GEOGRAPHY; }
   bool IsJson() const { return kind_ == TYPE_JSON; }
+  bool IsTokenList() const { return kind_ == TYPE_TOKENLIST; }
   bool IsEnum() const { return kind_ == TYPE_ENUM; }
   bool IsArray() const { return kind_ == TYPE_ARRAY; }
   bool IsStruct() const { return kind_ == TYPE_STRUCT; }
   bool IsProto() const { return kind_ == TYPE_PROTO; }
   bool IsStructOrProto() const { return IsStruct() || IsProto(); }
   bool IsRange() const { return kind_ == TYPE_RANGE; }
+  bool IsMap() const { return kind_ == TYPE_MAP; }
 
   bool IsFloatingPoint() const { return IsFloat() || IsDouble(); }
   bool IsNumerical() const {
@@ -210,6 +216,7 @@ class Type {
   virtual const EnumType* AsEnum() const { return nullptr; }
   virtual const ExtendedType* AsExtendedType() const { return nullptr; }
   virtual const RangeType* AsRange() const { return nullptr; }
+  virtual const MapType* AsMap() const { return nullptr; }
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
@@ -269,8 +276,27 @@ class Type {
     if (IsGeography() || IsJson()) {
       return false;
     }
+    if (IsTokenList()) {
+      return false;
+    }
     return true;
   }
+
+  // Returns true if the type supports can be returned from the top level
+  // of any query, function, or other surface boundary with respect to
+  // 'language_options'. If the type is a compound type, also recursively
+  // check its field types. Specifically, this includes:
+  //
+  // 1) Output column list of ResolvedQueryStmt
+  // 2) Output column list from TVFs and Views
+  // 3) Column defs in ResolvedCreateTableStmt/ResolvedCreateTableAsSelectStmt
+  // 4) Return type of UDFs
+  // 5) Returning clause of DML statements
+  //
+  // When this returns false and 'type_description' is not null, also returns
+  // in 'type_description' a description of the type.
+  bool SupportsReturning(const LanguageOptions& language_options,
+                         std::string* type_description = nullptr) const;
 
   // Returns true if type supports equality with respect to the
   // 'language_options'. E.g. array type supports equality if the
@@ -413,19 +439,44 @@ class Type {
   // messages; for a parseable type name, use TypeName, and for logging, use
   // DebugString. For proto-based types, this just returns the type name, which
   // does not easily distinguish PROTOs from ENUMs.
+  // Setting the optional parameter `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated.
   virtual std::string ShortTypeName(ProductMode mode) const;
+  virtual std::string ShortTypeName(ProductMode mode,
+                                    bool use_external_float32_unused) const {
+    return ShortTypeName(mode);
+  }
 
   // Same as above, but returns a SQL name that is reparseable as part of a
   // query. This is not intended for user-facing informational or error
   // messages.
+  // Setting the optional parameter `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated.
   virtual std::string TypeName(ProductMode mode) const = 0;
+  virtual std::string TypeName(ProductMode mode,
+                               bool use_external_float32_unused) const {
+    return TypeName(mode);
+  }
 
   // Same as above, but if <type_modifiers> contains non-empty modifiers, then
   // these modifiers are included with the SQL name for this type. The output is
   // reparseable as part of a query. If <type_modifiers> contains modifiers that
   // are not invalid for the given Type, then an error status will be returned.
+  // Setting the optional parameter `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated.
   virtual absl::StatusOr<std::string> TypeNameWithModifiers(
       const TypeModifiers& type_modifiers, ProductMode mode) const = 0;
+  virtual absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode,
+      bool use_external_float32_unused) const {
+    return TypeNameWithModifiers(type_modifiers, mode);
+  }
 
   // Returns the full description of the type without truncation. This should
   // only be used for logging or tests and not for any user-facing messages. For
@@ -436,7 +487,7 @@ class Type {
 
   // Adds capitalized type name to a given string.
   // TODO Remove this method and use DebugString instead.
-  std::string AddCapitalizedTypePrefix(const std::string& input,
+  std::string AddCapitalizedTypePrefix(absl::string_view input,
                                        bool is_null) const;
 
   // Check if this type contains a field with the given name.
@@ -478,13 +529,26 @@ class Type {
 
   static bool IsSimpleType(TypeKind kind);
 
-  static std::string TypeKindToString(TypeKind kind, ProductMode mode);
+  static std::string TypeKindToString(TypeKind kind, ProductMode mode,
+                                      bool use_external_float32);
+  static std::string TypeKindToString(TypeKind kind, ProductMode mode) {
+    return TypeKindToString(kind, mode, /*use_external_float32=*/false);
+  }
   static std::string TypeKindListToString(const std::vector<TypeKind>& kinds,
-                                          ProductMode mode);
+                                          ProductMode mode,
+                                          bool use_external_float32);
+  static std::string TypeKindListToString(const std::vector<TypeKind>& kinds,
+                                          ProductMode mode) {
+    return TypeKindListToString(kinds, mode, /*use_external_float32=*/false);
+  }
 
   // Returns comma-separated list of names of given <types>. Type name is
   // generated using Type::ShortTypeName(<mode>).
-  static std::string TypeListToString(TypeListView types, ProductMode mode);
+  static std::string TypeListToString(TypeListView types, ProductMode mode,
+                                      bool use_external_float32);
+  static std::string TypeListToString(TypeListView types, ProductMode mode) {
+    return TypeListToString(types, mode, /*use_external_float32=*/false);
+  }
 
   // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
   // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
@@ -625,6 +689,13 @@ class Type {
     bool add_simple_type_prefix() const { return mode != Mode::kDebug; }
 
     ProductMode product_mode = ProductMode::PRODUCT_EXTERNAL;
+
+    // Setting `use_external_float32` to true will return
+    // FLOAT32 as the type name for TYPE_FLOAT.
+    // TODO: Remove `use_external_float32` once all engines are
+    // updated.
+    bool use_external_float32 = false;
+
     Mode mode = Mode::kDebug;
     bool verbose = false;  // Used with debug mode only.
 
@@ -632,11 +703,27 @@ class Type {
     bool include_array_ordereness = false;
     int indent = 0;
 
+    bool collapse_identical_tokens = false;
+
     FormatValueContentOptions IncreaseIndent();
 
     // Number of columns per indentation.
     static const int kIndentStep = 2;
   };
+
+  std::string FormatValueContentContainerElement(
+      const internal::ValueContentContainerElement element, const Type* type,
+      const FormatValueContentOptions& options) const {
+    if (element.is_null()) {
+      return options.as_literal()
+                 ? "NULL"
+                 : absl::StrCat("CAST(NULL AS ",
+                                type->TypeName(options.product_mode,
+                                               options.use_external_float32),
+                                ")");
+    }
+    return type->FormatValueContent(element.value_content(), options);
+  }
 
   // List of DebugStringImpl outputs. Used to serve as a stack in
   // DebugStringImpl to protect from stack overflows.
@@ -708,6 +795,10 @@ class Type {
   FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);
   FRIEND_TEST(TypeTest, FormatValueContentStructWithAnonymousFieldsDebugMode);
+  FRIEND_TEST(MapTest, FormatValueContentSQLLiteralMode);
+  FRIEND_TEST(MapTest, FormatValueContentSQLExpressionMode);
+  FRIEND_TEST(MapTestFormatValueContentDebugMode, FormatValueContentDebugMode);
+  FRIEND_TEST(MapTest, FormatValueContentDebugModeEmptyMap);
 
   // Copies value's content to another value. Is called when one value is
   // assigned to another. It's expected that content of destination is empty
@@ -786,6 +877,7 @@ class Type {
   friend class ArrayType;
   friend class StructType;
   friend class RangeType;
+  friend class MapType;
 
   const internal::TypeStore* type_store_;  // Used for lifetime checking only.
   const TypeKind kind_;

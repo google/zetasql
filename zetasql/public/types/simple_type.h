@@ -32,6 +32,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -53,12 +54,22 @@ class SimpleType : public Type {
   SimpleType& operator=(const SimpleType&) = delete;
 #endif  // SWIG
 
-  std::string TypeName(ProductMode mode) const override;
+  std::string TypeName(ProductMode mode,
+                       bool use_external_float32) const override;
+  std::string TypeName(ProductMode mode) const override {
+    return TypeName(mode, /*use_external_float32=*/false);
+  }
 
   // Same as above, but the type modifier values are appended to the SQL name
   // for this SimpleType.
   absl::StatusOr<std::string> TypeNameWithModifiers(
-      const TypeModifiers& type_modifiers, ProductMode mode) const override;
+      const TypeModifiers& type_modifiers, ProductMode mode,
+      bool use_external_float32) const override;
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override {
+    return TypeNameWithModifiers(type_modifiers, mode,
+                                 /*use_external_float32=*/false);
+  }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
@@ -134,12 +145,12 @@ class SimpleType : public Type {
 
   // Resolves type parameters for STRING(L), BYTES(L).
   absl::StatusOr<TypeParameters> ResolveStringBytesTypeParameters(
-      const std::vector<TypeParameterValue>& type_parameter_values,
+      absl::Span<const TypeParameterValue> type_parameter_values,
       ProductMode mode) const;
   // Resolves type parameters for NUMERIC(P), BIGNUMERIC(P), NUMERIC(P, S),
   // BIGNUMERIC(P, S) and create respective TypeParameters class.
   absl::StatusOr<TypeParameters> ResolveNumericBignumericTypeParameters(
-      const std::vector<TypeParameterValue>& type_parameter_values,
+      absl::Span<const TypeParameterValue> type_parameter_values,
       ProductMode mode) const;
   // Validates the resolved numeric type parameters.
   // We put ValidateNumericTypeParameters() in Type class instead of
@@ -147,6 +158,17 @@ class SimpleType : public Type {
   // type is Numeric or BigNumeric.
   absl::Status ValidateNumericTypeParameters(
       const NumericTypeParametersProto& numeric_param, ProductMode mode) const;
+
+  // Returns the a TokenList formatted as a string.
+  std::string FormatTokenList(const ValueContent& value,
+                              const FormatValueContentOptions& options) const;
+  // Returns the debug content of the TokenList as a sequence of lines, each
+  // representing a single token.
+  static std::vector<std::string> FormatTokenLines(
+      const ValueContent& value, const FormatValueContentOptions& options);
+
+  static void FormatTextToken(std::string& out, const tokens::TextToken& token,
+                              const FormatValueContentOptions& options);
 
   // Used for TYPE_TIMESTAMP.
   static absl::Time GetTimestampValue(const ValueContent& value);

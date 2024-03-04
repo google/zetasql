@@ -95,7 +95,7 @@ using namespace zetasql::parser_internal;
 #undef YY_DECL
 #define YY_DECL \
     int zetasql::parser::ZetaSqlFlexTokenizer::GetNextTokenFlexImpl( \
-        zetasql_bison_parser::location* yylloc)
+        Location* yylloc)
 
 // This action is executed for every token that is matched, before the defined
 // actions are executed. We use this to:
@@ -105,10 +105,9 @@ using namespace zetasql::parser_internal;
 //   the parsing process when it has read enough of a prefix, e.g. for
 //   multi-statement parsing or for determining the next statement kind.
 #define YY_USER_ACTION \
-  if (force_terminate_) yyterminate(); \
   /* Note that we store byte offsets in the 'column' field. */ \
-  yylloc->begin.column = yylloc->end.column; \
-  yylloc->end.column += yyleng;
+  yylloc->set_start(ParseLocationPoint::FromByteOffset(filename_, yylloc->end().GetByteOffset())); \
+  yylloc->set_end(ParseLocationPoint::FromByteOffset(filename_, yylloc->end().GetByteOffset() + yyleng));
 
 // Call this in an action to return only a prefix of the match of
 // 'prefix_length' bytes.
@@ -116,7 +115,7 @@ using namespace zetasql::parser_internal;
   do { \
     const int prefix_length_result = (prefix_length); \
     yyless(prefix_length_result); \
-    yylloc->end.column = yylloc->begin.column + prefix_length_result; \
+    yylloc->mutable_end().SetByteOffset(yylloc->start().GetByteOffset() + prefix_length_result); \
   } while (0)
 
 constexpr char ::zetasql::parser::ZetaSqlFlexTokenizer::kEofSentinelInput[];
@@ -318,31 +317,13 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
       yy_push_state(STACK_BOTTOM);
       yy_push_state(INITIAL);
       // Note that we store byte offsets in the 'column' field.
-      yylloc->begin.column = yylloc->end.column = start_offset_;
-      switch (mode_) {
-        case BisonParserMode::kStatement:
-          return BisonParserImpl::token::MODE_STATEMENT;
-        case BisonParserMode::kScript:
-          return BisonParserImpl::token::MODE_SCRIPT;
-        case BisonParserMode::kNextStatement:
-          return BisonParserImpl::token::MODE_NEXT_STATEMENT;
-        case BisonParserMode::kNextScriptStatement:
-          return BisonParserImpl::token::MODE_NEXT_SCRIPT_STATEMENT;
-        case BisonParserMode::kNextStatementKind:
-          return BisonParserImpl::token::MODE_NEXT_STATEMENT_KIND;
-        case BisonParserMode::kExpression:
-          return BisonParserImpl::token::MODE_EXPRESSION;
-        case BisonParserMode::kType:
-          return BisonParserImpl::token::MODE_TYPE;
-        case BisonParserMode::kMacroBody:
-        case BisonParserMode::kTokenizer:
-        case BisonParserMode::kTokenizerPreserveComments:
-          // Don't generate a mode token when we are doing raw tokenization.
-          // With or without comments.
-          break;
+      yylloc->mutable_start().SetByteOffset(start_offset_);
+      yylloc->mutable_end().SetByteOffset(start_offset_);
+      if (generate_custom_mode_start_token_) {
+        return BisonParserImpl::token::CUSTOM_MODE_START;
       }
     }
-    yylloc->begin = yylloc->end;
+    yylloc->set_start(yylloc->end());
 %}
 
  /* IMPORTANT: This rule must come before keywords, since it conditionally
@@ -396,11 +377,6 @@ and {
   if (YY_START == IN_BETWEEN) {
     // See IN_BETWEEN tokenizer mode description.
     yy_pop_state();
-    if (mode_ == BisonParserMode::kTokenizer ||
-        mode_ == BisonParserMode::kTokenizerPreserveComments ||
-        mode_ == BisonParserMode::kMacroBody) {
-      return BisonParserImpl::token::KW_AND;
-    }
     return BisonParserImpl::token::KW_AND_FOR_BETWEEN;
   }
   return BisonParserImpl::token::KW_AND;
@@ -462,6 +438,7 @@ define { return BisonParserImpl::token::KW_DEFINE; }
 definer { return BisonParserImpl::token::KW_DEFINER; }
 delete { return BisonParserImpl::token::KW_DELETE; }
 deletion { return BisonParserImpl::token::KW_DELETION; }
+depth { return BisonParserImpl::token::KW_DEPTH; }
 desc { return BisonParserImpl::token::KW_DESC; }
 descriptor { return BisonParserImpl::token::KW_DESCRIPTOR; }
 describe { return BisonParserImpl::token::KW_DESCRIBE; }
@@ -497,12 +474,6 @@ for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }
 format { return BisonParserImpl::token::KW_FORMAT; }
 from { return BisonParserImpl::token::KW_FROM; }
-full/{whitespace}(outer{whitespace})?(union|intersect|except) {
-  if (mode_ == BisonParserMode::kTokenizer) {
-    return BisonParserImpl::token::KW_FULL;
-  }
-  return BisonParserImpl::token::KW_FULL_IN_SET_OP;
-}
 full { return BisonParserImpl::token::KW_FULL; }
 function { return BisonParserImpl::token::KW_FUNCTION; }
 generated { return BisonParserImpl::token::KW_GENERATED; }
@@ -543,9 +514,6 @@ last { return BisonParserImpl::token::KW_LAST; }
 lateral { return BisonParserImpl::token::KW_LATERAL; }
 leave { return BisonParserImpl::token::KW_LEAVE; }
 left/{whitespace}(outer{whitespace})?(union|intersect|except) {
-  if (mode_ == BisonParserMode::kTokenizer) {
-    return BisonParserImpl::token::KW_LEFT;
-  }
   return BisonParserImpl::token::KW_LEFT_IN_SET_OP;
 }
 left { return BisonParserImpl::token::KW_LEFT; }
@@ -602,9 +570,7 @@ project { return BisonParserImpl::token::KW_PROJECT; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
 qualify {
-  return IsReservedKeyword("QUALIFY") ?
-      BisonParserImpl::token::KW_QUALIFY_RESERVED :
-      BisonParserImpl::token::KW_QUALIFY_NONRESERVED;
+  return BisonParserImpl::token::KW_QUALIFY_NONRESERVED;
 }
 raise { return BisonParserImpl::token::KW_RAISE; }
 range { return BisonParserImpl::token::KW_RANGE; }
@@ -762,17 +728,31 @@ zone { return BisonParserImpl::token::KW_ZONE; }
     instance, 123abc should be error, and we don't want it to be parsed as
     123 [AS] abc. */
 {decimal_digits}[A-Z_] {
-  yylloc->begin.column += YYLeng() - 1;
-  SetOverrideError(
-      *yylloc, "Syntax error: Missing whitespace between literal and alias");
-  yyterminate();
+  if (AreMacrosEnabled() && !EnforceStrictMacros()) {
+    // Lenient macros: instead of error, try again in <DOT_IDENTIFIER> state.
+    yy_push_state(DOT_IDENTIFIER);
+    SET_RETURN_PREFIX_LENGTH(0);
+  } else {
+    yylloc->mutable_start().IncrementByteOffset(YYLeng() - 1);
+    SetOverrideError(
+        *yylloc, "Syntax error: Missing whitespace between literal and alias");
+    yyterminate();
+  }
 }
+
 {hex_integer}[G-Z_] {
-  yylloc->begin.column += YYLeng() - 1;
-  SetOverrideError(
-      *yylloc, "Syntax error: Missing whitespace between literal and alias");
-  yyterminate();
+  if (AreMacrosEnabled() && !EnforceStrictMacros()) {
+    // Lenient macros: instead of error, try again in <DOT_IDENTIFIER> state.
+    yy_push_state(DOT_IDENTIFIER);
+    SET_RETURN_PREFIX_LENGTH(0);
+  } else {
+    yylloc->mutable_start().IncrementByteOffset(YYLeng() - 1);
+    SetOverrideError(
+        *yylloc, "Syntax error: Missing whitespace between literal and alias");
+    yyterminate();
+  }
 }
+
 {floating_point_literal}/[A-Z_] {
   // If the floating point literal starts with a ".", and the preceding token
   // is an identifier or unreserved keyword, then we should tokenize this
@@ -783,23 +763,36 @@ zone { return BisonParserImpl::token::KW_ZONE; }
     SET_RETURN_PREFIX_LENGTH(1);
     return '.';
   }
-  // Trigger the missing-whitespace error, but only if the floating point
-  // literal ends in a digit, e.g. "123.456abc". (Note that this rule only
-  // matches the floating point literal itself, so the last character in
-  // YYText() is the last character in {floating_point_literal}. We don't
-  // trigger the missing whitespace error for cases that don't end in a digit,
-  // e.g. "123.abc". It's a case that is less likely to be an error, and the
-  // JavaCC parser doesn't trigger the missing whitespace warning in this case
-  // either.
-  // TODO: Consider making this an error too. It's not that likely to
-  // be correct either.
-  if (isdigit(YYText()[YYLeng() - 1])) {
-    yylloc->begin.column += YYLeng();
-    SetOverrideError(
-        *yylloc, "Syntax error: Missing whitespace between literal and alias");
-    yyterminate();
+
+  if (AreMacrosEnabled() && !EnforceStrictMacros()) {
+    // Lenient macros: instead of error, try again in <DOT_IDENTIFIER> state.
+    // But return the leading dot separately if starting with a dot.
+    yy_push_state(DOT_IDENTIFIER);
+    if (YYText()[0] == '.') {
+      SET_RETURN_PREFIX_LENGTH(1);
+      return '.';
+    }
+
+    SET_RETURN_PREFIX_LENGTH(0);
+  } else {
+    // Trigger the missing-whitespace error, but only if the floating point
+    // literal ends in a digit, e.g. "123.456abc". (Note that this rule only
+    // matches the floating point literal itself, so the last character in
+    // YYText() is the last character in {floating_point_literal}. We don't
+    // trigger the missing whitespace error for cases that don't end in a digit,
+    // e.g. "123.abc". It's a case that is less likely to be an error, and the
+    // JavaCC parser doesn't trigger the missing whitespace warning in this case
+    // either.
+    // TODO: Consider making this an error too. It's not that likely to
+    // be correct either.
+    if (isdigit(YYText()[YYLeng() - 1])) {
+      yylloc->mutable_start().IncrementByteOffset(YYLeng());
+      SetOverrideError(
+          *yylloc, "Syntax error: Missing whitespace between literal and alias");
+      yyterminate();
+    }
+    return BisonParserImpl::token::FLOATING_POINT_LITERAL;
   }
-  return BisonParserImpl::token::FLOATING_POINT_LITERAL;
 }
 
 {decimal_digits} { return BisonParserImpl::token::INTEGER_LITERAL; }
@@ -863,13 +856,6 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return YYText()[0];
 }
 
-"."{opt_whitespace}"*"    {
-  if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
-    SET_RETURN_PREFIX_LENGTH(1);
-    return '.';
-  }
-  return BisonParserImpl::token::KW_DOT_STAR;
-}
 "*"                       { return '*'; }
 ","                       { return ','; }
 
@@ -943,21 +929,20 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "?"                       { return '?'; }
 "!"                       { return '!'; }
 "%"                       { return '%'; }
-"@"{opt_whitespace}"{"    {
-  // "{" needs to suspend special modes such as IN_BETWEEN. This is popped
-  // again in the "}" rule.
-  if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
-    SET_RETURN_PREFIX_LENGTH(1);
-    return '@';
-  }
-  yy_push_state(INITIAL);
+"@"/{opt_whitespace}"{"    {
   return BisonParserImpl::token::KW_OPEN_HINT;
 }
 "@"/{opt_whitespace}({decimal_digits}|{hex_integer}) {
   return BisonParserImpl::token::KW_OPEN_INTEGER_HINT;
 }
-"@"                       { return '@'; }
-"@@"                      { return BisonParserImpl::token::KW_DOUBLE_AT; }
+"@" {
+  yy_push_state(DOT_IDENTIFIER);
+  return '@';
+}
+"@@" {
+  yy_push_state(DOT_IDENTIFIER);
+  return BisonParserImpl::token::KW_DOUBLE_AT;
+}
 "." {
   if (IsDotGeneralizedIdentifierPrefixToken(prev_flex_token_) ) {
     // When an identifier or unreserved keyword is followed by a dot, always
@@ -969,22 +954,17 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 }
 
 ":"                       { return ':'; }
-
-";"{opt_whitespace}       {
-  if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
-    SET_RETURN_PREFIX_LENGTH(1);
-    return ';';
-  } else if (yylloc->end.column == input_size_ + 1) {
-    // Don't return the final \n. It is handled by the whitespace rule and will
-    // trigger EOF.
-    SET_RETURN_PREFIX_LENGTH(YYLeng() - 1);
-  } else if (mode_ == BisonParserMode::kNextStatement ||
-             mode_ == BisonParserMode::kNextStatementKind ||
-             mode_ == BisonParserMode::kNextScriptStatement) {
-    // Don't return anything more if we're just looking at a single statement.
-    // Only return the semicolon, not the whitespace.
-    SET_RETURN_PREFIX_LENGTH(1);
+ /* Used only for ZetaSQL macros when not in strict mode.
+    We still lex it in all modes because it can be passed as an argument in an
+    invocation (outside of a macro definition) */
+"\\" {
+  if (AreMacrosEnabled() && !EnforceStrictMacros()) {
+    return BisonParserImpl::token::BACKSLASH;
   }
+  RETURN_ILLEGAL_CHARACTER_ERROR
+}
+
+";" {
   return ';';
 }
 
@@ -1027,20 +1007,22 @@ zone { return BisonParserImpl::token::KW_ZONE; }
     See also the comment for kEofSentinelInput in flex_tokenizer.h.
  */
 <*>{whitespace_no_comments}   {
-  if (yylloc->end.column == input_size_ + 1) {
+  if (yylloc->end().GetByteOffset() == input_size_ + 1) {
     // The whitespace is adjacent to the end of the input, and includes the
     // \n that we add to the end of the input. Return EOF at the start of the
     // whitespace, with zero length. This produces better errors, because the
     // "unexpected EOF" errors will be adjacent to the last token.
-    yylloc->end.column = yylloc->begin.column;
+    int end_offset = yylloc->end().GetByteOffset() - 1;
+    yylloc->mutable_start().SetByteOffset(end_offset);
+    yylloc->mutable_end().SetByteOffset(end_offset);
     yyterminate();
   }
   // The whitespace is not at the end of input. Just skip it.
 }
 
 <*>{comment}              {
-  if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
-    if (yylloc->end.column == input_size_ + 1) {
+  if (preserve_comments_) {
+    if (yylloc->end().GetByteOffset() == input_size_ + 1) {
       // Don't return the final \n. It is handled by the whitespace rule and
       // will trigger EOF. If we didn't do this, the <<EOF>> rule would trigger
       // instead and return an error.
@@ -1048,12 +1030,14 @@ zone { return BisonParserImpl::token::KW_ZONE; }
     }
     return BisonParserImpl::token::COMMENT;
   }
-  if (yylloc->end.column == input_size_ + 1) {
+  if (yylloc->end().GetByteOffset() == input_size_ + 1) {
     // The comment is adjacent to the end of the input, and includes the
     // \n that we add to the end of the input. Return EOF at the end of the
     // comment, excluding the extra \n, with zero length. This puts the
     // "unexpected EOF" errors at the line after end-of-line comments.
-    yylloc->begin.column = yylloc->end.column = yylloc->end.column - 1;
+    int end_offset = yylloc->end().GetByteOffset() - 1;
+    yylloc->mutable_start().SetByteOffset(end_offset);
+    yylloc->mutable_end().SetByteOffset(end_offset);
     yyterminate();
   }
   // The comment is not at the end of input and we are not preserving comments.

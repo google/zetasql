@@ -665,8 +665,7 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
-   * Get an object of Catalog from this Catalog, without
-   * looking at any nested Catalogs.
+   * Get an object of Catalog from this Catalog, without looking at any nested Catalogs.
    *
    * <p>A NULL pointer should be returned if the object doesn't exist.
    *
@@ -674,7 +673,7 @@ public abstract class Catalog implements Serializable {
    *
    * @return Catalog object if found, NULL if not found
    */
-  protected final Catalog getCatalog(String name) {
+  public Catalog getCatalog(String name) {
     return getCatalog(name, new FindOptions());
   }
 

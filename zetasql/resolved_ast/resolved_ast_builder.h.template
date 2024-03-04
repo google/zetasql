@@ -156,19 +156,20 @@ class {{node.builder_name}} final {
     return *this;
   };
 
-  // Build() releases the current inner node, so it is callable only on an
-  // r-value, where the builder is expected to be going away. Resets the
+  // BuildMutable() releases the current inner node, so it is callable only on
+  // an r-value, where the builder is expected to be going away. Resets the
   // `accessed_` bits.
-  absl::StatusOr<std::unique_ptr<const {{node.name}}>> Build() && {
-  {# // The result of Build() is treated as a new node so
+  absl::StatusOr<std::unique_ptr<{{node.name}}>> BuildMutable() && {
+  {# // The result of BuildMutable() is treated as a new node so
     // CheckFieldsAccessed() requires revisiting all fields again as their
     // values may have changed. Furthermore, accessed_ bits may have been set as
     // a side effect of accessing existing values through the builder to
     // incrementally create new values, rather than a client actually accessing
     // the value.
   #}
-  // Performs an emptiness check on node.fields to determine if accessed_ should
-  // be created. In the case of a concrete node without fields it will not be.
+    // Performs an emptiness check on node.fields to determine if accessed_
+    // should be created. In the case of a concrete node without fields it will
+    // not be.
   # if (node.fields)
     {{inner_node_member_name}}->accessed_ = 0;
   # endif
@@ -185,8 +186,12 @@ class {{node.builder_name}} final {
     if ({{status_member_name}}.ok()) {
       return std::move({{inner_node_member_name}});
     }
-
     return {{status_member_name}};
+  }
+
+  // Same as the above method, except that it returns an immutable object.
+  absl::StatusOr<std::unique_ptr<const {{node.name}}>> Build() && {
+    return std::move(*this).BuildMutable();
   }
 
   // Getters and chained setters

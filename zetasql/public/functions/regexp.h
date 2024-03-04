@@ -27,6 +27,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "re2/re2.h"
 
 namespace zetasql {
@@ -254,9 +255,8 @@ class RegExp {
   // of logging it, and (2) enforces output string limit set by
   // SetMaxOutSize().
   bool Rewrite(absl::string_view rewrite,
-               const std::vector<absl::string_view>& groups,
-               int32_t max_out_size, std::string* out,
-               absl::Status* error) const;
+               absl::Span<const absl::string_view> groups, int32_t max_out_size,
+               std::string* out, absl::Status* error) const;
 
   // The compiled RE2 object. It is NULL if this has not been initialized yet.
   std::unique_ptr<const RE2> re_;

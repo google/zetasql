@@ -1,16 +1,9 @@
-# ERROR: Pivot on value table via UNNEST
 [default language_features=V_1_3_PIVOT,NUMERIC_TYPE,BIGNUMERIC_TYPE,V_1_2_CIVIL_TIME,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT,TABLESAMPLE,V_1_3_IS_DISTINCT,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_HAVING_IN_AGGREGATE]
-SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
---
-ERROR: PIVOT is not allowed with array scans [at 1:38]
-SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
-                                     ^
-==
 
 # ERROR: Pivot on value table via UNNEST
 SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 --
-ERROR: PIVOT is not allowed with array scans [at 1:38]
+ERROR: PIVOT is not allowed with array scans [at 2:38]
 SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
                                      ^
 ==
@@ -5001,9 +4994,10 @@ QueryStmt
         |     +-PivotColumn(column=$pivot.sum_key_z#11, pivot_expr_index=0, pivot_value_index=0)
         |     +-PivotColumn(column=$pivot.sum_key_o#12, pivot_expr_index=0, pivot_value_index=1)
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$pivot.sum_key_z#5)
-            +-ColumnRef(type=INT64, column=$pivot.sum_key_z#11)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$pivot.sum_key_z#5)
+        |   +-ColumnRef(type=INT64, column=$pivot.sum_key_z#11)
+        +-has_using=TRUE
 ==
 
 # DISTINCT modifier in aggregate function used in PIVOT.

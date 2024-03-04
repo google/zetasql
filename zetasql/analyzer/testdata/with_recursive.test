@@ -1815,9 +1815,10 @@ QueryStmt
     |           |   |       +-right_scan=
     |           |   |       | +-WithRefScan(column_list=[t2.n#8], with_query_name="t2")
     |           |   |       +-join_expr=
-    |           |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |   |           +-ColumnRef(type=INT64, column=t1.n#7)
-    |           |   |           +-ColumnRef(type=INT64, column=t2.n#8)
+    |           |   |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |   |       |   +-ColumnRef(type=INT64, column=t1.n#7)
+    |           |   |       |   +-ColumnRef(type=INT64, column=t2.n#8)
+    |           |   |       +-has_using=TRUE
     |           |   +-recursive=TRUE
     |           +-output_column_list=[t1.n#7]
     +-query=
@@ -1943,9 +1944,10 @@ QueryStmt
     |           |   |       +-right_scan=
     |           |   |       | +-WithRefScan(column_list=[t2.n#7], with_query_name="t2")
     |           |   |       +-join_expr=
-    |           |   |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |   |           +-ColumnRef(type=INT64, column=t1.n#6)
-    |           |   |           +-ColumnRef(type=INT64, column=t2.n#7)
+    |           |   |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |   |       |   +-ColumnRef(type=INT64, column=t1.n#6)
+    |           |   |       |   +-ColumnRef(type=INT64, column=t2.n#7)
+    |           |   |       +-has_using=TRUE
     |           |   +-recursive=TRUE
     |           +-output_column_list=[t1.n#6]
     +-query=
@@ -3471,9 +3473,10 @@ QueryStmt
     |           |           |       +-column_ref=
     |           |           |         +-ColumnRef(type=INT64, column=tbl.n#5)
     |           |           +-join_expr=
-    |           |             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |               +-ColumnRef(type=INT64, column=t.n#4)
-    |           |               +-ColumnRef(type=INT64, column=tbl.n#5)
+    |           |           | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |           |   +-ColumnRef(type=INT64, column=t.n#4)
+    |           |           |   +-ColumnRef(type=INT64, column=tbl.n#5)
+    |           |           +-has_using=TRUE
     |           +-output_column_list=[$subquery1.n#6]
     +-query=
     | +-ProjectScan
@@ -3564,9 +3567,10 @@ QueryStmt
     |           |           +-right_scan=
     |           |           | +-RecursiveRefScan(column_list=[t.n#5])
     |           |           +-join_expr=
-    |           |             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |               +-ColumnRef(type=INT64, column=tbl.n#4)
-    |           |               +-ColumnRef(type=INT64, column=t.n#5)
+    |           |           | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |           |   +-ColumnRef(type=INT64, column=tbl.n#4)
+    |           |           |   +-ColumnRef(type=INT64, column=t.n#5)
+    |           |           +-has_using=TRUE
     |           +-output_column_list=[$subquery1.n#6]
     +-query=
     | +-ProjectScan
@@ -3633,9 +3637,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-WithRefScan(column_list=[t_other.n#5], with_query_name="t_other")
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#4]
     +-query=
     | +-ProjectScan
@@ -3694,9 +3699,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-WithRefScan(column_list=[t_other.n#5], with_query_name="t_other")
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#4]
     +-query=
     | +-ProjectScan
@@ -3769,9 +3775,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-WithRefScan(column_list=[t_other.n#5], with_query_name="t_other")
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#4]
     +-query=
     | +-ProjectScan
@@ -3833,9 +3840,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-WithRefScan(column_list=[t_other.n#5], with_query_name="t_other")
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#4]
     +-query=
     | +-ProjectScan
@@ -3914,9 +3922,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-RecursiveRefScan(column_list=[t.n#5])
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t_other.n#4]
     +-query=
     | +-ProjectScan
@@ -3977,9 +3986,10 @@ QueryStmt
     |           |       |   +-input_scan=
     |           |       |     +-RecursiveRefScan(column_list=[t.n#5])
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t_other.n#4]
     +-query=
     | +-ProjectScan
@@ -4050,9 +4060,10 @@ QueryStmt
     |           |       +-right_scan=
     |           |       | +-RecursiveRefScan(column_list=[t.n#5])
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#5]
     +-query=
     | +-ProjectScan
@@ -4114,9 +4125,10 @@ QueryStmt
     |           |       |   +-input_scan=
     |           |       |     +-RecursiveRefScan(column_list=[t.n#5])
     |           |       +-join_expr=
-    |           |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |           |           +-ColumnRef(type=INT64, column=t_other.n#4)
-    |           |           +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |       |   +-ColumnRef(type=INT64, column=t_other.n#4)
+    |           |       |   +-ColumnRef(type=INT64, column=t.n#5)
+    |           |       +-has_using=TRUE
     |           +-output_column_list=[t.n#5]
     +-query=
     | +-ProjectScan
@@ -5579,3 +5591,446 @@ ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:2
     SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
                             ^
 ==
+
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER}}]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH
+SELECT y FROM Fibonacci
+
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Recursion depth modifier is not supported [at 5:3]
+) WITH DEPTH
+  ^
+--
+ALTERNATION GROUP: ,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.depth#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.depth#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=Fibonacci.[x#9, y#10, depth#11], with_query_name="Fibonacci")
+    +-recursive=TRUE
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH {{|AS depth}}
+SELECT y FROM Fibonacci WHERE depth < 3
+
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.depth#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.depth#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-FilterScan
+    |       +-column_list=Fibonacci.[x#9, y#10, depth#11]
+    |       +-input_scan=
+    |       | +-WithRefScan(column_list=Fibonacci.[x#9, y#10, depth#11], with_query_name="Fibonacci")
+    |       +-filter_expr=
+    |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           +-ColumnRef(type=INT64, column=Fibonacci.depth#11)
+    |           +-Literal(type=INT64, value=3)
+    +-recursive=TRUE
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci WHERE depth < 3
+) WITH DEPTH AS depth
+SELECT y FROM Fibonacci WHERE depth < 3
+
+--
+ERROR: Unrecognized name: depth [at 4:52]
+    SELECT y AS x, x + y AS y FROM Fibonacci WHERE depth < 3
+                                                   ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH AS iteration
+SELECT y FROM Fibonacci WHERE iteration < 3
+
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.iteration#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.iteration#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-FilterScan
+    |       +-column_list=Fibonacci.[x#9, y#10, iteration#11]
+    |       +-input_scan=
+    |       | +-WithRefScan(column_list=Fibonacci.[x#9, y#10, iteration#11], with_query_name="Fibonacci")
+    |       +-filter_expr=
+    |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           +-ColumnRef(type=INT64, column=Fibonacci.iteration#11)
+    |           +-Literal(type=INT64, value=3)
+    +-recursive=TRUE
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y, 0 AS depth
+      UNION ALL
+    SELECT y AS x, x + y AS y, depth + 1 FROM Fibonacci
+) WITH DEPTH
+SELECT y FROM Fibonacci WHERE depth < 3
+
+--
+ERROR: WITH DEPTH modifier depth column is named 'depth' which collides with one of the existing names. [at 5:3]
+) WITH DEPTH
+  ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y, 0 AS iteration
+      UNION ALL
+    SELECT y AS x, x + y AS y, iteration + 1 FROM Fibonacci
+) WITH DEPTH AS iteration
+SELECT y FROM Fibonacci WHERE iteration < 3
+
+--
+ERROR: WITH DEPTH modifier depth column is named 'iteration' which collides with one of the existing names. [at 5:3]
+) WITH DEPTH AS iteration
+  ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT AS STRUCT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT AS STRUCT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH
+SELECT y FROM Fibonacci
+
+--
+ERROR: WITH DEPTH modifier is not allowed when the recursive query produces a value table. [at 5:3]
+) WITH DEPTH
+  ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH {{|MAX 10|BETWEEN 1 AND @test_param_int64}}
+SELECT y FROM Fibonacci
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.depth#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.depth#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=Fibonacci.[x#9, y#10, depth#11], with_query_name="Fibonacci")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: MAX 10
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.depth#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-upper_bound=
+    |           | +-Literal(type=INT64, value=10)
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.depth#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=Fibonacci.[x#9, y#10, depth#11], with_query_name="Fibonacci")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: BETWEEN 1 AND @test_param_int64
+--
+QueryStmt
++-output_column_list=
+| +-Fibonacci.y#10 AS y [INT64]
++-query=
+  +-WithScan
+    +-column_list=[Fibonacci.y#10]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Fibonacci"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.x#3, $union_all.y#4, $recursion_depth.depth#8]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=$union_all1.[x#1, y#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-x#1 := Literal(type=INT64, value=0)
+    |       |   |   | +-y#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=$union_all1.[x#1, y#2]
+    |       +-recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       |   |   +-expr_list=
+    |       |   |   | +-y#7 :=
+    |       |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.x#5)
+    |       |   |   |     +-ColumnRef(type=INT64, column=Fibonacci.y#6)
+    |       |   |   +-input_scan=
+    |       |   |     +-RecursiveRefScan(column_list=Fibonacci.[x#5, y#6])
+    |       |   +-output_column_list=[Fibonacci.y#6, $union_all2.y#7]
+    |       +-recursion_depth_modifier=
+    |         +-RecursionDepthModifier
+    |           +-lower_bound=
+    |           | +-Literal(type=INT64, value=1)
+    |           +-upper_bound=
+    |           | +-Parameter(type=INT64, name="test_param_int64")
+    |           +-recursion_depth_column=
+    |             +-ColumnHolder(column=$recursion_depth.depth#8)
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[Fibonacci.y#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=Fibonacci.[x#9, y#10, depth#11], with_query_name="Fibonacci")
+    +-recursive=TRUE
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE
+  NonRecusiveQuery AS (
+    SELECT 1 AS value
+  ) WITH DEPTH BETWEEN 1 AND 3
+SELECT * FROM NonRecusiveQuery
+--
+ERROR: Recursion depth modifier is not allowed for non-recursive CTE named NonRecusiveQuery [at 4:5]
+  ) WITH DEPTH BETWEEN 1 AND 3
+    ^
+==
+
+[language_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+WITH RECURSIVE Fibonacci AS (
+    SELECT 0 AS x, 1 AS y
+      UNION ALL
+    SELECT y AS x, x + y AS y FROM Fibonacci
+) WITH DEPTH BETWEEN 2 AND 1
+SELECT y FROM Fibonacci
+
+
+--
+ERROR: WITH DEPTH expects lower bound (Int64(2)) no larger than upper bound (Int64(1)) [at 5:3]
+) WITH DEPTH BETWEEN 2 AND 1
+  ^

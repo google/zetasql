@@ -26,6 +26,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace {
@@ -71,7 +72,7 @@ TEST_F(LookupCatalogColumnCallbackTest, BaselineErrorWhenNoColumnDefined) {
 TEST_F(LookupCatalogColumnCallbackTest,
        SameErrorAsBaselineWhenCatalogColumnCallbackReturnsNullptr) {
   options_.SetLookupCatalogColumnCallback(
-      [](const std::string& column) -> absl::StatusOr<const Column*> {
+      [](absl::string_view column) -> absl::StatusOr<const Column*> {
         return nullptr;
       });
   EXPECT_THAT(Analyze("mycolumn + 1"),
@@ -82,7 +83,7 @@ TEST_F(LookupCatalogColumnCallbackTest,
 TEST_F(LookupCatalogColumnCallbackTest,
        ErrorWhenLookupCatalogColumnReturnsError) {
   options_.SetLookupCatalogColumnCallback(
-      [](const std::string& column) -> absl::StatusOr<const Column*> {
+      [](absl::string_view column) -> absl::StatusOr<const Column*> {
         return absl::NotFoundError("error column-not-found: mycolumn");
       });
   EXPECT_THAT(Analyze("mycolumn + 1"),
@@ -92,7 +93,7 @@ TEST_F(LookupCatalogColumnCallbackTest,
 
 TEST_F(LookupCatalogColumnCallbackTest, SuccessfulLookupTest) {
   options_.SetLookupCatalogColumnCallback(
-      [&](const std::string& column) -> absl::StatusOr<const Column*> {
+      [&](absl::string_view column) -> absl::StatusOr<const Column*> {
         EXPECT_THAT(column, testing::StrCaseEq("mycolumn"));
         return &column_;
       });

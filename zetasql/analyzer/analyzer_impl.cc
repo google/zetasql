@@ -162,8 +162,8 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     if (absl::GetFlag(FLAGS_zetasql_print_resolved_ast)) {
       std::cout << "Resolved AST from thread "
                 << std::this_thread::get_id()
-                << ":" << std::endl
-                << resolved_expr->DebugString() << std::endl;
+                << ":" << '\n'
+                << resolved_expr->DebugString() << '\n';
     }
 
     if (options.language().error_on_deprecated_syntax() &&

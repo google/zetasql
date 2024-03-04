@@ -8,6 +8,16 @@ DROP TABLE namespace.foo;
 DropStmt(object_type="TABLE", is_if_exists=FALSE, name_path=namespace.foo)
 ==
 
+DROP EXTERNAL TABLE foo;
+--
+DropStmt(object_type="EXTERNAL TABLE", is_if_exists=FALSE, name_path=foo)
+==
+
+DROP EXTERNAL TABLE namespace.foo;
+--
+DropStmt(object_type="EXTERNAL TABLE", is_if_exists=FALSE, name_path=namespace.foo)
+==
+
 DROP VIEW bar;
 --
 
@@ -49,3 +59,38 @@ DropStmt(object_type="SCHEMA", is_if_exists=TRUE, name_path=foo.bar, drop_mode=R
 ALTERNATION GROUP: IF EXISTS,CASCADE
 --
 DropStmt(object_type="SCHEMA", is_if_exists=TRUE, name_path=foo.bar, drop_mode=CASCADE)
+==
+
+DROP EXTERNAL SCHEMA {{|IF EXISTS}} foo.bar {{|RESTRICT|CASCADE}};
+--
+ALTERNATION GROUP: <empty>
+--
+DropStmt(object_type="EXTERNAL SCHEMA", is_if_exists=FALSE, name_path=foo.bar)
+--
+ALTERNATION GROUP: RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP EXTERNAL SCHEMA [at 1:31]
+DROP EXTERNAL SCHEMA  foo.bar RESTRICT;
+                              ^
+--
+ALTERNATION GROUP: CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP EXTERNAL SCHEMA [at 1:31]
+DROP EXTERNAL SCHEMA  foo.bar CASCADE;
+                              ^
+--
+ALTERNATION GROUP: IF EXISTS,
+--
+DropStmt(object_type="EXTERNAL SCHEMA", is_if_exists=TRUE, name_path=foo.bar)
+--
+ALTERNATION GROUP: IF EXISTS,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP EXTERNAL SCHEMA [at 1:40]
+DROP EXTERNAL SCHEMA IF EXISTS foo.bar RESTRICT;
+                                       ^
+--
+ALTERNATION GROUP: IF EXISTS,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP EXTERNAL SCHEMA [at 1:40]
+DROP EXTERNAL SCHEMA IF EXISTS foo.bar CASCADE;
+                                       ^

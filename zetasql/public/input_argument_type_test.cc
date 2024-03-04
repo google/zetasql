@@ -29,6 +29,7 @@
 #include "gtest/gtest.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {
@@ -36,7 +37,7 @@ namespace {
 using ::testing::Optional;
 
 static std::string ArgumentDebugStrings(
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   std::vector<std::string> argument_strings;
   for (const InputArgumentType& argument : arguments) {
     argument_strings.push_back(argument.DebugString(true /* verbose */));

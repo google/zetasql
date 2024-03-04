@@ -103,26 +103,17 @@ SELECT a FROM t ORDER BY a
 ### Groupable data types
 
 Groupable data types can generally appear in an expression following `GROUP BY`,
-`DISTINCT`, and `PARTITION BY`. However, `PARTITION BY` expressions cannot
-include [floating point types][floating-point-types]. All data types are
-supported except for:
+`DISTINCT`, and `PARTITION BY`. All data types are supported except for:
 
 + `PROTO`
 + `GEOGRAPHY`
 + `JSON`
 
-An array type is groupable if its element type is groupable. Two arrays are in
-the same group if and only if one of the following statements is true:
+#### Grouping with floating point types
 
-+ The two arrays are both `NULL`.
-+ The two arrays have the same number of elements and all corresponding
-  elements are in the same groups.
-
-A struct type is groupable if its field types are groupable. Two structs
-are in the same group if and only if one of the following statements is true:
-
-+ The two structs are both `NULL`.
-+ All corresponding field values between the structs are in the same groups.
+Groupable floating point types can appear in an expression following `GROUP BY`
+and `DISTINCT`. `PARTITION BY` expressions cannot
+include [floating point types][floating-point-types].
 
 Special floating point values are grouped in the following way, including
 both grouping done by a `GROUP BY` clause and grouping done by the
@@ -133,6 +124,29 @@ both grouping done by a `GROUP BY` clause and grouping done by the
 + `-inf`
 + 0 or -0 &mdash; All zero values are considered equal when grouping.
 + `+inf`
+
+#### Grouping with arrays
+
+An `ARRAY` type is groupable if its element type is
+groupable.
+
+Two arrays are in the same group if and only if one of the following statements
+is true:
+
++ The two arrays are both `NULL`.
++ The two arrays have the same number of elements and all corresponding
+  elements are in the same groups.
+
+#### Grouping with structs
+
+A `STRUCT` type is groupable if its field types are
+groupable.
+
+Two structs are in the same group if and only if one of the following statements
+is true:
+
++ The two structs are both `NULL`.
++ All corresponding field values between the structs are in the same groups.
 
 ### Comparable data types
 
@@ -152,6 +166,13 @@ Notes:
   field order. Field names are ignored. Less than and greater than comparisons
   are not supported.
 + To compare geography values, use [ST_Equals][st-equals].
++ When comparing ranges, the lower bounds are compared. If the lower bounds are
+  equal, the upper bounds are compared, instead.
++ When comparing ranges, `NULL` values are handled as follows:
+  + `NULL` lower bounds are sorted before non-`NULL` lower bounds.
+  + `NULL` upper bounds are sorted after non-`NULL` upper bounds.
+  + If two bounds that are being compared are `NULL`, the comparison is `TRUE`.
+  + An `UNBOUNDED` bound is treated as a `NULL` bound.
 + All types that support comparisons can be used in a `JOIN` condition.
  See [JOIN Types][join-types] for an explanation of join conditions.
 
@@ -546,7 +567,8 @@ has:
 + An integer value. Integers are used for comparison and ordering enum values.
 There is no requirement that these integers start at zero or that they be
 contiguous.
-+ A string value. Strings are case sensitive.
++ A string value for its name. Strings are case sensitive. In the case of
+protocol buffer open enums, this name is optional.
 + Optional alias values. One or more additional string values that act as
 aliases.
 
@@ -1000,22 +1022,27 @@ INTERVAL '8 -20 17' MONTH TO HOUR
 
 For additional examples, see [Interval literals][interval-literal-range].
 
-#### Interval-supported datetime parts 
+#### Interval-supported date and time parts 
 <a id="interval_datetime_parts"></a>
 
-You can use the following datetime parts to construct
-an interval:
+You can use the following date parts to construct an interval:
 
 + `YEAR`: Number of years, `Y`.
 + `QUARTER`: Number of quarters; each quarter is converted to `3` months, `M`.
 + `MONTH`: Number of months, `M`. Each `12` months is converted to `1` year.
 + `WEEK`: Number of weeks; Each week is converted to `7` days, `D`.
 + `DAY`: Number of days, `D`.
+
+You can use the following time parts to construct an interval:
+
 + `HOUR`: Number of hours, `H`.
 + `MINUTE`: Number of minutes, `M`. Each `60` minutes is converted to `1` hour.
 + `SECOND`: Number of seconds, `S`. Each `60` seconds is converted to
   `1` minute. Can include up to nine fractional
   digits (nanosecond precision).
++ `MILLISECOND`: Number of milliseconds.
++ `MICROSECOND`: Number of microseconds.
++ `NANOSECOND`: Number of nanoseconds.
 
 ## JSON type
 
@@ -1717,6 +1744,95 @@ possible workarounds:
 + To get a simple approximation comparison, cast protocol buffer to
   string. This applies lexicographical ordering for numeric fields.
 
+## Range type
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Range</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RANGE</code></td>
+      <td>
+        Contiguous range between two dates, datetimes, or timestamps.
+        The lower and upper bound for the range are optional. The lower bound
+        is inclusive and the upper bound is exclusive.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+### Declare a range type
+
+A range type can be declared as follows:
+
+<table>
+  <thead>
+    <tr>
+      <th>Type Declaration</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RANGE&lt;DATE&gt;</code></td>
+      <td>Contiguous range between two dates.</td>
+    </tr>
+    <tr>
+      <td><code>RANGE&lt;DATETIME&gt;</code></td>
+      <td>Contiguous range between two datetimes.</td>
+    </tr>
+    <tr>
+      <td><code>RANGE&lt;TIMESTAMP&gt;</code></td>
+      <td>Contiguous range between two timestamps.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Construct a range 
+<a id="constructing_a_range"></a>
+
+You can construct a range with the [`RANGE` constructor][range-with-constructor]
+or a [range literal][range-with-literal].
+
+#### Construct a range with a constructor 
+<a id="range_with_constructor"></a>
+
+You can construct a range with the `RANGE` constructor. To learn more,
+see [`RANGE`][range-constructor].
+
+#### Construct a range with a literal 
+<a id="range_with_literal"></a>
+
+You can construct a range with a range literal. The canonical format for a
+range literal has the following parts:
+
+```sql
+RANGE<T> '[lower_bound, upper_bound)'
+```
+
++   `T`: The type of range. This can be `DATE`, `DATETIME`, or `TIMESTAMP`.
++   `lower_bound`: The range starts from this value. This can be a
+    [date][date-literals], [datetime][datetime-literals], or
+    [timestamp][timestamp-literals] literal. If this value is `UNBOUNDED` or
+    `NULL`, the range does not include a lower bound.
++   `upper_bound`: The range ends before this value. This can be a
+    [date][date-literals], [datetime][datetime-literals], or
+    [timestamp][timestamp-literals] literal. If this value is `UNBOUNDED` or
+    `NULL`, the range does not include an upper bound.
+
+`T`, `lower_bound`, and `upper_bound` must be of the same data type.
+
+To learn more about the literal representation of a range type,
+see [Range literals][range-literals].
+
+### Additional details
+
+The range type does not support arithmetic operators.
+
 ## String type
 
 <table>
@@ -1864,7 +1980,7 @@ types and the output type of the addition operator.</td>
 </table>
 
 This syntax can also be used with struct comparison for comparison expressions
-using multi-part keys, e.g. in a `WHERE` clause:
+using multi-part keys, e.g., in a `WHERE` clause:
 
 ```
 WHERE (Key1,Key2) IN ( (12,34), (56,78) )
@@ -2013,7 +2129,7 @@ an absolute point in time, use a [timestamp][timestamp-type].
 <a id="canonical_format_for_time_literals"></a>
 
 ```
-[H]H:[M]M:[S]S[.DDDDDD|.F]
+[H]H:[M]M:[S]S[.F]
 ```
 
 + <code>[H]H</code>: One or two digit hour (valid values from 00 to 23).
@@ -2335,6 +2451,14 @@ when there is a leap second.
 [enum-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#enum_literals
 
 [json-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#json_literals
+
+[range-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#range_literals
+
+[range-with-constructor]: #range_with_constructor
+
+[range-constructor]: https://github.com/google/zetasql/blob/master/docs/range-functions.md#range
+
+[range-with-literal]: #range_with_literal
 
 <!-- mdlint on -->
 

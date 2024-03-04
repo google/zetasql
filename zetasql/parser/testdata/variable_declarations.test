@@ -4,8 +4,8 @@ DECLARE x STRING{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-18] [DECLARE x STRING;]
-  StatementList [0-18] [DECLARE x STRING;]
+Script [0-17] [DECLARE x STRING;]
+  StatementList [0-17] [DECLARE x STRING;]
     VariableDeclaration [0-16] [DECLARE x STRING]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -35,8 +35,8 @@ DECLARE y INT32{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-35] [DECLARE x...DECLARE y INT32;]
-  StatementList [0-35] [DECLARE x...DECLARE y INT32;]
+Script [0-34] [DECLARE x...DECLARE y INT32;]
+  StatementList [0-34] [DECLARE x...DECLARE y INT32;]
     VariableDeclaration [0-16] [DECLARE x STRING]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -77,8 +77,8 @@ DECLARE y INT32 ;
 # Declaration of multiple variables in one statement.
 DECLARE x, y INT32;
 --
-Script [0-20] [DECLARE x, y INT32;]
-  StatementList [0-20] [DECLARE x, y INT32;]
+Script [0-19] [DECLARE x, y INT32;]
+  StatementList [0-19] [DECLARE x, y INT32;]
     VariableDeclaration [0-18] [DECLARE x, y INT32]
       IdentifierList [8-12] [x, y]
         Identifier(x) [8-9] [x]
@@ -93,8 +93,8 @@ DECLARE x, y INT32 ;
 # Single variable with default value
 DECLARE x INT32 DEFAULT 5;
 --
-Script [0-27] [DECLARE x INT32 DEFAULT 5;]
-  StatementList [0-27] [DECLARE x INT32 DEFAULT 5;]
+Script [0-26] [DECLARE x INT32 DEFAULT 5;]
+  StatementList [0-26] [DECLARE x INT32 DEFAULT 5;]
     VariableDeclaration [0-25] [DECLARE x INT32 DEFAULT 5]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -110,8 +110,8 @@ DECLARE x INT32 DEFAULT 5 ;
 DECLARE x INT32 DEFAULT 5;
 DECLARE y INT32 DEFAULT x + 23;
 --
-Script [0-59] [DECLARE x...DEFAULT x + 23;]
-  StatementList [0-59] [DECLARE x...DEFAULT x + 23;]
+Script [0-58] [DECLARE x...DEFAULT x + 23;]
+  StatementList [0-58] [DECLARE x...DEFAULT x + 23;]
     VariableDeclaration [0-25] [DECLARE x INT32 DEFAULT 5]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -138,8 +138,8 @@ DECLARE y INT32 DEFAULT x + 23 ;
 DECLARE x INT32;
 SELECT x;
 --
-Script [0-27] [DECLARE x INT32; SELECT x;]
-  StatementList [0-27] [DECLARE x INT32; SELECT x;]
+Script [0-26] [DECLARE x INT32; SELECT x;]
+  StatementList [0-26] [DECLARE x INT32; SELECT x;]
     VariableDeclaration [0-15] [DECLARE x INT32]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -169,7 +169,7 @@ END
 Script [0-40] [BEGIN   DECLARE...ELECT x; END]
   StatementList [0-40] [BEGIN   DECLARE...ELECT x; END]
     BeginEndBlock [0-40] [BEGIN   DECLARE...ELECT x; END]
-      StatementList [8-37] [DECLARE x INT32;   SELECT x;]
+      StatementList [8-36] [DECLARE x INT32;   SELECT x;]
         VariableDeclaration [8-23] [DECLARE x INT32]
           IdentifierList [16-17] [x]
             Identifier(x) [16-17] [x]
@@ -219,8 +219,8 @@ FROM
 # 'DECLARE' used both as a keyword and identifier in the same statement.
 DECLARE declare declare;
 --
-Script [0-25] [DECLARE declare declare;]
-  StatementList [0-25] [DECLARE declare declare;]
+Script [0-24] [DECLARE declare declare;]
+  StatementList [0-24] [DECLARE declare declare;]
     VariableDeclaration [0-23] [DECLARE declare declare]
       IdentifierList [8-15] [declare]
         Identifier(declare) [8-15] [declare]
@@ -233,8 +233,8 @@ DECLARE declare declare ;
 
 DECLARE declare declare DEFAULT declare;
 --
-Script [0-41] [DECLARE declare...ULT declare;]
-  StatementList [0-41] [DECLARE declare...ULT declare;]
+Script [0-40] [DECLARE declare...ULT declare;]
+  StatementList [0-40] [DECLARE declare...ULT declare;]
     VariableDeclaration [0-39] [DECLARE declare...AULT declare]
       IdentifierList [8-15] [declare]
         Identifier(declare) [8-15] [declare]
@@ -249,8 +249,8 @@ DECLARE declare declare DEFAULT declare ;
 
 DECLARE x INT64 DEFAULT IF(a,b,c);
 --
-Script [0-35] [DECLARE x...IF(a,b,c);]
-  StatementList [0-35] [DECLARE x...IF(a,b,c);]
+Script [0-34] [DECLARE x...IF(a,b,c);]
+  StatementList [0-34] [DECLARE x...IF(a,b,c);]
     VariableDeclaration [0-33] [DECLARE x...IF(a,b,c)]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -272,8 +272,8 @@ DECLARE x INT64 DEFAULT `IF`(a, b, c) ;
 
 DECLARE x INT64 DEFAULT (SELECT MIN(a) FROM t);
 --
-Script [0-48] [DECLARE x...) FROM t);]
-  StatementList [0-48] [DECLARE x...) FROM t);]
+Script [0-47] [DECLARE x...) FROM t);]
+  StatementList [0-47] [DECLARE x...) FROM t);]
     VariableDeclaration [0-46] [DECLARE x...a) FROM t)]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -332,11 +332,11 @@ IF true THEN
   DECLARE x INT32;
 END IF;
 --
-Script [0-40] [IF true THEN...INT32; END IF;]
-  StatementList [0-40] [IF true THEN...INT32; END IF;]
+Script [0-39] [IF true THEN...INT32; END IF;]
+  StatementList [0-39] [IF true THEN...INT32; END IF;]
     IfStatement [0-38] [IF true THEN...INT32; END IF]
       BooleanLiteral(true) [3-7] [true]
-      StatementList [15-32] [DECLARE x INT32;]
+      StatementList [15-31] [DECLARE x INT32;]
         VariableDeclaration [15-30] [DECLARE x INT32]
           IdentifierList [23-24] [x]
             Identifier(x) [23-24] [x]
@@ -353,12 +353,12 @@ IF declare then
   DECLARE x INT64;
 END IF;
 --
-Script [0-43] [IF declare...INT64; END IF;]
-  StatementList [0-43] [IF declare...INT64; END IF;]
+Script [0-42] [IF declare...INT64; END IF;]
+  StatementList [0-42] [IF declare...INT64; END IF;]
     IfStatement [0-41] [IF declare...INT64; END IF]
       PathExpression [3-10] [declare]
         Identifier(declare) [3-10] [declare]
-      StatementList [18-35] [DECLARE x INT64;]
+      StatementList [18-34] [DECLARE x INT64;]
         VariableDeclaration [18-33] [DECLARE x INT64]
           IdentifierList [26-27] [x]
             Identifier(x) [26-27] [x]
@@ -375,8 +375,8 @@ END IF ;
 SELECT 5;
 DECLARE x INT32;
 --
-Script [0-27] [SELECT 5; DECLARE x INT32;]
-  StatementList [0-27] [SELECT 5; DECLARE x INT32;]
+Script [0-26] [SELECT 5; DECLARE x INT32;]
+  StatementList [0-26] [SELECT 5; DECLARE x INT32;]
     QueryStatement [0-8] [SELECT 5]
       Query [0-8] [SELECT 5]
         Select [0-8] [SELECT 5]
@@ -406,7 +406,7 @@ END
 Script [0-40] [BEGIN   SELECT...INT32; END]
   StatementList [0-40] [BEGIN   SELECT...INT32; END]
     BeginEndBlock [0-40] [BEGIN   SELECT...INT32; END]
-      StatementList [8-37] [SELECT 5;   DECLARE x INT32;]
+      StatementList [8-36] [SELECT 5;   DECLARE x INT32;]
         QueryStatement [8-16] [SELECT 5]
           Query [8-16] [SELECT 5]
             Select [8-16] [SELECT 5]
@@ -432,8 +432,8 @@ END
 # Error: Declaring the same variable twice in the same statement
 DECLARE x,x INT32;
 --
-Script [0-19] [DECLARE x,x INT32;]
-  StatementList [0-19] [DECLARE x,x INT32;]
+Script [0-18] [DECLARE x,x INT32;]
+  StatementList [0-18] [DECLARE x,x INT32;]
     VariableDeclaration [0-17] [DECLARE x,x INT32]
       IdentifierList [8-11] [x,x]
         Identifier(x) [8-9] [x]
@@ -449,8 +449,8 @@ DECLARE x, x INT32 ;
 # (variable names differ only in case).
 DECLARE X,x INT32;
 --
-Script [0-19] [DECLARE X,x INT32;]
-  StatementList [0-19] [DECLARE X,x INT32;]
+Script [0-18] [DECLARE X,x INT32;]
+  StatementList [0-18] [DECLARE X,x INT32;]
     VariableDeclaration [0-17] [DECLARE X,x INT32]
       IdentifierList [8-11] [X,x]
         Identifier(X) [8-9] [X]
@@ -466,8 +466,8 @@ DECLARE X, x INT32 ;
 DECLARE x INT32;
 DECLARE x INT64;
 --
-Script [0-34] [DECLARE x...DECLARE x INT64;]
-  StatementList [0-34] [DECLARE x...DECLARE x INT64;]
+Script [0-33] [DECLARE x...DECLARE x INT64;]
+  StatementList [0-33] [DECLARE x...DECLARE x INT64;]
     VariableDeclaration [0-15] [DECLARE x INT32]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -490,8 +490,8 @@ DECLARE x INT64 ;
 DECLARE X INT32;
 DECLARE x INT64;
 --
-Script [0-34] [DECLARE X...DECLARE x INT64;]
-  StatementList [0-34] [DECLARE X...DECLARE x INT64;]
+Script [0-33] [DECLARE X...DECLARE x INT64;]
+  StatementList [0-33] [DECLARE X...DECLARE x INT64;]
     VariableDeclaration [0-15] [DECLARE X INT32]
       IdentifierList [8-9] [X]
         Identifier(X) [8-9] [X]
@@ -515,8 +515,8 @@ BEGIN
   DECLARE x INT64;
 END;
 --
-Script [0-47] [DECLARE x...INT64; END;]
-  StatementList [0-47] [DECLARE x...INT64; END;]
+Script [0-46] [DECLARE x...INT64; END;]
+  StatementList [0-46] [DECLARE x...INT64; END;]
     VariableDeclaration [0-15] [DECLARE x INT32]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -524,7 +524,7 @@ Script [0-47] [DECLARE x...INT64; END;]
         PathExpression [10-15] [INT32]
           Identifier(INT32) [10-15] [INT32]
     BeginEndBlock [17-45] [BEGIN   DECLARE x INT64; END]
-      StatementList [25-42] [DECLARE x INT64;]
+      StatementList [25-41] [DECLARE x INT64;]
         VariableDeclaration [25-40] [DECLARE x INT64]
           IdentifierList [33-34] [x]
             Identifier(x) [33-34] [x]
@@ -546,8 +546,8 @@ BEGIN
   DECLARE x INT64;
 END;
 --
-Script [0-47] [DECLARE X...INT64; END;]
-  StatementList [0-47] [DECLARE X...INT64; END;]
+Script [0-46] [DECLARE X...INT64; END;]
+  StatementList [0-46] [DECLARE X...INT64; END;]
     VariableDeclaration [0-15] [DECLARE X INT32]
       IdentifierList [8-9] [X]
         Identifier(X) [8-9] [X]
@@ -555,7 +555,7 @@ Script [0-47] [DECLARE X...INT64; END;]
         PathExpression [10-15] [INT32]
           Identifier(INT32) [10-15] [INT32]
     BeginEndBlock [17-45] [BEGIN   DECLARE x INT64; END]
-      StatementList [25-42] [DECLARE x INT64;]
+      StatementList [25-41] [DECLARE x INT64;]
         VariableDeclaration [25-40] [DECLARE x INT64]
           IdentifierList [33-34] [x]
             Identifier(x) [33-34] [x]
@@ -578,8 +578,8 @@ BEGIN
   END;
 END;
 --
-Script [0-64] [DECLARE x...END; END;]
-  StatementList [0-64] [DECLARE x...END; END;]
+Script [0-63] [DECLARE x...END; END;]
+  StatementList [0-63] [DECLARE x...END; END;]
     VariableDeclaration [0-15] [DECLARE x INT32]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -587,9 +587,9 @@ Script [0-64] [DECLARE x...END; END;]
         PathExpression [10-15] [INT32]
           Identifier(INT32) [10-15] [INT32]
     BeginEndBlock [17-62] [BEGIN   BEGIN...END; END]
-      StatementList [25-59] [BEGIN...INT64;   END;]
+      StatementList [25-58] [BEGIN...INT64;   END;]
         BeginEndBlock [25-57] [BEGIN...INT64;   END]
-          StatementList [35-54] [DECLARE x INT64;]
+          StatementList [35-51] [DECLARE x INT64;]
             VariableDeclaration [35-50] [DECLARE x INT64]
               IdentifierList [43-44] [x]
                 Identifier(x) [43-44] [x]
@@ -616,8 +616,8 @@ BEGIN
   END;
 END;
 --
-Script [0-64] [DECLARE X...END; END;]
-  StatementList [0-64] [DECLARE X...END; END;]
+Script [0-63] [DECLARE X...END; END;]
+  StatementList [0-63] [DECLARE X...END; END;]
     VariableDeclaration [0-15] [DECLARE X INT32]
       IdentifierList [8-9] [X]
         Identifier(X) [8-9] [X]
@@ -625,9 +625,9 @@ Script [0-64] [DECLARE X...END; END;]
         PathExpression [10-15] [INT32]
           Identifier(INT32) [10-15] [INT32]
     BeginEndBlock [17-62] [BEGIN   BEGIN...END; END]
-      StatementList [25-59] [BEGIN...INT64;   END;]
+      StatementList [25-58] [BEGIN...INT64;   END;]
         BeginEndBlock [25-57] [BEGIN...INT64;   END]
-          StatementList [35-54] [DECLARE x INT64;]
+          StatementList [35-51] [DECLARE x INT64;]
             VariableDeclaration [35-50] [DECLARE x INT64]
               IdentifierList [43-44] [x]
                 Identifier(x) [43-44] [x]
@@ -651,8 +651,8 @@ BEGIN
   DECLARE y INT64;
 END;
 --
-Script [0-47] [DECLARE x...INT64; END;]
-  StatementList [0-47] [DECLARE x...INT64; END;]
+Script [0-46] [DECLARE x...INT64; END;]
+  StatementList [0-46] [DECLARE x...INT64; END;]
     VariableDeclaration [0-15] [DECLARE x INT32]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -660,7 +660,7 @@ Script [0-47] [DECLARE x...INT64; END;]
         PathExpression [10-15] [INT32]
           Identifier(INT32) [10-15] [INT32]
     BeginEndBlock [17-45] [BEGIN   DECLARE y INT64; END]
-      StatementList [25-42] [DECLARE y INT64;]
+      StatementList [25-41] [DECLARE y INT64;]
         VariableDeclaration [25-40] [DECLARE y INT64]
           IdentifierList [33-34] [y]
             Identifier(y) [33-34] [y]
@@ -683,10 +683,10 @@ BEGIN
   DECLARE x INT32;
 END;
 --
-Script [0-60] [BEGIN   DECLARE...INT32; END;]
-  StatementList [0-60] [BEGIN   DECLARE...INT32; END;]
+Script [0-59] [BEGIN   DECLARE...INT32; END;]
+  StatementList [0-59] [BEGIN   DECLARE...INT32; END;]
     BeginEndBlock [0-28] [BEGIN   DECLARE x INT32; END]
-      StatementList [8-25] [DECLARE x INT32;]
+      StatementList [8-24] [DECLARE x INT32;]
         VariableDeclaration [8-23] [DECLARE x INT32]
           IdentifierList [16-17] [x]
             Identifier(x) [16-17] [x]
@@ -694,7 +694,7 @@ Script [0-60] [BEGIN   DECLARE...INT32; END;]
             PathExpression [18-23] [INT32]
               Identifier(INT32) [18-23] [INT32]
     BeginEndBlock [30-58] [BEGIN   DECLARE x INT32; END]
-      StatementList [38-55] [DECLARE x INT32;]
+      StatementList [38-54] [DECLARE x INT32;]
         VariableDeclaration [38-53] [DECLARE x INT32]
           IdentifierList [46-47] [x]
             Identifier(x) [46-47] [x]
@@ -719,10 +719,10 @@ BEGIN
 END;
 DECLARE y INT64;
 --
-Script [0-47] [BEGIN   DECLARE...ARE y INT64;]
-  StatementList [0-47] [BEGIN   DECLARE...ARE y INT64;]
+Script [0-46] [BEGIN   DECLARE...ARE y INT64;]
+  StatementList [0-46] [BEGIN   DECLARE...ARE y INT64;]
     BeginEndBlock [0-28] [BEGIN   DECLARE x INT32; END]
-      StatementList [8-25] [DECLARE x INT32;]
+      StatementList [8-24] [DECLARE x INT32;]
         VariableDeclaration [8-23] [DECLARE x INT32]
           IdentifierList [16-17] [x]
             Identifier(x) [16-17] [x]
@@ -754,8 +754,8 @@ DECLARE @@sysvar INT32;
 # Can default to a system variable.
 DECLARE x INT32 DEFAULT @@sysvar;
 --
-Script [0-34] [DECLARE x...@@sysvar;]
-  StatementList [0-34] [DECLARE x...@@sysvar;]
+Script [0-33] [DECLARE x...@@sysvar;]
+  StatementList [0-33] [DECLARE x...@@sysvar;]
     VariableDeclaration [0-32] [DECLARE x...DEFAULT @@sysvar]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -773,8 +773,8 @@ DECLARE x INT32 DEFAULT @@sysvar ;
 # Automatically inferred variable type
 DECLARE x DEFAULT 5;
 --
-Script [0-21] [DECLARE x DEFAULT 5;]
-  StatementList [0-21] [DECLARE x DEFAULT 5;]
+Script [0-20] [DECLARE x DEFAULT 5;]
+  StatementList [0-20] [DECLARE x DEFAULT 5;]
     VariableDeclaration [0-19] [DECLARE x DEFAULT 5]
       IdentifierList [8-9] [x]
         Identifier(x) [8-9] [x]
@@ -786,8 +786,8 @@ DECLARE x DEFAULT 5 ;
 # Automatically inferred variable type, multiple variables
 DECLARE x, y, z DEFAULT 5;
 --
-Script [0-27] [DECLARE x, y, z DEFAULT 5;]
-  StatementList [0-27] [DECLARE x, y, z DEFAULT 5;]
+Script [0-26] [DECLARE x, y, z DEFAULT 5;]
+  StatementList [0-26] [DECLARE x, y, z DEFAULT 5;]
     VariableDeclaration [0-25] [DECLARE x, y, z DEFAULT 5]
       IdentifierList [8-15] [x, y, z]
         Identifier(x) [8-9] [x]
@@ -817,8 +817,8 @@ DECLARE x;
 # Expression as default value, inferred type.
 DECLARE y DEFAULT x + 1;
 --
-Script [0-25] [DECLARE y DEFAULT x + 1;]
-  StatementList [0-25] [DECLARE y DEFAULT x + 1;]
+Script [0-24] [DECLARE y DEFAULT x + 1;]
+  StatementList [0-24] [DECLARE y DEFAULT x + 1;]
     VariableDeclaration [0-23] [DECLARE y DEFAULT x + 1]
       IdentifierList [8-9] [y]
         Identifier(y) [8-9] [y]
@@ -833,8 +833,8 @@ DECLARE y DEFAULT x + 1 ;
 # Subquery as default value, inferred type.
 DECLARE y DEFAULT (SELECT x FROM MyTable);
 --
-Script [0-43] [DECLARE y...MyTable);]
-  StatementList [0-43] [DECLARE y...MyTable);]
+Script [0-42] [DECLARE y...MyTable);]
+  StatementList [0-42] [DECLARE y...MyTable);]
     VariableDeclaration [0-41] [DECLARE y...FROM MyTable)]
       IdentifierList [8-9] [y]
         Identifier(y) [8-9] [y]
@@ -862,8 +862,8 @@ DECLARE y DEFAULT(
 # Declare variable with parameterized type
 DECLARE y string(100);
 --
-Script [0-23] [DECLARE y string(100);]
-  StatementList [0-23] [DECLARE y string(100);]
+Script [0-22] [DECLARE y string(100);]
+  StatementList [0-22] [DECLARE y string(100);]
     VariableDeclaration [0-21] [DECLARE y string(100)]
       IdentifierList [8-9] [y]
         Identifier(y) [8-9] [y]

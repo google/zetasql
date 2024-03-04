@@ -18,21 +18,17 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <functional>
-#include <iterator>
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
-#include <type_traits>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -46,6 +42,7 @@
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -57,6 +54,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -66,12 +64,12 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "google/protobuf/dynamic_message.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -1075,8 +1073,10 @@ bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
       std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
       VirtualTupleSlot arg_result(&call_args.emplace_back(), &arg_shared_state);
       if (!args[i]->value_expr()->Eval(params, context, &arg_result, status)) {
+        ABSL_DCHECK(!status->ok());
         return false;
       }
+      ZETASQL_DCHECK_OK(*status);
     }
   }
 
@@ -1087,8 +1087,10 @@ bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
       result->SetValue(Value::Null(output_type()));
       return true;
     }
+    ABSL_DCHECK(!status->ok());
     return false;
   }
+  ZETASQL_DCHECK_OK(*status);
   result->MaybeResetSharedProtoState();
   return true;
 }
@@ -1289,6 +1291,8 @@ absl::StatusOr<std::unique_ptr<IfExpr>> IfExpr::Create(
 
 absl::Status IfExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested if expression");
   ZETASQL_RETURN_IF_ERROR(mutable_join_expr()->SetSchemasForEvaluation(params_schemas));
   ZETASQL_RETURN_IF_ERROR(
       mutable_true_value()->SetSchemasForEvaluation(params_schemas));
@@ -2675,7 +2679,7 @@ absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
       // set to unordered values (via new_field_value). Verification assumes
       // that the repeated field value is ordered leading to false negatives. If
       // new_field_value contains an unordered array value for a repeated field,
-      // result from ZetaSQL reference driver is marked non-determinstic and
+      // result from ZetaSQL reference driver is marked non-deterministic and
       // is ignored.
       // TODO : Fix the ordering issue in Proto repeated field,
       // after which below safeguard can be removed.
@@ -3549,6 +3553,13 @@ absl::StatusOr<Value> DMLInsertValueExpr::Eval(
 
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
 
+  if (!context->options().return_all_rows_for_dml &&
+      stmt()->insert_mode() == ResolvedInsertStmt::OR_IGNORE) {
+    // INSERT IGNORE inserts only new rows, others are ignored.
+    // Number of rows modified must match the number of rows actually inserted.
+    ZETASQL_RET_CHECK_EQ(num_rows_modified, rows_to_insert.size());
+  }
+
   return context->options().return_all_rows_for_dml
              ? GetDMLOutputValue(num_rows_modified, row_map, dml_returning_rows,
                                  context)
@@ -3785,7 +3796,7 @@ absl::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
 
 absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
     const InsertColumnMap& insert_column_map,
-    const std::vector<std::vector<Value>>& rows_to_insert,
+    std::vector<std::vector<Value>>& rows_to_insert,
     std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context, PrimaryKeyRowMap* row_map) const {
   absl::flat_hash_map<Value, int, ValueHasher> modified_primary_keys;
@@ -3906,10 +3917,16 @@ absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
     }
   }
 
-  if (!rows_ignored_indexes.empty() && stmt()->returning() != nullptr) {
-    // Needs to skip these rows in the dml returning output
+  if (!rows_ignored_indexes.empty()) {
     for (int64_t i = rows_ignored_indexes.size() - 1; i >= 0; --i) {
-      dml_returning_rows.erase(dml_returning_rows.begin() + i);
+      // Needs to skip these rows in the dml returning output.
+      if (stmt()->returning() != nullptr) {
+        dml_returning_rows.erase(dml_returning_rows.begin() + i);
+      }
+      // Erase the rows that were not inserted because they already exist.
+      if (stmt()->insert_mode() == ResolvedInsertStmt::OR_IGNORE) {
+        rows_to_insert.erase(rows_to_insert.begin() + rows_ignored_indexes[i]);
+      }
     }
   }
 

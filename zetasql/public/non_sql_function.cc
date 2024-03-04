@@ -23,6 +23,7 @@
 
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -31,7 +32,7 @@ namespace zetasql {
 const char NonSqlFunction::kNonSqlFunctionGroup[] = "Non_sql_function";
 
 NonSqlFunction::NonSqlFunction(
-    const std::string& name, Mode mode,
+    absl::string_view name, Mode mode,
     const std::vector<FunctionSignature>& function_signatures,
     const FunctionOptions& function_options,
     const ResolvedCreateFunctionStmt* resolved_create_function_statement,

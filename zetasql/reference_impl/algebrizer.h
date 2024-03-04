@@ -29,11 +29,12 @@
 #include <set>
 #include <stack>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/function.h"
@@ -43,6 +44,7 @@
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gtest/gtest_prod.h"
@@ -53,6 +55,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 
 namespace zetasql {
@@ -194,6 +197,7 @@ class Algebrizer {
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMax);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMin);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupBySum);
+  FRIEND_TEST(StatementAlgebrizerTest, TVF);
 
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,
@@ -237,8 +241,9 @@ class Algebrizer {
   // ResolvedColumnRef, a ResolvedParameter, or a ResolvedExpressionColumn.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoFieldOfPath(
       const ResolvedExpr* column_or_param_expr,
-      const std::vector<std::variant<const ResolvedGetProtoField*,
-                                     const ResolvedGetStructField*>>& path);
+      absl::Span<const std::variant<const ResolvedGetProtoField*,
+                                    const ResolvedGetStructField*>>
+          path);
 
   // Algebrize specific expressions.
   absl::StatusOr<std::unique_ptr<AggregateArg>>
@@ -303,7 +308,7 @@ class Algebrizer {
       FunctionKind kind, const Type* output_type,
       absl::string_view function_name,
       std::vector<std::unique_ptr<AlgebraArg>> converted_arguments,
-      const std::vector<ResolvedCollation>& collation_list);
+      absl::Span<const ResolvedCollation> collation_list);
 
   // Algebrizes IN, LIKE ANY, or LIKE ALL when the rhs is a subquery.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInLikeAnyLikeAllRelation(
@@ -444,6 +449,11 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<FilterOp>> AlgebrizeNullFilterForUnpivotScan(
       const ResolvedUnpivotScan* unpivot_scan,
       std::unique_ptr<RelationalOp> input);
+  absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeGroupingCall(
+      const ResolvedGroupingCall* grouping_call,
+      std::optional<AnonymizationOptions> anonymization_options,
+      absl::flat_hash_set<ResolvedColumn>& output_columns,
+      absl::flat_hash_map<std::string, int>& key_to_index_map);
   absl::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScanBase(
       const ResolvedAggregateScanBase* aggregate_scan,
       std::optional<AnonymizationOptions> anonymization_options);
@@ -481,7 +491,8 @@ class Algebrizer {
       const ResolvedWithRefScan* scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGroupRowsScan(
       const ResolvedGroupRowsScan* group_rows_scan);
-
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeTvfScan(
+      const ResolvedTVFScan* tvf_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeTableScan(
       const ResolvedTableScan* table_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
@@ -558,7 +569,7 @@ class Algebrizer {
   // initial VariableId before any change has been made in this function.
   absl::Status AlgebrizeOrderByItems(
       bool drop_correlated_columns, bool create_new_ids,
-      const std::vector<std::unique_ptr<const ResolvedOrderByItem>>&
+      absl::Span<const std::unique_ptr<const ResolvedOrderByItem>>
           order_by_items,
       absl::flat_hash_map<int, VariableId>* column_to_id_map,
       std::vector<std::unique_ptr<KeyArg>>* order_by_keys);
@@ -662,7 +673,7 @@ class Algebrizer {
   // 1-to-1 mapping.
   absl::Status AlgebrizeDefaultAndGeneratedExpressions(
       const ResolvedTableScan* table_scan, ColumnExprMap* column_expr_map,
-      const std::vector<std::unique_ptr<const ResolvedExpr>>&
+      absl::Span<const std::unique_ptr<const ResolvedExpr>>
           generated_column_exprs,
       std::vector<int> topologically_sorted_generated_column_ids);
 
@@ -670,8 +681,7 @@ class Algebrizer {
   // (*definition) the expression that defines that column, or nullptr if not
   // found.
   bool FindColumnDefinition(
-      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
-          expr_list,
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>> expr_list,
       int column_id, const ResolvedExpr** definition);
 
   // Returns a RelationalOp representing a filtered view of <input>, excluding

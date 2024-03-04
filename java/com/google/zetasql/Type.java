@@ -78,6 +78,7 @@ public abstract class Type implements Serializable {
     "JSON",
     "INTERVAL",
     "RANGE",
+    "MAP",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -202,6 +203,10 @@ public abstract class Type implements Serializable {
 
   public boolean isRange() {
     return kind == TypeKind.TYPE_RANGE;
+  }
+
+  public boolean isMap() {
+    return kind == TypeKind.TYPE_MAP;
   }
 
   public boolean isStructOrProto() {
@@ -410,6 +415,11 @@ public abstract class Type implements Serializable {
     return null;
   }
 
+  /** Returns {@code this} cast to MapType or null for other types. */
+  public MapType asMap() {
+    return null;
+  }
+
   @SuppressWarnings("ReferenceEquality")
   protected boolean equalsInternal(Type other, boolean equivalent) {
     if (other == this) {
@@ -439,6 +449,8 @@ public abstract class Type implements Serializable {
         return ProtoType.equalsImpl(this.asProto(), other.asProto(), equivalent);
       case TYPE_RANGE:
         return RangeType.equalsImpl(this.asRange(), other.asRange(), equivalent);
+      case TYPE_MAP:
+        return MapType.equalsImpl(this.asMap(), other.asMap(), equivalent);
       default:
         throw new IllegalArgumentException("Shouldn't happen: unsupported type " + other);
     }

@@ -189,8 +189,10 @@ QueryStatement [0-48]
             Identifier(T) [22-23]
             Identifier(name) [24-28]
           Location [29-36]
-          StringLiteral('A') [37-40]
-          StringLiteral('B') [45-48]
+          StringLiteral [37-40]
+            StringLiteralComponent('A') [37-40]
+          StringLiteral [45-48]
+            StringLiteralComponent('B') [45-48]
 --
 SELECT
   *

@@ -104,7 +104,7 @@ absl::Status RunTool(const std::vector<std::string>& args) {
 
   const std::string sql = absl::StrJoin(args, " ");
 
-  ExecuteQuerySingleInput prompt{sql};
+  ExecuteQuerySingleInput prompt(sql, config);
 
   return ExecuteQueryLoop(prompt, config, *writer,
                           &ExecuteQueryLoopPrintErrorHandler);
@@ -124,13 +124,13 @@ int main(int argc, char* argv[]) {
   }
 
   if (absl::GetFlag(FLAGS_interactive) != args.empty()) {
-    ABSL_LOG(QFATAL) << kUsage;
+    ABSL_LOG(QFATAL) << "\n" << kUsage << "Pass --help for a full list of flags.\n";
   }
 
   if (const absl::Status status = zetasql::RunTool(args); status.ok()) {
     return 0;
   } else {
-    std::cerr << status.message() << std::endl;
+    std::cerr << status.message() << '\n';
     return 1;
   }
 }

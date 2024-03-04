@@ -31,6 +31,7 @@
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -88,6 +89,10 @@ class EnumType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
+  std::string TypeName(ProductMode mode_unused,
+                       bool use_external_float32_unused) const override {
+    return TypeName();
+  }
   // EnumType does not support type parameters or collation, which is why
   // TypeName(mode) is used.
   absl::StatusOr<std::string> TypeNameWithModifiers(
@@ -98,9 +103,22 @@ class EnumType : public Type {
     ZETASQL_RET_CHECK(collation.Empty());
     return TypeName(mode);
   }
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode,
+      bool use_external_float32) const override {
+    return TypeNameWithModifiers(type_modifiers, mode);
+  }
 
-  std::string ShortTypeName(
-      ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
+  std::string ShortTypeName(ProductMode mode_unused) const override {
+    return ShortTypeName();
+  }
+
+  std::string ShortTypeName(ProductMode mode_unused,
+                            bool use_external_float32_unused) const override {
+    return ShortTypeName();
+  }
+
+  std::string ShortTypeName() const;
   std::string TypeName() const;  // Enum-specific version does not need mode.
 
   // Nested catalog names, that were passed to the constructor.
@@ -117,7 +135,7 @@ class EnumType : public Type {
 
   // Find the enum number given a corresponding name.  Returns true
   // upon success, and false if the name is not found.
-  ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name,
+  ABSL_MUST_USE_RESULT bool FindNumber(absl::string_view name,
                                        int* number) const;
 
   // Helper function to determine if a given descriptor value is valid.

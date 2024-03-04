@@ -22,47 +22,61 @@
 #include <variant>
 #include <vector>
 
-#include "zetasql/base/logging.h"
+#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
+#include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-using parser::BisonParserMode;
 using parser::BisonParser;
+using parser::BisonParserMode;
+using MacroCatalog = parser::macros::MacroCatalog;
 
 ParserOptions::ParserOptions() : ParserOptions(LanguageOptions{}) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                             const LanguageOptions* language_options)
-    : arena_(std::move(arena)), id_string_pool_(std::move(id_string_pool)) {
-  set_language_options(language_options);
-}
+                             const LanguageOptions* language_options,
+                             const MacroCatalog* macro_catalog)
+    : arena_(std::move(arena)),
+      id_string_pool_(std::move(id_string_pool)),
+      language_options_(language_options ? *language_options
+                                         : LanguageOptions()),
+      macro_catalog_(macro_catalog) {}
 
-ParserOptions::ParserOptions(LanguageOptions language_options)
+ParserOptions::ParserOptions(LanguageOptions language_options,
+                             const MacroCatalog* macro_catalog)
     : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
       id_string_pool_(std::make_shared<IdStringPool>(arena_)),
-      language_options_(std::move(language_options)) {}
+      language_options_(std::move(language_options)),
+      macro_catalog_(macro_catalog) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                             LanguageOptions language_options)
+                             LanguageOptions language_options,
+                             const MacroCatalog* macro_catalog)
     : arena_(std::move(arena)),
       id_string_pool_(std::move(id_string_pool)),
-      language_options_(std::move(language_options)) {}
+      language_options_(std::move(language_options)),
+      macro_catalog_(macro_catalog) {}
 
 ParserOptions::~ParserOptions() = default;
 
@@ -110,7 +124,8 @@ absl::Status ParseStatement(absl::string_view statement_string,
       BisonParserMode::kStatement, /*filename=*/absl::string_view(),
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
@@ -141,7 +156,7 @@ absl::Status ParseScript(absl::string_view script_string,
       BisonParserMode::kScript, /*filename=*/absl::string_view(), script_string,
       /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
 
@@ -151,7 +166,11 @@ absl::Status ParseScript(absl::string_view script_string,
     script = absl::WrapUnique(ast_node.release()->GetAsOrDie<ASTScript>());
   }
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      error_message_mode, keep_error_location_payload, script_string, status));
+      ErrorMessageOptions{
+          .mode = error_message_mode,
+          .attach_error_location_payload = keep_error_location_payload,
+          .stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED},
+      script_string, status));
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script),
@@ -182,7 +201,7 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position(), parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr, &next_statement_byte_offset);
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, resume_location->input()));
@@ -239,7 +258,7 @@ absl::Status ParseType(absl::string_view type_string,
       BisonParserMode::kType, /* filename = */ absl::string_view(), type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(status, type_string));
@@ -267,7 +286,7 @@ absl::Status ParseExpression(absl::string_view expression_string,
       BisonParserMode::kExpression, /* filename = */ absl::string_view(),
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.macro_catalog(), &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
@@ -297,7 +316,8 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
       BisonParserMode::kExpression, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), parser_options.macro_catalog(),
+      &ast_node, &other_allocated_ast_nodes,
       /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
@@ -333,7 +353,8 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
   parser
       .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
              resume_location.input(), resume_location.byte_position(),
-             &id_string_pool, &arena, language_options, /*output=*/nullptr,
+             &id_string_pool, &arena, language_options,
+             /*macro_catalog=*/nullptr, /*output=*/nullptr,
              &other_allocated_ast_nodes, &ast_statement_properties,
              /*statement_end_byte_offset=*/nullptr)
       .IgnoreError();
@@ -366,8 +387,9 @@ absl::Status ParseNextStatementProperties(
       BisonParserMode::kNextStatementKind, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), &output, allocated_ast_nodes,
-      ast_statement_properties, /*statement_end_byte_offset=*/nullptr);
+      parser_options.language_options(), parser_options.macro_catalog(),
+      &output, allocated_ast_nodes, ast_statement_properties,
+      /*statement_end_byte_offset=*/nullptr);
 
   // In kNextStatementKind mode, the bison parser places the statement level
   // hint in the output parameter.

@@ -28,6 +28,7 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/extended_type.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -49,6 +50,7 @@ absl::Status ValidateTypeProto(const TypeProto& type_proto) {
       (type_proto.type_kind() == TYPE_PROTO) != type_proto.has_proto_type() ||
       (type_proto.type_kind() == TYPE_STRUCT) != type_proto.has_struct_type() ||
       (type_proto.type_kind() == TYPE_RANGE) != type_proto.has_range_type() ||
+      (type_proto.type_kind() == TYPE_MAP) != type_proto.has_map_type() ||
       type_proto.type_kind() == __TypeKind__switch_must_have_a_default__) {
     if (type_proto.type_kind() != TYPE_GEOGRAPHY) {
       auto type_proto_debug_str = type_proto.DebugString();
@@ -192,6 +194,13 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
       return range_type;
     }
 
+    case TYPE_MAP: {
+      ZETASQL_ASSIGN_OR_RETURN(const Type* key_type,
+                       Deserialize(type_proto.map_type().key_type()));
+      ZETASQL_ASSIGN_OR_RETURN(const Type* value_type,
+                       Deserialize(type_proto.map_type().value_type()));
+      return type_factory_->MakeMapType(key_type, value_type);
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Making Type of kind "

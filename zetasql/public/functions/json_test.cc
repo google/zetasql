@@ -58,6 +58,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -66,6 +67,8 @@ namespace {
 
 using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
+using ::testing::IsNan;
+using ::testing::Optional;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
@@ -951,6 +954,88 @@ TEST(JsonPathExtractorTest, SimpleValidPath) {
   EXPECT_THAT(tokens, ElementsAreArray(gold));
 }
 
+TEST(JsonPathExtractorTest, ValidValueAccessEmptyPath) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iptr,
+      ValidJSONPathIterator::Create("$", /*sql_standard_mode=*/true));
+  EXPECT_EQ(iptr->Size(), 1);
+  EXPECT_EQ(iptr->GetToken(0), "");
+}
+
+TEST(JsonPathExtractorTest, ValidValueAccessObjectTokens) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iptr,
+      ValidJSONPathIterator::Create("$.a.b.c", /*sql_standard_mode=*/true));
+  EXPECT_EQ(iptr->Size(), 4);
+  EXPECT_EQ(iptr->GetToken(0), "");
+  EXPECT_EQ(iptr->GetToken(1), "a");
+  EXPECT_EQ(iptr->GetToken(2), "b");
+  EXPECT_EQ(iptr->GetToken(3), "c");
+}
+
+TEST(JsonPathExtractorTest, ValidValueAccessArrayAndObjectTokens) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValidJSONPathIterator> iptr,
+                       ValidJSONPathIterator::Create(
+                           "$[0].a.b[1].c", /*sql_standard_mode=*/true));
+  EXPECT_EQ(iptr->Size(), 6);
+  EXPECT_EQ(iptr->GetToken(0), "");
+  EXPECT_EQ(iptr->GetToken(1), "0");
+  EXPECT_EQ(iptr->GetToken(2), "a");
+  EXPECT_EQ(iptr->GetToken(3), "b");
+  EXPECT_EQ(iptr->GetToken(4), "1");
+  EXPECT_EQ(iptr->GetToken(5), "c");
+}
+
+TEST(JsonPathExtractorTest, ValidValueAccessNonStandardSql) {
+  std::string path = "$['b.c'][d].e['f.g'][3]";
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iptr,
+      ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/false));
+  EXPECT_EQ(iptr->Size(), 6);
+  EXPECT_EQ(iptr->GetToken(0), "");
+  EXPECT_EQ(iptr->GetToken(1), "b.c");
+  EXPECT_EQ(iptr->GetToken(2), "d");
+  EXPECT_EQ(iptr->GetToken(3), "e");
+  EXPECT_EQ(iptr->GetToken(4), "f.g");
+  EXPECT_EQ(iptr->GetToken(5), "3");
+}
+
+class JSONPathIteratorTest
+    : public ::testing::TestWithParam<
+          std::tuple</*path=*/std::string, /*is_sql_standard_mode=*/bool>> {
+ protected:
+  absl::string_view GetPath() const { return std::get<0>(GetParam()); }
+  bool IsSqlStandardMode() const { return std::get<1>(GetParam()); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    JSONPathIteratorSQLModeAgnosticTests, JSONPathIteratorTest,
+    ::testing::Combine(::testing::Values("$", "$.a.b", "$[0][12]", "$[0].a",
+                                         "$.a.b.c.d.e.f.g.h.i.j"),
+                       ::testing::Bool()));
+
+INSTANTIATE_TEST_SUITE_P(
+    JSONPathIteratorStandardSQLModeTests, JSONPathIteratorTest,
+    ::testing::Combine(::testing::Values(R"($.a."b.c".d.0.e)", R"($."a['b']")"),
+                       ::testing::Values(true)));
+
+INSTANTIATE_TEST_SUITE_P(
+    JSONPathIteratorNonStandardSQLModeTests, JSONPathIteratorTest,
+    ::testing::Combine(::testing::Values(R"($.a['\'\'\\s '].g[1])",
+                                         "$['b.c'][d].e['f.g'][3]"),
+                       ::testing::Values(false)));
+
+TEST_P(JSONPathIteratorTest, ValidValueAccess) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iptr,
+      ValidJSONPathIterator::Create(GetPath(),
+                                    /*sql_standard_mode=*/IsSqlStandardMode()));
+  ValidJSONPathIterator& itr = *(iptr);
+  for (int i = 0; i < itr.Size(); ++i, ++itr) {
+    EXPECT_EQ(itr.GetToken(i), *itr);
+  }
+}
+
 TEST(JsonPathExtractorTest, BackAndForthIteration) {
   const char* const input = "$.a.b";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -1208,30 +1293,202 @@ TEST(IsValidJSONPathTest, StrictBasicTests) {
 
 TEST(IsValidJSONPathTest, InvalidPathStrictTests) {
   // Invalid cases.
-  std::vector<std::string> invalid_paths = {"$[0-]",
-                                            "$[0_]",
-                                            "$[-1]"
-                                            "[0]"
-                                            "$[a]",
-                                            "$['a']",
-                                            "$.a.b.c['efgh'].e",
-                                            "$.",
-                                            ".a",
-                                            "$[9223372036854775807990]"};
+  std::vector<std::string> invalid_paths = {
+      "$[0-]", "$[0_]", "$[-1]", "[0]", "$[a]", "$['a']", "$.a.b.c['efgh'].e",
+      "$.", ".a", "$[9223372036854775807990]",
+      // Lax mode not enabled. Doesn't support lax keywords.
+      "lax $", "lax $.a", "lax recursive $", "recursive lax $.a"};
 
   for (const std::string& invalid_path : invalid_paths) {
     EXPECT_THAT(IsValidJSONPathStrict(invalid_path),
                 StatusIs(absl::StatusCode::kOutOfRange));
     EXPECT_FALSE(StrictJSONPathIterator::Create(invalid_path).ok());
   }
+
+  // Verify error message for compatibility.
+  EXPECT_THAT(
+      IsValidJSONPathStrict("a"),
+      StatusIs(absl::StatusCode::kOutOfRange, "JSONPath must start with '$'"));
+  EXPECT_THAT(
+      StrictJSONPathIterator::Create("a"),
+      StatusIs(absl::StatusCode::kOutOfRange, "JSONPath must start with '$'"));
 }
 
-TEST(JsonPathTest, StrictPathTests) {
+TEST(IsValidJSONPathTest, ValidLaxJSONPaths) {
+  // No keywords.
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a", /*enable_lax_mode=*/true));
+  // lax is part of the path not a keyword.
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a lax", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a.recursive", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("$.a recursive", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(
+      IsValidJSONPathStrict("$.a lax.recursive", /*enable_lax_mode=*/true));
+  // Includes keywords.
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("lax $", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("lax $.a", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(
+      IsValidJSONPathStrict("lax recursive  $", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("lax  recursive    $.a.lax",
+                                  /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(
+      IsValidJSONPathStrict("recursive lax   $", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(
+      IsValidJSONPathStrict("recursive lax   $.a", /*enable_lax_mode=*/true));
+  // Mixed-case keywords.
+  ZETASQL_EXPECT_OK(IsValidJSONPathStrict("Recursive LAX $", /*enable_lax_mode=*/true));
+  ZETASQL_EXPECT_OK(
+      IsValidJSONPathStrict("LAx Recursive $.a", /*enable_lax_mode=*/true));
+}
+
+TEST(IsValidJSONPathTest, InvalidLaxJSONPaths) {
+  // Invalid keyword combinations.
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("lax lax $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("lax recursive lax $", /*enable_lax_mode=*/true)
+          .ok());
+  // Case insensitive matching.
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("lax recursive LAX $", /*enable_lax_mode=*/true)
+          .ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("recursive $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(IsValidJSONPathStrict("recursive lax recursive $",
+                                     /*enable_lax_mode=*/true)
+                   .ok());
+  // Case insensitive matching.
+  EXPECT_FALSE(IsValidJSONPathStrict("recursive lax RECURSIVE $",
+                                     /*enable_lax_mode=*/true)
+                   .ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("invalid $.a", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("lax invalid $.a", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("invalid lax $", /*enable_lax_mode=*/true).ok());
+  // Invalid whitespace.
+  EXPECT_FALSE(IsValidJSONPathStrict("lax$", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("laxrecursive $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict("recursivelax $.a", /*enable_lax_mode=*/true).ok());
+  // Doesn't contain "$".
+  EXPECT_FALSE(IsValidJSONPathStrict("lax", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(IsValidJSONPathStrict("lax a", /*enable_lax_mode=*/true).ok());
+  // No whitespace allowed before first keyword.
+  EXPECT_FALSE(IsValidJSONPathStrict(" $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(IsValidJSONPathStrict(" $.a", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(IsValidJSONPathStrict(" lax $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict(" lax recursive $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      IsValidJSONPathStrict(" recursive lax $.a", /*enable_lax_mode=*/true)
+          .ok());
+
+  // Verify error message for compatibility.
+  EXPECT_THAT(IsValidJSONPathStrict("a", /*enable_lax_mode=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "JSONPath must start with zero or more unique modifiers "
+                       "followed by '$'"));
+}
+
+TEST(JSONPathTest, StrictPathOptionsTests) {
+  auto verify_fn = [](absl::string_view path_str, bool lax, bool recursive) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
+                         StrictJSONPathIterator::Create(path_str, true));
+    EXPECT_EQ(path_itr->GetJsonPathOptions().lax, lax);
+    EXPECT_EQ(path_itr->GetJsonPathOptions().recursive, recursive);
+  };
+  verify_fn("$", /*lax=*/false, /*recursive=*/false);
+  verify_fn("$.a", /*lax=*/false, /*recursive=*/false);
+  verify_fn("lax $", /*lax=*/true, /*recursive=*/false);
+  verify_fn("lax $.a", /*lax=*/true, /*recursive=*/false);
+  verify_fn("lax recursive $", /*lax=*/true, /*recursive=*/true);
+  verify_fn("lax   recursive $.a", /*lax=*/true, /*recursive=*/true);
+  verify_fn("recursive lax $", /*lax=*/true, /*recursive=*/true);
+  verify_fn("recursive lax $.a", /*lax=*/true, /*recursive=*/true);
+  // lax is part of the path not a keyword.
+  verify_fn("$.a lax", /*lax=*/false, /*recursive=*/false);
+  verify_fn("$.a recursive", /*lax=*/false, /*recursive=*/false);
+  verify_fn("$.a recursive.lax", /*lax=*/false, /*recursive=*/false);
+  // recursive is part of the path not a keyword.
+  verify_fn("lax $.recursive", /*lax=*/true, /*recursive=*/false);
+}
+
+TEST(JSONPathTest, IsValidAndLaxJSONPath) {
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $"), IsOkAndHolds(true));
+  EXPECT_THAT(IsValidAndLaxJSONPath("Recursive lax  $.a"), IsOkAndHolds(true));
+  EXPECT_THAT(IsValidAndLaxJSONPath("$"), IsOkAndHolds(false));
+  EXPECT_THAT(IsValidAndLaxJSONPath("$.lax"), IsOkAndHolds(false));
+  // Invalid JSONPaths.
+  EXPECT_FALSE(IsValidAndLaxJSONPath(" lax $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("recursive $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("invalid $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("lax invalid $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("invalid lax $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("lax$").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("laxrecursive $").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("recursivelax $").ok());
+  // Non-standard sql paths are invalid for StrictJSONPathIterator.
+  EXPECT_FALSE(IsValidAndLaxJSONPath("$.").ok());
+  EXPECT_FALSE(IsValidAndLaxJSONPath("$$").ok());
+}
+
+TEST(JSONPathTest, InvalidLaxJSONPathIterator) {
+  // Invalid keyword combinations.
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create(" lax $", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("lax a", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("recursive $.a", /*enable_lax_mode=*/true)
+          .ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("lax invalid $", /*enable_lax_mode=*/true)
+          .ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("lax$", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("laxrecursive $", /*enable_lax_mode=*/true)
+          .ok());
+  EXPECT_FALSE(StrictJSONPathIterator::Create("recursivelax $.a",
+                                              /*enable_lax_mode=*/true)
+                   .ok());
+  // Non-standard sql path.
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("$.", /*enable_lax_mode=*/true).ok());
+  EXPECT_FALSE(
+      StrictJSONPathIterator::Create("$$", /*enable_lax_mode=*/true).ok());
+
+  // Verify error message for compatibility.
+  EXPECT_THAT(StrictJSONPathIterator::Create("a", /*enable_lax_mode=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "JSONPath must start with zero or more unique modifiers "
+                       "followed by '$'"));
+}
+
+class StrictJsonPathIteratorTest
+    : public ::testing::TestWithParam<
+          std::tuple</*enable_lax_mode=*/bool, /*path_prefix=*/std::string>> {
+ protected:
+  bool EnableLaxMode() const { return std::get<0>(GetParam()); }
+  absl::string_view PathPrefix() const { return std::get<1>(GetParam()); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    StrictJsonPathIteratorTests, StrictJsonPathIteratorTest,
+    ::testing::Values(std::make_tuple(false, ""), std::make_tuple(true, "lax "),
+                      std::make_tuple(true, "lax recursive  "),
+                      std::make_tuple(true, "Recursive LAX  ")));
+
+TEST_P(StrictJsonPathIteratorTest, Valid) {
   // Test all functions for iterating through a JSON path using
   // StrictJSONPathIterator.
   {
+    std::string path = absl::StrCat(PathPrefix(), "$");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create("$"));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     EXPECT_EQ((**path_itr).MaybeGetArrayIndex(), nullptr);
     EXPECT_EQ((**path_itr).MaybeGetObjectKey(), nullptr);
     EXPECT_FALSE(++(*path_itr));
@@ -1243,8 +1500,9 @@ TEST(JsonPathTest, StrictPathTests) {
     EXPECT_FALSE(path_itr->End());
   }
   {
+    std::string path = absl::StrCat(PathPrefix(), "$.1 ");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create("$.1 "));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     // Skip first token.
     EXPECT_TRUE(++(*path_itr));
     EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "1 ");
@@ -1253,8 +1511,9 @@ TEST(JsonPathTest, StrictPathTests) {
     EXPECT_TRUE(path_itr->End());
   }
   {
+    std::string path = absl::StrCat(PathPrefix(), "$[ 0 ]");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create("$[ 0 ]"));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     // Skip first token.
     EXPECT_TRUE(++(*path_itr));
     EXPECT_EQ(*(**path_itr).MaybeGetArrayIndex(), 0);
@@ -1263,8 +1522,9 @@ TEST(JsonPathTest, StrictPathTests) {
     EXPECT_TRUE(path_itr->End());
   }
   {
+    std::string path = absl::StrCat(PathPrefix(), R"($."a")");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create(R"($."a")"));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     // Skip first token.
     EXPECT_TRUE(++(*path_itr));
     EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "a");
@@ -1274,8 +1534,9 @@ TEST(JsonPathTest, StrictPathTests) {
   }
   {
     // Path escaping.
+    std::string path = absl::StrCat(PathPrefix(), R"($."a\"b")");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create(R"($."a\"b")"));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     EXPECT_TRUE(++(*path_itr));
     EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), R"(a\"b)");
     EXPECT_TRUE(path_itr->NoSuffixToken());
@@ -1284,8 +1545,9 @@ TEST(JsonPathTest, StrictPathTests) {
   }
   {
     // Test iterating and rewind.
+    std::string path = absl::StrCat(PathPrefix(), "$.\"b.c.d\"[1].e");
     ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<StrictJSONPathIterator> path_itr,
-                         StrictJSONPathIterator::Create("$.\"b.c.d\"[1].e"));
+                         StrictJSONPathIterator::Create(path, EnableLaxMode()));
     // Skip first token.
     EXPECT_TRUE(++(*path_itr));
     EXPECT_EQ(*(**path_itr).MaybeGetObjectKey(), "b.c.d");
@@ -1783,6 +2045,106 @@ TEST(JSONPathExtractorTest, TestReuseOfPathIterator) {
     EXPECT_EQ(result, Normalize(gold));
     EXPECT_FALSE(is_null);
   }
+}
+
+template <typename JsonExtractor>
+void ExpectJsonExtractionYieldsNull(absl::string_view json_str,
+                                    absl::string_view json_path,
+                                    bool sql_standard_mode) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> path_itr,
+      ValidJSONPathIterator::Create(json_path, sql_standard_mode));
+  JsonExtractor extractor(json_str, path_itr.get());
+  bool is_null = false;
+  if constexpr (std::is_same_v<JsonExtractor, JSONPathExtractor> ||
+                std::is_same_v<JsonExtractor, JSONPathExtractScalar>) {
+    std::string result;
+    EXPECT_TRUE(extractor.Extract(&result, &is_null));
+    EXPECT_TRUE(is_null);
+  } else if constexpr (std::is_same_v<JsonExtractor, JSONPathArrayExtractor>) {
+    std::vector<std::string> result;
+    EXPECT_TRUE(extractor.ExtractArray(&result, &is_null));
+  } else {
+    std::vector<std::optional<std::string>> result;
+    EXPECT_TRUE(extractor.ExtractStringArray(&result, &is_null));
+  }
+  EXPECT_TRUE(is_null);
+}
+
+class JsonPathExtractionTest : public ::testing::TestWithParam<bool> {
+ protected:
+  bool IsSqlStandardMode() const { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(JSONPathExtractionSQLModeAgnosticTests,
+                         JsonPathExtractionTest,
+                         ::testing::Values(false, true));
+
+// Test case for b/326281185, b/326974631.
+TEST_P(JsonPathExtractionTest, TestIndexTokenCorruption) {
+  // clang-format off
+  std::string json_str = R"(
+    {
+      "a" : [
+        {
+          "b" : [
+            {
+              "c": 1,
+              "d": 2
+            }
+          ]
+        },
+        {
+          "b" : [
+            {
+              "c" : 3,
+              "d" : 4
+            },
+            {
+              "c" : 5,
+              "d" : 6
+            }
+          ]
+        }
+      ]
+    }
+  )";
+  std::string json_str_for_arrays = R"(
+    {
+      "a" : [
+        {
+          "b" : [
+            {
+              "c": [1,2],
+              "d": [3,4]
+            }
+          ]
+        },
+        {
+          "b" : [
+            {
+              "c" : [5,6],
+              "d" : [7,8]
+            },
+            {
+              "c" : [9,10],
+              "d" : [10,11]
+            }
+          ]
+        }
+      ]
+    }
+  )";
+  // clang-format on
+  std::string json_path = "$.a[0].b[1].c";
+  ExpectJsonExtractionYieldsNull<JSONPathExtractor>(json_str, json_path,
+                                                    IsSqlStandardMode());
+  ExpectJsonExtractionYieldsNull<JSONPathExtractScalar>(json_str, json_path,
+                                                        IsSqlStandardMode());
+  ExpectJsonExtractionYieldsNull<JSONPathArrayExtractor>(
+      json_str_for_arrays, json_path, IsSqlStandardMode());
+  ExpectJsonExtractionYieldsNull<JSONPathStringArrayExtractor>(
+      json_str_for_arrays, json_path, IsSqlStandardMode());
 }
 
 TEST(JSONPathArrayExtractorTest, BasicParsing) {
@@ -2372,7 +2734,7 @@ void ExtractArrayOrStringArray(
 }
 
 template <class ParserClass>
-void ComplianceJSONExtractArrayTest(const std::vector<FunctionTestCall>& tests,
+void ComplianceJSONExtractArrayTest(absl::Span<const FunctionTestCall> tests,
                                     bool sql_standard_mode) {
   for (const FunctionTestCall& test : tests) {
     if (test.params.params()[0].is_null() ||
@@ -2642,16 +3004,31 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
 TEST(JsonConversionTest, ConvertJsonToInt64) {
   std::vector<std::pair<JSONValue, std::optional<int64_t>>>
       inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
   inputs_and_expected_outputs.emplace_back(JSONValue(10.0), 10);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}),
+      std::numeric_limits<int32_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
   inputs_and_expected_outputs.emplace_back(
       JSONValue(std::numeric_limits<int64_t>::min()),
       std::numeric_limits<int64_t>::min());
   inputs_and_expected_outputs.emplace_back(
       JSONValue(std::numeric_limits<int64_t>::max()),
       std::numeric_limits<int64_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
   // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(1e100), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
@@ -2678,6 +3055,149 @@ TEST(JsonConversionTest, ConvertJsonToInt64) {
   }
 }
 
+TEST(JsonConversionTest, ConvertJsonToInt32) {
+  std::vector<std::pair<JSONValue, std::optional<int32_t>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(10.0), 10);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}),
+      std::numeric_limits<int32_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::max()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}), std::nullopt);
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(1e100), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("INT32('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<int32_t> output = ConvertJsonToInt32(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToUint64) {
+  std::vector<std::pair<JSONValue, std::optional<uint64_t>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(10.0), 10);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      std::numeric_limits<int64_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
+      std::numeric_limits<uint64_t>::max());
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(1e100), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("UINT64('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<uint64_t> output = ConvertJsonToUint64(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToUint32) {
+  std::vector<std::pair<JSONValue, std::optional<uint32_t>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(10.0), 10);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}), std::nullopt);
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(1e100), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("UINT32('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<uint32_t> output = ConvertJsonToUint32(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
 TEST(JsonConversionTest, ConvertJsonToBool) {
   std::vector<std::pair<JSONValue, std::optional<bool>>>
       inputs_and_expected_outputs;
@@ -2685,6 +3205,8 @@ TEST(JsonConversionTest, ConvertJsonToBool) {
   inputs_and_expected_outputs.emplace_back(JSONValue(true), true);
   // Other types should return an error
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}),
+                                           std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
                                            std::nullopt);
   inputs_and_expected_outputs.emplace_back(
@@ -2720,6 +3242,8 @@ TEST(JsonConversionTest, ConvertJsonToString) {
                                            "12¿©?Æ");
   // Other types should return an error
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}),
+                                           std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
       JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
@@ -2746,12 +3270,6 @@ TEST(JsonConversionTest, ConvertJsonToDouble) {
   // Behavior the same when wide_number_mode is "round" and "exact"
   inputs_and_expected_outputs.emplace_back(JSONValue(1.0), 1.0);
   inputs_and_expected_outputs.emplace_back(JSONValue(-1.0), -1.0);
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::numeric_limits<double>::min()),
-      std::numeric_limits<double>::min());
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::numeric_limits<double>::max()),
-      std::numeric_limits<double>::max());
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), double{1});
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), double{-1});
   inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), double{1});
@@ -2759,6 +3277,25 @@ TEST(JsonConversionTest, ConvertJsonToDouble) {
       JSONValue(int64_t{-9007199254740992}), double{-9007199254740992});
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740992}),
                                            double{9007199254740992});
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::min()),
+      std::numeric_limits<float>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::lowest()),
+      std::numeric_limits<float>::lowest());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::max()),
+      std::numeric_limits<float>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::min()),
+      std::numeric_limits<double>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::lowest()),
+      std::numeric_limits<double>::lowest());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::max()),
+      std::numeric_limits<double>::max());
+
   // Other types should return an error
   inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
@@ -2790,7 +3327,7 @@ TEST(JsonConversionTest, ConvertJsonToDouble) {
   }
 }
 
-TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactOnly) {
+TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactMode) {
   std::vector<std::pair<JSONValue, double>> inputs_and_expected_outputs;
   // Number too large to round trip
   inputs_and_expected_outputs.emplace_back(
@@ -2803,16 +3340,18 @@ TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactOnly) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
                                   input.GetConstRef().ToString()));
-    absl::StatusOr<double> output = ConvertJsonToDouble(
-        input.GetConstRef(), WideNumberMode::kRound, PRODUCT_INTERNAL);
-
-    EXPECT_TRUE(output.ok());
-    EXPECT_EQ(*output, expected_output);
+    EXPECT_THAT(ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kRound,
+                                    PRODUCT_INTERNAL),
+                IsOkAndHolds(expected_output));
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
                                   input.GetConstRef().ToString()));
-    output = ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
-                                 PRODUCT_INTERNAL);
-    EXPECT_FALSE(output.ok());
+    EXPECT_THAT(
+        ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
+                            PRODUCT_INTERNAL),
+        StatusIs(
+            absl::StatusCode::kOutOfRange,
+            HasSubstr(
+                "cannot be converted to DOUBLE without loss of precision")));
   }
 }
 
@@ -2821,21 +3360,502 @@ TEST(JsonConversionTest, ConvertJsonToDoubleErrorMessage) {
   // Internal mode uses DOUBLE in error message
   SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
                                 input.GetConstRef().ToString()));
-  absl::StatusOr<double> output = ConvertJsonToDouble(
-      input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
-  EXPECT_FALSE(output.ok());
-  EXPECT_EQ(output.status().message(),
-            "JSON number: 18446744073709551615 cannot be converted to DOUBLE "
-            "without loss of precision");
+  EXPECT_THAT(
+      ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
+                          PRODUCT_INTERNAL),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("JSON number: 18446744073709551615 cannot be "
+                         "converted to DOUBLE without loss of precision")));
   // External mode uses FLOAT64 in error message
   SCOPED_TRACE(absl::Substitute("FLOAT64('$0', 'exact')",
                                 input.GetConstRef().ToString()));
-  output = ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
-                               PRODUCT_EXTERNAL);
-  EXPECT_FALSE(output.ok());
-  EXPECT_EQ(output.status().message(),
-            "JSON number: 18446744073709551615 cannot be converted to FLOAT64 "
-            "without loss of precision");
+  EXPECT_THAT(
+      ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
+                          PRODUCT_EXTERNAL),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("JSON number: 18446744073709551615 cannot be "
+                         "converted to FLOAT64 without loss of precision")));
+}
+
+TEST(JsonConversionTest, ConvertJsonToFloat) {
+  std::vector<std::pair<JSONValue, std::optional<float>>>
+      inputs_and_expected_outputs;
+  // Behavior the same when wide_number_mode is "round" and "exact"
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.0), 1.0f);
+  inputs_and_expected_outputs.emplace_back(JSONValue(-1.0), -1.0f);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1.0f);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1.0f);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1.0f);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-16777216}),
+                                           float{-16777216});
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{16777216}),
+                                           float{16777216});
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::min()),
+      std::numeric_limits<float>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::lowest()),
+      std::numeric_limits<float>::lowest());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<float>::max()),
+      std::numeric_limits<float>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::lowest()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::max()), std::nullopt);
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    {
+      SCOPED_TRACE(absl::Substitute("FLOAT('$0', 'exact')",
+                                    input.GetConstRef().ToString()));
+      absl::StatusOr<float> output = ConvertJsonToFloat(
+          input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
+      EXPECT_EQ(output.ok(), expected_output.has_value());
+      if (output.ok() && expected_output.has_value()) {
+        EXPECT_EQ(*output, *expected_output);
+      }
+    }
+    {
+      SCOPED_TRACE(absl::Substitute("FLOAT('$0', 'round')",
+                                    input.GetConstRef().ToString()));
+      absl::StatusOr<float> output = ConvertJsonToFloat(
+          input.GetConstRef(), WideNumberMode::kRound, PRODUCT_INTERNAL);
+      EXPECT_EQ(output.ok(), expected_output.has_value());
+      if (output.ok() && expected_output.has_value()) {
+        EXPECT_EQ(*output, *expected_output);
+      }
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToFloatFailInExactMode) {
+  std::vector<std::pair<JSONValue, float>> inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::min()), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{16777217}),
+                                           float{16777216});
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-16777217}),
+                                           float{-16777216});
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(absl::Substitute("FLOAT('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(ConvertJsonToFloat(input.GetConstRef(), WideNumberMode::kRound,
+                                   PRODUCT_INTERNAL),
+                IsOkAndHolds(expected_output));
+    SCOPED_TRACE(absl::Substitute("FLOAT('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(
+        ConvertJsonToFloat(input.GetConstRef(), WideNumberMode::kExact,
+                           PRODUCT_INTERNAL),
+        StatusIs(
+            absl::StatusCode::kOutOfRange,
+            HasSubstr(
+                "cannot be converted to FLOAT without loss of precision")));
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToFloatErrorMessage) {
+  JSONValue input = JSONValue(uint64_t{16777217});
+  // Internal mode uses FLOAT in error message
+  SCOPED_TRACE(
+      absl::Substitute("FLOAT('$0', 'exact')", input.GetConstRef().ToString()));
+  EXPECT_THAT(
+      ConvertJsonToFloat(input.GetConstRef(), WideNumberMode::kExact,
+                         PRODUCT_INTERNAL),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("JSON number: 16777217 cannot be converted to FLOAT "
+                         "without loss of precision")));
+
+  // External mode uses FLOAT32 in error message
+  SCOPED_TRACE(absl::Substitute("FLOAT64('$0', 'exact')",
+                                input.GetConstRef().ToString()));
+  EXPECT_THAT(
+      ConvertJsonToFloat(input.GetConstRef(), WideNumberMode::kExact,
+                         PRODUCT_EXTERNAL),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("JSON number: 16777217 cannot be converted to FLOAT32 "
+                         "without loss of precision")));
+}
+
+TEST(JsonConversionTest, ConvertJsonToInt64Array) {
+  std::vector<std::pair<std::string, std::optional<std::vector<int64_t>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<int64_t>{});
+  cases.emplace_back(R"([1])", std::vector<int64_t>{1});
+  cases.emplace_back(R"([-1])", std::vector<int64_t>{-1});
+  cases.emplace_back(R"([10.0])", std::vector<int64_t>{10});
+  cases.emplace_back(R"([1, -1, 10.0])", std::vector<int64_t>{1, -1, 10});
+  cases.emplace_back(R"([18446744073709551615])", std::nullopt);
+  cases.emplace_back(
+      R"([4294967295])",
+      std::vector<int64_t>{std::numeric_limits<uint32_t>::max()});
+  cases.emplace_back(R"([-9223372036854775808])",
+                     std::vector<int64_t>{std::numeric_limits<int64_t>::min()});
+  cases.emplace_back(R"([9223372036854775807])",
+                     std::vector<int64_t>{std::numeric_limits<int64_t>::max()});
+  cases.emplace_back(R"([-2147483648])",
+                     std::vector<int64_t>{std::numeric_limits<int32_t>::min()});
+  cases.emplace_back(R"([2147483647])",
+                     std::vector<int64_t>{std::numeric_limits<int32_t>::max()});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"([true])", std::nullopt);
+  cases.emplace_back(R"([1.5])", std::nullopt);
+  cases.emplace_back(R"([[1]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("INT64_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<int64_t>> output =
+        ConvertJsonToInt64Array(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToInt32Array) {
+  std::vector<std::pair<std::string, std::optional<std::vector<int32_t>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<int32_t>{});
+  cases.emplace_back(R"([1])", std::vector<int32_t>{1});
+  cases.emplace_back(R"([-1])", std::vector<int32_t>{-1});
+  cases.emplace_back(R"([10.0])", std::vector<int32_t>{10});
+  cases.emplace_back(R"([1, -1, 10.0])", std::vector<int32_t>{1, -1, 10});
+  cases.emplace_back(R"([18446744073709551615])", std::nullopt);
+  cases.emplace_back(R"([4294967295])", std::nullopt);
+  cases.emplace_back(R"([-9223372036854775808])", std::nullopt);
+  cases.emplace_back(R"([9223372036854775807])", std::nullopt);
+  cases.emplace_back(R"([-2147483648])",
+                     std::vector<int32_t>{std::numeric_limits<int32_t>::min()});
+  cases.emplace_back(R"([2147483647])",
+                     std::vector<int32_t>{std::numeric_limits<int32_t>::max()});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"([true])", std::nullopt);
+  cases.emplace_back(R"([1.5])", std::nullopt);
+  cases.emplace_back(R"([[1]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("INT32_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<int32_t>> output =
+        ConvertJsonToInt32Array(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToUint64Array) {
+  std::vector<std::pair<std::string, std::optional<std::vector<uint64_t>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<uint64_t>{});
+  cases.emplace_back(R"([1])", std::vector<uint64_t>{1});
+  cases.emplace_back(R"([10.0])", std::vector<uint64_t>{10});
+  cases.emplace_back(R"([1, 10.0])", std::vector<uint64_t>{1, 10});
+  cases.emplace_back(R"([-1])", std::nullopt);
+  cases.emplace_back(R"([1, -1, 10.0])", std::nullopt);
+  cases.emplace_back(
+      R"([18446744073709551615])",
+      std::vector<uint64_t>{std::numeric_limits<uint64_t>::max()});
+  cases.emplace_back(
+      R"([4294967295])",
+      std::vector<uint64_t>{std::numeric_limits<uint32_t>::max()});
+  cases.emplace_back(R"([-9223372036854775808])", std::nullopt);
+  cases.emplace_back(
+      R"([9223372036854775807])",
+      std::vector<uint64_t>{std::numeric_limits<int64_t>::max()});
+  cases.emplace_back(R"([-2147483648])", std::nullopt);
+  cases.emplace_back(
+      R"([2147483647])",
+      std::vector<uint64_t>{std::numeric_limits<int32_t>::max()});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"([true])", std::nullopt);
+  cases.emplace_back(R"([1.5])", std::nullopt);
+  cases.emplace_back(R"([[1]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("UINT64_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<uint64_t>> output =
+        ConvertJsonToUint64Array(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToUint32Array) {
+  std::vector<std::pair<std::string, std::optional<std::vector<uint32_t>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<uint32_t>{});
+  cases.emplace_back(R"([1])", std::vector<uint32_t>{1});
+  cases.emplace_back(R"([10.0])", std::vector<uint32_t>{10});
+  cases.emplace_back(R"([1, 10.0])", std::vector<uint32_t>{1, 10});
+  cases.emplace_back(R"([-1])", std::nullopt);
+  cases.emplace_back(R"([1, -1, 10.0])", std::nullopt);
+  cases.emplace_back(R"([18446744073709551615])", std::nullopt);
+  cases.emplace_back(
+      R"([4294967295])",
+      std::vector<uint32_t>{std::numeric_limits<uint32_t>::max()});
+  cases.emplace_back(R"([-9223372036854775808])", std::nullopt);
+  cases.emplace_back(R"([9223372036854775807])", std::nullopt);
+  cases.emplace_back(R"([-2147483648])", std::nullopt);
+  cases.emplace_back(
+      R"([2147483647])",
+      std::vector<uint32_t>{std::numeric_limits<int32_t>::max()});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"([true])", std::nullopt);
+  cases.emplace_back(R"([1.5])", std::nullopt);
+  cases.emplace_back(R"([[1]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("UINT32_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<uint32_t>> output =
+        ConvertJsonToUint32Array(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToBoolArray) {
+  std::vector<std::pair<std::string, std::optional<std::vector<bool>>>> cases;
+  cases.emplace_back(R"([])", std::vector<bool>{});
+  cases.emplace_back(R"([false])", std::vector<bool>{false});
+  cases.emplace_back(R"([true])", std::vector<bool>{true});
+  cases.emplace_back(R"([false, true])", std::vector<bool>{false, true});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"([1])", std::nullopt);
+  cases.emplace_back(R"([[false]])", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("BOOL_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<bool>> output =
+        ConvertJsonToBoolArray(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToStringArray) {
+  std::vector<std::pair<std::string, std::optional<std::vector<std::string>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::string>{});
+  cases.emplace_back(R"([""])", std::vector<std::string>{""});
+  cases.emplace_back(R"(["a"])", std::vector<std::string>{"a"});
+  cases.emplace_back(R"(["", "a", "null"])",
+                     std::vector<std::string>{"", "a", "null"});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::vector<std::string>{"null"});
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"("a")", std::nullopt);
+  cases.emplace_back(R"([1])", std::nullopt);
+  cases.emplace_back(R"([["a"]])", std::nullopt);
+  cases.emplace_back(R"({"a": "b"})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(
+        absl::Substitute("STRING_ARRAY('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<std::string>> output =
+        ConvertJsonToStringArray(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToDoubleArray) {
+  std::vector<std::pair<std::string, std::optional<std::vector<double>>>> cases;
+  cases.emplace_back(R"([])", std::vector<double>{});
+  cases.emplace_back(R"([1.0])", std::vector<double>{1.0});
+  cases.emplace_back(R"([-1.0])", std::vector<double>{-1.0});
+  cases.emplace_back(R"([1.0, -1.0])", std::vector<double>{1.0, -1.0});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("1.0")", std::nullopt);
+  cases.emplace_back(R"([false])", std::nullopt);
+  cases.emplace_back(R"([[1.0]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1.0})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("DOUBLE_ARRAY('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<double>> output = ConvertJsonToDoubleArray(
+        input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+    SCOPED_TRACE(absl::Substitute("DOUBLE_ARRAY('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    output = ConvertJsonToDoubleArray(input.GetConstRef(),
+                                      WideNumberMode::kRound, PRODUCT_INTERNAL);
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToDoubleArrayFailInExactOnly) {
+  std::vector<std::pair<std::string, std::vector<double>>> cases;
+  // Number too large to round trip
+  cases.emplace_back(R"([18446744073709551615])",
+                     std::vector<double>{1.8446744073709552e+19});
+  // Number too small to round trip
+  cases.emplace_back(R"([-9007199254740993])",
+                     std::vector<double>{-9007199254740992});
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("DOUBLE_ARRAY('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(
+        ConvertJsonToDoubleArray(input.GetConstRef(), WideNumberMode::kRound,
+                                 PRODUCT_INTERNAL),
+        IsOkAndHolds(expected_output));
+    SCOPED_TRACE(absl::Substitute("DOUBLE_ARRAY('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(
+        ConvertJsonToDoubleArray(input.GetConstRef(), WideNumberMode::kExact,
+                                 PRODUCT_INTERNAL),
+        StatusIs(
+            absl::StatusCode::kOutOfRange,
+            HasSubstr(
+                R"(cannot be converted to DOUBLE without loss of precision)")));
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToFloatArray) {
+  std::vector<std::pair<std::string, std::optional<std::vector<float>>>> cases;
+  cases.emplace_back(R"([])", std::vector<float>{});
+  cases.emplace_back(R"([1.0])", std::vector<float>{1.0});
+  cases.emplace_back(R"([-1.0])", std::vector<float>{-1.0});
+  cases.emplace_back(R"([1.0, -1.0])", std::vector<float>{1.0, -1.0});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"([null])", std::nullopt);
+  cases.emplace_back(R"(["null"])", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("1.0")", std::nullopt);
+  cases.emplace_back(R"([false])", std::nullopt);
+  cases.emplace_back(R"([[1.0]])", std::nullopt);
+  cases.emplace_back(R"({"a": 1.0})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("FLOAT_ARRAY('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    absl::StatusOr<std::vector<float>> output = ConvertJsonToFloatArray(
+        input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+    SCOPED_TRACE(absl::Substitute("FLOAT_ARRAY('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    output = ConvertJsonToFloatArray(input.GetConstRef(),
+                                     WideNumberMode::kRound, PRODUCT_INTERNAL);
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToFloatArrayFailInExactOnly) {
+  std::vector<std::pair<std::string, std::vector<float>>> cases;
+  // Number too large to round trip
+  cases.emplace_back(R"([16777217])", std::vector<float>{16777216});
+  // Number too small to round trip
+  cases.emplace_back(R"([-16777217])", std::vector<float>{-16777216});
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("FLOAT_ARRAY('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(
+        ConvertJsonToFloatArray(input.GetConstRef(), WideNumberMode::kRound,
+                                PRODUCT_INTERNAL),
+        IsOkAndHolds(expected_output));
+
+    SCOPED_TRACE(absl::Substitute("FLOAT_ARRAY('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+
+    EXPECT_THAT(
+        ConvertJsonToFloatArray(input.GetConstRef(), WideNumberMode::kExact,
+                                PRODUCT_INTERNAL),
+        StatusIs(
+            absl::StatusCode::kOutOfRange,
+            HasSubstr(
+                R"(cannot be converted to FLOAT without loss of precision)")));
+  }
 }
 
 TEST(JsonConversionTest, GetJsonType) {
@@ -2881,9 +3901,12 @@ TEST(JsonLaxConversionTest, Bool) {
                                            false);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
                                            std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), false);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), true);
   inputs_and_expected_outputs.emplace_back(
       JSONValue(int64_t{std::numeric_limits<int64_t>::min()}), true);
   inputs_and_expected_outputs.emplace_back(
@@ -2912,10 +3935,8 @@ TEST(JsonLaxConversionTest, Bool) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_BOOL($0)", input.GetConstRef().ToString()));
-    absl::StatusOr<std::optional<bool>> result =
-        LaxConvertJsonToBool(input.GetConstRef());
-    ZETASQL_ASSERT_OK(result);
-    EXPECT_EQ(*result, expected_output);
+    EXPECT_THAT(LaxConvertJsonToBool(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
   }
 }
 
@@ -2937,16 +3958,30 @@ TEST(JsonLaxConversionTest, Int64) {
                                            std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
                                            std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}),
+      std::numeric_limits<int32_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()),
       std::numeric_limits<int64_t>::min());
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      JSONValue(std::numeric_limits<int64_t>::max()),
       std::numeric_limits<int64_t>::max());
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}), std::nullopt);
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
@@ -2969,14 +4004,215 @@ TEST(JsonLaxConversionTest, Int64) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_INT64('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<std::optional<int64_t>> result =
-        LaxConvertJsonToInt64(input.GetConstRef());
-    ZETASQL_ASSERT_OK(result);
-    EXPECT_EQ(*result, expected_output);
+    EXPECT_THAT(LaxConvertJsonToInt64(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
   }
 }
 
-TEST(JsonLaxConversionTest, Float) {
+TEST(JsonLaxConversionTest, Int32) {
+  std::vector<std::pair<JSONValue, std::optional<int32_t>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), 0);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 2);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"123456789012345678.0"}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1e100"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}),
+      std::numeric_limits<int32_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::max()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{123456789012345678.0}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), 0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), std::nullopt);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_INT32('$0')", input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToInt32(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonLaxConversionTest, Uint64) {
+  std::vector<std::pair<JSONValue, std::optional<uint64_t>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), 0);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 2);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"123456789012345678.0"}), 123456789012345678);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1e100"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::max()),
+      std::numeric_limits<int64_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()),
+      std::numeric_limits<uint64_t>::max());
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{123456789012345678.0}), 123456789012345680);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), 0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), std::nullopt);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_UINT64('$0')", input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToUint64(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonLaxConversionTest, Uint32) {
+  std::vector<std::pair<JSONValue, std::optional<int32_t>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), 0);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 2);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"123456789012345678.0"}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1e100"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), 0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::min()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int32_t>::max()}),
+      std::numeric_limits<int32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::max()), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint32_t>::max()}),
+      std::numeric_limits<uint32_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
+
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{123456789012345678.0}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), 0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), std::nullopt);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_UINT32('$0')", input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToUint32(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonLaxConversionTest, Double) {
   std::vector<std::pair<JSONValue, std::optional<double>>>
       inputs_and_expected_outputs;
   // Bools
@@ -2994,10 +4230,13 @@ TEST(JsonLaxConversionTest, Float) {
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 1.5);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
                                            std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), -10);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740993}),
                                            9007199254740992);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
   inputs_and_expected_outputs.emplace_back(
       JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
       static_cast<double>(std::numeric_limits<int64_t>::min()));
@@ -3031,28 +4270,100 @@ TEST(JsonLaxConversionTest, Float) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_FLOAT64('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<std::optional<double>> result =
-        LaxConvertJsonToFloat64(input.GetConstRef());
-    ZETASQL_ASSERT_OK(result);
-    EXPECT_EQ(*result, expected_output);
+    EXPECT_THAT(LaxConvertJsonToFloat64(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
   }
 
   // Special cases.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::optional<double> result,
-      LaxConvertJsonToFloat64(JSONValue(std::string{"NaN"}).GetConstRef()));
-  ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(std::isnan(*result));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      result,
-      LaxConvertJsonToFloat64(JSONValue(std::string{"Inf"}).GetConstRef()));
-  ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(std::isinf(*result));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(result,
-                       LaxConvertJsonToFloat64(
-                           JSONValue(std::string{"-InfiNiTY"}).GetConstRef()));
-  ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(std::isinf(*result));
+  EXPECT_THAT(
+      LaxConvertJsonToFloat64(JSONValue(std::string{"NaN"}).GetConstRef()),
+      IsOkAndHolds(Optional(IsNan())));
+  EXPECT_THAT(
+      LaxConvertJsonToFloat64(JSONValue(std::string{"Inf"}).GetConstRef()),
+      IsOkAndHolds(std::numeric_limits<double>::infinity()));
+  EXPECT_THAT(LaxConvertJsonToFloat64(
+                  JSONValue(std::string{"-InfiNiTY"}).GetConstRef()),
+              IsOkAndHolds(-std::numeric_limits<double>::infinity()));
+}
+
+TEST(JsonLaxConversionTest, Float) {
+  std::vector<std::pair<JSONValue, std::optional<float>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), std::nullopt);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"-10"}),
+                                           -10.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1.1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110.0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"9007199254740993"}), 9007199254740992.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 1.5);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           std::nullopt);
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), -10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740993}),
+                                           9007199254740992);
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
+      static_cast<float>(std::numeric_limits<int64_t>::min()));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      static_cast<float>(std::numeric_limits<int64_t>::max()));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
+      static_cast<float>((std::numeric_limits<uint64_t>::max())));
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1.1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 3.5);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1.1e2").value(), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<float>::min()}),
+      std::numeric_limits<float>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<float>::lowest()}),
+      std::numeric_limits<float>::lowest());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<float>::max()}),
+      std::numeric_limits<float>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), 0.0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), std::nullopt);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_FLOAT32('$0')", input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToFloat32(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+
+  // Special cases.
+  EXPECT_THAT(
+      LaxConvertJsonToFloat32(JSONValue(std::string{"NaN"}).GetConstRef()),
+      IsOkAndHolds(Optional(IsNan())));
+  EXPECT_THAT(
+      LaxConvertJsonToFloat32(JSONValue(std::string{"Inf"}).GetConstRef()),
+      IsOkAndHolds(std::numeric_limits<float>::infinity()));
+  EXPECT_THAT(LaxConvertJsonToFloat32(
+                  JSONValue(std::string{"-InfiNiTY"}).GetConstRef()),
+              IsOkAndHolds(-std::numeric_limits<float>::infinity()));
 }
 
 TEST(JsonLaxConversionTest, String) {
@@ -3065,8 +4376,11 @@ TEST(JsonLaxConversionTest, String) {
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
                                            "foo");
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), "10");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"null"}),
+                                           "null");
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), "-10");
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), "1");
   inputs_and_expected_outputs.emplace_back(
       JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
       absl::StrCat(std::numeric_limits<std::int64_t>::min()));
@@ -3098,10 +4412,471 @@ TEST(JsonLaxConversionTest, String) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_STRING('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<std::optional<std::string>> result =
-        LaxConvertJsonToString(input.GetConstRef());
-    ZETASQL_ASSERT_OK(result);
-    EXPECT_EQ(*result, expected_output);
+    EXPECT_THAT(LaxConvertJsonToString(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToBoolArray) {
+  std::vector<
+      std::pair<std::string, std::optional<std::vector<std::optional<bool>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<bool>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<bool>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<bool>>{false, true});
+  cases.emplace_back(
+      R"(["TRue", "FaLse", "foo", "null", ""])",
+      std::vector<std::optional<bool>>{true, false, std::nullopt, std::nullopt,
+                                       std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<bool>>{
+          std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+          std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+  cases.emplace_back(
+      R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+      std::vector<std::optional<bool>>{false, false, false, true, true, true,
+                                       true, true, true});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<bool>>{true, true, true, true});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
+                     std::vector<std::optional<bool>>{true, true, true});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<bool>>{true, true, true, true, true, true});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<bool>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<bool>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_BOOL_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToBoolArray(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToInt64Array) {
+  std::vector<std::pair<std::string,
+                        std::optional<std::vector<std::optional<int64_t>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<int64_t>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<int64_t>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<int64_t>>{0, 1});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<int64_t>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<int64_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
+  cases.emplace_back(
+      R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+      std::vector<std::optional<int64_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<int64_t>>{std::numeric_limits<int32_t>::min(),
+                                          std::numeric_limits<int32_t>::max(),
+                                          std::numeric_limits<int64_t>::min(),
+                                          std::numeric_limits<int64_t>::max()});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(
+      R"([4294967295, 18446744073709551615, 1e100])",
+      std::vector<std::optional<int64_t>>{std::numeric_limits<uint32_t>::max(),
+                                          std::nullopt, std::nullopt});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<int64_t>>{std::nullopt, 0, std::nullopt,
+                                          std::nullopt, 0, std::nullopt});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<int64_t>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<int64_t>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_INT64_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToInt64Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToInt32Array) {
+  std::vector<std::pair<std::string,
+                        std::optional<std::vector<std::optional<int32_t>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<int32_t>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<int32_t>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<int32_t>>{0, 1});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<int32_t>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<int32_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
+  cases.emplace_back(
+      R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+      std::vector<std::optional<int32_t>>{0, 0, 0, 10, -10, 1, -1, 2, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<int32_t>>{std::numeric_limits<int32_t>::min(),
+                                          std::numeric_limits<int32_t>::max(),
+                                          std::nullopt, std::nullopt});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
+                     std::vector<std::optional<int32_t>>{
+                         std::nullopt, std::nullopt, std::nullopt});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<int32_t>>{std::nullopt, 0, std::nullopt,
+                                          std::nullopt, 0, std::nullopt});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<int32_t>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<int32_t>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_INT32_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToInt32Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToUint64Array) {
+  std::vector<std::pair<std::string,
+                        std::optional<std::vector<std::optional<uint64_t>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<uint64_t>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<uint64_t>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<uint64_t>>{0, 1});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<uint64_t>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<uint64_t>>{0, 0, 0, 10, std::nullopt, 1,
+                                           std::nullopt, 2, 110});
+  cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+                     std::vector<std::optional<uint64_t>>{
+                         0, 0, 0, 10, std::nullopt, 1, std::nullopt, 2, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<uint64_t>>{
+          std::nullopt, std::numeric_limits<int32_t>::max(), std::nullopt,
+          std::numeric_limits<int64_t>::max()});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
+                     std::vector<std::optional<uint64_t>>{
+                         std::numeric_limits<uint32_t>::max(),
+                         std::numeric_limits<uint64_t>::max(), std::nullopt});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<uint64_t>>{std::nullopt, 0, std::nullopt,
+                                           std::nullopt, 0, std::nullopt});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<uint64_t>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<uint64_t>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_UINT64_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToUint64Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToUint32Array) {
+  std::vector<std::pair<std::string,
+                        std::optional<std::vector<std::optional<uint32_t>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<uint32_t>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<uint32_t>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<uint32_t>>{0, 1});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<uint32_t>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<uint32_t>>{0, 0, 0, 10, std::nullopt, 1,
+                                           std::nullopt, 2, 110});
+  cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+                     std::vector<std::optional<uint32_t>>{
+                         0, 0, 0, 10, std::nullopt, 1, std::nullopt, 2, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<uint32_t>>{std::nullopt,
+                                           std::numeric_limits<int32_t>::max(),
+                                           std::nullopt, std::nullopt});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(
+      R"([4294967295, 18446744073709551615, 1e100])",
+      std::vector<std::optional<uint32_t>>{std::numeric_limits<uint32_t>::max(),
+                                           std::nullopt, std::nullopt});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<uint32_t>>{std::nullopt, 0, std::nullopt,
+                                           std::nullopt, 0, std::nullopt});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<uint32_t>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<uint32_t>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_UINT32_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToUint32Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToFloat64Array) {
+  std::vector<
+      std::pair<std::string, std::optional<std::vector<std::optional<double>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<double>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<double>>{std::nullopt});
+  cases.emplace_back(R"([false, true])", std::vector<std::optional<double>>{
+                                             std::nullopt, std::nullopt});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<double>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<double>>{0, 0, 0, 10, -10, 1.1, -1.1, 1.5,
+                                         110});
+  cases.emplace_back(R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+                     std::vector<std::optional<double>>{0, 0, 0, 10, -10, 1.1,
+                                                        -1.1, 1.5, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<double>>{std::numeric_limits<int32_t>::min(),
+                                         std::numeric_limits<int32_t>::max(),
+                                         std::numeric_limits<int64_t>::min(),
+                                         std::numeric_limits<int64_t>::max()});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
+                     std::vector<std::optional<double>>{
+                         std::numeric_limits<uint32_t>::max(),
+                         std::numeric_limits<uint64_t>::max(), 1e100});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<double>>{-3.40282e+38, 1.17549e-38, 3.40282e+38,
+                                         -1.79769e+308, 2.22507e-308,
+                                         1.79769e+308});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<double>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<double>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_FLOAT64_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToFloat64Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToFloat32Array) {
+  std::vector<
+      std::pair<std::string, std::optional<std::vector<std::optional<float>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<float>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<float>>{std::nullopt});
+  cases.emplace_back(R"([false, true])", std::vector<std::optional<float>>{
+                                             std::nullopt, std::nullopt});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<float>>{
+                         std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                         std::nullopt});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<float>>{0, 0, 0, 10, -10, 1.1, -1.1, 1.5, 110});
+  cases.emplace_back(
+      R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+      std::vector<std::optional<float>>{0, 0, 0, 10, -10, 1.1, -1.1, 1.5, 110});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<float>>{std::numeric_limits<int32_t>::min(),
+                                        std::numeric_limits<int32_t>::max(),
+                                        std::numeric_limits<int64_t>::min(),
+                                        std::numeric_limits<int64_t>::max()});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615, 1e100])",
+                     std::vector<std::optional<float>>{
+                         std::numeric_limits<uint32_t>::max(),
+                         std::numeric_limits<uint64_t>::max(), std::nullopt});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<float>>{-3.40282e+38, 1.17549e-38, 3.40282e+38,
+                                        std::nullopt, 2.22507e-308,
+                                        std::nullopt});
+
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<float>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<float>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_FLOAT32_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToFloat32Array(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
+  }
+}
+
+TEST(JsonConversionTest, LaxConvertJsonToStringArray) {
+  std::vector<std::pair<std::string,
+                        std::optional<std::vector<std::optional<std::string>>>>>
+      cases;
+  cases.emplace_back(R"([])", std::vector<std::optional<std::string>>{});
+  cases.emplace_back(R"([null])",
+                     std::vector<std::optional<std::string>>{std::nullopt});
+  cases.emplace_back(R"([false, true])",
+                     std::vector<std::optional<std::string>>{"false", "true"});
+  cases.emplace_back(R"(["TRue", "FaLse", "foo", "null", ""])",
+                     std::vector<std::optional<std::string>>{
+                         "TRue", "FaLse", "foo", "null", ""});
+  cases.emplace_back(
+      R"(["0", "0.0", "-0.0", "10", "-10", "1.1", "-1.1", "+1.5", "1.1e2"])",
+      std::vector<std::optional<std::string>>{"0", "0.0", "-0.0", "10", "-10",
+                                              "1.1", "-1.1", "+1.5", "1.1e2"});
+  cases.emplace_back(
+      R"([0, 0.0, -0.0, 10, -10, 1.1, -1.1, 1.5, 1.1e2])",
+      std::vector<std::optional<std::string>>{"0", "0", "0", "10", "-10", "1.1",
+                                              "-1.1", "1.5", "110"});
+  // int32_t:min, int32_t:max, int64_t:min, int64_t:max
+  cases.emplace_back(
+      R"([-2147483648, 2147483647, -9223372036854775808, 9223372036854775807])",
+      std::vector<std::optional<std::string>>{"-2147483648", "2147483647",
+                                              "-9223372036854775808",
+                                              "9223372036854775807"});
+  // uint32_t:max, uint64_t:max, extremely large number
+  cases.emplace_back(R"([4294967295, 18446744073709551615])",
+                     std::vector<std::optional<std::string>>{
+                         "4294967295", "18446744073709551615"});
+  // float:lowest, float:min, float:max, double:lowest, double:min, double:max
+  cases.emplace_back(
+      R"([-3.40282e+38, 1.17549e-38, 3.40282e+38, -1.79769e+308, 2.22507e-308, 1.79769e+308])",
+      std::vector<std::optional<std::string>>{"-3.40282e+38", "1.17549e-38",
+                                              "3.40282e+38", "-1.79769e+308",
+                                              "2.22507e-308", "1.79769e+308"});
+  cases.emplace_back(R"([[false]])",
+                     std::vector<std::optional<std::string>>{std::nullopt});
+  cases.emplace_back(R"([{"a": false}])",
+                     std::vector<std::optional<std::string>>{std::nullopt});
+  cases.emplace_back(R"(null)", std::nullopt);
+  cases.emplace_back(R"(false)", std::nullopt);
+  cases.emplace_back(R"(true)", std::nullopt);
+  cases.emplace_back(R"(1)", std::nullopt);
+  cases.emplace_back(R"(1.0)", std::nullopt);
+  cases.emplace_back(R"("foo")", std::nullopt);
+  cases.emplace_back(R"({"a": false})", std::nullopt);
+
+  for (const auto& [json_text, expected_output] : cases) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue input,
+                         JSONValue::ParseJSONString(json_text));
+    SCOPED_TRACE(absl::Substitute("LAX_STRING_ARRAY('$0')",
+                                  input.GetConstRef().ToString()));
+    EXPECT_THAT(LaxConvertJsonToStringArray(input.GetConstRef()),
+                IsOkAndHolds(expected_output));
   }
 }
 
@@ -3423,8 +5198,9 @@ TEST(JsonObjectBuilderTest, StrictNumberParsing) {
   }
 }
 
-std::unique_ptr<StrictJSONPathIterator> ParseJSONPath(absl::string_view path) {
-  return StrictJSONPathIterator::Create(path).value();
+std::unique_ptr<StrictJSONPathIterator> ParseJSONPath(absl::string_view path,
+                                                      bool enable_lax = false) {
+  return StrictJSONPathIterator::Create(path, enable_lax).value();
 }
 
 TEST(JsonRemoveTest, InvalidJSONPath) {
@@ -3665,8 +5441,8 @@ TEST(JsonInsertArrayTest, FailedConversionComesFirst) {
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
   {
-    // Insertion in null would have created an array but failed conversion comes
-    // first.
+    // Insertion in null would have created an array but failed conversion
+    // comes first.
     auto path_iter = ParseJSONPath("$[1][1]");
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
@@ -3964,8 +5740,8 @@ TEST(JsonAppendArrayTest, FailedConversionComesFirst) {
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
   {
-    // Insertion in null would have created an array but failed conversion comes
-    // first.
+    // Insertion in null would have created an array but failed conversion
+    // comes first.
     auto path_iter = ParseJSONPath("$[1]");
     JSONValue value = JSONValue::ParseJSONString(kInitialValue).value();
     JSONValueRef ref = value.GetRef();
@@ -4099,8 +5875,8 @@ TEST(JsonSetTest, SingleJsonScalarCases) {
       JSONValueRef ref = json.GetRef();
       std::unique_ptr<StrictJSONPathIterator> path_iterator =
           ParseJSONPath(path);
-      ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value, /*create_if_missing=*/true,
-                        LanguageOptions(),
+      ZETASQL_ASSERT_OK(JsonSet(ref, *path_iterator, value,
+                        /*create_if_missing=*/true, LanguageOptions(),
                         /*canonicalize_zero=*/true));
       if (expected_output.has_value()) {
         EXPECT_THAT(
@@ -4175,7 +5951,8 @@ TEST(JsonSetTest, ValidTopLevelEmptyArray) {
   // Set past the end of the array.
   test_fn(/*path=*/"$[2]", /*expected_output=*/"[null, null, 999]");
   // Recursive creation of nested arrays.
-  test_fn(/*path=*/"$[2][1]", /*expected_output=*/"[null, null, [null, 999]]");
+  test_fn(/*path=*/"$[2][1]",
+          /*expected_output=*/"[null, null, [null, 999]]");
   // Recursive creation of nested arrays and objects.
   test_fn(/*path=*/"$[2][1].a",
           /*expected_output=*/R"([null, null, [null, {"a":999}]])");
@@ -4204,7 +5981,8 @@ TEST(JsonSetTest, ComplexTests) {
   // Insert object into null.
   test_fn(
       /*path=*/"$.a.b.c",
-      /*expected_output=*/R"({"a":{"b":{"c":999}}, "b":{}, "c":[], "d":{"e":1},
+      /*expected_output=*/
+      R"({"a":{"b":{"c":999}}, "b":{}, "c":[], "d":{"e":1},
                           "f":[2, [], {}, [3, 4]]})");
   // Insert array into null.
   test_fn(
@@ -4335,10 +6113,10 @@ TEST(JsonSetTest, FailedConversionComesFirst) {
     LanguageOptions options;
     options.EnableLanguageFeature(FEATURE_JSON_STRICT_NUMBER_PARSING);
 
-    ASSERT_THAT(
-        JsonSet(ref, *path_iter, big_value, /*create_if_missing=*/true, options,
-                /*canonicalize_zero=*/true),
-        StatusIs(absl::StatusCode::kOutOfRange));
+    ASSERT_THAT(JsonSet(ref, *path_iter, big_value,
+                        /*create_if_missing=*/true, options,
+                        /*canonicalize_zero=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange));
     EXPECT_THAT(
         ref, JsonEq(JSONValue::ParseJSONString(kInitialValue)->GetConstRef()));
   }
@@ -4597,6 +6375,166 @@ TEST(JsonStripNullsTest, AllNullsOrEmptyArray) {
   // No change. Subpath points to a nested ARRAY.
   test_fn("$[1].d", /*include_arrays=*/false, /*remove_empty=*/true,
           kInitialValue);
+}
+
+TEST(JsonQueryLax, InvalidPathInput) {
+  std::unique_ptr<StrictJSONPathIterator> path_iterator =
+      ParseJSONPath("$.a", /*enable_lax=*/true);
+  JSONValue value;
+  // The input is not a lax path.
+  EXPECT_FALSE(JsonQueryLax(value.GetRef(), *path_iterator).status().ok());
+}
+
+class JsonQueryLaxTest
+    : public ::testing::TestWithParam<
+          std::tuple</*input=*/std::string, /*path=*/std::string,
+                     /*expected_result=*/std::string>> {
+ protected:
+  absl::string_view GetJSONDoc() const { return std::get<0>(GetParam()); }
+  absl::string_view GetPath() const { return std::get<1>(GetParam()); }
+  absl::string_view GetExpectedResult() const {
+    return std::get<2>(GetParam());
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    JsonQueryLaxSimpleTests, JsonQueryLaxTest,
+    ::testing::Values(
+        // We do not test order or capitalization of JSONPath keywords as
+        // these are already tested in StrictJSONPathIterator tests.
+        //
+        // Key doesn't exist
+        std::make_tuple(R"({"a":1})", "lax $.A", "[]"),
+        std::make_tuple(R"({"a":1})", "lax recursive $.A", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax $.b", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax recursive $.b", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax $.a.c", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax recursive $.a.c", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax $[1]", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax recursive $[1]", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax $[0].b", "[]"),
+        std::make_tuple(R"({"a":{"b":1}})", "lax recursive $[0].b", "[]"),
+        // NULL JSON input.
+        std::make_tuple("null", "lax $", "[null]"),
+        std::make_tuple("null", "lax recursive $", "[null]"),
+        std::make_tuple("null", "lax $.a", "[]"),
+        std::make_tuple("null", "lax recursive $.a", "[]"),
+        std::make_tuple("null", "lax $[0]", "[null]"),
+        std::make_tuple("null", "lax recursive $[0]", "[null]"),
+        std::make_tuple("null", "lax $[1]", "[]"),
+        std::make_tuple("null", "lax recursive $[1]", "[]"),
+        // Normal object key match with matching types.
+        std::make_tuple(R"({"a":null})", "lax $", R"([{"a":null}])"),
+        std::make_tuple(R"({"a":null})", "lax recursive $", R"([{"a":null}])"),
+        std::make_tuple(R"({"a":null})", "lax $.a", "[null]"),
+        std::make_tuple(R"({"a":null})", "lax recursive $.a", "[null]"),
+        std::make_tuple(R"({"a":1, "b":2})", "lax $.b", "[2]"),
+        std::make_tuple(R"({"a":1, "b":2})", "lax recursive $.b", "[2]"),
+        // Normal array index match with matching types.
+        std::make_tuple(R"([[null]])", "lax $", "[[[null]]]"),
+        std::make_tuple(R"([[null]])", "lax recursive $", "[[[null]]]"),
+        std::make_tuple(R"([[null]])", "lax $[0]", "[[null]]"),
+        std::make_tuple(R"([[null]])", "lax recursive  $[0]", "[[null]]"),
+        // Index larger than array size.
+        std::make_tuple(R"([[null], 1])", "lax $[2]", "[]"),
+        std::make_tuple(R"([[null], 1])", "lax recursive $[2]", "[]"),
+        // Single level of array.
+        std::make_tuple(R"([{"a":1}])", "lax $.a", "[1]"),
+        std::make_tuple(R"([{"a":1}])", "lax recursive  $.a", "[1]"),
+        // 2-level of arrays.
+        std::make_tuple(R"([[{"a":1}]])", "lax $.a", "[]"),
+        std::make_tuple(R"([{"a":1}])", "lax recursive  $.a", "[1]"),
+        // Mix of 1,2,3 levels of arrays.
+        std::make_tuple(
+            R"([{"a":1}, {"b":2}, [[{"a":3}]],[[{"b":4}]],[[[{"a":5}]]]])",
+            "lax $.a", "[1]"),
+        std::make_tuple(
+            R"([{"a":1}, {"b":2}, [[{"a":3}]],[[{"b":4}]],[[[{"a":5}]]]])",
+            "lax recursive $.a", "[1,3,5]"),
+        std::make_tuple(
+            R"([{"a":1}, {"b":2}, [[{"a":3}]],[[{"b":4}]],[[[{"a":5}]]]])",
+            "lax $.b", "[2]"),
+        std::make_tuple(
+            R"([{"a":1}, {"b":2}, [[{"a":3}]],[[{"b":4}]],[[[{"a":5}]]]])",
+            "lax recursive $.b", "[2,4]"),
+        // Wrap non-array before match.
+        std::make_tuple(R"({"a":1})", "lax $[0].a", "[1]"),
+        std::make_tuple(R"({"a":1})", "lax recursive $[0].a", "[1]"),
+        std::make_tuple(R"({"a":[1]})", "lax $[0][0].a", "[[1]]"),
+        std::make_tuple(R"({"a":[1]})", "lax recursive $[0][0].a", "[[1]]"),
+        // Key 'b' doesn't exist in matched JSON subtree.
+        std::make_tuple(R"({"a":[1]})", "lax $[0][0].b", "[]"),
+        std::make_tuple(R"({"a":[1]})", "lax recursive $[0][0].b", "[]"),
+        // Wrap non-array before match. Index larger than array size.
+        std::make_tuple("1", "lax $[1]", "[]"),
+        std::make_tuple("1", "lax recursive $[1]", "[]"),
+        // Second index is larger than size of wrapped array.
+        std::make_tuple(R"({"a":1})", "lax $[0][1].a", "[]"),
+        std::make_tuple(R"({"a":1})", "lax recursive $[0][1].a", "[]")));
+
+INSTANTIATE_TEST_SUITE_P(
+    JsonQueryLaxComplexTests, JsonQueryLaxTest,
+    ::testing::Values(
+        // 'b' is not included in every nested object.
+        std::make_tuple(R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}]]})",
+                        "lax $.a.b", "[1,3]"),
+        std::make_tuple(R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}]]})",
+                        "lax recursive $.a.b", "[1,3,4]"),
+        // 'c' is not included in every nested object.
+        std::make_tuple(
+            R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}], null,
+                     [[{"c":5}]]]})",
+            "lax $.a.c", "[2]"),
+        std::make_tuple(
+            R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}], null,
+                     [[{"c":5}]]]})",
+            "lax recursive $.a.c", "[2,5]"),
+        // 'a.b' has different levels of nestedness
+        std::make_tuple(R"({"a":[1, {"b":2}, [{"b":3}, null, 4,
+                          {"b":[5]}]]})",
+                        "lax $.a.b", "[2]"),
+        std::make_tuple(R"({"a":[1, {"b":2}, [{"b":3}, 4,  null, {"b":[5]}]]})",
+                        "lax recursive $.a.b", "[2, 3, [5]]"),
+        // Both 'a' and 'a.b' have different levels of nestedness.
+        std::make_tuple(
+            R"([{"a":[1, {"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax $.a.b", "[2]"),
+        std::make_tuple(
+            R"([{"a":[1, {"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax recursive $.a.b", "[2, 3, 4, 5]"),
+        // Specific array indices and different levels of nestedness with
+        // autowrap.
+        std::make_tuple(
+            R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax $.a[0].b", "[2]"),
+        std::make_tuple(
+            R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax recursive $.a[0].b", "[2, 5]"),
+        std::make_tuple(
+            R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax $[1].a[0].b", "[5]"),
+        std::make_tuple(
+            R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+                [{"a":{"b":5}}, null]])",
+            "lax recursive $[1].a[0][0][0].b", "[5]")));
+
+TEST_P(JsonQueryLaxTest, Success) {
+  std::unique_ptr<StrictJSONPathIterator> path_iterator =
+      ParseJSONPath(GetPath(), /*enable_lax=*/true);
+  // Increment the path iterator to ensure it is correctly reset during
+  // execution.
+  ++(*path_iterator);
+  JSONValue value = JSONValue::ParseJSONString(GetJSONDoc()).value();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue result,
+                       JsonQueryLax(value.GetRef(), *path_iterator));
+  EXPECT_THAT(
+      result.GetConstRef(),
+      JsonEq(JSONValue::ParseJSONString(GetExpectedResult())->GetConstRef()));
 }
 
 }  // namespace

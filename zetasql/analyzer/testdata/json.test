@@ -90,25 +90,25 @@ SELECT json_val.field FROM ArrayTypes, UNNEST(JsonArray) AS json_val
 --
 QueryStmt
 +-output_column_list=
-| +-$query.field#19 AS field [JSON]
+| +-$query.field#22 AS field [JSON]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.field#19]
+    +-column_list=[$query.field#22]
     +-expr_list=
-    | +-field#19 :=
+    | +-field#22 :=
     |   +-GetJsonField
     |     +-type=JSON
     |     +-expr=
-    |     | +-ColumnRef(type=JSON, column=$array.json_val#18)
+    |     | +-ColumnRef(type=JSON, column=$array.json_val#21)
     |     +-field_name="field"
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.JsonArray#17, $array.json_val#18]
+        +-column_list=[ArrayTypes.JsonArray#17, $array.json_val#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.JsonArray#17], table=ArrayTypes, column_index_list=[16])
         +-array_expr_list=
         | +-ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17)
-        +-element_column_list=[$array.json_val#18]
+        +-element_column_list=[$array.json_val#21]
 ==
 
 SELECT json_col['field'] FROM JsonTable;

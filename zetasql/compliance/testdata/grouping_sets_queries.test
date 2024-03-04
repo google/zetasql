@@ -1,0 +1,2713 @@
+[prepare_database]
+CREATE TABLE simple_table
+(
+    key INT64,
+    a INT64,
+    b STRING,
+    c BOOL,
+    d FLOAT64
+)
+AS SELECT 1, 10, 'foo', true, 12.0
+UNION ALL SELECT 2, 123, 'foo', false, CAST("NAN" as FLOAT64)
+UNION ALL SELECT 3, 123, 'bar', true, 123.456e-67
+UNION ALL SELECT 4, CAST(NULL AS int64), CAST(NULL AS STRING), CAST(NULL AS BOOL), CAST(NULL AS FLOAT64)
+UNION ALL SELECT 5, 10, 'bar', CAST(NULL AS BOOL), CAST(NULL AS FLOAT64);
+--
+
+ARRAY<STRUCT<key INT64, a INT64, b STRING, c BOOL, d DOUBLE>>[
+  {1, 10, "foo", true, 12},
+  {2, 123, "foo", false, nan},
+  {3, 123, "bar", true, 1.23456e-65},
+  {4, NULL, NULL, NULL, NULL},
+  {5, 10, "bar", NULL, NULL}
+]
+==
+
+[prepare_database]
+CREATE TABLE simple_collation_table
+(
+  col_ci STRING COLLATE 'und:ci',
+  col_binary STRING COLLATE 'binary',
+  col_no_collation STRING,
+  col INT64
+)
+AS SELECT 'a', 'a', 'a', 1
+UNION ALL SELECT 'b', 'b', 'b', 2
+UNION ALL SELECT 'B', 'B', 'B', 3
+UNION ALL SELECT 'ana', 'ana', 'ana', 4
+UNION ALL SELECT 'banana', 'banana', 'banana', 5;
+--
+ARRAY<STRUCT<
+        col_ci STRING,
+        col_binary STRING,
+        col_no_collation STRING,
+        col INT64
+      >>
+[
+  {"a", "a", "a", 1},
+  {"b", "b", "b", 2},
+  {"B", "B", "B", 3},
+  {"ana", "ana", "ana", 4},
+  {"banana", "banana", "banana", 5}
+]
+==
+
+[default required_features=V_1_4_GROUPING_SETS]
+[name=grouping_sets_single_column_grouping_set]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(a, b)
+ORDER BY a, b
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, "bar", 2},
+  {NULL, "foo", 2},
+  {10, NULL, 2},
+  {123, NULL, 2}
+]
+==
+
+[name=grouping_sets_multi_column_grouping_set]
+SELECT a, b, c, d, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), (c, d))
+ORDER BY a, b, c, d, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, d DOUBLE, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 2},
+  {NULL, NULL, false, nan, 1},
+  {NULL, NULL, true, 1.23456e-65, 1},
+  {NULL, NULL, true, 12, 1},
+  {10, "bar", NULL, NULL, 1},
+  {10, "foo", NULL, NULL, 1},
+  {123, "bar", NULL, NULL, 1},
+  {123, "foo", NULL, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_empty_grouping_set]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), (), ())
+ORDER BY a, b, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 5},
+  {NULL, NULL, 5},
+  {10, "bar", 1},
+  {10, "foo", 1},
+  {123, "bar", 1},
+  {123, "foo", 1}
+]
+==
+
+[name=empty_grouping_sets_select_aggregate_function]
+SELECT COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(())
+--
+
+ARRAY<STRUCT<INT64>>[{5}]
+==
+
+[name=empty_grouping_sets_select_literal]
+SELECT 1, "a", 1.23
+FROM simple_table
+GROUP BY GROUPING SETS(())
+--
+ARRAY<STRUCT<INT64, STRING, DOUBLE>>[{1, "a", 1.23}]
+==
+
+[name=grouping_sets_expression_columns]
+SELECT a+1, UPPER(b), a-1, LOWER(b), COUNT(*), MAX(a), MAX(b)
+FROM simple_table
+GROUP BY GROUPING SETS((a+1, UPPER(b)), a-1, LOWER(b), ())
+ORDER BY MAX(a), MAX(b), COUNT(*)
+--
+ARRAY<STRUCT<INT64, STRING, INT64, STRING, INT64, INT64, STRING>>[unknown order:
+  {NULL, NULL, NULL, NULL, 1, NULL, NULL},
+  {NULL, NULL, NULL, NULL, 1, NULL, NULL},
+  {NULL, NULL, NULL, NULL, 1, NULL, NULL},
+  {11, "BAR", NULL, NULL, 1, 10, "bar"},
+  {11, "FOO", NULL, NULL, 1, 10, "foo"},
+  {NULL, NULL, 9, NULL, 2, 10, "foo"},
+  {124, "BAR", NULL, NULL, 1, 123, "bar"},
+  {NULL, NULL, NULL, "bar", 2, 123, "bar"},
+  {124, "FOO", NULL, NULL, 1, 123, "foo"},
+  {NULL, NULL, NULL, "foo", 2, 123, "foo"},
+  {NULL, NULL, 122, NULL, 2, 123, "foo"},
+  {NULL, NULL, NULL, NULL, 5, 123, "foo"}
+]
+==
+
+[name=grouping_sets_select_expression_match_to_column_reference]
+SELECT a, a+1, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(a, a+1)
+ORDER BY a, a+1, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 2},
+  {NULL, NULL, 2},
+  {10, 11, 2},
+  {123, 124, 2}
+]
+==
+
+[name=grouping_sets_duplicate_keys_in_grouping_set]
+SELECT a, b, a+1, UPPER(b), COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((a, a, b), (a, b, b), (a+1, a+1, a+1), (UPPER(b), UPPER(b)))
+ORDER BY a, b, a+1, UPPER(b), COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, STRING, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, NULL, 2},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1}
+]
+==
+
+[name=grouping_sets_duplicate_columns_alias_ordinal_index_in_grouping_set]
+SELECT a, b, a+1, UPPER(b) AS ub, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((a, a, b), (1, b, b), (3, 3, 3), (ub, ub))
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, ub STRING, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, "BAR", 2},
+  {NULL, NULL, NULL, "FOO", 2},
+  {NULL, NULL, 11, NULL, 2},
+  {NULL, NULL, 124, NULL, 2},
+  {10, "bar", NULL, NULL, 1},
+  {10, "bar", NULL, NULL, 1},
+  {10, "foo", NULL, NULL, 1},
+  {10, "foo", NULL, NULL, 1},
+  {123, "bar", NULL, NULL, 1},
+  {123, "bar", NULL, NULL, 1},
+  {123, "foo", NULL, NULL, 1},
+  {123, "foo", NULL, NULL, 1}
+]
+==
+
+[name=grouping_sets_duplicate_grouping_sets]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), (a, b), a, a)
+ORDER BY a, b, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "foo", 1},
+  {123, "foo", 1}
+]
+==
+
+[name=grouping_sets_with_alias]
+SELECT a+d AS x, b AS y, c AS z, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(x, (y, z), z)
+ORDER BY 1, 2, 3, COUNT(*)
+--
+ARRAY<STRUCT<x DOUBLE, y STRING, z BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, true, 2},
+  {NULL, "bar", NULL, 1},
+  {NULL, "bar", true, 1},
+  {NULL, "foo", false, 1},
+  {NULL, "foo", true, 1},
+  {nan, NULL, NULL, 1},
+  {22, NULL, NULL, 1},
+  {123, NULL, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_ordinal_columns]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(1, 2, (1, 2))
+ORDER BY 1, 2, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, "bar", 2},
+  {NULL, "foo", 2},
+  {10, NULL, 2},
+  {10, "bar", 1},
+  {10, "foo", 1},
+  {123, NULL, 2},
+  {123, "bar", 1},
+  {123, "foo", 1}
+]
+==
+
+[name=grouping_sets_with_mix_of_column_alias_ordinal_index]
+SELECT a+d AS x, UPPER(b), c, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(x, (2, c), 3)
+ORDER BY 1, 2, 3, COUNT(*)
+--
+ARRAY<STRUCT<x DOUBLE, STRING, c BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, true, 2},
+  {NULL, "BAR", NULL, 1},
+  {NULL, "BAR", true, 1},
+  {NULL, "FOO", false, 1},
+  {NULL, "FOO", true, 1},
+  {nan, NULL, NULL, 1},
+  {22, NULL, NULL, 1},
+  {123, NULL, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_duplicate_simple_expressions]
+SELECT a+1, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(a+1, a+1, a+1)
+ORDER BY ANY_VALUE(a), COUNT(*)
+--
+ARRAY<STRUCT<INT64, INT64>>[known order:
+  {NULL, 1},
+  {NULL, 1},
+  {NULL, 1},
+  {11, 2},
+  {11, 2},
+  {11, 2},
+  {124, 2},
+  {124, 2},
+  {124, 2}
+]
+==
+
+[name=grouping_sets_with_duplicate_subquery_expressions]
+SELECT COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS((SELECT a+1), (SELECT a+1))
+--
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {1}, {2}, {2}, {2}, {2}]
+==
+
+[name=grouping_sets_with_collation_columns]
+SELECT
+  UPPER(col_ci) AS col1, col_binary AS col_2, col AS col_3,
+  COUNT(*) AS count
+FROM simple_collation_table
+GROUP BY GROUPING SETS(col1, (col_binary, col))
+ORDER BY col1, col_2, col_3, count
+--
+ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, count INT64>>[known order:
+  {NULL, "B", 3, 1},
+  {NULL, "a", 1, 1},
+  {NULL, "ana", 4, 1},
+  {NULL, "b", 2, 1},
+  {NULL, "banana", 5, 1},
+  {"A", NULL, NULL, 1},
+  {"ANA", NULL, NULL, 1},
+  {"B", NULL, NULL, 2},
+  {"BANANA", NULL, NULL, 1}
+]
+
+==
+
+[name=grouping_sets_with_aggregate_functions]
+SELECT a, b, ANY_VALUE(a), ARRAY_AGG(c),
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), a, ())
+HAVING b IS NOT NULL
+ORDER BY a, b
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, ARRAY<>>>[known order:
+  {10, "bar", 10, ARRAY<BOOL>[NULL]},
+  {10, "foo", 10, ARRAY<BOOL>[true]},
+  {123, "bar", 123, ARRAY<BOOL>[true]},
+  {123, "foo", 123, ARRAY<BOOL>[false]}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+[name=grouping_sets_with_analytic_functions]
+SELECT a, b,
+  COUNT(*) OVER (
+    PARTITION BY a
+    ORDER BY a
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS count,
+  SUM(a) OVER (
+    PARTITION BY b
+    ORDER BY a
+    ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS sum,
+  MAX(b) OVER (
+    PARTITION BY b
+    ORDER BY a
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS max
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), a, ())
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order:
+  {NULL, NULL, 3, NULL, NULL},
+  {NULL, NULL, 3, NULL, NULL},
+  {NULL, NULL, 3, NULL, NULL},
+  {10, NULL, 3, 10, NULL},
+  {10, "bar", 3, 10, "bar"},
+  {10, "foo", 3, 10, "foo"},
+  {123, NULL, 3, 123, NULL},
+  {123, "bar", 3, 123, "bar"},
+  {123, "foo", 3, 123, "foo"}
+]
+==
+
+[name=grouping_sets_with_subquery_constant]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY GROUPING SETS(
+  (SELECT 'abc'),
+  (SELECT 1))
+--
+ARRAY<STRUCT<INT64>>[unknown order:{15}, {15}]
+==
+
+[name=grouping_sets_with_subquery_from_the_table]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY GROUPING SETS(
+  (SELECT COUNT(*) FROM simple_table),
+  ((SELECT SUM(key) FROM simple_table), (SELECT MAX(key) FROM simple_table))
+)
+--
+ARRAY<STRUCT<INT64>>[unknown order:{15}, {15}]
+==
+
+[name=grouping_sets_with_correlated_subquery]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY GROUPING SETS(
+  (SELECT a+1),
+  (SELECT b)
+)
+ORDER BY SUM(key)
+--
+ARRAY<STRUCT<INT64>>[known order:{3}, {4}, {4}, {5}, {6}, {8}]
+==
+
+[name=grouping_sets_with_keyword_column_name]
+WITH T AS (
+  SELECT 10 AS `GROUPING SETS`, "bar" AS `ROLLUP`, true AS `CUBE` UNION ALL
+  SELECT 11 AS `GROUPING SETS`, "bar" AS `ROLLUP`, false AS `CUBE`
+)
+SELECT `GROUPING SETS`, `ROLLUP`, `CUBE`,  COUNT(*)
+FROM T
+GROUP BY GROUPING SETS(`GROUPING SETS`, `ROLLUP`, `CUBE`)
+ORDER BY `GROUPING SETS`, `ROLLUP`, `CUBE`, COUNT(*)
+--
+ARRAY<STRUCT<GROUPING SETS INT64, ROLLUP STRING, CUBE BOOL, INT64>>[known order:
+  {NULL, NULL, false, 1},
+  {NULL, NULL, true, 1},
+  {NULL, "bar", NULL, 2},
+  {10, NULL, NULL, 1},
+  {11, NULL, NULL, 1}
+]
+==
+
+[name=grouping_sets_with_rollup_cube]
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a+1, b, c, d, COUNT(*) AS cnt
+FROM simple_table
+GROUP BY GROUPING SETS(a+1, ROLLUP(b, c), CUBE(d), ())
+ORDER BY 1, b, c, d, cnt
+--
+ARRAY<STRUCT<INT64, b STRING, c BOOL, d DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, nan, 1},
+  {NULL, NULL, NULL, 1.23456e-65, 1},
+  {NULL, NULL, NULL, 12, 1},
+  {NULL, "bar", NULL, NULL, 1},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", true, NULL, 1},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", false, NULL, 1},
+  {NULL, "foo", true, NULL, 1},
+  {11, NULL, NULL, NULL, 2},
+  {124, NULL, NULL, NULL, 2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_rollup_cube_on_multi_columns]
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a+1, b, c, d, COUNT(*) AS cnt
+FROM simple_table
+GROUP BY GROUPING SETS(a+1, ROLLUP(b, (c, d)), CUBE(a+1, (c, b)), ())
+ORDER BY 1, b, c, d, cnt
+--
+ARRAY<STRUCT<INT64, b STRING, c BOOL, d DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, "bar", NULL, NULL, 1},
+  {NULL, "bar", NULL, NULL, 1},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", true, NULL, 1},
+  {NULL, "bar", true, 1.23456e-65, 1},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", false, NULL, 1},
+  {NULL, "foo", false, nan, 1},
+  {NULL, "foo", true, NULL, 1},
+  {NULL, "foo", true, 12, 1},
+  {11, NULL, NULL, NULL, 2},
+  {11, NULL, NULL, NULL, 2},
+  {11, "bar", NULL, NULL, 1},
+  {11, "foo", true, NULL, 1},
+  {124, NULL, NULL, NULL, 2},
+  {124, NULL, NULL, NULL, 2},
+  {124, "bar", true, NULL, 1},
+  {124, "foo", false, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_rollup_cube_mix_column_alias_ordinal_index]
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a+1, b AS x, c AS y, d, COUNT(*) AS cnt
+FROM simple_table
+GROUP BY GROUPING SETS(1, ROLLUP(x, (y, d)), CUBE(1, (3, 2)), ())
+ORDER BY 1, x, y, d, cnt
+--
+ARRAY<STRUCT<INT64, x STRING, y BOOL, d DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, "bar", NULL, NULL, 1},
+  {NULL, "bar", NULL, NULL, 1},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", true, NULL, 1},
+  {NULL, "bar", true, 1.23456e-65, 1},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", false, NULL, 1},
+  {NULL, "foo", false, nan, 1},
+  {NULL, "foo", true, NULL, 1},
+  {NULL, "foo", true, 12, 1},
+  {11, NULL, NULL, NULL, 2},
+  {11, NULL, NULL, NULL, 2},
+  {11, "bar", NULL, NULL, 1},
+  {11, "foo", true, NULL, 1},
+  {124, NULL, NULL, NULL, 2},
+  {124, NULL, NULL, NULL, 2},
+  {124, "bar", true, NULL, 1},
+  {124, "foo", false, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_constant_select_list]
+SELECT "a", true, 1.23
+FROM simple_table
+GROUP BY GROUPING SETS(a, b)
+--
+ARRAY<STRUCT<STRING, BOOL, DOUBLE>>[unknown order:
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23}
+]
+==
+
+[name=grouping_sets_with_all_post_aggregate_clauses]
+[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+SELECT a, b, c, COUNT(*) OVER() AS cnt
+FROM simple_table
+GROUP BY GROUPING SETS(a, b, c)
+HAVING a IS NULL
+QUALIFY c
+ORDER BY a, b, c, cnt
+--
+
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, cnt INT64>>[{NULL, NULL, true, 7}]
+==
+
+[name=grouping_sets_with_having_clauses]
+[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+SELECT a, b, c, COUNT(*)
+FROM simple_table
+GROUP BY GROUPING SETS(a, b, c)
+HAVING GROUPING(a) = 0
+ORDER BY 1, 2, 3, 4
+--
+
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {10, NULL, NULL, 2},
+  {123, NULL, NULL, 2}
+]
+==
+
+[name=grouping_sets_with_qualify_clauses]
+[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_4_GROUPING_BUILTIN]
+SELECT a, b, c, COUNT(*) OVER()
+FROM simple_table
+GROUP BY GROUPING SETS(a, b, c)
+QUALIFY GROUPING(a) = 0
+ORDER BY 1, 2, 3, 4
+--
+
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 9},
+  {10, NULL, NULL, 9},
+  {123, NULL, NULL, 9}
+]
+==
+
+[name=grouping_sets_with_pivot]
+[required_features=V_1_3_PIVOT,V_1_4_GROUPING_SETS]
+SELECT a+1, foo, bar, COUNT(*) AS cnt
+FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
+GROUP BY GROUPING SETS(a+1, foo, bar)
+ORDER BY 1, foo, bar, cnt
+--
+
+ARRAY<STRUCT<INT64, foo DOUBLE, bar DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 3},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, 1.23456e-65, 1},
+  {NULL, nan, NULL, 1},
+  {NULL, 12, NULL, 1},
+  {11, NULL, NULL, 2},
+  {124, NULL, NULL, 2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=grouping_sets_with_unpivot]
+[required_features=V_1_3_UNPIVOT,V_1_4_GROUPING_SETS]
+SELECT a+1, e, f, COUNT(*) AS cnt
+FROM simple_table UNPIVOT(e FOR f in (b))
+GROUP BY GROUPING SETS(a+1, e, f)
+ORDER BY 1, e, f, cnt
+--
+
+ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
+  {NULL, NULL, "b", 4},
+  {NULL, "bar", NULL, 2},
+  {NULL, "foo", NULL, 2},
+  {11, NULL, NULL, 2},
+  {124, NULL, NULL, 2}
+]
+==
+
+[name=grouping_sets_and_with_recursive]
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_GROUPING_SETS]
+WITH RECURSIVE
+  CTE_1 AS (
+    (
+      SELECT iteration as it, iteration+1 AS it1
+      FROM UNNEST([1, 2, 3, 4]) AS iteration
+      GROUP BY GROUPING SETS(iteration, iteration+1)
+    )
+    UNION ALL (
+    SELECT it+1 AS it, it1+1 AS it1 FROM CTE_1 WHERE it < 3)
+  )
+SELECT it, it1 FROM CTE_1
+ORDER BY 1, 2 ASC
+--
+
+ARRAY<STRUCT<it INT64, it1 INT64>>[known order:
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {1, 2},
+  {2, 3},
+  {2, 3},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {4, 5}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_single_columns]
+SELECT a, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a, b)
+ORDER BY a, b, SUM(key)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, NULL, 6},
+  {10, "bar", 5},
+  {10, "foo", 1},
+  {123, NULL, 5},
+  {123, "bar", 3},
+  {123, "foo", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_expression_columns]
+SELECT a+1, UPPER(b), SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a+1, UPPER(b))
+ORDER BY 1, 2, SUM(key)
+--
+ARRAY<STRUCT<INT64, STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {11, NULL, 6},
+  {11, "BAR", 5},
+  {11, "FOO", 1},
+  {124, NULL, 5},
+  {124, "BAR", 3},
+  {124, "FOO", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_duplicate_columns]
+SELECT a+1, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a+1, a+1, a+1, b, b)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {11, NULL, 6},
+  {11, NULL, 6},
+  {11, NULL, 6},
+  {11, "bar", 5},
+  {11, "bar", 5},
+  {11, "foo", 1},
+  {11, "foo", 1},
+  {124, NULL, 5},
+  {124, NULL, 5},
+  {124, NULL, 5},
+  {124, "bar", 3},
+  {124, "bar", 3},
+  {124, "foo", 2},
+  {124, "foo", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_duplicate_mix_of_column_alias_ordinal_index]
+SELECT a+1 AS a1, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a1, 1, 1, b, 2, 2)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a1 INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {11, NULL, 6},
+  {11, NULL, 6},
+  {11, NULL, 6},
+  {11, "bar", 5},
+  {11, "bar", 5},
+  {11, "bar", 5},
+  {11, "foo", 1},
+  {11, "foo", 1},
+  {11, "foo", 1},
+  {124, NULL, 5},
+  {124, NULL, 5},
+  {124, NULL, 5},
+  {124, "bar", 3},
+  {124, "bar", 3},
+  {124, "bar", 3},
+  {124, "foo", 2},
+  {124, "foo", 2},
+  {124, "foo", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_single_columns_in_parentheses]
+SELECT a, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a), (b))
+ORDER BY a, b, SUM(key)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, NULL, 6},
+  {10, "bar", 5},
+  {10, "foo", 1},
+  {123, NULL, 5},
+  {123, "bar", 3},
+  {123, "foo", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_multi_columns]
+SELECT a, b, c, d, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a, b), (c), d)
+ORDER BY a, b, c, d, SUM(key)
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, d DOUBLE, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 15},
+  {10, "bar", NULL, NULL, 5},
+  {10, "bar", NULL, NULL, 5},
+  {10, "bar", NULL, NULL, 5},
+  {10, "foo", NULL, NULL, 1},
+  {10, "foo", true, NULL, 1},
+  {10, "foo", true, 12, 1},
+  {123, "bar", NULL, NULL, 3},
+  {123, "bar", true, NULL, 3},
+  {123, "bar", true, 1.23456e-65, 3},
+  {123, "foo", NULL, NULL, 2},
+  {123, "foo", false, NULL, 2},
+  {123, "foo", false, nan, 2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_with_parenthesised_single_column]
+SELECT a, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a), (b))
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, NULL, 6},
+  {10, "bar", 5},
+  {10, "foo", 1},
+  {123, NULL, 5},
+  {123, "bar", 3},
+  {123, "foo", 2}
+]
+==
+
+# The WHERE EXISTS clause is to make sure the V_1_4_GROUPING_SETS feature option
+# required. Without the where clause, the query can be run by missing the
+# V_1_4_GROUPING_SETS feature option, which will cause
+# required_feature_integrity_test fail. It's intentional to test the query
+# behavior won't change when V_1_4_GROUPING_SETS is enabled. V_1_4_GROUPING_SETS
+# uses a new code path to resolve the ROLLUP.
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_parenthesised_single_column_when_grouping_sets_enabled]
+SELECT a, b, SUM(key)
+FROM simple_table
+WHERE EXISTS(SELECT "a" FROM simple_table GROUP BY GROUPING SETS(()))
+GROUP BY ROLLUP((a), (b))
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, NULL, 6},
+  {10, "bar", 5},
+  {10, "foo", 1},
+  {123, NULL, 5},
+  {123, "bar", 3},
+  {123, "foo", 2}
+]
+==
+
+# (a, b) is resolved as a struct when only GROUP_BY_ROLLUP is enabled, and is
+# resolved to a multi-column when V_1_4_GROUPING_SETS is enabled.
+[required_features=GROUP_BY_ROLLUP,V_1_2_GROUP_BY_STRUCT]
+[name=rollup_with_multi_columns_as_struct]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a, b), (c, d))
+ORDER BY SUM(key)
+--
+ARRAY<STRUCT<INT64>>[known order:
+  {1},
+  {1},
+  {2},
+  {2},
+  {3},
+  {3},
+  {4},
+  {4},
+  {5},
+  {5},
+  {15}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_multi_expression_columns]
+SELECT a+1, UPPER(b), c, d, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a+1, (UPPER(b), c), d)
+ORDER BY 1, 2, c, d, SUM(key)
+--
+ARRAY<STRUCT<INT64, STRING, c BOOL, d DOUBLE, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, NULL, 15},
+  {11, NULL, NULL, NULL, 6},
+  {11, "BAR", NULL, NULL, 5},
+  {11, "BAR", NULL, NULL, 5},
+  {11, "FOO", true, NULL, 1},
+  {11, "FOO", true, 12, 1},
+  {124, NULL, NULL, NULL, 5},
+  {124, "BAR", true, NULL, 3},
+  {124, "BAR", true, 1.23456e-65, 3},
+  {124, "FOO", false, NULL, 2},
+  {124, "FOO", false, nan, 2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_duplicate_multi_columns]
+SELECT a, b, UPPER(b), SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a, b), (a, b), UPPER(b), UPPER(b))
+ORDER BY 1, 2, 3, 4
+--
+ARRAY<STRUCT<a INT64, b STRING, STRING, INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 15},
+  {10, "bar", "BAR", 5},
+  {10, "bar", "BAR", 5},
+  {10, "bar", "BAR", 5},
+  {10, "bar", "BAR", 5},
+  {10, "foo", "FOO", 1},
+  {10, "foo", "FOO", 1},
+  {10, "foo", "FOO", 1},
+  {10, "foo", "FOO", 1},
+  {123, "bar", "BAR", 3},
+  {123, "bar", "BAR", 3},
+  {123, "bar", "BAR", 3},
+  {123, "bar", "BAR", 3},
+  {123, "foo", "FOO", 2},
+  {123, "foo", "FOO", 2},
+  {123, "foo", "FOO", 2},
+  {123, "foo", "FOO", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_duplicate_columns_in_multi_columns]
+SELECT a+1, a-1, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a+1, a+1, a+1), (a-1, a-1, a-1))
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {11, NULL, 6},
+  {11, 9, 6},
+  {124, NULL, 5},
+  {124, 122, 5}
+]
+
+==
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_duplicate_mix_of_column_alias_ordinal_index_in_multi_columns]
+SELECT a+1, a-1, a*2 AS a2, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP((a+1, 1, 1), (2, a-1, 2), (a2, 3, a2))
+ORDER BY 1, 2, 3, 4
+--
+ARRAY<STRUCT<INT64, INT64, a2 INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 15},
+  {11, NULL, NULL, 6},
+  {11, 9, NULL, 6},
+  {11, 9, 20, 6},
+  {124, NULL, NULL, 5},
+  {124, 122, NULL, 5},
+  {124, 122, 246, 5}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_mix_of_column_alias_ordinal_index]
+SELECT a+1, a-1 AS x, b, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(1, (a+1, x), b)
+ORDER BY 1, 2, 3, 4
+--
+ARRAY<STRUCT<INT64, x INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 15},
+  {11, NULL, NULL, 6},
+  {11, 9, NULL, 6},
+  {11, 9, "bar", 5},
+  {11, 9, "foo", 1},
+  {124, NULL, NULL, 5},
+  {124, 122, NULL, 5},
+  {124, 122, "bar", 3},
+  {124, 122, "foo", 2}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP]
+[name=rollup_expression_match]
+SELECT a, a+1, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a, a+1)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, 11, 6},
+  {10, 11, 6},
+  {123, 124, 5},
+  {123, 124, 5}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_multi_column_expression_match]
+SELECT a, a+1, SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(a, (a, a+1), a+1)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 15},
+  {10, 11, 6},
+  {10, 11, 6},
+  {10, 11, 6},
+  {123, 124, 5},
+  {123, 124, 5},
+  {123, 124, 5}
+]
+==
+
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+[name=rollup_with_subquery]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY ROLLUP(
+  (SELECT COUNT(*) FROM simple_table),
+  ((SELECT SUM(key) FROM simple_table), (SELECT MAX(key) FROM simple_table))
+)
+ORDER BY 1
+--
+ARRAY<STRUCT<INT64>>[known order:{15}, {15}, {15}]
+==
+
+[name=rollup_with_collation_columns]
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT
+  UPPER(col_ci) AS col1, col_binary AS col_2, col AS col_3,
+  COUNT(*) AS count
+FROM simple_collation_table
+GROUP BY ROLLUP(col1, (col_binary, col))
+ORDER BY col1, col_2, col_3, count
+--
+ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, count INT64>>[known order:
+  {NULL, NULL, NULL, 5},
+  {"A", NULL, NULL, 1},
+  {"A", "a", 1, 1},
+  {"ANA", NULL, NULL, 1},
+  {"ANA", "ana", 4, 1},
+  {"B", NULL, NULL, 2},
+  {"B", "B", 3, 1},
+  {"B", "b", 2, 1},
+  {"BANANA", NULL, NULL, 1},
+  {"BANANA", "banana", 5, 1}
+]
+==
+
+[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[name=cube_simple_query]
+SELECT a, b, GROUPING(a), GROUPING(b), COUNT(*)
+FROM simple_table
+GROUP BY CUBE(a, b)
+ORDER BY a, b, GROUPING(a), GROUPING(b), COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 0, 0, 1},
+  {NULL, NULL, 0, 1, 1},
+  {NULL, NULL, 1, 0, 1},
+  {NULL, NULL, 1, 1, 5},
+  {NULL, "bar", 1, 0, 2},
+  {NULL, "foo", 1, 0, 2},
+  {10, NULL, 0, 1, 2},
+  {10, "bar", 0, 0, 1},
+  {10, "foo", 0, 0, 1},
+  {123, NULL, 0, 1, 2},
+  {123, "bar", 0, 0, 1},
+  {123, "foo", 0, 0, 1}
+]
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_simple_query_no_grouping]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY CUBE(a, b)
+ORDER BY a, b, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 5},
+  {NULL, "bar", 2},
+  {NULL, "foo", 2},
+  {10, NULL, 2},
+  {10, "bar", 1},
+  {10, "foo", 1},
+  {123, NULL, 2},
+  {123, "bar", 1},
+  {123, "foo", 1}
+]
+
+==
+
+[required_features=V_1_4_GROUPING_SETS,V_1_4_GROUPING_BUILTIN]
+[name=cube_with_multi_columns_grouping_set]
+SELECT a, b, c, GROUPING(c), SUM(d)
+FROM simple_table
+GROUP BY CUBE(c, (a, b))
+ORDER BY a, b, c, GROUPING(c), SUM(d)
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64, DOUBLE>>[known order:
+  {NULL, NULL, NULL, 0, NULL},
+  {NULL, NULL, NULL, 0, NULL},
+  {NULL, NULL, NULL, 1, NULL},
+  {NULL, NULL, NULL, 1, nan},
+  {NULL, NULL, false, 0, nan},
+  {NULL, NULL, true, 0, 12},
+  {10, "bar", NULL, 0, NULL},
+  {10, "bar", NULL, 1, NULL},
+  {10, "foo", NULL, 1, 12},
+  {10, "foo", true, 0, 12},
+  {123, "bar", NULL, 1, 1.23456e-65},
+  {123, "bar", true, 0, 1.23456e-65},
+  {123, "foo", NULL, 1, nan},
+  {123, "foo", false, 0, nan}
+]
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_with_multi_columns_grouping_set_no_grouping]
+SELECT a, b, c, SUM(d)
+FROM simple_table
+GROUP BY CUBE(c, (a, b))
+ORDER BY a, b, c, SUM(d)
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, DOUBLE>>[known order:
+  {NULL, NULL, NULL, NULL},
+  {NULL, NULL, NULL, NULL},
+  {NULL, NULL, NULL, NULL},
+  {NULL, NULL, NULL, nan},
+  {NULL, NULL, false, nan},
+  {NULL, NULL, true, 12},
+  {10, "bar", NULL, NULL},
+  {10, "bar", NULL, NULL},
+  {10, "foo", NULL, 12},
+  {10, "foo", true, 12},
+  {123, "bar", NULL, 1.23456e-65},
+  {123, "bar", true, 1.23456e-65},
+  {123, "foo", NULL, nan},
+  {123, "foo", false, nan}
+]
+
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_with_duplicated_columns_no_grouping]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY CUBE(a, a, b, a)
+ORDER BY a, b, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 5},
+  {NULL, "bar", 2},
+  {NULL, "foo", 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, NULL, 2},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "bar", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "foo", 1},
+  {123, "foo", 1},
+  {123, "foo", 1},
+  {123, "foo", 1},
+  {123, "foo", 1},
+  {123, "foo", 1},
+  {123, "foo", 1}
+]
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_with_duplicated_multi_columns]
+SELECT a, b, c, COUNT(*)
+FROM simple_table
+GROUP BY CUBE((a, b), (a, b), c, c, (c, c), (c, c))
+ORDER BY a, b, c, COUNT(*)
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 5},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {NULL, NULL, true, 2},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "foo", NULL, 1},
+  {10, "foo", NULL, 1},
+  {10, "foo", NULL, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {10, "foo", true, 1},
+  {123, "bar", NULL, 1},
+  {123, "bar", NULL, 1},
+  {123, "bar", NULL, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "bar", true, 1},
+  {123, "foo", NULL, 1},
+  {123, "foo", NULL, 1},
+  {123, "foo", NULL, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1},
+  {123, "foo", false, 1}
+]
+
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_with_expressions]
+SELECT b, MAX(c)
+FROM simple_table
+GROUP BY CUBE(key+1, b, c)
+ORDER BY b, MAX(c)
+--
+ARRAY<STRUCT<b STRING, BOOL>>[known order:
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, false},
+  {NULL, false},
+  {NULL, false},
+  {NULL, true},
+  {NULL, true},
+  {NULL, true},
+  {NULL, true},
+  {NULL, true},
+  {NULL, true},
+  {"bar", NULL},
+  {"bar", NULL},
+  {"bar", NULL},
+  {"bar", true},
+  {"bar", true},
+  {"bar", true},
+  {"bar", true},
+  {"foo", false},
+  {"foo", false},
+  {"foo", false},
+  {"foo", true},
+  {"foo", true},
+  {"foo", true},
+  {"foo", true}
+]
+==
+
+[name=cube_with_collated_column]
+[required_features=V_1_4_GROUPING_SETS]
+SELECT
+  UPPER(col_ci) AS col1,
+  col_no_collation AS col2,
+  COUNT(*) AS count
+FROM simple_collation_table
+GROUP BY CUBE(col_ci, col_no_collation, col)
+ORDER BY col1, col2, count
+--
+ARRAY<STRUCT<col1 STRING, col2 STRING, count INT64>>[known order:
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 1},
+  {NULL, NULL, 5},
+  {NULL, "B", 1},
+  {NULL, "B", 1},
+  {NULL, "a", 1},
+  {NULL, "a", 1},
+  {NULL, "ana", 1},
+  {NULL, "ana", 1},
+  {NULL, "b", 1},
+  {NULL, "b", 1},
+  {NULL, "banana", 1},
+  {NULL, "banana", 1},
+  {"A", NULL, 1},
+  {"A", NULL, 1},
+  {"A", "a", 1},
+  {"A", "a", 1},
+  {"ANA", NULL, 1},
+  {"ANA", NULL, 1},
+  {"ANA", "ana", 1},
+  {"ANA", "ana", 1},
+  {"B", NULL, 1},
+  {"B", NULL, 1},
+  {"B", NULL, 1},
+  {"B", NULL, 1},
+  {"B", "B", 1},
+  {"B", "B", 1},
+  {"B", "b", 1},
+  {"B", "b", 1},
+  {"BANANA", NULL, 1},
+  {"BANANA", NULL, 1},
+  {"BANANA", "banana", 1},
+  {"BANANA", "banana", 1}
+]
+==
+
+[name=cube_with_analytic_functions]
+[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+SELECT a, b,
+  COUNT(*) OVER (
+    PARTITION BY a
+    ORDER BY a
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS count,
+  SUM(a) OVER (
+    PARTITION BY b
+    ORDER BY a
+    ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS sum,
+  MAX(b) OVER (
+    PARTITION BY b
+    ORDER BY a
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS max
+FROM simple_table
+GROUP BY CUBE(a, b)
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order:
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, "bar", 6, NULL, "bar"},
+  {NULL, "foo", 6, NULL, "foo"},
+  {10, NULL, 3, 10, NULL},
+  {10, "bar", 3, 10, "bar"},
+  {10, "foo", 3, 10, "foo"},
+  {123, NULL, 3, 123, NULL},
+  {123, "bar", 3, 123, "bar"},
+  {123, "foo", 3, 123, "foo"}
+]
+
+==
+
+[name=cube_with_parenthesized_single_column]
+[required_features=V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+SELECT a, b,
+  COUNT(*) OVER (
+    PARTITION BY a
+    ORDER BY a
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS count,
+  SUM(a) OVER (
+    PARTITION BY b
+    ORDER BY a
+    ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS sum,
+  MAX(b) OVER (
+    PARTITION BY b
+    ORDER BY a
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS max
+FROM simple_table
+GROUP BY CUBE( (a), (b) )
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order:
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, NULL, 6, NULL, NULL},
+  {NULL, "bar", 6, NULL, "bar"},
+  {NULL, "foo", 6, NULL, "foo"},
+  {10, NULL, 3, 10, NULL},
+  {10, "bar", 3, 10, "bar"},
+  {10, "foo", 3, 10, "foo"},
+  {123, NULL, 3, 123, NULL},
+  {123, "bar", 3, 123, "bar"},
+  {123, "foo", 3, 123, "foo"}
+]
+
+==
+
+[name=cube_mixed_column_alias_and_ordinal_index]
+SELECT a, b, a+1, UPPER(b) AS ub, COUNT(*)
+FROM simple_table
+GROUP BY CUBE(a, 1, 2, 2, ub)
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, ub STRING, INT64>>[known order:
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, NULL, 5},
+  {NULL, NULL, NULL, "BAR", 2},
+  {NULL, NULL, NULL, "FOO", 2},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", NULL, NULL, 2},
+  {NULL, "bar", NULL, "BAR", 2},
+  {NULL, "bar", NULL, "BAR", 2},
+  {NULL, "bar", NULL, "BAR", 2},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", NULL, NULL, 2},
+  {NULL, "foo", NULL, "FOO", 2},
+  {NULL, "foo", NULL, "FOO", 2},
+  {NULL, "foo", NULL, "FOO", 2},
+  {10, NULL, 11, NULL, 2},
+  {10, NULL, 11, NULL, 2},
+  {10, NULL, 11, NULL, 2},
+  {10, NULL, 11, "BAR", 1},
+  {10, NULL, 11, "BAR", 1},
+  {10, NULL, 11, "BAR", 1},
+  {10, NULL, 11, "FOO", 1},
+  {10, NULL, 11, "FOO", 1},
+  {10, NULL, 11, "FOO", 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, NULL, 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "bar", 11, "BAR", 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, NULL, 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {10, "foo", 11, "FOO", 1},
+  {123, NULL, 124, NULL, 2},
+  {123, NULL, 124, NULL, 2},
+  {123, NULL, 124, NULL, 2},
+  {123, NULL, 124, "BAR", 1},
+  {123, NULL, 124, "BAR", 1},
+  {123, NULL, 124, "BAR", 1},
+  {123, NULL, 124, "FOO", 1},
+  {123, NULL, 124, "FOO", 1},
+  {123, NULL, 124, "FOO", 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, NULL, 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "bar", 124, "BAR", 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, NULL, 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1},
+  {123, "foo", 124, "FOO", 1}
+]
+
+==
+
+[name=cube_with_constant_select_list]
+SELECT "abc", 111, "ddd"
+FROM simple_table
+GROUP BY GROUPING SETS(a, b)
+--
+ARRAY<STRUCT<STRING, INT64, STRING>>[unknown order:
+  {"abc", 111, "ddd"},
+  {"abc", 111, "ddd"},
+  {"abc", 111, "ddd"},
+  {"abc", 111, "ddd"},
+  {"abc", 111, "ddd"},
+  {"abc", 111, "ddd"}
+]
+
+==
+
+[name=cube_with_post_aggregate_clauses]
+[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS]
+SELECT a, b, c, COUNT(*) OVER() AS cnt
+FROM simple_table
+GROUP BY CUBE(a, b, c)
+QUALIFY a > 10
+ORDER BY a, b, c, cnt
+--
+ARRAY<STRUCT<a INT64, b STRING, c BOOL, cnt INT64>>[known order:
+  {123, NULL, NULL, 30},
+  {123, NULL, false, 30},
+  {123, NULL, true, 30},
+  {123, "bar", NULL, 30},
+  {123, "bar", true, 30},
+  {123, "foo", NULL, 30},
+  {123, "foo", false, 30}
+]
+
+==
+
+[name=cube_with_having_clauses]
+[required_features=V_1_4_GROUPING_SETS]
+SELECT a, b, COUNT(*)
+FROM simple_table
+GROUP BY CUBE(a, b)
+HAVING COUNT(*) > 1
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 5},
+  {NULL, "bar", 2},
+  {NULL, "foo", 2},
+  {10, NULL, 2},
+  {123, NULL, 2}
+]
+
+==
+
+[name=cube_with_qualify_clauses]
+[required_features=V_1_3_QUALIFY,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_4_GROUPING_BUILTIN]
+SELECT a, b, COUNT(*) OVER()
+FROM simple_table
+GROUP BY CUBE(a, b)
+QUALIFY GROUPING(a) = 0
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 12},
+  {NULL, NULL, 12},
+  {10, NULL, 12},
+  {10, "bar", 12},
+  {10, "foo", 12},
+  {123, NULL, 12},
+  {123, "bar", 12},
+  {123, "foo", 12}
+]
+
+==
+
+[name=cube_with_pivot]
+[required_features=V_1_3_PIVOT,V_1_4_GROUPING_SETS]
+SELECT a, foo, bar, COUNT(*) AS cnt
+FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
+GROUP BY CUBE(a, foo, bar)
+ORDER BY a, foo, bar, cnt
+--
+ARRAY<STRUCT<a INT64, foo DOUBLE, bar DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, NULL, 3},
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, NULL, 5},
+  {NULL, NULL, 1.23456e-65, 1},
+  {NULL, NULL, 1.23456e-65, 1},
+  {NULL, nan, NULL, 1},
+  {NULL, nan, NULL, 1},
+  {NULL, 12, NULL, 1},
+  {NULL, 12, NULL, 1},
+  {10, NULL, NULL, 1},
+  {10, NULL, NULL, 1},
+  {10, NULL, NULL, 2},
+  {10, NULL, NULL, 2},
+  {10, 12, NULL, 1},
+  {10, 12, NULL, 1},
+  {123, NULL, NULL, 1},
+  {123, NULL, NULL, 1},
+  {123, NULL, NULL, 2},
+  {123, NULL, 1.23456e-65, 1},
+  {123, NULL, 1.23456e-65, 1},
+  {123, nan, NULL, 1},
+  {123, nan, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+
+==
+[name=cube_with_unpivot]
+[required_features=V_1_3_UNPIVOT,V_1_4_GROUPING_SETS]
+SELECT a, e, f, COUNT(*) AS cnt
+FROM simple_table UNPIVOT(e FOR f in (b))
+GROUP BY CUBE(a, e, f)
+ORDER BY a, e, f, cnt
+--
+ARRAY<STRUCT<a INT64, e STRING, f STRING, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {NULL, NULL, "b", 4},
+  {NULL, "bar", NULL, 2},
+  {NULL, "bar", "b", 2},
+  {NULL, "foo", NULL, 2},
+  {NULL, "foo", "b", 2},
+  {10, NULL, NULL, 2},
+  {10, NULL, "b", 2},
+  {10, "bar", NULL, 1},
+  {10, "bar", "b", 1},
+  {10, "foo", NULL, 1},
+  {10, "foo", "b", 1},
+  {123, NULL, NULL, 2},
+  {123, NULL, "b", 2},
+  {123, "bar", NULL, 1},
+  {123, "bar", "b", 1},
+  {123, "foo", NULL, 1},
+  {123, "foo", "b", 1}
+]
+
+==
+
+[name=cube_and_with_recursive]
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_GROUPING_SETS]
+WITH RECURSIVE
+  CTE_1 AS (
+    (
+      SELECT iteration as it, iteration+1 AS it1
+      FROM UNNEST([1, 2, 3, 4]) AS iteration
+      GROUP BY CUBE(iteration, iteration+1)
+    )
+    UNION ALL (
+    SELECT it+1 AS it, it1+1 AS it1 FROM CTE_1 WHERE it < 3)
+  )
+SELECT it, it1 FROM CTE_1
+ORDER BY 1, 2 ASC
+--
+ARRAY<STRUCT<it INT64, it1 INT64>>[known order:
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {NULL, NULL},
+  {1, 2},
+  {1, 2},
+  {2, 3},
+  {2, 3},
+  {2, 3},
+  {2, 3},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {4, 5},
+  {4, 5}
+]
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_expression_match]
+SELECT a, a+1, SUM(key)
+FROM simple_table
+GROUP BY CUBE(a, a+1)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 5},
+  {NULL, NULL, 6},
+  {NULL, NULL, 15},
+  {10, 11, 6},
+  {10, 11, 6},
+  {123, 124, 5},
+  {123, 124, 5}
+]
+
+==
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_multi_column_expression_match]
+SELECT a, a+1, SUM(key)
+FROM simple_table
+GROUP BY CUBE(a, (a, a+1), a+1)
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, INT64, INT64>>[known order:
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 4},
+  {NULL, NULL, 5},
+  {NULL, NULL, 6},
+  {NULL, NULL, 15},
+  {10, 11, 6},
+  {10, 11, 6},
+  {10, 11, 6},
+  {10, 11, 6},
+  {10, 11, 6},
+  {10, 11, 6},
+  {123, 124, 5},
+  {123, 124, 5},
+  {123, 124, 5},
+  {123, 124, 5},
+  {123, 124, 5},
+  {123, 124, 5}
+]
+
+==
+
+[required_features=V_1_4_GROUPING_SETS]
+[name=cube_with_subquery]
+SELECT SUM(key)
+FROM simple_table
+GROUP BY CUBE(
+  (SELECT COUNT(*) FROM simple_table),
+  ((SELECT SUM(key) FROM simple_table), (SELECT MAX(key) FROM simple_table))
+)
+ORDER BY 1
+--
+ARRAY<STRUCT<INT64>>[known order:{15}, {15}, {15}, {15}]
+
+==
+
+[name=cube_with_keyword_column_name]
+[required_features=V_1_4_GROUPING_SETS]
+WITH T AS (
+  SELECT 10 AS `GROUPING SETS`, "bar" AS `ROLLUP`, true AS `CUBE` UNION ALL
+  SELECT 11 AS `GROUPING SETS`, "bar" AS `ROLLUP`, false AS `CUBE`
+)
+SELECT `GROUPING SETS`, `ROLLUP`, `CUBE`,  COUNT(*)
+FROM T
+GROUP BY CUBE(`GROUPING SETS`, `ROLLUP`, `CUBE`)
+ORDER BY `GROUPING SETS`, `ROLLUP`, `CUBE`, COUNT(*)
+--
+ARRAY<STRUCT<GROUPING SETS INT64, ROLLUP STRING, CUBE BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 2},
+  {NULL, NULL, false, 1},
+  {NULL, NULL, true, 1},
+  {NULL, "bar", NULL, 2},
+  {NULL, "bar", false, 1},
+  {NULL, "bar", true, 1},
+  {10, NULL, NULL, 1},
+  {10, NULL, true, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", true, 1},
+  {11, NULL, NULL, 1},
+  {11, NULL, false, 1},
+  {11, "bar", NULL, 1},
+  {11, "bar", false, 1}
+]
+
+==
+
+[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS]
+[name=rollup_with_analytic_functions]
+SELECT a, b,
+  COUNT(*) OVER (
+    PARTITION BY a
+    ORDER BY a
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS count,
+  SUM(a) OVER (
+    PARTITION BY b
+    ORDER BY a
+    ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS sum,
+  MAX(b) OVER (
+    PARTITION BY b
+    ORDER BY a
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS max
+FROM simple_table
+GROUP BY ROLLUP(a, b, a)
+ORDER BY 1, 2, 3, 4, 5
+--
+ARRAY<STRUCT<a INT64, b STRING, count INT64, sum INT64, max STRING>>[known order:
+  {NULL, NULL, 4, NULL, NULL},
+  {NULL, NULL, 4, NULL, NULL},
+  {NULL, NULL, 4, NULL, NULL},
+  {NULL, NULL, 4, NULL, NULL},
+  {10, NULL, 5, 10, NULL},
+  {10, "bar", 5, 10, "bar"},
+  {10, "bar", 5, 10, "bar"},
+  {10, "foo", 5, 10, "foo"},
+  {10, "foo", 5, 10, "foo"},
+  {123, NULL, 5, 123, NULL},
+  {123, "bar", 5, 123, "bar"},
+  {123, "bar", 5, 123, "bar"},
+  {123, "foo", 5, 123, "foo"},
+  {123, "foo", 5, 123, "foo"}
+]
+==
+
+[name=rollup_with_qualify_clauses]
+[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY,V_1_4_GROUPING_BUILTIN]
+SELECT a, UPPER(b), c, COUNT(*) OVER() AS cnt
+FROM simple_table
+GROUP BY ROLLUP(a, UPPER(b), c)
+QUALIFY GROUPING(a) = 0
+ORDER BY 1, 2, 3, 4
+--
+
+ARRAY<STRUCT<a INT64, STRING, c BOOL, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 14},
+  {NULL, NULL, NULL, 14},
+  {NULL, NULL, NULL, 14},
+  {10, NULL, NULL, 14},
+  {10, "BAR", NULL, 14},
+  {10, "BAR", NULL, 14},
+  {10, "FOO", NULL, 14},
+  {10, "FOO", true, 14},
+  {123, NULL, NULL, 14},
+  {123, "BAR", NULL, 14},
+  {123, "BAR", true, 14},
+  {123, "FOO", NULL, 14},
+  {123, "FOO", false, 14}
+]
+==
+
+[name=rollup_with_having_clause]
+[required_features=GROUP_BY_ROLLUP,V_1_4_GROUPING_BUILTIN]
+SELECT a, UPPER(b), c, COUNT(*) AS cnt
+FROM simple_table
+GROUP BY ROLLUP(a, UPPER(b), c)
+HAVING GROUPING(a) = 0
+ORDER BY 1, 2, 3, 4
+--
+
+ARRAY<STRUCT<a INT64, STRING, c BOOL, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {10, NULL, NULL, 2},
+  {10, "BAR", NULL, 1},
+  {10, "BAR", NULL, 1},
+  {10, "FOO", NULL, 1},
+  {10, "FOO", true, 1},
+  {123, NULL, NULL, 2},
+  {123, "BAR", NULL, 1},
+  {123, "BAR", true, 1},
+  {123, "FOO", NULL, 1},
+  {123, "FOO", false, 1}
+]
+==
+
+[name=rollup_with_all_post_aggregate_clauses]
+[required_features=GROUP_BY_ROLLUP,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY]
+SELECT a, UPPER(b), c, COUNT(*) OVER() AS cnt
+FROM simple_table
+GROUP BY ROLLUP(a, UPPER(b), c)
+HAVING a IS NOT NULL
+QUALIFY c
+ORDER BY 1, 2, 3, 4
+--
+
+ARRAY<STRUCT<a INT64, STRING, c BOOL, cnt INT64>>[known order:
+  {10, "FOO", true, 10},
+  {123, "BAR", true, 10}
+]
+==
+
+[name=rollup_with_constant_select_list]
+[required_features=GROUP_BY_ROLLUP]
+SELECT "a", true, 1.23
+FROM simple_table
+GROUP BY ROLLUP(a, b)
+--
+ARRAY<STRUCT<STRING, BOOL, DOUBLE>>[unknown order:
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23},
+  {"a", true, 1.23}
+]
+==
+
+[name=rollup_with_keyword_column_name]
+[required_features=GROUP_BY_ROLLUP]
+WITH T AS (
+  SELECT 10 AS `GROUPING SETS`, "bar" AS `ROLLUP`, true AS `CUBE` UNION ALL
+  SELECT 11 AS `GROUPING SETS`, "bar" AS `ROLLUP`, false AS `CUBE`
+)
+SELECT `GROUPING SETS`, `ROLLUP`, `CUBE`,  COUNT(*)
+FROM T
+GROUP BY ROLLUP(`GROUPING SETS`, `ROLLUP`, `CUBE`)
+ORDER BY `GROUPING SETS`, `ROLLUP`, `CUBE`, COUNT(*)
+--
+ARRAY<STRUCT<GROUPING SETS INT64, ROLLUP STRING, CUBE BOOL, INT64>>[known order:
+  {NULL, NULL, NULL, 2},
+  {10, NULL, NULL, 1},
+  {10, "bar", NULL, 1},
+  {10, "bar", true, 1},
+  {11, NULL, NULL, 1},
+  {11, "bar", NULL, 1},
+  {11, "bar", false, 1}
+]
+==
+
+[name=rollup_single_columns_with_pivot]
+[required_features=V_1_3_PIVOT,GROUP_BY_ROLLUP]
+SELECT a+1, foo, bar, COUNT(*) AS cnt
+FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
+GROUP BY ROLLUP(a+1, foo, bar)
+ORDER BY 1, foo, bar, cnt
+--
+
+ARRAY<STRUCT<INT64, foo DOUBLE, bar DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 5},
+  {11, NULL, NULL, 1},
+  {11, NULL, NULL, 1},
+  {11, NULL, NULL, 2},
+  {11, 12, NULL, 1},
+  {11, 12, NULL, 1},
+  {124, NULL, NULL, 1},
+  {124, NULL, NULL, 2},
+  {124, NULL, 1.23456e-65, 1},
+  {124, nan, NULL, 1},
+  {124, nan, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# Note: the GroupingSetRewriter will be triggered only when V_1_4_GROUPING_SETS
+# is enabled. For ROLLUP test cases testing rewriter conflicts, we intentionally
+# test it w/o V_1_4_GROUPING_SETS being enabled.
+[name=rollup_multi_columns_with_pivot]
+[required_features=V_1_3_PIVOT,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a+1, foo, bar, COUNT(*) AS cnt
+FROM simple_table PIVOT(SUM(d) FOR b IN ('foo', 'bar'))
+GROUP BY ROLLUP(a+1, (foo, bar))
+ORDER BY 1, foo, bar, cnt
+--
+
+ARRAY<STRUCT<INT64, foo DOUBLE, bar DOUBLE, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 1},
+  {NULL, NULL, NULL, 5},
+  {11, NULL, NULL, 1},
+  {11, NULL, NULL, 2},
+  {11, 12, NULL, 1},
+  {124, NULL, NULL, 2},
+  {124, NULL, 1.23456e-65, 1},
+  {124, nan, NULL, 1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[name=rollup_single_columns_with_unpivot]
+[required_features=V_1_3_UNPIVOT,GROUP_BY_ROLLUP]
+SELECT a+1, e, f, COUNT(*) AS cnt
+FROM simple_table UNPIVOT(e FOR f in (b))
+GROUP BY ROLLUP(a+1, e, f)
+ORDER BY 1, e, f, cnt
+--
+
+ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {11, NULL, NULL, 2},
+  {11, "bar", NULL, 1},
+  {11, "bar", "b", 1},
+  {11, "foo", NULL, 1},
+  {11, "foo", "b", 1},
+  {124, NULL, NULL, 2},
+  {124, "bar", NULL, 1},
+  {124, "bar", "b", 1},
+  {124, "foo", NULL, 1},
+  {124, "foo", "b", 1}
+]
+==
+
+[name=rollup_multi_columns_with_unpivot]
+[required_features=V_1_3_UNPIVOT,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a+1, e, f, COUNT(*) AS cnt
+FROM simple_table UNPIVOT(e FOR f in (b))
+GROUP BY ROLLUP(a+1, (e, f))
+ORDER BY 1, e, f, cnt
+--
+
+ARRAY<STRUCT<INT64, e STRING, f STRING, cnt INT64>>[known order:
+  {NULL, NULL, NULL, 4},
+  {11, NULL, NULL, 2},
+  {11, "bar", "b", 1},
+  {11, "foo", "b", 1},
+  {124, NULL, NULL, 2},
+  {124, "bar", "b", 1},
+  {124, "foo", "b", 1}
+]
+==
+
+[name=rollup_and_with_recursive]
+[required_features=V_1_3_WITH_RECURSIVE,GROUP_BY_ROLLUP]
+WITH RECURSIVE
+  CTE_1 AS (
+    (
+      SELECT iteration as it, iteration+1 AS it1
+      FROM UNNEST([1, 2, 3, 4]) AS iteration
+      GROUP BY ROLLUP(iteration, iteration+1)
+    )
+    UNION ALL (
+    SELECT it+1 AS it, it1+1 AS it1 FROM CTE_1 WHERE it < 3)
+  )
+SELECT it, it1 FROM CTE_1
+ORDER BY 1, 2 ASC
+--
+
+ARRAY<STRUCT<it INT64, it1 INT64>>[known order:
+  {NULL, NULL},
+  {1, 2},
+  {1, 2},
+  {2, 3},
+  {2, 3},
+  {2, 3},
+  {2, 3},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {3, 4},
+  {4, 5},
+  {4, 5}
+]
+==
+
+[name=grouping_func_with_regular_group_by_query]
+[required_features=V_1_4_GROUPING_BUILTIN]
+SELECT a, UPPER(b), GROUPING(a), GROUPING(UPPER(b))
+FROM simple_table
+GROUP BY a, UPPER(b)
+ORDER BY 3, 4, 1, 2
+--
+
+ARRAY<STRUCT<a INT64, STRING, INT64, INT64>>[known order:
+  {NULL, NULL, 0, 0},
+  {10, "BAR", 0, 0},
+  {10, "FOO", 0, 0},
+  {123, "BAR", 0, 0},
+  {123, "FOO", 0, 0}
+]
+==
+
+[name=grouping_func_with_single_column_rollup]
+[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+SELECT a, UPPER(b), GROUPING(a), GROUPING(UPPER(b))
+FROM simple_table
+GROUP BY ROLLUP(a, UPPER(b))
+ORDER BY 3, 4, 1, 2
+--
+
+ARRAY<STRUCT<a INT64, STRING, INT64, INT64>>[known order:
+  {NULL, NULL, 0, 0},
+  {10, "BAR", 0, 0},
+  {10, "FOO", 0, 0},
+  {123, "BAR", 0, 0},
+  {123, "FOO", 0, 0},
+  {NULL, NULL, 0, 1},
+  {10, NULL, 0, 1},
+  {123, NULL, 0, 1},
+  {NULL, NULL, 1, 1}
+]
+==
+
+[name=grouping_func_with_multi_column_rollup]
+[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+FROM simple_table
+GROUP BY ROLLUP(a, (UPPER(b), c))
+ORDER BY 4, 5, 6, 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 0, 0, 0},
+  {10, "BAR", NULL, 0, 0, 0},
+  {10, "FOO", true, 0, 0, 0},
+  {123, "BAR", true, 0, 0, 0},
+  {123, "FOO", false, 0, 0, 0},
+  {NULL, NULL, NULL, 0, 1, 1},
+  {10, NULL, NULL, 0, 1, 1},
+  {123, NULL, NULL, 0, 1, 1},
+  {NULL, NULL, NULL, 1, 1, 1}
+]
+==
+
+[name=grouping_func_with_cube]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+FROM simple_table
+GROUP BY CUBE(a, (UPPER(b), c))
+ORDER BY 4, 5, 6, 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 0, 0, 0},
+  {10, "BAR", NULL, 0, 0, 0},
+  {10, "FOO", true, 0, 0, 0},
+  {123, "BAR", true, 0, 0, 0},
+  {123, "FOO", false, 0, 0, 0},
+  {NULL, NULL, NULL, 0, 1, 1},
+  {10, NULL, NULL, 0, 1, 1},
+  {123, NULL, NULL, 0, 1, 1},
+  {NULL, NULL, NULL, 1, 0, 0},
+  {NULL, "BAR", NULL, 1, 0, 0},
+  {NULL, "BAR", true, 1, 0, 0},
+  {NULL, "FOO", false, 1, 0, 0},
+  {NULL, "FOO", true, 1, 0, 0},
+  {NULL, NULL, NULL, 1, 1, 1}
+]
+==
+
+[name=grouping_func_with_grouping_sets]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+FROM simple_table
+GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
+ORDER BY 4, 5, 6, 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 0, 1, 1},
+  {10, NULL, NULL, 0, 1, 1},
+  {123, NULL, NULL, 0, 1, 1},
+  {NULL, NULL, NULL, 1, 0, 0},
+  {NULL, "BAR", NULL, 1, 0, 0},
+  {NULL, "BAR", true, 1, 0, 0},
+  {NULL, "FOO", false, 1, 0, 0},
+  {NULL, "FOO", true, 1, 0, 0},
+  {NULL, NULL, NULL, 1, 1, 1}
+]
+==
+
+[name=grouping_func_in_having_clause]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+FROM simple_table
+GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
+\-- Extract the result set only from grouping set (a)
+HAVING GROUPING(a) = 0 AND GROUPING(UPPER(b)) = 1 AND GROUPING(c) = 1
+ORDER BY 4, 5, 6, 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 0, 1, 1},
+  {10, NULL, NULL, 0, 1, 1},
+  {123, NULL, NULL, 0, 1, 1}
+]
+==
+
+[name=grouping_func_in_order_by_clause]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+FROM simple_table
+GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
+ORDER BY 1, 2, 3, GROUPING(a), GROUPING(UPPER(b)), GROUPING(c)
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, 0, 1, 1},
+  {NULL, NULL, NULL, 1, 0, 0},
+  {NULL, NULL, NULL, 1, 1, 1},
+  {NULL, "BAR", NULL, 1, 0, 0},
+  {NULL, "BAR", true, 1, 0, 0},
+  {NULL, "FOO", false, 1, 0, 0},
+  {NULL, "FOO", true, 1, 0, 0},
+  {10, NULL, NULL, 0, 1, 1},
+  {123, NULL, NULL, 0, 1, 1}
+]
+==
+
+[name=grouping_func_in_qualify_clause]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS,ANALYTIC_FUNCTIONS,V_1_3_QUALIFY]
+SELECT a, b, COUNT(*) OVER()
+FROM simple_table
+GROUP BY GROUPING SETS(a, b)
+\-- Extract the result generated by the grouping set (a)
+QUALIFY GROUPING(a) = 1
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 6},
+  {NULL, "bar", 6},
+  {NULL, "foo", 6}
+]
+==
+
+[name=grouping_func_with_alias]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a AS x, UPPER(b) AS y, c AS z
+FROM simple_table
+GROUP BY GROUPING SETS(x, (y, z), ())
+HAVING GROUPING(x) = 0 AND GROUPING(y) = 1 AND GROUPING(z) = 1
+ORDER BY 1, 2, 3
+--
+ARRAY<STRUCT<x INT64, y STRING, z BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {10, NULL, NULL},
+  {123, NULL, NULL}
+]
+==
+
+[name=grouping_func_inside_another_func]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a, UPPER(b), c, GROUPING(a) - 1, GROUPING(UPPER(b)) + 1, ABS(GROUPING(c))
+FROM simple_table
+GROUP BY GROUPING SETS(a, (UPPER(b), c), ())
+ORDER BY 4, 5, 6, 1, 2, 3
+--
+ARRAY<STRUCT<a INT64, STRING, c BOOL, INT64, INT64, INT64>>[known order:
+  {NULL, NULL, NULL, -1, 2, 1},
+  {10, NULL, NULL, -1, 2, 1},
+  {123, NULL, NULL, -1, 2, 1},
+  {NULL, NULL, NULL, 0, 1, 0},
+  {NULL, "BAR", NULL, 0, 1, 0},
+  {NULL, "BAR", true, 0, 1, 0},
+  {NULL, "FOO", false, 0, 1, 0},
+  {NULL, "FOO", true, 0, 1, 0},
+  {NULL, NULL, NULL, 0, 2, 1}
+]
+==
+
+[name=grouping_func_with_collation_columns]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT
+  UPPER(col_ci) AS col1, col_binary AS col_2, col AS col_3,
+  GROUPING(col_ci), GROUPING(col_binary), GROUPING(col)
+FROM simple_collation_table
+GROUP BY GROUPING SETS(col_ci, (col_binary, col))
+ORDER BY 1, 2, 3, 4, 5, 6
+
+--
+ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, INT64, INT64, INT64>>[known order:
+  {NULL, "B", 3, 1, 0, 0},
+  {NULL, "a", 1, 1, 0, 0},
+  {NULL, "ana", 4, 1, 0, 0},
+  {NULL, "b", 2, 1, 0, 0},
+  {NULL, "banana", 5, 1, 0, 0},
+  {"A", NULL, NULL, 0, 1, 1},
+  {"ANA", NULL, NULL, 0, 1, 1},
+  {"B", NULL, NULL, 0, 1, 1},
+  {"B", NULL, NULL, 0, 1, 1},
+  {"BANANA", NULL, NULL, 0, 1, 1}
+]
+
+==
+
+[name=grouping_sets_with_int_literals_and_ordinal_columns]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+# 1 matches to the first column key, instead of the constant expression 1.
+WITH KeyValue AS (
+  SELECT 1 AS key, 'a' AS value
+)
+SELECT key, 1, GROUPING(key) AS grp_key
+FROM KeyValue
+GROUP BY GROUPING SETS(key, 2, 1)
+ORDER BY key
+--
+ARRAY<STRUCT<key INT64, INT64, grp_key INT64>>[known order:
+  {NULL, 1, 1},
+  {1, NULL, 0},
+  {1, NULL, 0}
+]
+==
+
+[name=grouping_sets_with_cast_int_literals_and_ordinal_columns]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+# 1 matches to the first column key, instead of the constant expression
+# CAST(true AS INT64).
+WITH KeyValue AS (
+  SELECT 1 AS key, 'a' AS value
+)
+SELECT key, CAST(true AS INT64), GROUPING(key) AS grp_key
+FROM KeyValue
+GROUP BY GROUPING SETS(key, 2, 1)
+ORDER BY key
+--
+ARRAY<STRUCT<key INT64, INT64, grp_key INT64>>[known order:
+  {NULL, 1, 1},
+  {1, NULL, 0},
+  {1, NULL, 0}
+]

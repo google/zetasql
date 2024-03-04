@@ -2898,7 +2898,7 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
-[product_mode={{internal|external}}]
+[product_mode=internal]
 # Integers should coerce to opaque enums - it's not likely to
 # be used much in practice, but it is part of the spec.  However
 # this should _not_ be the case for product mode external, which
@@ -2907,9 +2907,7 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
 #
 SELECT ROUND(NUMERIC "1", 1, 1);
 --
-ALTERNATION GROUP: internal
 
---
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#1 AS `$col1` [NUMERIC]
@@ -2924,10 +2922,14 @@ QueryStmt
     |     +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_AWAY_FROM_ZERO)
     +-input_scan=
       +-SingleRowScan
+==
+
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE,V_1_4_DISABLE_FLOAT32]
+[product_mode=external]
+
+SELECT ROUND(NUMERIC "1", 1, 1);
 --
-ALTERNATION GROUP: external
---
-ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 7:8]
+ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 1:8]
 SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 --
@@ -2943,7 +2945,37 @@ ERROR: No matching signature for function ROUND
   Signature: ROUND(NUMERIC, INT64)
     Signature accepts at most 2 arguments, found 3 arguments
   Signature: ROUND(NUMERIC, INT64, ROUNDING_MODE)
-    Argument 3: Unable to coerce type INT64 to expected type ROUNDING_MODE [at 7:8]
+    Argument 3: Unable to coerce type INT64 to expected type ROUNDING_MODE [at 1:8]
+SELECT ROUND(NUMERIC "1", 1, 1);
+       ^
+==
+
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[product_mode=external]
+
+SELECT ROUND(NUMERIC "1", 1, 1);
+--
+ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT); ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT, INT64); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 1:8]
+SELECT ROUND(NUMERIC "1", 1, 1);
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function ROUND
+  Argument types: NUMERIC, INT64, INT64
+  Signature: ROUND(FLOAT)
+    Signature accepts at most 1 argument, found 3 arguments
+  Signature: ROUND(FLOAT64)
+    Signature accepts at most 1 argument, found 3 arguments
+  Signature: ROUND(NUMERIC)
+    Signature accepts at most 1 argument, found 3 arguments
+  Signature: ROUND(FLOAT, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: ROUND(FLOAT64, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: ROUND(NUMERIC, INT64)
+    Signature accepts at most 2 arguments, found 3 arguments
+  Signature: ROUND(NUMERIC, INT64, ROUNDING_MODE)
+    Argument 3: Unable to coerce type INT64 to expected type ROUNDING_MODE [at 1:8]
 SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 ==

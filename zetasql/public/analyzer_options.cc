@@ -35,6 +35,7 @@
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
@@ -712,7 +713,7 @@ void AnalyzerOptions::SetDdlPseudoColumns(
   // memory errors.
   data_->ddl_pseudo_columns_callback =
       [ddl_pseudo_columns](
-          const std::vector<std::string>& table_name,
+          absl::Span<const std::string> table_name,
           const std::vector<const ResolvedOption*>& options,
           std::vector<std::pair<std::string, const Type*>>* pseudo_columns) {
         *pseudo_columns = ddl_pseudo_columns;
@@ -728,8 +729,12 @@ void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
   if (enable) {
     data_->enabled_rewrites.insert(rewrite);
   } else {
-    data_->enabled_rewrites.erase(rewrite);
+    disable_rewrite(rewrite);
   }
+}
+
+void AnalyzerOptions::disable_rewrite(ResolvedASTRewrite rewrite) {
+  data_->enabled_rewrites.erase(rewrite);
 }
 
 absl::Status AnalyzerOptions::set_default_anon_kappa_value(int64_t value) {

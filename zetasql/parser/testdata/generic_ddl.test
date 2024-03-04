@@ -53,7 +53,9 @@ CreateEntityStatement(is_or_replace, is_if_not_exists) [0-112] [CREATE OR..."val
       Identifier(c) [81-82] [c]
       PathExpression [83-84] [d]
         Identifier(d) [83-84] [d]
-  JSONLiteral('{"key": "value"}') [89-112] [JSON '{"key": "value"}']
+  JSONLiteral [89-112] [JSON '{"key": "value"}']
+    StringLiteral [94-112] ['{"key": "value"}']
+      StringLiteralComponent('{"key": "value"}') [94-112] ['{"key": "value"}']
 --
 CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
 OPTIONS(a = b, c = d)
@@ -83,7 +85,8 @@ CreateEntityStatement [0-90] [CREATE EXPLORE...lore {  } """]
       Identifier(c) [48-49] [c]
       PathExpression [50-51] [d]
         Identifier(d) [50-51] [d]
-  StringLiteral("""
+  StringLiteral [56-90] [""" explore...explore {  } """]
+    StringLiteralComponent("""
 explore: test_explore {
 
 }
@@ -164,7 +167,9 @@ AlterEntityStatement [0-71] [ALTER RESERVATION...1" : "v"}']
     Identifier(myReservation) [28-41] [myReservation]
   AlterActionList [42-71] [SET AS JSON r'{"k\n1" : "v"}']
     SetAsAction [42-71] [SET AS JSON r'{"k\n1" : "v"}']
-      JSONLiteral(r'{"k\n1" : "v"}') [49-71] [JSON r'{"k\n1" : "v"}']
+      JSONLiteral [49-71] [JSON r'{"k\n1" : "v"}']
+        StringLiteral [54-71] [r'{"k\n1" : "v"}']
+          StringLiteralComponent(r'{"k\n1" : "v"}') [54-71] [r'{"k\n1" : "v"}']
 --
 ALTER RESERVATION myProject.myReservation SET AS JSON r'{"k\n1" : "v"}'
 ==
@@ -186,7 +191,9 @@ AlterEntityStatement [0-95] [ALTER RESERVATION..."value"}']
           PathExpression [59-60] [b]
             Identifier(b) [59-60] [b]
     SetAsAction [65-95] [SET AS JSON '{"key": "value"}']
-      JSONLiteral('{"key": "value"}') [72-95] [JSON '{"key": "value"}']
+      JSONLiteral [72-95] [JSON '{"key": "value"}']
+        StringLiteral [77-95] ['{"key": "value"}']
+          StringLiteralComponent('{"key": "value"}') [77-95] ['{"key": "value"}']
 --
 ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b), SET AS JSON '{"key": "value"}'
 ==
@@ -200,7 +207,8 @@ AlterEntityStatement [0-68] [ALTER EXPLORE...t_explore { }"]
     Identifier(myExplore) [24-33] [myExplore]
   AlterActionList [34-68] [SET AS "explore...explore { }"]
     SetAsAction [34-68] [SET AS "explore...explore { }"]
-      StringLiteral("explore: test_explore { }") [41-68] ["explore: test_explore { }"]
+      StringLiteral [41-68] ["explore: test_explore { }"]
+        StringLiteralComponent("explore: test_explore { }") [41-68] ["explore: test_explore { }"]
 --
 ALTER EXPLORE myProject.myExplore SET AS "explore: test_explore { }"
 ==

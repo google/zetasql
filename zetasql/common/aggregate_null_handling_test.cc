@@ -60,6 +60,7 @@ class AggregateNullHandlingTest : public ::testing::Test {
             ->GetAs<ResolvedAggregateScan>();
     return agg_scan->aggregate_list()
         .front()
+        ->GetAs<ResolvedComputedColumn>()
         ->expr()
         ->GetAs<ResolvedAggregateFunctionCall>();
   }

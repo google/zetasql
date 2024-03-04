@@ -32,6 +32,8 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {

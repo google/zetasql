@@ -90,7 +90,7 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
  protected:
   absl::Status WriteOperationString(absl::string_view operation_name,
                                     absl::string_view str) override {
-    stream_ << str << std::endl;
+    stream_ << str << '\n';
     return absl::OkStatus();
   }
 

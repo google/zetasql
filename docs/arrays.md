@@ -1233,75 +1233,7 @@ consisting of pairs of elements from input arrays, taken from their
 corresponding positions. This operation is sometimes called
 [zipping][convolution].
 
-You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
-value pair is stored as a `STRUCT` in an array.
-
-```sql
-WITH
-  Combinations AS (
-    SELECT
-      ['a', 'b'] AS letters,
-      [1, 2, 3] AS numbers
-  )
-SELECT
-  ARRAY(
-    SELECT AS STRUCT
-      letters[SAFE_OFFSET(index)] AS letter,
-      numbers[SAFE_OFFSET(index)] AS number
-    FROM Combinations
-    CROSS JOIN
-      UNNEST(
-        GENERATE_ARRAY(
-          0,
-          LEAST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
-    ORDER BY index
-  );
-
-/*------------------------------*
- | pairs                        |
- +------------------------------+
- | [{ letter: "a", number: 1 }, |
- |  { letter: "b", number: 2 }] |
- *------------------------------*/
-```
-
-You can use input arrays of different lengths as long as the first array
-is equal to or less than the length of the second array. The zipped array
-will be the length of the shortest input array.
-
-To get a zipped array that includes all the elements even when the input arrays
-are different lengths, change `LEAST` to `GREATEST`. Elements of either array
-that have no associated element in the other array will be paired with `NULL`.
-
-```sql
-WITH
-  Combinations AS (
-    SELECT
-      ['a', 'b'] AS letters,
-      [1, 2, 3] AS numbers
-  )
-SELECT
-  ARRAY(
-    SELECT AS STRUCT
-      letters[SAFE_OFFSET(index)] AS letter,
-      numbers[SAFE_OFFSET(index)] AS number
-    FROM Combinations
-    CROSS JOIN
-      UNNEST(
-        GENERATE_ARRAY(
-          0,
-          GREATEST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
-    ORDER BY index
-  );
-
-/*-------------------------------*
- | pairs                         |
- +-------------------------------+
- | [{ letter: "a", number: 1 },  |
- |  { letter: "b", number: 2 },  |
- |  { letter: null, number: 3 }] |
- *-------------------------------*/
-```
+You can zip arrays with the function [`ARRAY_ZIP`]([array-zip]).
 
 ## Building arrays of arrays
 

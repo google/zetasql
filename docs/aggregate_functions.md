@@ -1058,10 +1058,10 @@ window_specification:
 Returns the count of `TRUE` values for `expression`. Returns `0` if there are
 zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
 
-Since `expression` must be a `BOOL`, the form
-`COUNTIF(DISTINCT ...)` is generally not useful: there is only one distinct
-value of `TRUE`. So `COUNTIF(DISTINCT ...)` will return 1 if `expression`
-evaluates to `TRUE` for one or more input rows, or 0 otherwise.
+Since `expression` must be a `BOOL`, the form `COUNTIF(DISTINCT ...)` is
+generally not useful: there is only one distinct value of `TRUE`. So
+`COUNTIF(DISTINCT ...)` will return 1 if `expression` evaluates to `TRUE` for
+one or more input rows, or 0 otherwise.
 Usually when someone wants to combine `COUNTIF` and `DISTINCT`, they
 want to count the number of distinct values of an expression for which a certain
 condition is satisfied. One recipe to achieve this is the following:

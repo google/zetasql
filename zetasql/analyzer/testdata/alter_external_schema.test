@@ -1,0 +1,110 @@
+# Tests for unsupported alter schema statements.
+[default language_features=EXTERNAL_SCHEMA_DDL]
+
+ALTER EXTERNAL SCHEMA {{|IF EXISTS}} myProject.mySchema SET OPTIONS (x=1)
+--
+ALTERNATION GROUP: <empty>
+--
+AlterExternalSchemaStmt
++-name_path=myProject.mySchema
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterExternalSchemaStmt
++-name_path=myProject.mySchema
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=1)
++-is_if_exists=TRUE
+==
+
+[language_features=]
+
+ALTER EXTERNAL SCHEMA {{|IF EXISTS}} myProject.mySchema SET OPTIONS (x=1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: ALTER EXTERNAL SCHEMA is not supported [at 1:1]
+ALTER EXTERNAL SCHEMA  myProject.mySchema SET OPTIONS (x=1)
+^
+--
+ALTERNATION GROUP: IF EXISTS
+--
+ERROR: ALTER EXTERNAL SCHEMA is not supported [at 1:1]
+ALTER EXTERNAL SCHEMA IF EXISTS myProject.mySchema SET OPTIONS (x=1)
+^
+==
+
+ALTER EXTERNAL SCHEMA myProject.mySchema
+SET AS JSON '{"key": "value"}';
+
+--
+ERROR: ALTER EXTERNAL SCHEMA does not support SET AS [at 2:1]
+SET AS JSON '{"key": "value"}';
+^
+==
+
+ALTER EXTERNAL SCHEMA myProject.mySchema
+ADD COLUMN bar STRING;
+
+--
+ERROR: ALTER EXTERNAL SCHEMA does not support ADD COLUMN [at 2:1]
+ADD COLUMN bar STRING;
+^
+==
+
+ALTER EXTERNAL SCHEMA myProject.mySchema
+FALSE_ACTION;
+
+--
+ERROR: Syntax error: Unexpected identifier "FALSE_ACTION" [at 2:1]
+FALSE_ACTION;
+^
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,EXTERNAL_SCHEMA_DDL]
+alter external schema if exists entity set default collate 'unicode:ci';
+--
+ERROR: ALTER EXTERNAL SCHEMA does not support SET DEFAULT COLLATE [at 1:40]
+alter external schema if exists entity set default collate 'unicode:ci';
+                                       ^
+==
+
+ALTER EXTERNAL SCHEMA foo SET OPTIONS(x=1), SET OPTIONS(y=5)
+--
+AlterExternalSchemaStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-y := Literal(type=INT64, value=5)
+==
+
+[disallow_duplicate_options]
+ALTER EXTERNAL SCHEMA foo SET OPTIONS(x=1), SET OPTIONS (x=5)
+--
+AlterExternalSchemaStmt
++-name_path=foo
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=5)
+==
+
+[disallow_duplicate_options]
+ALTER EXTERNAL SCHEMA foo SET OPTIONS(x=1, x=5)
+--
+ERROR: Duplicate option specified for 'x' [at 1:44]
+ALTER EXTERNAL SCHEMA foo SET OPTIONS(x=1, x=5)
+                                           ^

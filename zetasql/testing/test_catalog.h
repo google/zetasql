@@ -28,6 +28,7 @@
 
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "absl/container/node_hash_map.h"

@@ -1710,7 +1710,7 @@ select tt.key as key, IF(EXISTS(select *
 from TestTable tt
 group by tt.key
 --
-ERROR: Correlated aliases referenced in the from clause must refer to arrays that are valid to access from the outer query, but tt refers to an array that is not valid to access after GROUP BY or DISTINCT in the outer query [at 2:38]
+ERROR: FROM clause expression references tt.KitchenSink.repeated_int32_val which is neither grouped nor aggregated [at 2:38]
                                 from tt.KitchenSink.repeated_int32_val),
                                      ^
 ==

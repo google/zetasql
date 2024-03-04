@@ -93,7 +93,7 @@ class TokenizedStmt : public FilePart {
   // Creates a non-initialized TokenizedStmt object. Use the factory function
   // above instead.
   TokenizedStmt(absl::string_view sql, int start_offset, int end_offset,
-                std::vector<Token> tokens);
+                std::vector<Token> tokens, const FormatterOptions& options);
 
   // Disable copy (and move) semantics.
   TokenizedStmt(const TokenizedStmt&) = delete;
@@ -127,7 +127,7 @@ class TokenizedStmt : public FilePart {
   // Groups tokens into chunks and chunks into block tree.
   absl::Status BuildChunksAndBlocks(
       const ParseLocationTranslator& location_translator,
-      const FormatterOptions& otions);
+      const FormatterOptions& options);
 
   std::vector<Token> tokens_;
   TokensView tokens_view_;

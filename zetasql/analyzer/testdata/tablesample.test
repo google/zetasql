@@ -538,9 +538,10 @@ QueryStmt
             |   +-right_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#7, Value#8], table=KeyValue, column_index_list=[0, 1], alias="kv2")
             |   +-join_expr=
-            |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            |       +-ColumnRef(type=INT64, column=KeyValue.Key#5)
-            |       +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+            |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+            |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+            |   +-has_using=TRUE
             +-method="random3"
             +-size=
             | +-Literal(type=INT64, value=10)
@@ -973,9 +974,10 @@ QueryStmt
             |   +-right_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#7, Value#8], table=KeyValue, column_index_list=[0, 1], alias="kv2")
             |   +-join_expr=
-            |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            |       +-ColumnRef(type=INT64, column=KeyValue.Key#5)
-            |       +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+            |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+            |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+            |   +-has_using=TRUE
             +-method="reservoir"
             +-size=
             | +-Literal(type=INT64, value=10)
@@ -1458,9 +1460,10 @@ QueryStmt
             +-right_scan=
             | +-WithRefScan(column_list=t2.[Key#10, Value#11, weight#12], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
-                +-ColumnRef(type=DOUBLE, column=t1.weight#9)
-                +-ColumnRef(type=DOUBLE, column=t2.weight#12)
+            | +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
+            |   +-ColumnRef(type=DOUBLE, column=t1.weight#9)
+            |   +-ColumnRef(type=DOUBLE, column=t2.weight#12)
+            +-has_using=TRUE
 ==
 
 with

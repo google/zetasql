@@ -69,6 +69,7 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 
 ABSL_FLAG(std::string, file_pattern, "*.test", "File pattern for test files.");
 
@@ -173,7 +174,7 @@ static std::string MakeLiteral(const Value& value) {
 }
 
 static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
-    const std::vector<FunctionTestCall>& tests, LanguageFeature feature) {
+    absl::Span<const FunctionTestCall> tests, LanguageFeature feature) {
   std::vector<FunctionTestCall> wrapped_tests;
   wrapped_tests.reserve(tests.size());
   for (auto call : tests) {
@@ -184,7 +185,7 @@ static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
 }
 
 static std::vector<FunctionTestCall> WrapFunctionTestWithFeatures(
-    const std::vector<FunctionTestCall>& tests,
+    absl::Span<const FunctionTestCall> tests,
     std::vector<LanguageFeature>& features) {
   std::vector<FunctionTestCall> wrapped_tests;
   wrapped_tests.reserve(tests.size());
@@ -200,7 +201,7 @@ static std::vector<FunctionTestCall> WrapFunctionTestWithFeatures(
 }
 
 std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
-    const std::vector<FunctionTestCall>& tests) {
+    absl::Span<const FunctionTestCall> tests) {
   return WrapFunctionTestWithFeature(tests,
                                      FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
 }
@@ -234,7 +235,7 @@ std::vector<FunctionTestCall> WrapFeatureLastDay(
 }
 
 static std::vector<QueryParamsWithResult> WrapFeatureJSON(
-    const std::vector<QueryParamsWithResult>& tests) {
+    absl::Span<const QueryParamsWithResult> tests) {
   std::vector<QueryParamsWithResult> wrapped_tests;
   wrapped_tests.reserve(tests.size());
   for (auto& test_case : tests) {
@@ -244,7 +245,7 @@ static std::vector<QueryParamsWithResult> WrapFeatureJSON(
 }
 
 static std::vector<QueryParamsWithResult> WrapFeatureCollation(
-    const std::vector<QueryParamsWithResult>& tests) {
+    absl::Span<const QueryParamsWithResult> tests) {
   std::vector<QueryParamsWithResult> wrapped_tests;
   wrapped_tests.reserve(tests.size());
   for (auto& test_case : tests) {
@@ -502,7 +503,7 @@ void ComplianceCodebasedTests::RunFunctionTestsPrefix(
 
 template <typename FCT>
 void ComplianceCodebasedTests::RunFunctionTestsCustom(
-    const std::vector<FunctionTestCall>& function_tests, FCT get_sql_string) {
+    absl::Span<const FunctionTestCall> function_tests, FCT get_sql_string) {
   for (const auto& params : function_tests) {
     std::string pattern = get_sql_string(params);
     std::string sql = absl::StrCat("SELECT ", pattern, " AS ", kColA);
@@ -617,7 +618,7 @@ void ComplianceCodebasedTests::RunAggregationFunctionCalls(
 
 template <typename FCT>
 void ComplianceCodebasedTests::RunStatementTestsCustom(
-    const std::vector<QueryParamsWithResult>& statement_tests,
+    absl::Span<const QueryParamsWithResult> statement_tests,
     FCT get_sql_string) {
   for (const auto& params : statement_tests) {
     std::string pattern = get_sql_string(params);
@@ -648,7 +649,7 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
 
 std::vector<QueryParamsWithResult>
 ComplianceCodebasedTests::GetFunctionTestsDateArithmetics(
-    const std::vector<FunctionTestCall>& tests) {
+    absl::Span<const FunctionTestCall> tests) {
   std::vector<QueryParamsWithResult> out;
   for (const auto& test : tests) {
     // Only look at tests which use DAY as datepart
@@ -674,7 +675,7 @@ TEST_F(ComplianceCodebasedTests, TestQueryParameters) {
               Returns(Singleton(Int64(5))));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestDepthLimitDetectorTestCases, 12) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDepthLimitDetectorTestCases, 40) {
   for (const DepthLimitDetectorTestCase& depth_case :
        Shard(AllDepthLimitDetectorTestCases())) {
     bool driver_enables_right_features = true;
@@ -813,12 +814,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringConcatOperator, 1) {
                     "@p0 || @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestGreatestFunctions, 3) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestGreatestFunctions, 5) {
   SetNamePrefix("Greatest");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsGreatest()), "Greatest");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 3) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 4) {
   SetNamePrefix("Least");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsLeast()), "Least");
 }
@@ -1038,7 +1039,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_GT, 2) {
   RunStatementTests(Shard(GetFunctionTestsGreater()), "@p0 > @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_GE, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_GE, 3) {
   SetNamePrefix("GE");
   RunStatementTests(Shard(GetFunctionTestsGreaterOrEqual()), "@p0 >= @p1");
 }
@@ -1093,12 +1094,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LT, 2) {
   RunStatementTests(Shard(GetFunctionTestsLess()), "@p0 < @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LE, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LE, 3) {
   SetNamePrefix("LE");
   RunStatementTests(Shard(GetFunctionTestsLessOrEqual()), "@p0 <= @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 4) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 14) {
   // TODO: This needs to be sensitive to ProductMode, or
   // maybe just switched to PRODUCT_EXTERNAL.
   auto format_fct = [](const QueryParamsWithResult& p) {
@@ -1403,12 +1404,22 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractStringArray, 1) {
       GetFunctionTestsNativeJsonExtractStringArray())));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonQueryLax, 1) {
+  SetNamePrefix("JsonQueryLax");
+  std::vector<FunctionTestCall> tests = GetFunctionTestsJsonQueryLax();
+  for (auto& test_case : tests) {
+    test_case.params.AddRequiredFeatures(
+        {FEATURE_JSON_TYPE, FEATURE_JSON_QUERY_LAX});
+  }
+  RunFunctionCalls(Shard(tests));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 3) {
   SetNamePrefix("ToJsonString");
   RunFunctionCalls(Shard(GetFunctionTestsToJsonString()));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 3) {
   SetNamePrefix("ToJson");
   auto to_json_fct = [](const FunctionTestCall& f) {
     if (f.params.params().size() == 1) {
@@ -1500,7 +1511,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxString, 1) {
       GetFunctionTestsConvertJsonLaxString())));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArray, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArray, 2) {
   SetNamePrefix("JsonArray");
   RunFunctionCalls(Shard(
       EnableJsonConstructorFunctionsForTest(GetFunctionTestsJsonArray())));
@@ -1631,12 +1642,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexp2Functions, 1) {
       Shard(GetFunctionTestsRegexp2(/*=include_feature_set=*/true)));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexpInstrFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestRegexpInstrFunctions, 5) {
   SetNamePrefix("RegexpInstr");
   RunFunctionCalls(Shard(GetFunctionTestsRegexpInstr()));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestLike, 4) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestLike, 5) {
   SetNamePrefix("Like");
   auto query_params_with_results = GetFunctionTestsLike();
   // The LIKE pattern is not a constant, the regexp is constructed and
@@ -1654,7 +1665,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLike, 4) {
       });
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestLikeWithCollation, 4) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestLikeWithCollation, 12) {
   auto query_params_with_results_with_collation =
       WrapFeatureCollation(GetFunctionTestsLikeWithCollation());
   SetNamePrefix("LikeWithCollationTextPatternUndCi");
@@ -1694,7 +1705,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNotLike, 2) {
                     "@p0 NOT LIKE @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestNotLikeWithCollation, 4) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNotLikeWithCollation, 6) {
   auto query_params_with_results_with_collation =
       WrapFeatureCollation(InvertResults(GetFunctionTestsLikeWithCollation()));
   SetNamePrefix("NotLikeWithCollationTextPatternUndCi");
@@ -1996,7 +2007,7 @@ TEST_F(ComplianceCodebasedTests, TestProto) {
   // TODO: port all tests from evaluation_test.cc
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Math, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Math, 4) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
   RunFunctionCalls(Shard(GetFunctionTestsMath()));
 }
@@ -2053,7 +2064,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctionsDateDiffFormat,
 // others. The number of shards for this case is picked so that each shard has
 // ~300 queries.
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctionsExtractFormat,
-               100) {
+               140) {
   auto extract_format_fct = [](const FunctionTestCall& f) {
     if (f.params.num_params() != 2 && f.params.num_params() != 3) {
       ABSL_LOG(FATAL) << "Unexpected number of parameters: "
@@ -2080,7 +2091,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctionsExtractFormat,
 // Even with 500 query shards, this test takes a long time relative to the
 // others. The number of shards for this case is picked so that each shard has
 // ~300 queries.
-SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctions_Standard, 12) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctions_Standard, 60) {
   RunFunctionCalls(Shard(GetFunctionTestsDateTimeStandardFunctionCalls()));
 }
 
@@ -2148,7 +2159,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeAddSubFunctions, 2) {
       datetime_add_sub);
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeDiffFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeDiffFunctions, 5) {
   auto datetime_diff = [](const FunctionTestCall& f) {
     ABSL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, @p1, $1)", f.function_name,
@@ -2198,7 +2209,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeTruncFunctions, 1) {
       datetime_trunc);
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeAddSubFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeAddSubFunctions, 2) {
   auto time_add_sub = [](const FunctionTestCall& f) {
     ABSL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, INTERVAL @p1 $1)", f.function_name,
@@ -2246,7 +2257,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampAddSubFunctions, 1) {
       timestamp_diff_format_fct);
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampTruncFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampTruncFunctions, 6) {
   auto timestamp_trunc_format_fct = [](const FunctionTestCall& f) {
     if (f.params.num_params() != 2 && f.params.num_params() != 3) {
       ABSL_LOG(FATAL) << "Unexpected number of parameters: "
@@ -2338,7 +2349,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestChrFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsChr()));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestStringFunctions, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringFunctions, 6) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
   RunFunctionCalls(Shard(GetFunctionTestsString()));
 }
@@ -2394,9 +2405,16 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFunctions, 1) {
 }
 
 // Six way sharding puts each shard at ~100 queries as of Q1'17.
-SHARDED_TEST_F(ComplianceCodebasedTests, TestFormatFunction, 6) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestFormatFunction, 11) {
   SetNamePrefix("Format");
   RunFunctionCalls(Shard(GetFunctionTestsFormat()));
+}
+
+// TODO: Remove these once all engines use FLOAT32 as the type name
+// in FORMAT("%T").
+SHARDED_TEST_F(ComplianceCodebasedTests, TestFormatFunctionWithExternalFloat,
+               1) {
+  RunFunctionCalls(Shard(GetFunctionTestsFormatWithExternalModeFloatType()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNormalizeFunctions, 1) {
@@ -2484,7 +2502,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, RangeIntersect, 1) {
       [](const FunctionTestCall& f) { return "range_intersect(@p0, @p1)"; });
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, GenerateRangeArray, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, GenerateRangeArray, 2) {
   SetNamePrefix("GenerateRangeArray");
   auto sql_string_fn = [](const FunctionTestCall& f) {
     ABSL_CHECK_GE(f.params.num_params(), 2);
@@ -2533,7 +2551,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDateTimestampSubtractions, 1) {
                     "CAST(-(@p1 - @p0) AS STRING)");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, DateTimestampAddSubInterval, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, DateTimestampAddSubInterval, 6) {
   SetNamePrefix("TimestampAddInterval");
   RunStatementTests(Shard(GetTimestampAddSubInterval()), "@p0 + @p1");
   SetNamePrefix("TimestampSubInterval");
@@ -2602,9 +2620,47 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestsCosineDistance, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsCosineDistance()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsApproxCosineDistance, 1) {
+  SetNamePrefix("ApproxCosineDistance");
+  RunFunctionCalls(
+      Shard(AddSafeFunctionCalls(GetFunctionTestsApproxCosineDistance())));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestsEuclideanDistance, 1) {
   SetNamePrefix("EuclideanDistance");
   RunFunctionCalls(Shard(GetFunctionTestsEuclideanDistance()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsApproxEuclideanDistance, 1) {
+  SetNamePrefix("ApproxEuclideanDistance");
+  RunFunctionCalls(
+      Shard(AddSafeFunctionCalls(GetFunctionTestsApproxEuclideanDistance())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsDotProduct, 1) {
+  SetNamePrefix("DotProduct");
+  RunFunctionCalls(Shard(GetFunctionTestsDotProduct()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDotProduct, 1) {
+  SetNamePrefix("ApproxDotProduct");
+  RunFunctionCalls(
+      Shard(AddSafeFunctionCalls(GetFunctionTestsApproxDotProduct())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsManhattanDistance, 1) {
+  SetNamePrefix("ManhattanDistance");
+  RunFunctionCalls(Shard(GetFunctionTestsManhattanDistance()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsL1Norm, 1) {
+  SetNamePrefix("L1Norm");
+  RunFunctionCalls(Shard(GetFunctionTestsL1Norm()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestsL2Norm, 1) {
+  SetNamePrefix("L2Norm");
+  RunFunctionCalls(Shard(GetFunctionTestsL2Norm()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestEditDistance, 1) {

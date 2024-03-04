@@ -45,6 +45,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -78,11 +79,15 @@ class SQLBuilder : public ResolvedASTVisitor {
       // PRODUCT_EXTERNAL is the default product mode.
       language_options.set_product_mode(PRODUCT_EXTERNAL);
     }
-    explicit SQLBuilderOptions(ProductMode product_mode) {
+    explicit SQLBuilderOptions(ProductMode product_mode,
+                               bool use_external_float32 = false)
+        : use_external_float32(use_external_float32) {
       language_options.set_product_mode(product_mode);
     }
-    explicit SQLBuilderOptions(const LanguageOptions& language_options)
-        : language_options(language_options) {}
+    explicit SQLBuilderOptions(const LanguageOptions& language_options,
+                               bool use_external_float32 = false)
+        : language_options(language_options),
+          use_external_float32(use_external_float32) {}
     ~SQLBuilderOptions() {}
 
     // Language options included enabled/disabled features and product mode,
@@ -129,6 +134,12 @@ class SQLBuilder : public ResolvedASTVisitor {
     // It's an advanced feature with specific intended use cases and misusing it
     // can cause the SQLBuilder to misbehave.
     TargetSyntaxMap target_syntax;
+
+    // Setting to true will return FLOAT32 as the type name for TYPE_FLOAT,
+    // for PRODUCT_EXTERNAL mode.
+    // TODO: Remove once all engines are updated to use FLOAT32 in
+    // the external mode.
+    bool use_external_float32 = false;
   };
 
   explicit SQLBuilder(const SQLBuilderOptions& options = SQLBuilderOptions());
@@ -155,6 +166,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateModelStmt* node) override;
   absl::Status VisitResolvedCreateSchemaStmt(
       const ResolvedCreateSchemaStmt* node) override;
+  absl::Status VisitResolvedCreateExternalSchemaStmt(
+      const ResolvedCreateExternalSchemaStmt* node) override;
   absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
   absl::Status VisitResolvedCreateSnapshotTableStmt(
@@ -253,6 +266,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterAllRowAccessPoliciesStmt* node) override;
   absl::Status VisitResolvedAlterSchemaStmt(
       const ResolvedAlterSchemaStmt* node) override;
+  absl::Status VisitResolvedAlterExternalSchemaStmt(
+      const ResolvedAlterExternalSchemaStmt* node) override;
   absl::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
   absl::Status VisitResolvedAlterTableStmt(
@@ -376,6 +391,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
   absl::Status VisitResolvedRecursiveRefScan(
       const ResolvedRecursiveRefScan* node) override;
+  absl::Status VisitResolvedRecursionDepthModifier(
+      const ResolvedRecursionDepthModifier* node) override;
   absl::Status VisitResolvedWithRefScan(
       const ResolvedWithRefScan* node) override;
   absl::Status VisitResolvedSampleScan(
@@ -490,7 +507,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnDefaultValue* default_value, std::string* text);
 
   absl::StatusOr<std::string> GetHintListString(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
+      absl::Span<const std::unique_ptr<const ResolvedOption>> hint_list);
 
   absl::Status AppendCloneDataSource(const ResolvedScan* source,
                                      std::string* sql);
@@ -515,6 +532,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   // i.e. <scan_alias>.<column_alias>
   std::string GetColumnPath(const ResolvedColumn& column);
 
+  // Returns whether the column has an existing alias.
+  bool HasColumnAlias(const ResolvedColumn& column);
+
   // Returns the alias to be used to select the column.
   std::string GetColumnAlias(const ResolvedColumn& column);
 
@@ -525,9 +545,47 @@ class SQLBuilder : public ResolvedASTVisitor {
   // scan alias if necessary.
   absl::StatusOr<std::string> GetJoinOperand(const ResolvedScan* scan);
 
+  // For USING(...) expressions track `right_to_left_column_id_mapping`. More
+  // details can be found in the function comment for `GetUsingWrapper`.
+  absl::StatusOr<std::string> GetJoinOperand(
+      const ResolvedScan* scan, absl::flat_hash_map<int, std::vector<int>>&
+                                    right_to_left_column_id_mapping);
+
+  // Returns wrapper sql text for a JOIN with USING(...) expression for the
+  // right side of the join to ensure that columns within the USING(...)
+  // expression have the same alias.
+  //
+  // The following query fragment
+  //
+  // (select key from keyvalue) join (select key, value from keyvalue2)
+  // using (key)
+  //
+  // would get deparsed into
+  //
+  // (select key as a1 from keyvalue) sq1
+  // join (select sq2.a2 as a1, sq2.a3 from
+  //      (select key as a2, value as a3 from keyvalue2) sq2) AS sq2
+  // using (a1)
+  //
+  // The wrapper wraps the right side of the join to match column aliases with
+  // the left side of the join (`sq2.a2 as a1`) and re-aliases these columns in
+  // the case that outer parts of the query reference them.
+  //
+  //  We maintain the `right_to_left_column_id_mapping` from `int` to
+  // `vector<int>` in the case that there are duplicate columns in the
+  // USING(...) expression on the right side of the join.
+  //
+  // We do not support deparsing USING(...) with duplicate left columns.
+  // If there is a duplicate left column then the sql_builder will build JOIN
+  // ON.
+  absl::StatusOr<std::string> GetUsingWrapper(
+      absl::string_view scan_alias, const ResolvedColumnList& column_list,
+      absl::flat_hash_map<int, std::vector<int>>&
+          right_to_left_column_id_mapping);
+
   // Helper function which fetches the list of function arguments
   absl::StatusOr<std::string> GetFunctionArgListString(
-      const std::vector<std::string>& arg_name_list,
+      absl::Span<const std::string> arg_name_list,
       const FunctionSignature& signature);
 
   // Fetches the scan alias corresponding to the given scan node. If not
@@ -540,7 +598,7 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Helper for the above. Keep generating aliases until find one that does not
   // conflict with a column name.
-  std::string MakeNonconflictingAlias(const std::string& name);
+  std::string MakeNonconflictingAlias(absl::string_view name);
 
   // Checks whether the table can be used without an explicit "AS" clause, which
   // will use the last component of its table name as its alias. If we have two
@@ -572,13 +630,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Appends PARTITION BY or CLUSTER BY expressions to the provided string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
   absl::Status GetPartitionByListString(
-      const std::vector<std::unique_ptr<const ResolvedExpr>>& partition_by_list,
+      absl::Span<const std::unique_ptr<const ResolvedExpr>> partition_by_list,
       std::string* sql);
 
   // Helper function to get corresponding SQL for a list of TableAndColumnInfo
   // to be analyzed in ANALYZE STATEMENT.
   absl::Status GetTableAndColumnInfoList(
-      const std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>&
+      absl::Span<const std::unique_ptr<const ResolvedTableAndColumnInfo>>
           table_and_column_info_list,
       std::string* sql);
 
@@ -611,7 +669,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // - Column aliases in <output_column_list> (if not internal) matches the
   //   <query_expression> select-list.
   absl::Status MatchOutputColumns(
-      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_column_list,
       const ResolvedScan* query, QueryExpression* query_expression);
 
@@ -627,7 +685,14 @@ class SQLBuilder : public ResolvedASTVisitor {
   static absl::StatusOr<absl::string_view> GetNullHandlingModifier(
       ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
 
+  // Setting the optional parameter `use_external_float32` to true will return
+  // FLOAT32 as the type name for TYPE_FLOAT, for PRODUCT_EXTERNAL mode.
+  // TODO: Remove `use_external_float32` once all engines are
+  // updated to use FLOAT32 as the external name.
   absl::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
+                                     bool is_constant_value = false);
+  absl::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
+                                     bool use_external_float32,
                                      bool is_constant_value = false);
 
   // Similar to the above function, but uses <annotation_map> to indicate the
@@ -638,6 +703,11 @@ class SQLBuilder : public ResolvedASTVisitor {
                                      const AnnotationMap* annotation_map,
                                      ProductMode mode,
                                      bool is_constant_value = false);
+  absl::StatusOr<std::string> GetSQL(const Value& value,
+                                     const AnnotationMap* annotation_map,
+                                     ProductMode mode,
+                                     bool use_external_float32,
+                                     bool is_constant_value = false);
 
   absl::StatusOr<std::string> GetFunctionCallSQL(
       const ResolvedFunctionCallBase* function_call,
@@ -646,13 +716,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function to return corresponding SQL for a list of
   // ResolvedUpdateItems.
   absl::StatusOr<std::string> GetUpdateItemListSQL(
-      const std::vector<std::unique_ptr<const ResolvedUpdateItem>>&
+      absl::Span<const std::unique_ptr<const ResolvedUpdateItem>>
           update_item_list);
 
   // Helper function to return corresponding SQL for a list of columns to be
   // inserted.
   std::string GetInsertColumnListSQL(
-      const std::vector<ResolvedColumn>& insert_column_list) const;
+      absl::Span<const ResolvedColumn> insert_column_list) const;
 
   absl::Status ProcessWithPartitionColumns(
       std::string* sql, const ResolvedWithPartitionColumns* node);
@@ -674,7 +744,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function to return corresponding SQL for a list of
   // ResolvedAlterActions.
   absl::StatusOr<std::string> GetAlterActionListSQL(
-      const std::vector<std::unique_ptr<const ResolvedAlterAction>>&
+      absl::Span<const std::unique_ptr<const ResolvedAlterAction>>
           alter_action_list);
 
   // Helper function to return corresponding SQL for a single
@@ -689,9 +759,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function to return corresponding SQL from the grantee list of
   // GRANT, REVOKE, CREATE/ALTER ROW POLICY statements.
   absl::StatusOr<std::string> GetGranteeListSQL(
-      const std::string& prefix, const std::vector<std::string>& grantee_list,
-      const std::vector<std::unique_ptr<const ResolvedExpr>>&
-          grantee_expr_list);
+      absl::string_view prefix, const std::vector<std::string>& grantee_list,
+      absl::Span<const std::unique_ptr<const ResolvedExpr>> grantee_expr_list);
   // Helper function to append table_element, including column_schema and
   // table_constraints, to sql.
   absl::Status ProcessTableElementsBase(
@@ -888,7 +957,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // which is handled by method RenameSetOperationItemsNonFullCorresponding.
   absl::Status RenameSetOperationItemsFullCorresponding(
       const ResolvedSetOperationScan* node,
-      const std::vector<std::pair<std::string, std::string>>& final_column_list,
+      absl::Span<const std::pair<std::string, std::string>> final_column_list,
       std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
 
   // Renames the columns of each set operation item (represented by each entry
@@ -898,7 +967,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // - or `node->column_match_mode` is CORRESPONDING_BY (not CORRESPONDING).
   absl::Status RenameSetOperationItemsNonFullCorresponding(
       const ResolvedSetOperationScan* node,
-      const std::vector<std::pair<std::string, std::string>>& final_column_list,
+      absl::Span<const std::pair<std::string, std::string>> final_column_list,
       std::vector<std::unique_ptr<QueryExpression>>& set_op_scan_list);
 
   // Returns the original scan from the input `scan`.

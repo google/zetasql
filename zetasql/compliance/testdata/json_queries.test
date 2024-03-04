@@ -245,7 +245,7 @@ ARRAY<STRUCT<INT64>>[{1}]
 [required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
 SELECT int64(JSON '10.1');
 --
-ERROR: generic::out_of_range: The provided JSON number: 10.1 cannot be converted to an integer
+ERROR: generic::out_of_range: The provided JSON number: 10.1 cannot be converted to an int64
 ==
 [name=json_int64_double_without_fractional_part]
 [required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
@@ -819,3 +819,52 @@ ARRAY<STRUCT<STRING>>[{"1"}]
 SELECT JSON_REMOVE(JSON '{"a":1, "b":2}', TRIM(" $.a"), TRIM(" $.b"), "$.c")
 --
 ARRAY<STRUCT<JSON>>[{{}}]
+==
+[name=json_query_lax_basic]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":1}', "lax $.a")
+--
+ARRAY<STRUCT<JSON>>[{[1]}]
+==
+[name=json_query_lax_recursive_basic]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":1}', "lax recursive $.a")
+--
+ARRAY<STRUCT<JSON>>[{[1]}]
+==
+[name=json_query_lax_mixed_nestedness]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":[{"b":1}, [{"b":2}], [[{"b":3}]]]}', "LAx   $.a.b")
+--
+ARRAY<STRUCT<JSON>>[{[1]}]
+==
+[name=json_query_lax_recursive_mixed_nestedness]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":[{"b":1}, [{"b":2}], [[{"b":3}]]]}', "Recursive  lax $.a.b")
+--
+ARRAY<STRUCT<JSON>>[{[1,2,3]}]
+==
+[name=json_query_lax_invalid_keywords_lax_duplicate]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":1}', "lax LAX $.a.b")
+--
+ERROR: generic::out_of_range: JSONPath must start with zero or more unique modifiers followed by '$'
+==
+[name=json_query_lax_invalid_keywords_recursive_without_lax]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":1}', "recursive $.a.b")
+--
+ERROR: generic::out_of_range: JSONPath has an invalid combination of modifiers. The 'lax' modifier must be included if 'recursive' is specified.
+==
+[name=json_query_lax_invalid_keywords_recursive_duplicate]
+[required_features=JSON_TYPE,JSON_QUERY_LAX]
+SELECT JSON_QUERY(JSON '{"a":1}', "recursive lax RECURSIVE $.a.b")
+--
+ERROR: generic::out_of_range: JSONPath must start with zero or more unique modifiers followed by '$'
+==
+[name=json_query_lax_no_feature_option]
+[required_features=JSON_TYPE]
+SELECT JSON_QUERY(JSON '{"a":1}', "lax $.a.b")
+--
+ERROR: generic::out_of_range: JSONPath must start with '$'
+

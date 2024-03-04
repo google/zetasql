@@ -42,9 +42,10 @@ QueryStmt
     |           +-right_scan=
     |           | +-WithRefScan(column_list=w1.[item#5, event#6], with_query_name="w1")
     |           +-join_expr=
-    |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |               +-ColumnRef(type=STRING, column=w1.event#4)
-    |               +-ColumnRef(type=STRING, column=w1.event#6)
+    |           | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |           |   +-ColumnRef(type=STRING, column=w1.event#4)
+    |           |   +-ColumnRef(type=STRING, column=w1.event#6)
+    |           +-has_using=TRUE
     +-query=
       +-ProjectScan
         +-column_list=w2.[c1#7, c2#8]
@@ -87,9 +88,10 @@ QueryStmt
             +-right_scan=
             | +-WithRefScan(column_list=w1.[item#5, event#6], with_query_name="w1")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, column=w1.event#4)
-                +-ColumnRef(type=STRING, column=w1.event#6)
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, column=w1.event#4)
+            |   +-ColumnRef(type=STRING, column=w1.event#6)
+            +-has_using=TRUE
 ==
 
 WITH w1 AS (
@@ -132,9 +134,10 @@ QueryStmt
                 +-right_scan=
                 | +-WithRefScan(column_list=w1.[item#5, event#6], with_query_name="w1")
                 +-join_expr=
-                  +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                    +-ColumnRef(type=STRING, column=w1.event#4)
-                    +-ColumnRef(type=STRING, column=w1.event#6)
+                | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                |   +-ColumnRef(type=STRING, column=w1.event#4)
+                |   +-ColumnRef(type=STRING, column=w1.event#6)
+                +-has_using=TRUE
 ==
 
 select *
@@ -192,9 +195,10 @@ QueryStmt
         +-right_scan=
         | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="m2")
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-            +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-            +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+        | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+        |   +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+        +-has_using=TRUE
 ==
 
 select * from (
@@ -220,6 +224,7 @@ QueryStmt
             +-right_scan=
             | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="m2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-                +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |   +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+            +-has_using=TRUE

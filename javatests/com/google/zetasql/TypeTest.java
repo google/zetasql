@@ -154,7 +154,7 @@ public class TypeTest {
             "The number of fields of TypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(TypeProto.getDescriptor().getFields())
-        .hasSize(8);
+    .hasSize(9);
     assertWithMessage(
             "The number of fields in Type class has changed, "
                 + "please also update the proto and serialization code accordingly.")

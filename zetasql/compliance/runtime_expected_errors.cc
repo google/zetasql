@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "zetasql/compliance/matchers.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/substitute.h"
 
@@ -41,7 +40,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   // which b=0.
   //
   // Preventing such errors in the randomized test framework is possible in
-  // principle but a complex challenge. Ingoring these runtime errors means we
+  // principle but a complex challenge. Ignoring these runtime errors means we
   // could miss genuine bugs whereby runtime errors incorrectly occur.
   // However, that is not a common bug pattern compared to e.g. ZETASQL_RET_CHECKS and
   // incorrect results, and this is the balance we have currently struck.
@@ -80,6 +79,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "Elements in input array to RANGE_BUCKET"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid return_position_after_match"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Elementwise aggregate requires all non-NULL arrays have the same "
+      "length"));
 
   // Out of range errors
   //
@@ -258,9 +261,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "LIKE pattern ends with a backslash"));
 
-  // Expected errors for COSINE_DISTANCE, EUCLIDEAN_DISTANCE, EDIT_DISTANCE.
+  // Expected errors for distance functions: COSINE_DISTANCE,
+  // EUCLIDEAN_DISTANCE, DOT_PRODUCT, MANHATTAN_DISTANCE, L1_NORM, L2_NORM,
+  // EDIT_DISTANCE.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Array length mismatch:"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Array arguments to ([A-Z0-9_]+) must have equal length"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Cannot compute .* distance against zero vector"));
@@ -269,10 +277,13 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "(?m)Duplicate index (.|\\n)* found in the input array"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "NULL array element"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Cannot compute ([A-Z0-9_]+) with a NULL element"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "NULL struct field"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kOutOfRange, "max_distance must be non-negative"));
+      absl::StatusCode::kOutOfRange, "Max distance must be non-negative"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "EDIT_DISTANCE .* invalid UTF8 string"));
 
@@ -454,6 +465,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "ARRAY_IS_DISTINCT cannot be used on argument of type .* because the "
       "array's element type does not support grouping"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "LIMIT ... OFFSET ... expects INT64, got (.+)"));
 
   // TODO: Remove after the bug is fixed.
   // Due to the above expected errors, rqg could generate invalid expressions.
@@ -462,13 +476,21 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "No matching signature for function "
       "(ARRAY_FILTER|ARRAY_TRANSFORM|ARRAY_INCLUDES|ARRAY_FIND|ARRAY_FIND_ALL|"
-      "ARRAY_OFFSET|ARRAY_OFFSETS) .*"));
+      "ARRAY_OFFSET|ARRAY_OFFSETS|ARRAY_ZIP) .*"));
 
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Column (.+) which is included in the grouping list by GROUP BY ALL, "
       "contains a volatile expression which must be explicitly listed as a "
       "group by key"));
+
+  // TODO: Remove after the bug is fixed.
+  // We shouldn't be generating GROUP BY ordinal syntax related to WITH
+  // expression containing CAST between the same type, which triggers analysis
+  // time errors.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "expression references (.+) which is neither grouped nor aggregated"));
 
   // HLL sketch format errors
   //
@@ -626,11 +648,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "number)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "JSON number: (-?\\d+) cannot be converted to DOUBLE without loss of "
-      "precision"));
+      "JSON number: (-?\\d+) cannot be converted to "
+      "(DOUBLE|FLOAT64|FLOAT|FLOAT32) without loss of precision"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "The provided JSON number: .+ cannot be converted to an integer"));
+      "The provided JSON number: .+ cannot be converted to an "
+      "(integer|int64_t|int32|uint64_t|uint32)"));
   // TODO PARSE_JSON sometimes is generated with invalid string
   // inputs.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(

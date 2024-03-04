@@ -32,6 +32,7 @@
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -101,11 +102,20 @@ static absl::Status GetZetaSqlCollators(
 absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
     absl::Span<const KeyArg* const> keys, absl::Span<const int> slots_for_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context) {
+  return Create(keys, slots_for_keys, /*extra_sort_key_slots=*/{}, params,
+                context);
+}
+
+absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
+    absl::Span<const KeyArg* const> keys, absl::Span<const int> slots_for_keys,
+    absl::Span<const int> extra_sort_key_slots,
+    absl::Span<const TupleData* const> params, EvaluationContext* context) {
   std::shared_ptr<CollatorList> collators =
       std::make_shared<CollatorList>(CollatorList());
   ZETASQL_RETURN_IF_ERROR(
       GetZetaSqlCollators(keys, params, context, collators.get()));
-  return absl::WrapUnique(new TupleComparator(keys, slots_for_keys, collators));
+  return absl::WrapUnique(new TupleComparator(keys, slots_for_keys,
+                                              extra_sort_key_slots, collators));
 }
 
 bool TupleComparator::operator()(const TupleData& t1,
@@ -157,6 +167,25 @@ bool TupleComparator::operator()(const TupleData& t1,
           return v1.LessThan(v2);
         }
       }
+    }
+  }
+
+  // Sort by extra sort keys.
+  for (int i = 0; i < extra_sort_key_slots_.size(); ++i) {
+    const int slot_idx = extra_sort_key_slots_[i];
+    const Value& v1 = t1.slot(slot_idx).value();
+    const Value& v2 = t2.slot(slot_idx).value();
+
+    if (v1.is_null() || v2.is_null()) {
+      if (v1.is_null() && v2.is_null()) {  // NULLs are considered equal
+        continue;
+      }
+      // NULLS FIRST is the default behavior
+      return !v2.is_null();
+    }
+    // ASC by default.
+    if (!v1.Equals(v2)) {
+      return v1.LessThan(v2);
     }
   }
   // The keys are equal.
@@ -242,7 +271,8 @@ bool TupleComparator::InvolvesUncertainArrayComparisons(
 
   TupleComparator prefix_comparator(
       absl::MakeSpan(keys_).subspan(0, safe_slot_count),
-      absl::MakeSpan(slots_for_keys_).subspan(0, safe_slot_count), collators_);
+      absl::MakeSpan(slots_for_keys_).subspan(0, safe_slot_count),
+      /*extra_sort_key_slots=*/{}, collators_);
   for (int i = 1; i < tuples.size(); ++i) {
     const TupleData* a = tuples[i - 1];
     const TupleData* b = tuples[i];

@@ -105,13 +105,27 @@ class StructType : public ContainerType {
 
   bool UsingFeatureV12CivilTimeType() const override;
 
-  std::string ShortTypeName(ProductMode mode) const override;
-  std::string TypeName(ProductMode mode) const override;
+  std::string ShortTypeName(ProductMode mode,
+                            bool use_external_float32) const override;
+  std::string ShortTypeName(ProductMode mode) const override {
+    return ShortTypeName(mode, /*use_external_float32=*/false);
+  };
+  std::string TypeName(ProductMode mode,
+                       bool use_external_float32) const override;
+  std::string TypeName(ProductMode mode) const override {
+    return TypeName(mode, /*use_external_float32=*/false);
+  }
 
   // Same as above, but the type modifier values are appended to the SQL name
   // for this StructType.
   absl::StatusOr<std::string> TypeNameWithModifiers(
-      const TypeModifiers& type_modifiers, ProductMode mode) const override;
+      const TypeModifiers& type_modifiers, ProductMode mode,
+      bool use_external_float32) const override;
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override {
+    return TypeNameWithModifiers(type_modifiers, mode,
+                                 /*use_external_float32=*/false);
+  }
 
   int nesting_depth() const override { return nesting_depth_; }
 

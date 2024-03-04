@@ -25,15 +25,12 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/evaluator_base.h"
 #include "zetasql/public/evaluator_table_iterator.h"
@@ -57,7 +54,6 @@
 #include "zetasql/testdata/populate_sample_tables.h"
 #include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -69,10 +65,11 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "zetasql/base/stl_util.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -1275,7 +1272,7 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallback) {
   PreparedExpression expr("col");
   AnalyzerOptions options;
   options.SetLookupExpressionColumnCallback(
-      [](const std::string& column_name, const Type** column_type) {
+      [](absl::string_view column_name, const Type** column_type) {
         if (column_name == "col") {
           *column_type = types::Int64Type();
         }
@@ -1295,7 +1292,7 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallbackInMixedCases) {
   PreparedExpression expr("cOl");
   AnalyzerOptions options;
   options.SetLookupExpressionColumnCallback(
-      [](const std::string& column_name, const Type** column_type) {
+      [](absl::string_view column_name, const Type** column_type) {
         if (column_name == "col") {
           *column_type = types::Int64Type();
         }
@@ -1729,7 +1726,7 @@ struct PreparedExpressionFromAST {
   std::unique_ptr<PreparedExpression> expression;
 };
 PreparedExpressionFromAST ParseToASTAndPrepareOrDie(
-    const std::string& sql, const AnalyzerOptions& analyzer_options,
+    absl::string_view sql, const AnalyzerOptions& analyzer_options,
     TypeFactory* type_factory) {
   PreparedExpressionFromAST prepared_from_ast;
   prepared_from_ast.catalog = std::make_unique<SimpleCatalog>("foo");
@@ -3069,12 +3066,199 @@ TEST(PreparedQuery,
   ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, &catalog));
   ZETASQL_ASSERT_OK_AND_ASSIGN(int count, query.GetPositionalParameterCount());
   EXPECT_EQ(2, count);
-  EXPECT_THAT(query.ExecuteWithPositionalParams({Value::Int64(6),
-    Value::StringValue("foo")}),
-      StatusIs(
-          absl::StatusCode::kInternal,
-          HasSubstr("Mismatch in number of analyzer parameters versus "
-                    "algebrizer parameters")));
+  EXPECT_THAT(
+      query.ExecuteWithPositionalParams(
+          {Value::Int64(6), Value::StringValue("foo")}),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Mismatch in number of analyzer parameters versus "
+                         "algebrizer parameters")));
+}
+
+class PreparedTvfQuery : public testing::Test {
+ protected:
+  void SetUp() override {
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_TABLE_VALUED_FUNCTIONS);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_NAMED_ARGUMENTS);
+  }
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
+      absl::string_view query) {
+    std::unique_ptr<const AnalyzerOutput> analyzer_output;
+    ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(query, analyzer_options_,
+                                     catalog_.catalog(), &type_factory_,
+                                     &analyzer_output));
+    prepared_query_ = std::make_unique<PreparedQuery>(
+        analyzer_output->resolved_statement()->GetAs<ResolvedQueryStmt>(),
+        evaluator_options_);
+    ZETASQL_RETURN_IF_ERROR(prepared_query_->Prepare(analyzer_options_));
+    return prepared_query_->Execute();
+  }
+
+  SampleCatalog catalog_;
+  AnalyzerOptions analyzer_options_;
+  TypeFactory type_factory_;
+  EvaluatorOptions evaluator_options_;
+  std::unique_ptr<PreparedQuery> prepared_query_;
+};
+
+TEST_F(PreparedTvfQuery, TVF_OptionalRelation_Absent) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_relation();
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "");
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OptionalRelation_Present) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_relation((select key as foo from KeyValue));
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "");
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(2));
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(4));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OptionalArguments_Absent) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_arguments();
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "y");
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(5));  // 1 * 2 + 3
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OptionalArguments_Present) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_arguments(3.0, 2, 1);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "y");
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(7));  // 3 * 2 + 1
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OptionalArguments_NamedOnly) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_arguments(steps=>2, dx=>-1);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "y");
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(5));  // 1 * 2 + 3
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(3));  // 0 * 2 + 3
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OptionalArguments_All) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_optional_arguments(3.0, 2, 1, steps=>2, dx=>-1);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  EXPECT_EQ(iter->GetColumnName(0), "y");
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(7));  // 3 * 2 + 1
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Double(5));  // 2 * 2 + 1
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_RepeatedArguments_Absent) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_repeated_arguments();
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 2);
+  EXPECT_EQ(iter->GetColumnName(0), "key");
+  EXPECT_EQ(iter->GetColumnName(1), "value");
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_RepeatedArguments_Present) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT * FROM tvf_repeated_arguments("a", 1, "b", 2, "c", 3);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 2);
+  EXPECT_EQ(iter->GetColumnName(0), "key");
+  EXPECT_EQ(iter->GetColumnName(1), "value");
+  EXPECT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), String("a"));
+  EXPECT_EQ(iter->GetValue(1), Int64(1));
+  EXPECT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), String("b"));
+  EXPECT_EQ(iter->GetValue(1), Int64(2));
+  EXPECT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), String("c"));
+  EXPECT_EQ(iter->GetValue(1), Int64(3));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_DefaultValues) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT key, value FROM tvf_increment_by(TABLE KeyValue);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 2);
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(2));
+  EXPECT_EQ(iter->GetValue(1), String("a"));
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(3));
+  EXPECT_EQ(iter->GetValue(1), String("b"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_OutputColumnsProjectionAndOrder) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT baz, bar, foo
+    FROM tvf_increment_by(
+        (SELECT value as foo, key AS bar, false as baz, key as qux FROM KeyValue),
+        16);
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 3);
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Bool(false));
+  EXPECT_EQ(iter->GetValue(1), Int64(17));
+  EXPECT_EQ(iter->GetValue(2), String("a"));
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Bool(false));
+  EXPECT_EQ(iter->GetValue(1), Int64(18));
+  EXPECT_EQ(iter->GetValue(2), String("b"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedTvfQuery, TVF_FixedSchema) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto iter, Execute(R"(
+    SELECT sum
+    FROM tvf_sum_diff((SELECT key as a, key AS b FROM KeyValue));
+  )"));
+  EXPECT_EQ(iter->NumColumns(), 1);
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(2));
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(iter->GetValue(0), Int64(4));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
 }
 
 TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {

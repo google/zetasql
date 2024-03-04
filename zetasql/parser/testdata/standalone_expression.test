@@ -9,7 +9,8 @@ IntLiteral(1) [0-1] [1]
 
 'abc'
 --
-StringLiteral('abc') [0-5] ['abc']
+StringLiteral [0-5] ['abc']
+  StringLiteralComponent('abc') [0-5] ['abc']
 --
 'abc'
 ==
@@ -147,9 +148,9 @@ a.b.c.d
 # Dot star is not allowed in a standalone expression.
 abc.*
 --
-ERROR: Syntax error: Expected end of input but got "." [at 1:4]
+ERROR: Syntax error: Unexpected "*" [at 1:5]
 abc.*
-   ^
+    ^
 ==
 
 # Parse fails on extra stuff after the expression.

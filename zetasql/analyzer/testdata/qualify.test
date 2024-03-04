@@ -55,24 +55,24 @@ ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
-| +-$query.a#5 AS a [INT64]
+| +-$query.a#6 AS a [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.a#5]
+    +-column_list=[$query.a#6]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$analytic.$analytic1#4, $query.a#5]
+        +-column_list=[$analytic.$analytic1#5, $query.a#6]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+        |   +-column_list=[$analytic.$analytic1#5, $query.a#6]
         |   +-expr_list=
-        |   | +-a#5 :=
+        |   | +-a#6 :=
         |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+        |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
         |   |     +-Literal(type=INT64, value=1)
         |   +-input_scan=
         |     +-AnalyticScan
-        |       +-column_list=[$analytic.$analytic1#4]
+        |       +-column_list=[$analytic.$analytic1#5]
         |       +-input_scan=
         |       | +-FilterScan
         |       |   +-input_scan=
@@ -82,34 +82,34 @@ QueryStmt
         |       +-function_group_list=
         |         +-AnalyticFunctionGroup
         |           +-analytic_function_list=
-        |             +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |             +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$query.a#5)
+            +-ColumnRef(type=INT64, column=$query.a#6)
             +-Literal(type=INT64, value=1)
 --
 ALTERNATION GROUP: DISTINCT
 --
 QueryStmt
 +-output_column_list=
-| +-$distinct.a#6 AS a [INT64]
+| +-$distinct.a#7 AS a [INT64]
 +-query=
   +-AggregateScan
-    +-column_list=[$distinct.a#6]
+    +-column_list=[$distinct.a#7]
     +-input_scan=
     | +-FilterScan
-    |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+    |   +-column_list=[$analytic.$analytic1#5, $query.a#6]
     |   +-input_scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+    |   |   +-column_list=[$analytic.$analytic1#5, $query.a#6]
     |   |   +-expr_list=
-    |   |   | +-a#5 :=
+    |   |   | +-a#6 :=
     |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |   |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+    |   |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
     |   |   |     +-Literal(type=INT64, value=1)
     |   |   +-input_scan=
     |   |     +-AnalyticScan
-    |   |       +-column_list=[$analytic.$analytic1#4]
+    |   |       +-column_list=[$analytic.$analytic1#5]
     |   |       +-input_scan=
     |   |       | +-FilterScan
     |   |       |   +-input_scan=
@@ -119,13 +119,13 @@ QueryStmt
     |   |       +-function_group_list=
     |   |         +-AnalyticFunctionGroup
     |   |           +-analytic_function_list=
-    |   |             +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+    |   |             +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
     |   +-filter_expr=
     |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |       +-ColumnRef(type=INT64, column=$query.a#5)
+    |       +-ColumnRef(type=INT64, column=$query.a#6)
     |       +-Literal(type=INT64, value=1)
     +-group_by_list=
-      +-a#6 := ColumnRef(type=INT64, column=$query.a#5)
+      +-a#7 := ColumnRef(type=INT64, column=$query.a#6)
 ==
 
 # Qualify expression is not a bool
@@ -147,10 +147,10 @@ QueryStmt
     +-column_list=[KeyValue.Key#1]
     +-input_scan=
       +-FilterScan
-        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         |   +-input_scan=
         |   | +-FilterScan
         |   |   +-column_list=[KeyValue.Key#1]
@@ -167,10 +167,10 @@ QueryStmt
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       +-analytic_function_list=
-        |         +-$analytic1#3 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -186,10 +186,10 @@ QueryStmt
     +-column_list=[KeyValue.Key#1]
     +-input_scan=
       +-FilterScan
-        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         |   +-input_scan=
         |   | +-FilterScan
         |   |   +-column_list=[KeyValue.Key#1]
@@ -206,10 +206,10 @@ QueryStmt
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       +-analytic_function_list=
-        |         +-$analytic1#3 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -225,10 +225,10 @@ QueryStmt
     +-column_list=[KeyValue.Key#1]
     +-input_scan=
       +-FilterScan
-        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#3]
+        |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
         |   +-input_scan=
         |   | +-FilterScan
         |   |   +-column_list=[KeyValue.Key#1]
@@ -245,10 +245,10 @@ QueryStmt
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       +-analytic_function_list=
-        |         +-$analytic1#3 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -339,21 +339,21 @@ select 1 from KeyValue WHERE true QUALIFY row_number() over () = 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [INT64]
+| +-$query.$col1#4 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#3]
+    +-column_list=[$query.$col1#4]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$query.$col1#3, $analytic.$analytic1#4]
+        +-column_list=[$query.$col1#4, $analytic.$analytic1#5]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$query.$col1#3, $analytic.$analytic1#4]
+        |   +-column_list=[$query.$col1#4, $analytic.$analytic1#5]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$query.$col1#3]
+        |   |   +-column_list=[$query.$col1#4]
         |   |   +-expr_list=
-        |   |   | +-$col1#3 := Literal(type=INT64, value=1)
+        |   |   | +-$col1#4 := Literal(type=INT64, value=1)
         |   |   +-input_scan=
         |   |     +-FilterScan
         |   |       +-input_scan=
@@ -363,10 +363,10 @@ QueryStmt
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -382,10 +382,10 @@ QueryStmt
     +-column_list=MultipleColumns.[int_a#1, int_b#3]
     +-input_scan=
       +-FilterScan
-        +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, $analytic.$analytic1#7]
+        +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, $analytic.$analytic1#8]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, $analytic.$analytic1#7]
+        |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, $analytic.$analytic1#8]
         |   +-input_scan=
         |   | +-FilterScan
         |   |   +-column_list=MultipleColumns.[int_a#1, int_b#3]
@@ -402,7 +402,7 @@ QueryStmt
         |       |       +-column_ref=
         |       |         +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
         |       +-analytic_function_list=
-        |         +-$analytic1#7 :=
+        |         +-$analytic1#8 :=
         |           +-AnalyticFunctionCall(ZetaSQL:avg(INT64) -> DOUBLE)
         |             +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
         |             +-window_frame=
@@ -415,7 +415,7 @@ QueryStmt
         |                     +-Literal(type=INT64, value=1)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
-            +-ColumnRef(type=DOUBLE, column=$analytic.$analytic1#7)
+            +-ColumnRef(type=DOUBLE, column=$analytic.$analytic1#8)
             +-Literal(type=DOUBLE, value=5)
 ==
 
@@ -454,22 +454,22 @@ select 1 AS x, row_number() over () as a from KeyValue WHERE true QUALIFY x = 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.x#4 AS x [INT64]
-| +-$analytic.a#5 AS a [INT64]
+| +-$query.x#5 AS x [INT64]
+| +-$analytic.a#6 AS a [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.x#4, $analytic.a#5]
+    +-column_list=[$query.x#5, $analytic.a#6]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$query.x#4, $analytic.a#5]
+        +-column_list=[$query.x#5, $analytic.a#6]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$query.x#4, $analytic.a#5]
+        |   +-column_list=[$query.x#5, $analytic.a#6]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$query.x#4]
+        |   |   +-column_list=[$query.x#5]
         |   |   +-expr_list=
-        |   |   | +-x#4 := Literal(type=INT64, value=1)
+        |   |   | +-x#5 := Literal(type=INT64, value=1)
         |   |   +-input_scan=
         |   |     +-FilterScan
         |   |       +-input_scan=
@@ -479,10 +479,10 @@ QueryStmt
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-a#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-a#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$query.x#4)
+            +-ColumnRef(type=INT64, column=$query.x#5)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -493,22 +493,22 @@ QUALIFY CHAR_LENGTH(x) < 4
 --
 QueryStmt
 +-output_column_list=
-| +-$query.x#4 AS x [STRING]
-| +-$analytic.a#5 AS a [INT64]
+| +-$query.x#5 AS x [STRING]
+| +-$analytic.a#6 AS a [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.x#4, $analytic.a#5]
+    +-column_list=[$query.x#5, $analytic.a#6]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$query.x#4, $analytic.a#5]
+        +-column_list=[$query.x#5, $analytic.a#6]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$query.x#4, $analytic.a#5]
+        |   +-column_list=[$query.x#5, $analytic.a#6]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$query.x#4]
+        |   |   +-column_list=[$query.x#5]
         |   |   +-expr_list=
-        |   |   | +-x#4 := Literal(type=STRING, value="abc")
+        |   |   | +-x#5 := Literal(type=STRING, value="abc")
         |   |   +-input_scan=
         |   |     +-FilterScan
         |   |       +-input_scan=
@@ -518,11 +518,11 @@ QueryStmt
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-a#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-a#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
             +-FunctionCall(ZetaSQL:char_length(STRING) -> INT64)
-            | +-ColumnRef(type=STRING, column=$query.x#4)
+            | +-ColumnRef(type=STRING, column=$query.x#5)
             +-Literal(type=INT64, value=4)
 ==
 
@@ -575,24 +575,24 @@ QUALIFY SUM(KeyValue.Key) > 1 and ROW_NUMBER() OVER () > 0;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [INT64]
+| +-$query.$col1#5 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#3]
+    +-column_list=[$query.$col1#5]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$query.$col1#3, $aggregate.$agg1#4, $analytic.$analytic1#5]
+        +-column_list=[$query.$col1#5, $aggregate.$agg1#6, $analytic.$analytic1#7]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$query.$col1#3, $aggregate.$agg1#4, $analytic.$analytic1#5]
+        |   +-column_list=[$query.$col1#5, $aggregate.$agg1#6, $analytic.$analytic1#7]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$query.$col1#3, $aggregate.$agg1#4]
+        |   |   +-column_list=[$query.$col1#5, $aggregate.$agg1#6]
         |   |   +-expr_list=
-        |   |   | +-$col1#3 := Literal(type=INT64, value=1)
+        |   |   | +-$col1#5 := Literal(type=INT64, value=1)
         |   |   +-input_scan=
         |   |     +-AggregateScan
-        |   |       +-column_list=[$aggregate.$agg1#4]
+        |   |       +-column_list=[$aggregate.$agg1#6]
         |   |       +-input_scan=
         |   |       | +-FilterScan
         |   |       |   +-column_list=[KeyValue.Key#1]
@@ -601,20 +601,20 @@ QueryStmt
         |   |       |   +-filter_expr=
         |   |       |     +-Literal(type=BOOL, value=true)
         |   |       +-aggregate_list=
-        |   |         +-$agg1#4 :=
+        |   |         +-$agg1#6 :=
         |   |           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |   |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#7 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-            | +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+            | +-ColumnRef(type=INT64, column=$aggregate.$agg1#6)
             | +-Literal(type=INT64, value=1)
             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-              +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+              +-ColumnRef(type=INT64, column=$analytic.$analytic1#7)
               +-Literal(type=INT64, value=0)
 ==
 
@@ -626,16 +626,16 @@ QUALIFY row_number() over () = 1
 QueryStmt
 +-output_column_list=
 | +-KeyValue.Key#1 AS Key [INT64]
-| +-$analytic.rank#4 AS rank [INT64]
+| +-$analytic.rank#5 AS rank [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Key#1, $analytic.rank#4]
+    +-column_list=[KeyValue.Key#1, $analytic.rank#5]
     +-input_scan=
       +-FilterScan
-        +-column_list=[KeyValue.Key#1, $analytic.rank#4, $analytic.$analytic2#5]
+        +-column_list=[KeyValue.Key#1, $analytic.rank#5, $analytic.$analytic2#6]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[KeyValue.Key#1, $analytic.rank#4, $analytic.$analytic2#5]
+        |   +-column_list=[KeyValue.Key#1, $analytic.rank#5, $analytic.$analytic2#6]
         |   +-input_scan=
         |   | +-FilterScan
         |   |   +-column_list=[KeyValue.Key#1]
@@ -652,13 +652,13 @@ QueryStmt
         |     | |       +-column_ref=
         |     | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |     | +-analytic_function_list=
-        |     |   +-rank#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+        |     |   +-rank#5 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-$analytic2#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic2#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic2#5)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic2#6)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -670,12 +670,12 @@ FROM (SELECT Key from KeyValue)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#6 AS `$col1` [INT64]
+| +-$query.$col1#7 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#6]
+    +-column_list=[$query.$col1#7]
     +-expr_list=
-    | +-$col1#6 :=
+    | +-$col1#7 :=
     |   +-SubqueryExpr
     |     +-type=INT64
     |     +-subquery_type=SCALAR
@@ -686,10 +686,10 @@ QueryStmt
     |         +-column_list=[$subquery2.x#3]
     |         +-input_scan=
     |           +-FilterScan
-    |             +-column_list=[$subquery2.x#3, $subquery2.y#4, $analytic.$analytic1#5]
+    |             +-column_list=[$subquery2.x#3, $subquery2.y#4, $analytic.$analytic1#6]
     |             +-input_scan=
     |             | +-AnalyticScan
-    |             |   +-column_list=[$subquery2.x#3, $subquery2.y#4, $analytic.$analytic1#5]
+    |             |   +-column_list=[$subquery2.x#3, $subquery2.y#4, $analytic.$analytic1#6]
     |             |   +-input_scan=
     |             |   | +-FilterScan
     |             |   |   +-column_list=$subquery2.[x#3, y#4]
@@ -712,10 +712,10 @@ QueryStmt
     |             |       |       +-column_ref=
     |             |       |         +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |             |       +-analytic_function_list=
-    |             |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+    |             |         +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |                 +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+    |                 +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
     |                 +-Literal(type=INT64, value=1)
     +-input_scan=
       +-ProjectScan
@@ -732,12 +732,12 @@ FROM (SELECT Key from KeyValue) AS SubQuery
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#6 AS `$col1` [INT64]
+| +-$query.$col1#7 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#6]
+    +-column_list=[$query.$col1#7]
     +-expr_list=
-    | +-$col1#6 :=
+    | +-$col1#7 :=
     |   +-SubqueryExpr
     |     +-type=INT64
     |     +-subquery_type=SCALAR
@@ -748,10 +748,10 @@ QueryStmt
     |         +-column_list=[$subquery1.x#3]
     |         +-input_scan=
     |           +-FilterScan
-    |             +-column_list=[$subquery1.x#3, $subquery1.y#4, $analytic.$analytic1#5]
+    |             +-column_list=[$subquery1.x#3, $subquery1.y#4, $analytic.$analytic1#6]
     |             +-input_scan=
     |             | +-AnalyticScan
-    |             |   +-column_list=[$subquery1.x#3, $subquery1.y#4, $analytic.$analytic1#5]
+    |             |   +-column_list=[$subquery1.x#3, $subquery1.y#4, $analytic.$analytic1#6]
     |             |   +-input_scan=
     |             |   | +-FilterScan
     |             |   |   +-column_list=$subquery1.[x#3, y#4]
@@ -774,10 +774,10 @@ QueryStmt
     |             |       |       +-column_ref=
     |             |       |         +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |             |       +-analytic_function_list=
-    |             |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+    |             |         +-$analytic1#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
     |             +-filter_expr=
     |               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |                 +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+    |                 +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
     |                 +-Literal(type=INT64, value=1)
     +-input_scan=
       +-ProjectScan
@@ -827,19 +827,19 @@ QUALIFY sum(key) > 1;
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#4 AS `$col1` [INT64]
+| +-$analytic.$analytic1#5 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#4]
+    +-column_list=[$analytic.$analytic1#5]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$aggregate.$agg1#5, $analytic.$analytic1#4]
+        +-column_list=[$aggregate.$agg1#6, $analytic.$analytic1#5]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$aggregate.$agg1#5, $analytic.$analytic1#4]
+        |   +-column_list=[$aggregate.$agg1#6, $analytic.$analytic1#5]
         |   +-input_scan=
         |   | +-AggregateScan
-        |   |   +-column_list=[$aggregate.$agg1#5]
+        |   |   +-column_list=[$aggregate.$agg1#6]
         |   |   +-input_scan=
         |   |   | +-FilterScan
         |   |   |   +-column_list=[KeyValue.Key#1]
@@ -848,16 +848,16 @@ QueryStmt
         |   |   |   +-filter_expr=
         |   |   |     +-Literal(type=BOOL, value=true)
         |   |   +-aggregate_list=
-        |   |     +-$agg1#5 :=
+        |   |     +-$agg1#6 :=
         |   |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |   |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        |         +-$analytic1#5 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$aggregate.$agg1#5)
+            +-ColumnRef(type=INT64, column=$aggregate.$agg1#6)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -910,24 +910,24 @@ QUALIFY SUM(SUM(key)) OVER () > 1;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [INT64]
+| +-$query.$col1#5 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#3]
+    +-column_list=[$query.$col1#5]
     +-input_scan=
       +-FilterScan
-        +-column_list=[$query.$col1#3, $aggregate.$agg1#4, $analytic.$analytic1#5]
+        +-column_list=[$query.$col1#5, $aggregate.$agg1#6, $analytic.$analytic1#7]
         +-input_scan=
         | +-AnalyticScan
-        |   +-column_list=[$query.$col1#3, $aggregate.$agg1#4, $analytic.$analytic1#5]
+        |   +-column_list=[$query.$col1#5, $aggregate.$agg1#6, $analytic.$analytic1#7]
         |   +-input_scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$query.$col1#3, $aggregate.$agg1#4]
+        |   |   +-column_list=[$query.$col1#5, $aggregate.$agg1#6]
         |   |   +-expr_list=
-        |   |   | +-$col1#3 := Literal(type=INT64, value=1)
+        |   |   | +-$col1#5 := Literal(type=INT64, value=1)
         |   |   +-input_scan=
         |   |     +-AggregateScan
-        |   |       +-column_list=[$aggregate.$agg1#4]
+        |   |       +-column_list=[$aggregate.$agg1#6]
         |   |       +-input_scan=
         |   |       | +-FilterScan
         |   |       |   +-column_list=[KeyValue.Key#1]
@@ -936,15 +936,15 @@ QueryStmt
         |   |       |   +-filter_expr=
         |   |       |     +-Literal(type=BOOL, value=true)
         |   |       +-aggregate_list=
-        |   |         +-$agg1#4 :=
+        |   |         +-$agg1#6 :=
         |   |           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |   |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
-        |         +-$analytic1#5 :=
+        |         +-$analytic1#7 :=
         |           +-AnalyticFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-        |             +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
+        |             +-ColumnRef(type=INT64, column=$aggregate.$agg1#6)
         |             +-window_frame=
         |               +-WindowFrame(frame_unit=ROWS)
         |                 +-start_expr=
@@ -953,7 +953,7 @@ QueryStmt
         |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+            +-ColumnRef(type=INT64, column=$analytic.$analytic1#7)
             +-Literal(type=INT64, value=1)
 ==
 
@@ -1674,3 +1674,348 @@ select * QUALIFY(3)
 ERROR: Query without FROM clause cannot have a QUALIFY clause [at 1:10]
 select * QUALIFY(3)
          ^
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT * FROM T
+QUALIFY RANK() OVER (ORDER BY SUM(a) DESC) > 1
+--
+
+ERROR: Star expansion expression references column a which is neither grouped nor aggregated [at 2:8]
+SELECT * FROM T
+       ^
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT SUM(a), * FROM T
+QUALIFY RANK() OVER (ORDER BY SUM(a) DESC) > 0
+--
+
+ERROR: Star expansion expression references column a which is neither grouped nor aggregated [at 2:16]
+SELECT SUM(a), * FROM T
+               ^
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT * FROM T
+QUALIFY RANK() OVER (ORDER BY a) > COUNT(*);
+--
+
+ERROR: Star expansion expression references column a which is neither grouped nor aggregated [at 2:8]
+SELECT * FROM T
+       ^
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT a FROM T
+QUALIFY RANK() OVER (ORDER BY a) > COUNT(*);
+--
+ERROR: SELECT list expression references column a which is neither grouped nor aggregated [at 2:8]
+SELECT a FROM T
+       ^
+
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT ROW_NUMBER() OVER (), a FROM T
+QUALIFY RANK() OVER (ORDER BY SUM(a) DESC) > 0
+
+--
+ERROR: SELECT list expression references column a which is neither grouped nor aggregated [at 2:30]
+SELECT ROW_NUMBER() OVER (), a FROM T
+                             ^
+==
+
+# Regression test for b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT ROW_NUMBER() OVER () AS b, a FROM T
+QUALIFY b = 0 AND RANK() OVER (ORDER BY SUM(a) DESC) > 0
+--
+ERROR: SELECT list expression references column a which is neither grouped nor aggregated [at 2:35]
+SELECT ROW_NUMBER() OVER () AS b, a FROM T
+                                  ^
+
+==
+
+# Tests shape that should continue to work after fixing b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT ROW_NUMBER() OVER () AS b FROM T
+QUALIFY b = 0 AND RANK() OVER (ORDER BY SUM(a) DESC) > 0
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.b#6 AS b [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$analytic.b#6]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="T"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[T.a#1]
+    |       +-expr_list=
+    |       | +-a#1 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$analytic.b#6]
+        +-input_scan=
+          +-FilterScan
+            +-column_list=[$aggregate.$agg1#7, $analytic.b#6, $analytic.$analytic2#8]
+            +-input_scan=
+            | +-AnalyticScan
+            |   +-column_list=[$aggregate.$agg1#7, $analytic.b#6, $analytic.$analytic2#8]
+            |   +-input_scan=
+            |   | +-AggregateScan
+            |   |   +-column_list=[$aggregate.$agg1#7]
+            |   |   +-input_scan=
+            |   |   | +-WithRefScan(column_list=[T.a#2], with_query_name="T")
+            |   |   +-aggregate_list=
+            |   |     +-$agg1#7 :=
+            |   |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |         +-ColumnRef(type=INT64, column=T.a#2)
+            |   +-function_group_list=
+            |     +-AnalyticFunctionGroup
+            |     | +-analytic_function_list=
+            |     |   +-b#6 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+            |     +-AnalyticFunctionGroup
+            |       +-order_by=
+            |       | +-WindowOrdering
+            |       |   +-order_by_item_list=
+            |       |     +-OrderByItem
+            |       |       +-column_ref=
+            |       |       | +-ColumnRef(type=INT64, column=$aggregate.$agg1#7)
+            |       |       +-is_descending=TRUE
+            |       +-analytic_function_list=
+            |         +-$analytic2#8 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                | +-ColumnRef(type=INT64, column=$analytic.b#6)
+                | +-Literal(type=INT64, value=0)
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$analytic.$analytic2#8)
+                  +-Literal(type=INT64, value=0)
+
+==
+
+# Tests shape that should continue to work after fixing b/309029333
+WITH T AS (SELECT 1 AS a)
+SELECT 1 + 1 AS c FROM T
+QUALIFY c = 0 AND RANK() OVER (ORDER BY SUM(a) DESC) > 0
+--
+QueryStmt
++-output_column_list=
+| +-$query.c#7 AS c [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$query.c#7]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="T"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[T.a#1]
+    |       +-expr_list=
+    |       | +-a#1 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.c#7]
+        +-input_scan=
+          +-FilterScan
+            +-column_list=[$query.c#7, $aggregate.$agg1#8, $analytic.$analytic1#9]
+            +-input_scan=
+            | +-AnalyticScan
+            |   +-column_list=[$query.c#7, $aggregate.$agg1#8, $analytic.$analytic1#9]
+            |   +-input_scan=
+            |   | +-ProjectScan
+            |   |   +-column_list=[$query.c#7, $aggregate.$agg1#8]
+            |   |   +-expr_list=
+            |   |   | +-c#7 :=
+            |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            |   |   |     +-Literal(type=INT64, value=1)
+            |   |   |     +-Literal(type=INT64, value=1)
+            |   |   +-input_scan=
+            |   |     +-AggregateScan
+            |   |       +-column_list=[$aggregate.$agg1#8]
+            |   |       +-input_scan=
+            |   |       | +-ProjectScan
+            |   |       |   +-column_list=[T.a#2, $pre_groupby.c#6]
+            |   |       |   +-expr_list=
+            |   |       |   | +-c#6 :=
+            |   |       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            |   |       |   |     +-Literal(type=INT64, value=1)
+            |   |       |   |     +-Literal(type=INT64, value=1)
+            |   |       |   +-input_scan=
+            |   |       |     +-WithRefScan(column_list=[T.a#2], with_query_name="T")
+            |   |       +-aggregate_list=
+            |   |         +-$agg1#8 :=
+            |   |           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |             +-ColumnRef(type=INT64, column=T.a#2)
+            |   +-function_group_list=
+            |     +-AnalyticFunctionGroup
+            |       +-order_by=
+            |       | +-WindowOrdering
+            |       |   +-order_by_item_list=
+            |       |     +-OrderByItem
+            |       |       +-column_ref=
+            |       |       | +-ColumnRef(type=INT64, column=$aggregate.$agg1#8)
+            |       |       +-is_descending=TRUE
+            |       +-analytic_function_list=
+            |         +-$analytic1#9 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                | +-ColumnRef(type=INT64, column=$query.c#7)
+                | +-Literal(type=INT64, value=0)
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$analytic.$analytic1#9)
+                  +-Literal(type=INT64, value=0)
+
+==
+
+WITH T AS (SELECT 1 AS a, 2 AS b)
+SELECT 1
+FROM T
+QUALIFY SUM(a) = 10 AND ROW_NUMBER() OVER (ORDER BY SUM(b)) > 0
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$query.$col1#8]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="T"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=T.[a#1, b#2]
+    |       +-expr_list=
+    |       | +-a#1 := Literal(type=INT64, value=1)
+    |       | +-b#2 := Literal(type=INT64, value=2)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.$col1#8]
+        +-input_scan=
+          +-FilterScan
+            +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10, $analytic.$analytic1#11]
+            +-input_scan=
+            | +-AnalyticScan
+            |   +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10, $analytic.$analytic1#11]
+            |   +-input_scan=
+            |   | +-ProjectScan
+            |   |   +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10]
+            |   |   +-expr_list=
+            |   |   | +-$col1#8 := Literal(type=INT64, value=1)
+            |   |   +-input_scan=
+            |   |     +-AggregateScan
+            |   |       +-column_list=$aggregate.[$agg1#9, $agg2#10]
+            |   |       +-input_scan=
+            |   |       | +-WithRefScan(column_list=T.[a#3, b#4], with_query_name="T")
+            |   |       +-aggregate_list=
+            |   |         +-$agg1#9 :=
+            |   |         | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |         |   +-ColumnRef(type=INT64, column=T.a#3)
+            |   |         +-$agg2#10 :=
+            |   |           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |             +-ColumnRef(type=INT64, column=T.b#4)
+            |   +-function_group_list=
+            |     +-AnalyticFunctionGroup
+            |       +-order_by=
+            |       | +-WindowOrdering
+            |       |   +-order_by_item_list=
+            |       |     +-OrderByItem
+            |       |       +-column_ref=
+            |       |         +-ColumnRef(type=INT64, column=$aggregate.$agg2#10)
+            |       +-analytic_function_list=
+            |         +-$analytic1#11 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                | +-ColumnRef(type=INT64, column=$aggregate.$agg1#9)
+                | +-Literal(type=INT64, value=10)
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$analytic.$analytic1#11)
+                  +-Literal(type=INT64, value=0)
+==
+
+WITH T AS (SELECT 1 AS a, 2 AS b)
+SELECT 1
+FROM T
+QUALIFY SUM(a) = 10 AND SUM(SUM(b)) OVER () > 0
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#8 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$query.$col1#8]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="T"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=T.[a#1, b#2]
+    |       +-expr_list=
+    |       | +-a#1 := Literal(type=INT64, value=1)
+    |       | +-b#2 := Literal(type=INT64, value=2)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.$col1#8]
+        +-input_scan=
+          +-FilterScan
+            +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10, $analytic.$analytic1#11]
+            +-input_scan=
+            | +-AnalyticScan
+            |   +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10, $analytic.$analytic1#11]
+            |   +-input_scan=
+            |   | +-ProjectScan
+            |   |   +-column_list=[$query.$col1#8, $aggregate.$agg1#9, $aggregate.$agg2#10]
+            |   |   +-expr_list=
+            |   |   | +-$col1#8 := Literal(type=INT64, value=1)
+            |   |   +-input_scan=
+            |   |     +-AggregateScan
+            |   |       +-column_list=$aggregate.[$agg1#9, $agg2#10]
+            |   |       +-input_scan=
+            |   |       | +-WithRefScan(column_list=T.[a#3, b#4], with_query_name="T")
+            |   |       +-aggregate_list=
+            |   |         +-$agg1#9 :=
+            |   |         | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |         |   +-ColumnRef(type=INT64, column=T.a#3)
+            |   |         +-$agg2#10 :=
+            |   |           +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |   |             +-ColumnRef(type=INT64, column=T.b#4)
+            |   +-function_group_list=
+            |     +-AnalyticFunctionGroup
+            |       +-analytic_function_list=
+            |         +-$analytic1#11 :=
+            |           +-AnalyticFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+            |             +-ColumnRef(type=INT64, column=$aggregate.$agg2#10)
+            |             +-window_frame=
+            |               +-WindowFrame(frame_unit=ROWS)
+            |                 +-start_expr=
+            |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+            |                 +-end_expr=
+            |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                | +-ColumnRef(type=INT64, column=$aggregate.$agg1#9)
+                | +-Literal(type=INT64, value=10)
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$analytic.$analytic1#11)
+                  +-Literal(type=INT64, value=0)

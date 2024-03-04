@@ -34,6 +34,7 @@
 #include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -1177,41 +1178,37 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastRange() {
       {{Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
        {Range(Timestamp(1233496649123456), Timestamp(1267628310654321))}},
 
-      // TODO: b/285939418 - uncomment these test cases once RANGE<T> cast to
-      // STRING is implemented.
-      // // RANGE<DATE> -> STRING
-      // {{Null(types::DateRangeType())}, NullString()},
-      // {{Range(Date(14276), Date(14288))}, String("[2009-02-01,
-      // 2009-02-13)")},
-      // {{Range(NullDate(), Date(14288))}, String("[UNBOUNDED, 2009-02-13)")},
-      // {{Range(Date(14276), NullDate())}, String("[2009-02-01, UNBOUNDED)")},
-      // {{Range(NullDate(), NullDate())}, String("[UNBOUNDED, UNBOUNDED)")},
-      // // RANGE<DATETIME> -> STRING
-      // {{Null(types::DatetimeRangeType())}, NullString()},
-      // {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
-      //         DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
-      //  String("[2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321)")},
-      // {{Range(NullDatetime(),
-      //         DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
-      //  String("[UNBOUNDED, 2010-03-03 14:58:30.654321)")},
-      // {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
-      //         NullDatetime())},
-      //  String("[2009-02-01 13:57:29.123456, UNBOUNDED)")},
-      // {{Range(NullDatetime(), NullDatetime())},
-      //  String("[UNBOUNDED, UNBOUNDED)")},
-      // // RANGE<TIMESTAMP> -> STRING
-      // // The default time zone is America/Los_Angeles.
-      // {{Null(types::TimestampRangeType())}, NullString()},
-      // {{Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
-      //  String(
-      //      "[2009-02-01 05:57:29.123456-08, 2010-03-03
-      //      06:58:30.654321-08)")},
-      // {{Range(NullTimestamp(), Timestamp(1267628310654321))},
-      //  String("[UNBOUNDED, 2010-03-03 06:58:30.654321-08)")},
-      // {{Range(Timestamp(1233496649123456), NullTimestamp())},
-      //  String("[2009-02-01 05:57:29.123456-08, UNBOUNDED)")},
-      // {{Range(NullTimestamp(), NullTimestamp())},
-      //  String("[UNBOUNDED, UNBOUNDED)")},
+      // RANGE<DATE> -> STRING
+      {{Null(types::DateRangeType())}, NullString()},
+      {{Range(Date(14276), Date(14288))}, String("[2009-02-01, 2009-02-13)")},
+      {{Range(NullDate(), Date(14288))}, String("[UNBOUNDED, 2009-02-13)")},
+      {{Range(Date(14276), NullDate())}, String("[2009-02-01, UNBOUNDED)")},
+      {{Range(NullDate(), NullDate())}, String("[UNBOUNDED, UNBOUNDED)")},
+      // RANGE<DATETIME> -> STRING
+      {{Null(types::DatetimeRangeType())}, NullString()},
+      {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+              DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+       String("[2009-02-01 13:57:29.123456, 2010-03-03 14:58:30.654321)")},
+      {{Range(NullDatetime(),
+              DatetimeMicros(2010, 03, 03, 14, 58, 30, 654321))},
+       String("[UNBOUNDED, 2010-03-03 14:58:30.654321)")},
+      {{Range(DatetimeMicros(2009, 02, 01, 13, 57, 29, 123456),
+              NullDatetime())},
+       String("[2009-02-01 13:57:29.123456, UNBOUNDED)")},
+      {{Range(NullDatetime(), NullDatetime())},
+       String("[UNBOUNDED, UNBOUNDED)")},
+      // RANGE<TIMESTAMP> -> STRING
+      // The default time zone is America/Los_Angeles.
+      {{Null(types::TimestampRangeType())}, NullString()},
+      {{Range(Timestamp(1233496649123456), Timestamp(1267628310654321))},
+       String(
+           "[2009-02-01 05:57:29.123456-08, 2010-03-03 06:58:30.654321-08)")},
+      {{Range(NullTimestamp(), Timestamp(1267628310654321))},
+       String("[UNBOUNDED, 2010-03-03 06:58:30.654321-08)")},
+      {{Range(Timestamp(1233496649123456), NullTimestamp())},
+       String("[2009-02-01 05:57:29.123456-08, UNBOUNDED)")},
+      {{Range(NullTimestamp(), NullTimestamp())},
+       String("[UNBOUNDED, UNBOUNDED)")},
 
       // STRING -> RANGE<DATE>
       {{NullString()}, Null(types::DateRangeType())},
@@ -2626,6 +2623,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
       GetFunctionTestsCastBytesStringWithFormat(),
       GetFunctionTestsCastDateTimestampStringWithFormat(),
       GetFunctionTestsCastRange(),
+      GetFunctionTestsCastTokenList(),
   });
 }
 
@@ -2697,6 +2695,26 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
   }
 
   return tests;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastTokenList() {
+  const Value tokenlist = TokenListFromStringArray({"test", "tokenlist"});
+  const std::string bytes = tokenlist.tokenlist_value().GetBytes();
+
+  std::vector<QueryParamsWithResult> tests = {
+      {{Value::NullTokenList()}, Value::NullTokenList()},
+      {{NullBytes()}, Value::NullTokenList()},
+      {{Value::NullTokenList()}, NullBytes()},
+      {{Bytes(bytes)}, tokenlist},
+      {{tokenlist}, Bytes(bytes)},
+  };
+
+  std::vector<QueryParamsWithResult> result;
+  result.reserve(tests.size());
+  for (const auto& test : tests) {
+    result.push_back(test.WrapWithFeature(FEATURE_TOKENIZED_SEARCH));
+  }
+  return result;
 }
 
 }  // namespace zetasql

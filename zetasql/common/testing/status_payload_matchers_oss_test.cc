@@ -50,7 +50,7 @@ absl::Status StatusWithPayload(absl::string_view text) {
   return status;
 }
 
-absl::StatusOr<int> StatusOrWithPayload(const std::string &text) {
+absl::StatusOr<int> StatusOrWithPayload(absl::string_view text) {
   return StatusWithPayload(text);
 }
 

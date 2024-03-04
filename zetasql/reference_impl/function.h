@@ -30,6 +30,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
@@ -108,6 +109,8 @@ enum class FunctionKind {
   kSum,
   kVarPop,
   kVarSamp,
+  kElementwiseSum,
+  kElementwiseAvg,
   // Anonymization functions (broken link)
   kAnonSum,
   kAnonSumWithReportProto,
@@ -128,6 +131,8 @@ enum class FunctionKind {
   kDifferentialPrivacyQuantiles,
   // Exists function
   kExists,
+  // GROUPING function
+  kGrouping,
   // IsNull function
   kIsNull,
   kIsTrue,
@@ -137,11 +142,21 @@ enum class FunctionKind {
   kLike,
   kLikeWithCollation,
   kLikeAny,
+  kNotLikeAny,
   kLikeAnyWithCollation,
+  kNotLikeAnyWithCollation,
   kLikeAll,
+  kNotLikeAll,
   kLikeAllWithCollation,
+  kNotLikeAllWithCollation,
   kLikeAnyArray,
+  kLikeAnyArrayWithCollation,
+  kNotLikeAnyArray,
+  kNotLikeAnyArrayWithCollation,
   kLikeAllArray,
+  kLikeAllArrayWithCollation,
+  kNotLikeAllArray,
+  kNotLikeAllArrayWithCollation,
   // BitCast functions
   kBitCastToInt32,
   kBitCastToInt64,
@@ -238,6 +253,7 @@ enum class FunctionKind {
   kArrayFind,
   kArrayOffsets,
   kArrayFindAll,
+  kArrayZip,
 
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.
@@ -257,14 +273,38 @@ enum class FunctionKind {
   kToJson,
   kToJsonString,
   kParseJson,
+  kStringArray,
+  kInt32,
+  kInt32Array,
   kInt64,
+  kInt64Array,
+  kUint32,
+  kUint32Array,
+  kUint64,
+  kUint64Array,
   kDouble,
+  kDoubleArray,
+  kFloat,
+  kFloatArray,
   kBool,
+  kBoolArray,
   kJsonType,
   kLaxBool,
+  kLaxBoolArray,
+  kLaxInt32,
+  kLaxInt32Array,
   kLaxInt64,
+  kLaxInt64Array,
+  kLaxUint32,
+  kLaxUint32Array,
+  kLaxUint64,
+  kLaxUint64Array,
   kLaxDouble,
+  kLaxDoubleArray,
+  kLaxFloat,
+  kLaxFloatArray,
   kLaxString,
+  kLaxStringArray,
   kJsonArray,
   kJsonObject,
   kJsonRemove,
@@ -457,9 +497,20 @@ enum class FunctionKind {
   kGenerateRangeArray,
   kRangeContains,
 
+  // Distance functions
   kCosineDistance,
+  kApproxCosineDistance,
   kEuclideanDistance,
+  kApproxEuclideanDistance,
+  kDotProduct,
+  kApproxDotProduct,
+  kManhattanDistance,
+  kL1Norm,
+  kL2Norm,
   kEditDistance,
+
+  // Map functions
+  kMapFromArray,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -543,31 +594,24 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   // Creates a like function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeFunction(FunctionKind kind, const Type* output_type,
-                     const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+                     absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
-  // Creates a like any function.
+  // Creates a like any/all function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
-  CreateLikeAnyFunction(
+  CreateLikeAnyAllFunction(
       FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
-
-  // Creates a like all function.
-  static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
-  CreateLikeAllFunction(
-      FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   // Creates a like any/all array function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeAnyAllArrayFunction(
       FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   // Creates a regexp function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
-  CreateRegexpFunction(
-      FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+  CreateRegexpFunction(FunctionKind kind, const Type* output_type,
+                       absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   FunctionKind kind_;
 };
@@ -637,9 +681,12 @@ class BinaryStatFunction : public BuiltinAggregateFunction {
       EvaluationContext* context) const override;
 };
 
+using ContextAwareFunctionEvaluator = std::function<absl::StatusOr<Value>(
+    const absl::Span<const Value> arguments, EvaluationContext& context)>;
+
 class UserDefinedScalarFunction : public ScalarFunctionBody {
  public:
-  UserDefinedScalarFunction(const FunctionEvaluator& evaluator,
+  UserDefinedScalarFunction(const ContextAwareFunctionEvaluator& evaluator,
                             const Type* output_type,
                             absl::string_view function_name)
       : ScalarFunctionBody(output_type),
@@ -651,7 +698,7 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
             Value* result, absl::Status* status) const override;
 
  private:
-  FunctionEvaluator evaluator_;
+  ContextAwareFunctionEvaluator evaluator_;
   const std::string function_name_;
 };
 
@@ -1000,8 +1047,10 @@ class LikeFunction : public SimpleBuiltinScalarFunction {
  public:
   LikeFunction(FunctionKind kind, const Type* output_type,
                std::unique_ptr<RE2> regexp)
-      : SimpleBuiltinScalarFunction(kind, output_type),
-        regexp_(std::move(regexp)) {}
+      : SimpleBuiltinScalarFunction(kind, output_type) {
+    regexp_.push_back(std::move(regexp));
+    has_collation_ = kind == FunctionKind::kLikeWithCollation;
+  }
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
@@ -1011,83 +1060,84 @@ class LikeFunction : public SimpleBuiltinScalarFunction {
 
  private:
   // Regexp precompiled at prepare time; null if cannot be precompiled.
-  std::unique_ptr<RE2> regexp_;
-};
-
-class LikeAnyFunction : public SimpleBuiltinScalarFunction {
- public:
-  LikeAnyFunction(FunctionKind kind, const Type* output_type,
-                  std::vector<std::unique_ptr<RE2>> regexp)
-      : SimpleBuiltinScalarFunction(kind, output_type),
-        regexp_(std::move(regexp)) {}
-
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-
-  LikeAnyFunction(const LikeAnyFunction&) = delete;
-  LikeAnyFunction& operator=(const LikeAnyFunction&) = delete;
-
- private:
   std::vector<std::unique_ptr<RE2>> regexp_;
-};
-
-class LikeAllFunction : public SimpleBuiltinScalarFunction {
- public:
-  LikeAllFunction(FunctionKind kind, const Type* output_type,
-                  std::vector<std::unique_ptr<RE2>> regexp)
-      : SimpleBuiltinScalarFunction(kind, output_type),
-        regexp_(std::move(regexp)) {}
-
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-
-  LikeAllFunction(const LikeAllFunction&) = delete;
-  LikeAllFunction& operator=(const LikeAllFunction&) = delete;
-
- private:
-  std::vector<std::unique_ptr<RE2>> regexp_;
+  bool has_collation_;
 };
 
 // Invoked by expression such as:
-//   <expr> LIKE ANY UNNEST(<array-expression>)
-class LikeAnyArrayFunction : public SimpleBuiltinScalarFunction {
+//   <expr> [NOT] LIKE ANY|ALL (pattern1, pattern2, ...)
+class LikeAnyAllFunction : public SimpleBuiltinScalarFunction {
  public:
-  LikeAnyArrayFunction(FunctionKind kind, const Type* output_type,
-                       std::vector<std::unique_ptr<RE2>> regexp)
+  LikeAnyAllFunction(FunctionKind kind, const Type* output_type,
+                     std::vector<std::unique_ptr<RE2>> regexp)
       : SimpleBuiltinScalarFunction(kind, output_type),
-        regexp_(std::move(regexp)) {}
+        regexp_(std::move(regexp)) {
+    ABSL_CHECK(kind == FunctionKind::kLikeAny || kind == FunctionKind::kNotLikeAny ||
+          kind == FunctionKind::kLikeAnyWithCollation ||
+          kind == FunctionKind::kNotLikeAnyWithCollation ||
+          kind == FunctionKind::kLikeAll || kind == FunctionKind::kNotLikeAll ||
+          kind == FunctionKind::kLikeAllWithCollation ||
+          kind == FunctionKind::kNotLikeAllWithCollation);
+    has_collation_ = kind == FunctionKind::kLikeAnyWithCollation ||
+                     kind == FunctionKind::kNotLikeAnyWithCollation ||
+                     kind == FunctionKind::kLikeAllWithCollation ||
+                     kind == FunctionKind::kNotLikeAllWithCollation;
+    is_not_ = kind == FunctionKind::kNotLikeAny ||
+              kind == FunctionKind::kNotLikeAll ||
+              kind == FunctionKind::kNotLikeAllWithCollation ||
+              kind == FunctionKind::kNotLikeAnyWithCollation;
+  }
 
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
-  LikeAnyArrayFunction(const LikeAnyArrayFunction&) = delete;
-  LikeAnyArrayFunction& operator=(const LikeAnyArrayFunction&) = delete;
+  LikeAnyAllFunction(const LikeAnyAllFunction&) = delete;
+  LikeAnyAllFunction& operator=(const LikeAnyAllFunction&) = delete;
 
  private:
   std::vector<std::unique_ptr<RE2>> regexp_;
+  bool has_collation_;
+  bool is_not_;
 };
 
 // Invoked by expression such as:
-//   <expr> LIKE ALL UNNEST(<array-expression>)
-class LikeAllArrayFunction : public SimpleBuiltinScalarFunction {
+//   <expr> [NOT] LIKE ANY|ALL UNNEST(<array-expression>)
+class LikeAnyAllArrayFunction : public SimpleBuiltinScalarFunction {
  public:
-  LikeAllArrayFunction(FunctionKind kind, const Type* output_type,
-                       std::vector<std::unique_ptr<RE2>> regexp)
+  LikeAnyAllArrayFunction(FunctionKind kind, const Type* output_type,
+                          std::vector<std::unique_ptr<RE2>> regexp)
       : SimpleBuiltinScalarFunction(kind, output_type),
-        regexp_(std::move(regexp)) {}
+        regexp_(std::move(regexp)) {
+    ABSL_CHECK(kind == FunctionKind::kLikeAnyArray ||
+          kind == FunctionKind::kLikeAnyArrayWithCollation ||
+          kind == FunctionKind::kNotLikeAnyArray ||
+          kind == FunctionKind::kNotLikeAnyArrayWithCollation ||
+          kind == FunctionKind::kLikeAllArray ||
+          kind == FunctionKind::kLikeAllArrayWithCollation ||
+          kind == FunctionKind::kNotLikeAllArray ||
+          kind == FunctionKind::kNotLikeAllArrayWithCollation);
+    is_not_ = kind == FunctionKind::kNotLikeAnyArray ||
+              kind == FunctionKind::kNotLikeAnyArrayWithCollation ||
+              kind == FunctionKind::kNotLikeAllArray ||
+              kind == FunctionKind::kNotLikeAllArrayWithCollation;
+    has_collation_ = kind == FunctionKind::kLikeAnyArrayWithCollation ||
+                     kind == FunctionKind::kLikeAllArrayWithCollation ||
+                     kind == FunctionKind::kNotLikeAnyArrayWithCollation ||
+                     kind == FunctionKind::kNotLikeAllArrayWithCollation;
+  }
 
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
-  LikeAllArrayFunction(const LikeAllArrayFunction&) = delete;
-  LikeAllArrayFunction& operator=(const LikeAllArrayFunction&) = delete;
+  LikeAnyAllArrayFunction(const LikeAnyAllArrayFunction&) = delete;
+  LikeAnyAllArrayFunction& operator=(const LikeAnyAllArrayFunction&) = delete;
 
  private:
   std::vector<std::unique_ptr<RE2>> regexp_;
+  bool is_not_;
+  bool has_collation_;
 };
 
 class BitwiseFunction : public BuiltinScalarFunction {
@@ -1965,6 +2015,14 @@ class CosineDistanceFunctionDense : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class ApproxCosineDistanceFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 class CosineDistanceFunctionSparseInt64Key
     : public SimpleBuiltinScalarFunction {
  public:
@@ -2009,12 +2067,128 @@ class EuclideanDistanceFunctionSparseStringKey
                              EvaluationContext* context) const override;
 };
 
+class ApproxEuclideanDistanceFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class DotProductFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ApproxDotProductFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ManhattanDistanceFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class L1NormFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class L2NormFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 class EditDistanceFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
+};
+
+// Evaluates the function calls to all the signatures of `ARRAY_ZIP`.
+class ArrayZipFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ArrayZipFunction(FunctionKind kind, const Type* output_type,
+                   const InlineLambdaExpr* lambda)
+      : SimpleBuiltinScalarFunction(kind, output_type), lambda_(lambda) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  // Groups the input arguments according to their types.
+  struct CategorizedArguments {
+    absl::Span<const Value> arrays;
+    functions::ArrayZipEnums::ArrayZipMode array_zip_mode;
+  };
+
+  // Validates the input `args` and convert it to `CategorizedArguments` format
+  // for easier processing.
+  absl::StatusOr<CategorizedArguments> GetCategorizedArguments(
+      absl::Span<const Value> args) const;
+
+  // Returns the result array length based on the input `arrays` and the
+  // `array_zip_mode`. If `array_zip_mode` == STRICT and the input arrays have
+  // different lengths, a SQL error will be returned.
+  absl::StatusOr<int> GetZippedArrayLength(
+      absl::Span<const Value> arrays,
+      functions::ArrayZipEnums::ArrayZipMode array_zip_mode) const;
+
+  // Evaluates the function calls to the signatures without lambda arguments.
+  // `zipped_array_length` is the length of the result array.
+  absl::StatusOr<Value> EvalNoLambda(const CategorizedArguments& args,
+                                     int zipped_array_length) const;
+
+  // Evaluates the function calls to the signatures with lambda arguments.
+  // `zipped_array_length` is the length of the result array.
+  absl::StatusOr<Value> EvalLambda(
+      const CategorizedArguments& args, int zipped_array_length,
+      LambdaEvaluationContext& lambda_context) const;
+
+  // Returns a struct value of the given `struct_type`, whose i-th field value
+  // equals to the element at `element_index` of the i-th `arrays`, or NULL if
+  // the i-th array does not have an element at `element_index`.
+  absl::StatusOr<Value> ToStructValue(const StructType* struct_type,
+                                      absl::Span<const Value> arrays,
+                                      int element_index) const;
+
+  // Returns the evaluation result of `lambda_` under the given
+  // `lambda_context`. The i-th input argument to `lambda_` is
+  // - the element of `arrays[i]` at `element_index`,
+  // - or NULL if `element_index` is out of boundary for `arrays[i]`.
+  absl::StatusOr<Value> ToLambdaReturnValue(
+      absl::Span<const Value> arrays, int element_index,
+      LambdaEvaluationContext& lambda_context) const;
+
+  // Returns the maximum length of the arrays in `arrays`.
+  int MaxArrayLength(absl::Span<const Value> arrays) const;
+
+  // Returns the minimum length of the arrays in `arrays`.
+  int MinArrayLength(absl::Span<const Value> arrays) const;
+
+  // Returns true if all the arrays in `arrays` have the same length.
+  bool EqualArrayLength(absl::Span<const Value> arrays) const;
+
+  const InlineLambdaExpr* lambda_;
 };
 
 // This method is used only for setting non-deterministic output.

@@ -22,17 +22,13 @@
 #include <vector>
 
 #include "zetasql/parser/bison_parser.h"
-#include "zetasql/parser/flex_tokenizer.h"
-#include "zetasql/parser/location.hh"
+#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/statement_properties.h"
-#include "zetasql/public/strings.h"
-#include "zetasql/base/case.h"
-#include "absl/memory/memory.h"
+#include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 
 // Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
 // AST... class from the zetasql namespace. The "..." are the arguments to
@@ -87,7 +83,24 @@
 
 namespace zetasql {
 
+// Forward declarations to avoid an interface and a v-table lookup on every
+// token.
+namespace parser {
+class DisambiguatorLexer;
+}  // namespace parser
+
 namespace parser_internal {
+
+// Forward declarations of wrappers so that the generated parser can call the
+// disambiguator without an interface and a v-table lookup on every token.
+using zetasql::parser::BisonParserMode;
+using zetasql::parser::DisambiguatorLexer;
+
+void SetForceTerminate(DisambiguatorLexer*, int*);
+void PushBisonParserMode(DisambiguatorLexer*, BisonParserMode);
+void PopBisonParserMode(DisambiguatorLexer*);
+int GetNextToken(DisambiguatorLexer*, absl::string_view*, ParseLocationRange*);
+
 enum class NotKeywordPresence { kPresent, kAbsent };
 
 enum class AllOrDistinctKeyword {
@@ -217,11 +230,14 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 };
 
 template <typename SemanticType>
-inline int zetasql_bison_parserlex(
-    SemanticType* yylval, zetasql_bison_parser::location* yylloc,
-    zetasql::parser::ZetaSqlFlexTokenizer* tokenizer) {
+inline int zetasql_bison_parserlex(SemanticType* yylval,
+                                     ParseLocationRange* yylloc,
+                                     DisambiguatorLexer* tokenizer) {
   ABSL_DCHECK(tokenizer != nullptr);
-  return tokenizer->GetNextTokenFlex(yylloc);
+  absl::string_view text;
+  int token = GetNextToken(tokenizer, &text, yylloc);
+  yylval->string_view = {text.data(), text.length()};
+  return token;
 }
 
 // Adds 'children' to 'node' and then returns 'node'.
@@ -240,10 +256,10 @@ inline ASTNodeType* WithExtraChildren(
 // locations are nonempty, returns the first location.
 template <typename Location>
 inline Location FirstNonEmptyLocation(const Location& a, const Location& b) {
-  if (a.begin.column != a.end.column) {
+  if (a.start().GetByteOffset() != a.end().GetByteOffset()) {
     return a;
   }
-  if (b.begin.column != b.end.column) {
+  if (b.start().GetByteOffset() != b.end().GetByteOffset()) {
     return b;
   }
   return a;
@@ -254,15 +270,15 @@ inline Location NonEmptyRangeLocation(const Location& first_location,
                                       const MoreLocations&... locations) {
   std::optional<Location> range;
   for (const Location& location : {first_location, locations...}) {
-    if (location.begin.column != location.end.column) {
+    if (location.start().GetByteOffset() != location.end().GetByteOffset()) {
       if (!range.has_value()) {
         range = location;
       } else {
-        if (location.begin.column < range->begin.column) {
-          range->begin = location.begin;
+        if (location.start().GetByteOffset() < range->start().GetByteOffset()) {
+          range->set_start(location.start());
         }
-        if (location.end.column > range->end.column) {
-          range->end = location.end;
+        if (location.end().GetByteOffset() > range->end().GetByteOffset()) {
+          range->set_end(location.end());
         }
       }
     }
@@ -277,6 +293,15 @@ inline bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
   const ASTUnaryExpression* expr = node->GetAsOrNull<ASTUnaryExpression>();
   return expr != nullptr && !expr->parenthesized() &&
          expr->op() == ASTUnaryExpression::NOT;
+}
+
+// Makes a zero-length location range: [point, point).
+// This is to simulate a required AST node whose child nodes are all optional.
+// The location range of the node when all children are unspecified is an empty
+// range.
+template <typename LocationPoint>
+inline ParseLocationRange LocationFromOffset(const LocationPoint& point) {
+  return ParseLocationRange(point, point);
 }
 
 using zetasql::ASTInsertStatement;

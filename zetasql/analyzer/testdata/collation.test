@@ -4147,10 +4147,11 @@ QueryStmt
             +-right_scan=
             | +-WithRefScan(column_list=t2.[col_a#7, col_c#8], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
-                +-collation_list=[und:ci]
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-has_using=TRUE
 --
 ALTERNATION GROUP: right
 --
@@ -4203,10 +4204,11 @@ QueryStmt
             +-right_scan=
             | +-WithRefScan(column_list=t2.[col_a#7, col_c#8], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
-                +-collation_list=[und:ci]
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-has_using=TRUE
 --
 ALTERNATION GROUP: full
 --
@@ -4268,10 +4270,11 @@ QueryStmt
                 +-right_scan=
                 | +-WithRefScan(column_list=t2.[col_a#7, col_c#8], with_query_name="t2")
                 +-join_expr=
-                  +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                    +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
-                    +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
-                    +-collation_list=[und:ci]
+                | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t1.col_a#5{Collation:"und:ci"})
+                |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=t2.col_a#7{Collation:"und:ci"})
+                |   +-collation_list=[und:ci]
+                +-has_using=TRUE
 ==
 
 [no_run_unparser]
@@ -4390,10 +4393,11 @@ QueryStmt
             |   +-input_scan=
             |     +-WithRefScan(column_list=[t2.$struct#8<{Collation:"und:ci"},_>], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
-                +-collation_list=[und:ci]
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-has_using=TRUE
 --
 ALTERNATION GROUP: left
 --
@@ -4503,10 +4507,11 @@ QueryStmt
             |   +-input_scan=
             |     +-WithRefScan(column_list=[t2.$struct#8<{Collation:"und:ci"},_>], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
-                +-collation_list=[und:ci]
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-has_using=TRUE
 --
 ALTERNATION GROUP: right
 --
@@ -4616,10 +4621,11 @@ QueryStmt
             |   +-input_scan=
             |     +-WithRefScan(column_list=[t2.$struct#8<{Collation:"und:ci"},_>], with_query_name="t2")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
-                +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
-                +-collation_list=[und:ci]
+            | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
+            |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
+            |   +-collation_list=[und:ci]
+            +-has_using=TRUE
 --
 ALTERNATION GROUP: full
 --
@@ -4738,10 +4744,11 @@ QueryStmt
                 |   +-input_scan=
                 |     +-WithRefScan(column_list=[t2.$struct#8<{Collation:"und:ci"},_>], with_query_name="t2")
                 +-join_expr=
-                  +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-                    +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
-                    +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
-                    +-collation_list=[und:ci]
+                | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_left.col_a#9{Collation:"und:ci"})
+                |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$join_right.col_a#10{Collation:"und:ci"})
+                |   +-collation_list=[und:ci]
+                +-has_using=TRUE
 --
 ALTERNATION GROUP: outer
 --
@@ -6277,11 +6284,11 @@ CREATE SCHEMA myProject.mySchema DEFAULT COLLATE 'und:ci' OPTIONS(a="b", c="d");
 --
 CreateSchemaStmt
 +-name_path=myProject.mySchema
-+-collation_name=
-| +-Literal(type=STRING, value="und:ci")
 +-option_list=
-  +-a := Literal(type=STRING, value="b")
-  +-c := Literal(type=STRING, value="d")
+| +-a := Literal(type=STRING, value="b")
+| +-c := Literal(type=STRING, value="d")
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
 ==
 
 create table t (a int64, b string collate 'und:cs') default collate cast(null as string);

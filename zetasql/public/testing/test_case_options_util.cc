@@ -28,7 +28,7 @@ namespace zetasql {
 absl::StatusOr<LanguageOptions::LanguageFeatureSet> GetRequiredLanguageFeatures(
     const file_based_test_driver::TestCaseOptions& test_case_options) {
   LanguageOptions::LanguageFeatureSet enabled_set;
-  const std::string features_string =
+  const std::string& features_string =
       test_case_options.GetString(kLanguageFeatures);
   if (!features_string.empty()) {
     const std::vector<std::string> feature_list =

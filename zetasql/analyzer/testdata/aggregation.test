@@ -837,6 +837,87 @@ QueryStmt
               +-Literal(type=INT64, value=1)
 ==
 
+# Regression test b/292533989:
+# GROUP BY key fails to match with the pre-group by expression of the aliased
+# select list item.
+[no_enable_literal_replacement]
+select key + 1 AS alias
+from KeyValue
+group by key + 1
+HAVING TRUE
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#4 AS alias [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#4]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.$groupbycol1#4]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby.$groupbycol1#4]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[KeyValue.Key#1, $pre_groupby.alias#3]
+        |   |   +-expr_list=
+        |   |   | +-alias#3 :=
+        |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |   |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   |     +-Literal(type=INT64, value=1)
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        |   +-group_by_list=
+        |     +-$groupbycol1#4 := ColumnRef(type=INT64, column=$pre_groupby.alias#3)
+        +-filter_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+# Regression test b/292533989:
+# GROUP BY key match with column referenced by the pre-group by expression of
+# the aliased select list item.
+select key + 1 AS alias
+from KeyValue
+group by key
+HAVING TRUE
+--
+QueryStmt
++-output_column_list=
+| +-$query.alias#5 AS alias [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.alias#5]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby.key#4, $query.alias#5]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$groupby.key#4, $query.alias#5]
+        |   +-expr_list=
+        |   | +-alias#5 :=
+        |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |   |     +-ColumnRef(type=INT64, column=$groupby.key#4)
+        |   |     +-Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$groupby.key#4]
+        |       +-input_scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=[KeyValue.Key#1, $pre_groupby.alias#3]
+        |       |   +-expr_list=
+        |       |   | +-alias#3 :=
+        |       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |       |   |     +-Literal(type=INT64, value=1)
+        |       |   +-input_scan=
+        |       |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        |       +-group_by_list=
+        |         +-key#4 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-filter_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
 select key as c, value as c from KeyValue group by c
 --
 ERROR: Name c in GROUP BY clause is ambiguous; it may refer to multiple columns in the SELECT-list [at 1:52]
@@ -1041,6 +1122,8 @@ QueryStmt
               +-Literal(type=INT64, value=1)
 ==
 
+# GROUP BY key match with column referenced by the pre-group by expression of
+# the aliased select list item.
 select key+1 as k from KeyValue group by key, k
 --
 QueryStmt
@@ -2588,31 +2671,31 @@ select 10 from ArrayTypes group by
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#32 AS `$col1` [INT64]
+| +-$query.$col1#35 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#32]
+    +-column_list=[$query.$col1#35]
     +-expr_list=
-    | +-$col1#32 := Literal(type=INT64, value=10)
+    | +-$col1#35 := Literal(type=INT64, value=10)
     +-input_scan=
       +-AggregateScan
         +-input_scan=
         | +-TableScan(column_list=ArrayTypes.[Int32Array#1, Int64Array#2, UInt32Array#3, UInt64Array#4, StringArray#5, BytesArray#6, BoolArray#7, FloatArray#8, DoubleArray#9, DateArray#10, TimestampSecondsArray#11, TimestampMillisArray#12, TimestampMicrosArray#13, TimestampArray#14], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
         +-group_by_list=
-          +-Int32Array#18 := ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-          +-Int64Array#19 := ColumnRef(type=ARRAY<INT64>, column=ArrayTypes.Int64Array#2)
-          +-UInt32Array#20 := ColumnRef(type=ARRAY<UINT32>, column=ArrayTypes.UInt32Array#3)
-          +-UInt64Array#21 := ColumnRef(type=ARRAY<UINT64>, column=ArrayTypes.UInt64Array#4)
-          +-StringArray#22 := ColumnRef(type=ARRAY<STRING>, column=ArrayTypes.StringArray#5)
-          +-BytesArray#23 := ColumnRef(type=ARRAY<BYTES>, column=ArrayTypes.BytesArray#6)
-          +-BoolArray#24 := ColumnRef(type=ARRAY<BOOL>, column=ArrayTypes.BoolArray#7)
-          +-FloatArray#25 := ColumnRef(type=ARRAY<FLOAT>, column=ArrayTypes.FloatArray#8)
-          +-DoubleArray#26 := ColumnRef(type=ARRAY<DOUBLE>, column=ArrayTypes.DoubleArray#9)
-          +-DateArray#27 := ColumnRef(type=ARRAY<DATE>, column=ArrayTypes.DateArray#10)
-          +-TimestampSecondsArray#28 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampSecondsArray#11)
-          +-TimestampMillisArray#29 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampMillisArray#12)
-          +-TimestampMicrosArray#30 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampMicrosArray#13)
-          +-TimestampArray#31 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampArray#14)
+          +-Int32Array#21 := ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+          +-Int64Array#22 := ColumnRef(type=ARRAY<INT64>, column=ArrayTypes.Int64Array#2)
+          +-UInt32Array#23 := ColumnRef(type=ARRAY<UINT32>, column=ArrayTypes.UInt32Array#3)
+          +-UInt64Array#24 := ColumnRef(type=ARRAY<UINT64>, column=ArrayTypes.UInt64Array#4)
+          +-StringArray#25 := ColumnRef(type=ARRAY<STRING>, column=ArrayTypes.StringArray#5)
+          +-BytesArray#26 := ColumnRef(type=ARRAY<BYTES>, column=ArrayTypes.BytesArray#6)
+          +-BoolArray#27 := ColumnRef(type=ARRAY<BOOL>, column=ArrayTypes.BoolArray#7)
+          +-FloatArray#28 := ColumnRef(type=ARRAY<FLOAT>, column=ArrayTypes.FloatArray#8)
+          +-DoubleArray#29 := ColumnRef(type=ARRAY<DOUBLE>, column=ArrayTypes.DoubleArray#9)
+          +-DateArray#30 := ColumnRef(type=ARRAY<DATE>, column=ArrayTypes.DateArray#10)
+          +-TimestampSecondsArray#31 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampSecondsArray#11)
+          +-TimestampMillisArray#32 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampMillisArray#12)
+          +-TimestampMicrosArray#33 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampMicrosArray#13)
+          +-TimestampArray#34 := ColumnRef(type=ARRAY<TIMESTAMP>, column=ArrayTypes.TimestampArray#14)
 ==
 
 # Test GROUP BY <array> with an unsupported type.
@@ -2638,18 +2721,18 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#22 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#22]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=10)
+    | +-$col1#22 := Literal(type=INT64, value=10)
     +-input_scan=
       +-AggregateScan
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.StructArray#16], table=ArrayTypes, column_index_list=[15])
         +-group_by_list=
-          +-StructArray#18 := ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=ArrayTypes.StructArray#16)
+          +-StructArray#21 := ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=ArrayTypes.StructArray#16)
 ==
 
 # Test GROUP BY <array> for an array of structs containing a proto.
@@ -5223,18 +5306,56 @@ select array_agg(Key limit @test_param_int32)
 select array_agg(Key limit KitchenSink.int32_val)
 from TestTable
 --
-ERROR: Syntax error: Unexpected identifier "KitchenSink" [at 1:28]
+ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+--
+ERROR: Unrecognized name: KitchenSink [at 1:28]
 select array_agg(Key limit KitchenSink.int32_val)
                            ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT in aggregate function arguments is not supported [at 1:22]
+select array_agg(Key limit KitchenSink.int32_val)
+                     ^
 ==
 
-[language_features={{V_1_1_LIMIT_IN_AGGREGATE|}}]
+[language_features={{V_1_1_LIMIT_IN_AGGREGATE|V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 select array_agg(Key limit 1 + 2)
 from TestTable
 --
-ERROR: Syntax error: Expected ")" but got "+" [at 1:30]
+ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE
+--
+ERROR: LIMIT expects an integer literal or parameter [at 1:28]
 select array_agg(Key limit 1 + 2)
-                             ^
+                           ^
+--
+ALTERNATION GROUP: V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#4 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
+              +-ColumnRef(type=INT32, column=TestTable.key#1)
+              +-limit=
+                +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                  +-Literal(type=INT64, value=1)
+                  +-Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT in aggregate function arguments is not supported [at 1:22]
+select array_agg(Key limit 1 + 2)
+                     ^
 ==
 
 [language_features={{V_1_1_HAVING_IN_AGGREGATE|}}]

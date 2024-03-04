@@ -464,7 +464,8 @@ ModuleStatement [0-42] [module foo...b', c=3.0)]
       IntLiteral(1) [26-27] [1]
     OptionsEntry [29-34] [b='b']
       Identifier(b) [29-30] [b]
-      StringLiteral('b') [31-34] ['b']
+      StringLiteral [31-34] ['b']
+        StringLiteralComponent('b') [31-34] ['b']
     OptionsEntry [36-41] [c=3.0]
       Identifier(c) [36-37] [c]
       FloatLiteral(3.0) [38-41] [3.0]
@@ -615,7 +616,8 @@ create or replace module foo;
 import module "file.proto";
 --
 ImportStatement [0-26] [import module "file.proto"]
-  StringLiteral("file.proto") [14-26] ["file.proto"]
+  StringLiteral [14-26] ["file.proto"]
+    StringLiteralComponent("file.proto") [14-26] ["file.proto"]
 --
 IMPORT MODULE "file.proto"
 ==
@@ -637,7 +639,8 @@ IMPORT MODULE name.path INTO a
 IMPORT MODULE 'name/path' INTO a;
 --
 ImportStatement [0-32] [IMPORT MODULE...path' INTO a]
-  StringLiteral('name/path') [14-25] ['name/path']
+  StringLiteral [14-25] ['name/path']
+    StringLiteralComponent('name/path') [14-25] ['name/path']
   IntoAlias [26-32] [INTO a]
     Identifier(a) [31-32] [a]
 --

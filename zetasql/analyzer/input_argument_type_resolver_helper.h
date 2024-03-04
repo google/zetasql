@@ -21,9 +21,8 @@
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/public/function.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -31,7 +30,15 @@ namespace zetasql {
 // Get an InputArgumentType for a ResolvedExpr, identifying whether or not it
 // is a parameter and pointing at the literal value inside <expr> if
 // appropriate.  <expr> must outlive the returned object.
-InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr);
+//
+// The `pick_default_type_for_untyped_expr` argument controls how to deal
+// with an untyped input argument like a NULL or empty array literal.
+// - When it is false, this function will return an untyped InputArgumentType
+//   when `expr` is NULL or empty array without an explicit type.
+// - When it is true, an InputArgumentType with the default type for NULL or
+//   empty array will be returned.
+InputArgumentType GetInputArgumentTypeForExpr(
+    const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr);
 
 // Get a list of <InputArgumentType> from a list of <ASTNode> and
 // <ResolvedExpr>, invoking GetInputArgumentTypeForExpr() on each of the
@@ -39,9 +46,17 @@ InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr);
 // This method is called before signature matching. Lambdas are not resolved
 // yet. <argument_ast_nodes> are used to determine InputArgumentType for lambda
 // arguments.
+//
+// The `pick_default_type_for_untyped_expr` argument controls how to deal
+// with an untyped input argument like a NULL or empty array literal.
+// - When it is false, this function will return an untyped InputArgumentType
+//   when `expr` is NULL or empty array without an explicit type.
+// - When it is true, an InputArgumentType with the default type for NULL or
+//   empty array will be returned.
 void GetInputArgumentTypesForGenericArgumentList(
     const std::vector<const ASTNode*>& argument_ast_nodes,
     absl::Span<const std::unique_ptr<const ResolvedExpr>> arguments,
+    bool pick_default_type_for_untyped_expr,
     std::vector<InputArgumentType>* input_arguments);
 
 }  // namespace zetasql

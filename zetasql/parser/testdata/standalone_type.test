@@ -287,7 +287,8 @@ SimpleType [0-14] [numeric("MAX")]
   PathExpression [0-7] [numeric]
     Identifier(numeric) [0-7] [numeric]
   TypeParameterList [7-13] [("MAX"]
-    StringLiteral("MAX") [8-13] ["MAX"]
+    StringLiteral [8-13] ["MAX"]
+      StringLiteralComponent("MAX") [8-13] ["MAX"]
 --
 numeric("MAX")
 ==
@@ -299,7 +300,8 @@ SimpleType [0-14] [string(B"abc")]
   PathExpression [0-6] [string]
     Identifier(string) [0-6] [string]
   TypeParameterList [6-13] [(B"abc"]
-    BytesLiteral(B"abc") [7-13] [B"abc"]
+    BytesLiteral [7-13] [B"abc"]
+      BytesLiteralComponent(B"abc") [7-13] [B"abc"]
 --
 string(B"abc")
 ==
@@ -325,7 +327,8 @@ SimpleType [0-19] [money(20, 6, 'USD')]
   TypeParameterList [5-18] [(20, 6, 'USD']
     IntLiteral(20) [6-8] [20]
     IntLiteral(6) [10-11] [6]
-    StringLiteral('USD') [13-18] ['USD']
+    StringLiteral [13-18] ['USD']
+      StringLiteralComponent('USD') [13-18] ['USD']
 --
 money(20, 6, 'USD')
 ==
@@ -362,7 +365,8 @@ SimpleType [0-20] [string collate 'ABC']
   PathExpression [0-6] [string]
     Identifier(string) [0-6] [string]
   Collate [7-20] [collate 'ABC']
-    StringLiteral('ABC') [15-20] ['ABC']
+    StringLiteral [15-20] ['ABC']
+      StringLiteralComponent('ABC') [15-20] ['ABC']
 --
 string COLLATE 'ABC'
 ==
@@ -375,7 +379,8 @@ SimpleType [0-25] [string(100) collate 'ABC']
   TypeParameterList [6-10] [(100]
     IntLiteral(100) [7-10] [100]
   Collate [12-25] [collate 'ABC']
-    StringLiteral('ABC') [20-25] ['ABC']
+    StringLiteral [20-25] ['ABC']
+      StringLiteralComponent('ABC') [20-25] ['ABC']
 --
 string(100) COLLATE 'ABC'
 ==
@@ -389,7 +394,8 @@ StructType [0-30] [struct<a string collate 'ABC'>]
       PathExpression [9-15] [string]
         Identifier(string) [9-15] [string]
       Collate [16-29] [collate 'ABC']
-        StringLiteral('ABC') [24-29] ['ABC']
+        StringLiteral [24-29] ['ABC']
+          StringLiteralComponent('ABC') [24-29] ['ABC']
 --
 STRUCT< a string COLLATE 'ABC' >
 ==
@@ -403,7 +409,8 @@ StructType [0-30] [struct<a string> collate 'ABC']
       PathExpression [9-15] [string]
         Identifier(string) [9-15] [string]
   Collate [17-30] [collate 'ABC']
-    StringLiteral('ABC') [25-30] ['ABC']
+    StringLiteral [25-30] ['ABC']
+      StringLiteralComponent('ABC') [25-30] ['ABC']
 --
 STRUCT< a string > COLLATE 'ABC'
 ==
@@ -419,7 +426,8 @@ StructType [0-35] [struct<a string...llate 'ABC'>]
       TypeParameterList [15-19] [(100]
         IntLiteral(100) [16-19] [100]
       Collate [21-34] [collate 'ABC']
-        StringLiteral('ABC') [29-34] ['ABC']
+        StringLiteral [29-34] ['ABC']
+          StringLiteralComponent('ABC') [29-34] ['ABC']
 --
 STRUCT< a string(100) COLLATE 'ABC' >
 ==
@@ -431,7 +439,8 @@ ArrayType [0-27] [array<string collate 'ABC'>]
     PathExpression [6-12] [string]
       Identifier(string) [6-12] [string]
     Collate [13-26] [collate 'ABC']
-      StringLiteral('ABC') [21-26] ['ABC']
+      StringLiteral [21-26] ['ABC']
+        StringLiteralComponent('ABC') [21-26] ['ABC']
 --
 ARRAY< string COLLATE 'ABC' >
 ==
@@ -443,7 +452,8 @@ ArrayType [0-27] [array<string> collate 'ABC']
     PathExpression [6-12] [string]
       Identifier(string) [6-12] [string]
   Collate [14-27] [collate 'ABC']
-    StringLiteral('ABC') [22-27] ['ABC']
+    StringLiteral [22-27] ['ABC']
+      StringLiteralComponent('ABC') [22-27] ['ABC']
 --
 ARRAY< string > COLLATE 'ABC'
 ==
@@ -457,7 +467,8 @@ ArrayType [0-32] [array<string...collate 'ABC'>]
     TypeParameterList [12-16] [(100]
       IntLiteral(100) [13-16] [100]
     Collate [18-31] [collate 'ABC']
-      StringLiteral('ABC') [26-31] ['ABC']
+      StringLiteral [26-31] ['ABC']
+        StringLiteralComponent('ABC') [26-31] ['ABC']
 --
 ARRAY< string(100) COLLATE 'ABC' >
 ==
@@ -471,7 +482,8 @@ ArrayType [0-37] [array<string...ABC'>(200)]
     TypeParameterList [12-16] [(100]
       IntLiteral(100) [13-16] [100]
     Collate [18-31] [collate 'ABC']
-      StringLiteral('ABC') [26-31] ['ABC']
+      StringLiteral [26-31] ['ABC']
+        StringLiteralComponent('ABC') [26-31] ['ABC']
   TypeParameterList [32-36] [(200]
     IntLiteral(200) [33-36] [200]
 --
@@ -491,7 +503,8 @@ StructType [0-78] [struct<a array...llate 'CDE'>>]
         TypeParameterList [21-25] [(100]
           IntLiteral(100) [22-25] [100]
         Collate [27-40] [collate 'ABC']
-          StringLiteral('ABC') [35-40] ['ABC']
+          StringLiteral [35-40] ['ABC']
+            StringLiteralComponent('ABC') [35-40] ['ABC']
   StructField [43-77] [b struct<string...llate 'CDE'>]
     Identifier(b) [43-44] [b]
     StructType [45-77] [struct<string...collate 'CDE'>]
@@ -502,7 +515,8 @@ StructType [0-78] [struct<a array...llate 'CDE'>>]
           TypeParameterList [58-61] [(50]
             IntLiteral(50) [59-61] [50]
           Collate [63-76] [collate 'CDE']
-            StringLiteral('CDE') [71-76] ['CDE']
+            StringLiteral [71-76] ['CDE']
+              StringLiteralComponent('CDE') [71-76] ['CDE']
 --
 STRUCT< a ARRAY< string(100) COLLATE 'ABC' >, b STRUCT< string(50) COLLATE 'CDE' > >
 ==
@@ -529,7 +543,8 @@ StructType [0-69] [struct<a string...lation_name>]
       PathExpression [9-15] [string]
         Identifier(string) [9-15] [string]
       Collate [16-29] [collate 'ABC']
-        StringLiteral('ABC') [24-29] ['ABC']
+        StringLiteral [24-29] ['ABC']
+          StringLiteralComponent('ABC') [24-29] ['ABC']
   StructField [31-68] [b string(100...collation_name]
     Identifier(b) [31-32] [b]
     SimpleType [33-68] [string(100...collation_name]
@@ -720,7 +735,8 @@ FunctionType [0-38] [FUNCTION<STRING...'->STRING>]
       PathExpression [9-15] [STRING]
         Identifier(STRING) [9-15] [STRING]
       Collate [16-29] [collate 'abc']
-        StringLiteral('abc') [24-29] ['abc']
+        StringLiteral [24-29] ['abc']
+          StringLiteralComponent('abc') [24-29] ['abc']
   SimpleType [31-37] [STRING]
     PathExpression [31-37] [STRING]
       Identifier(STRING) [31-37] [STRING]
@@ -740,14 +756,16 @@ FunctionType [0-58] [FUNCTION<STRING...llate 'abc'>]
       TypeParameterList [15-17] [(8]
         IntLiteral(8) [16-17] [8]
       Collate [19-32] [collate 'abc']
-        StringLiteral('abc') [27-32] ['abc']
+        StringLiteral [27-32] ['abc']
+          StringLiteralComponent('abc') [27-32] ['abc']
   SimpleType [34-57] [STRING(8) collate 'abc']
     PathExpression [34-40] [STRING]
       Identifier(STRING) [34-40] [STRING]
     TypeParameterList [40-42] [(8]
       IntLiteral(8) [41-42] [8]
     Collate [44-57] [collate 'abc']
-      StringLiteral('abc') [52-57] ['abc']
+      StringLiteral [52-57] ['abc']
+        StringLiteralComponent('abc') [52-57] ['abc']
 --
 FUNCTION<(STRING(8) COLLATE 'abc') -> STRING(8) COLLATE 'abc' >
 ==
@@ -764,14 +782,16 @@ FunctionType [0-60] [FUNCTION<(...collate 'abc'>]
       TypeParameterList [16-18] [(8]
         IntLiteral(8) [17-18] [8]
       Collate [20-33] [collate 'abc']
-        StringLiteral('abc') [28-33] ['abc']
+        StringLiteral [28-33] ['abc']
+          StringLiteralComponent('abc') [28-33] ['abc']
   SimpleType [36-59] [STRING(8) collate 'abc']
     PathExpression [36-42] [STRING]
       Identifier(STRING) [36-42] [STRING]
     TypeParameterList [42-44] [(8]
       IntLiteral(8) [43-44] [8]
     Collate [46-59] [collate 'abc']
-      StringLiteral('abc') [54-59] ['abc']
+      StringLiteral [54-59] ['abc']
+        StringLiteralComponent('abc') [54-59] ['abc']
 --
 FUNCTION<(STRING(8) COLLATE 'abc') -> STRING(8) COLLATE 'abc' >
 ==
@@ -785,7 +805,8 @@ FunctionType [0-38] [FUNCTION<STRING...'->STRING>]
       PathExpression [9-15] [STRING]
         Identifier(STRING) [9-15] [STRING]
       Collate [16-29] [collate 'abc']
-        StringLiteral('abc') [24-29] ['abc']
+        StringLiteral [24-29] ['abc']
+          StringLiteralComponent('abc') [24-29] ['abc']
   SimpleType [31-37] [STRING]
     PathExpression [31-37] [STRING]
       Identifier(STRING) [31-37] [STRING]
@@ -802,7 +823,8 @@ FunctionType [0-40] [FUNCTION<(...)->STRING>]
       PathExpression [10-16] [STRING]
         Identifier(STRING) [10-16] [STRING]
       Collate [17-30] [collate 'abc']
-        StringLiteral('abc') [25-30] ['abc']
+        StringLiteral [25-30] ['abc']
+          StringLiteralComponent('abc') [25-30] ['abc']
   SimpleType [33-39] [STRING]
     PathExpression [33-39] [STRING]
       Identifier(STRING) [33-39] [STRING]
@@ -834,7 +856,8 @@ FunctionType [0-31] [FUNCTION<(...collate 'c']
     PathExpression [13-18] [INT64]
       Identifier(INT64) [13-18] [INT64]
   Collate [20-31] [collate 'c']
-    StringLiteral('c') [28-31] ['c']
+    StringLiteral [28-31] ['c']
+      StringLiteralComponent('c') [28-31] ['c']
 --
 FUNCTION<() -> INT64 > COLLATE 'c'
 --
@@ -848,7 +871,8 @@ FunctionType [0-34] [FUNCTION<(...collate 'c']
   TypeParameterList [19-21] [(0]
     IntLiteral(0) [20-21] [0]
   Collate [23-34] [collate 'c']
-    StringLiteral('c') [31-34] ['c']
+    StringLiteral [31-34] ['c']
+      StringLiteralComponent('c') [31-34] ['c']
 --
 FUNCTION<() -> INT64 > (0) COLLATE 'c'
 ==

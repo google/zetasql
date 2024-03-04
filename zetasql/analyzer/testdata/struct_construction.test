@@ -665,9 +665,9 @@ QueryStmt
 select struct<xyz int64>(abc AS def)
 FROM (select 1 abc)
 --
-ERROR: STRUCT constructors cannot specify both an explicit type and field names with AS [at 1:30]
+ERROR: STRUCT constructors cannot specify both an explicit type and field names with AS [at 1:33]
 select struct<xyz int64>(abc AS def)
-                             ^
+                                ^
 ==
 
 # A field name is inferred for the third field only.

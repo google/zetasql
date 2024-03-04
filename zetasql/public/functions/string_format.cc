@@ -45,6 +45,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "unicode/utf8.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
@@ -155,7 +156,8 @@ bool StringFormatEvaluator::ValueAsString(const Value& value,
         // This adds .0 for integral values, which we want, but adds
         // CASTs on NaNs, etc, which we don't want.
         // We always use external typing for some reason.
-        cord_buffer_.Append(value.GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL));
+        cord_buffer_.Append(value.GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL,
+                                                use_external_float32_));
       }
       break;
     }
@@ -193,8 +195,10 @@ bool StringFormatEvaluator::ValueAsString(const Value& value,
 }
 
 StringFormatEvaluator::StringFormatEvaluator(ProductMode product_mode,
-                                             bool canonicalize_zero)
+                                             bool canonicalize_zero,
+                                             bool use_external_float32)
     : product_mode_(product_mode),
+      use_external_float32_(use_external_float32),
       type_resolver_(nullptr),
       status_(),
       canonicalize_zero_(canonicalize_zero) {}
@@ -292,8 +296,8 @@ absl::Status StringFormatEvaluator::Format(absl::Span<const Value> values,
 }
 
 absl::Status StringFormatEvaluator::FormatString(
-    const std::vector<absl::string_view>& raw_parts,
-    const std::vector<FormatPart>& format_parts, absl::Cord* out,
+    absl::Span<const absl::string_view> raw_parts,
+    absl::Span<const FormatPart> format_parts, absl::Cord* out,
     bool* set_null) {
   ZETASQL_DCHECK_OK(status_);
   ABSL_DCHECK_GE(raw_parts.size(), format_parts.size());
@@ -414,7 +418,8 @@ bool StringFormatEvaluator::ValueLiteralSetter(const FormatPart& part,
       return false;
     }
   }
-  string_buffer_ = value_var->GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL);
+  string_buffer_ = value_var->GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL,
+                                            use_external_float32_);
   fmt_string_.view = string_buffer_;
   // Check for invalid UTF8.
   // This is necessary because while engines are required to validate utf-8,
@@ -1673,7 +1678,8 @@ AbslFormatConvert(const FormatGsqlNumeric<NumericType, GROUPING>& value,
 absl::Status StringFormatUtf8(absl::string_view format_string,
                               absl::Span<const Value> values,
                               ProductMode product_mode, std::string* output,
-                              bool* is_null, bool canonicalize_zero) {
+                              bool* is_null, bool canonicalize_zero,
+                              bool use_external_float32) {
   bool maybe_need_proto_factory = false;
   std::vector<const Type*> types;
   for (const Value& value : values) {
@@ -1694,8 +1700,8 @@ absl::Status StringFormatUtf8(absl::string_view format_string,
   if (maybe_need_proto_factory) {
     factory = std::make_unique<google::protobuf::DynamicMessageFactory>();
   }
-  string_format_internal::StringFormatEvaluator evaluator(product_mode,
-                                                          canonicalize_zero);
+  string_format_internal::StringFormatEvaluator evaluator(
+      product_mode, canonicalize_zero, use_external_float32);
   ZETASQL_RETURN_IF_ERROR(evaluator.SetTypes(std::move(types), factory.get()));
   ZETASQL_RETURN_IF_ERROR(evaluator.SetPattern(format_string));
 

@@ -212,6 +212,47 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
   }
 }
 
+// The requirements for IsConstantFunctionArg or IsNonAggregateFunctionArg
+// ignore any number of wrapping cast operations. This helper removes the casts
+// and returns the first interesting expression.
+static const ResolvedExpr* RemoveWrappingCasts(const ResolvedExpr* expr) {
+  // TODO: b/323409001 - Either do not remove casts with format, or only remove
+  //     in case the format expression sasisfies the definition of constant that
+  //     the caller is interesting in understanding.
+  while (expr->Is<ResolvedCast>()) {
+    expr = expr->GetAs<ResolvedCast>()->expr();
+  }
+  return expr;
+}
+
+absl::StatusOr<bool> IsConstantFunctionArg(const ResolvedExpr* expr) {
+  switch (RemoveWrappingCasts(expr)->node_kind()) {
+    case RESOLVED_PARAMETER:
+    case RESOLVED_LITERAL:
+    case RESOLVED_CONSTANT:
+      return true;
+    default:
+      return false;
+  }
+}
+
+absl::StatusOr<bool> IsNonAggregateFunctionArg(const ResolvedExpr* expr) {
+  // LINT.IfChange(non_aggregate_args_def)
+  const ResolvedExpr* uncast_expr = RemoveWrappingCasts(expr);
+  switch (uncast_expr->node_kind()) {
+    case RESOLVED_PARAMETER:
+    case RESOLVED_LITERAL:
+    case RESOLVED_CONSTANT:
+      return true;
+    case RESOLVED_ARGUMENT_REF:
+      return uncast_expr->GetAs<ResolvedArgumentRef>()->argument_kind() ==
+             ResolvedArgumentRef::NOT_AGGREGATE;
+    default:
+      return false;
+  }
+  // LINT.ThenChange(./rewriters/sql_function_inliner.cc:non_aggregate_args_def)
+}
+
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
     const NameScope* analytic_name_scope_in, bool allows_aggregation_in,
@@ -232,11 +273,13 @@ ExprResolutionInfo::ExprResolutionInfo(
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in,
     QueryResolutionInfo* query_resolution_info_in,
-    const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
+    const ASTExpression* top_level_ast_expr_in, IdString column_alias_in,
+    const char* clause_name_in)
     : ExprResolutionInfo(
           name_scope_in, name_scope_in, name_scope_in,
-          true /* allows_aggregation */, true /* allows_analytic */,
-          false /* use_post_grouping_columns */, "" /* clause_name */,
+          /*allows_aggregation_in=*/(clause_name_in == nullptr),
+          true /* allows_analytic */, false /* use_post_grouping_columns */,
+          (clause_name_in == nullptr ? "" : clause_name_in),
           query_resolution_info_in, top_level_ast_expr_in, column_alias_in) {}
 
 ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,

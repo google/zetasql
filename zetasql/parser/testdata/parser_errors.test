@@ -534,16 +534,16 @@ select count(1, *);
 
 select count(T.*);
 --
-ERROR: Syntax error: Expected ")" but got "." [at 1:15]
+ERROR: Syntax error: Unexpected "*" [at 1:16]
 select count(T.*);
-              ^
+               ^
 ==
 
 select count(1, T.*);
 --
-ERROR: Syntax error: Expected ")" but got "." [at 1:18]
+ERROR: Syntax error: Unexpected "*" [at 1:19]
 select count(1, T.*);
-                 ^
+                  ^
 ==
 
 select array_concat([1, 2], *);

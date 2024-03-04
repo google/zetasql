@@ -23,11 +23,13 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/token_list.h"  
 #include "zetasql/public/value_content.h"
 #include "absl/strings/cord.h"
 #include "absl/types/optional.h"
@@ -79,6 +81,24 @@ class ValueContentContainer {
   virtual ValueContentContainerElement element(int i) const = 0;
   virtual int64_t num_elements() const = 0;
   virtual uint64_t physical_byte_size() const = 0;
+
+  // Returns this container as const SubType*. Must only be used when it
+  // is known that the object *is* this subclass.
+  template <class SubType>
+  const SubType* GetAs() const {
+    return static_cast<const SubType*>(this);
+  }
+};
+
+// Interface for the Map type to access map value content.
+class ValueContentMap {
+ public:
+  virtual ~ValueContentMap() = default;
+  virtual int64_t num_elements() const = 0;
+  virtual uint64_t physical_byte_size() const = 0;
+  virtual std::vector<std::pair<internal::ValueContentContainerElement,
+                                internal::ValueContentContainerElement>>
+  value_content_entries() const = 0;
 
   // Returns this container as const SubType*. Must only be used when it
   // is known that the object *is* this subclass.
@@ -286,6 +306,50 @@ class JSONRef final
 
  private:
   std::variant<JSONValue, std::string> value_;
+};
+
+// -------------------------------------------------------------
+// TokenListRef is ref count wrapper around tokens::TokenList.
+// -------------------------------------------------------------
+class TokenListRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<TokenListRef, int64_t> {
+ public:
+  TokenListRef() {}
+  explicit TokenListRef(tokens::TokenList value) : value_(std::move(value)) {}
+
+  TokenListRef(const TokenListRef&) = delete;
+  TokenListRef& operator=(const TokenListRef&) = delete;
+
+  const tokens::TokenList& value() { return value_; }
+  uint64_t physical_byte_size() const {
+    return sizeof(TokenListRef) + value_.SpaceUsed() - sizeof(value_);
+  }
+
+ private:
+  tokens::TokenList value_;
+};
+
+// -------------------------------------------------------
+// ValueContentMapRef is a ref count wrapper around a pointer to
+// ValueContentMap.
+// -------------------------------------------------------
+class ValueContentMapRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<ValueContentMapRef, int64_t> {
+ public:
+  explicit ValueContentMapRef(std::unique_ptr<ValueContentMap> map)
+      : map_(std::move(map)) {}
+
+  ValueContentMapRef(const ValueContentMapRef&) = delete;
+  ValueContentMapRef& operator=(const ValueContentMapRef&) = delete;
+
+  ValueContentMap* value() const { return map_.get(); }
+
+  uint64_t physical_byte_size() const {
+    return sizeof(ValueContentMapRef) + map_->physical_byte_size();
+  }
+
+ private:
+  const std::unique_ptr<ValueContentMap> map_;
 };
 
 }  // namespace internal

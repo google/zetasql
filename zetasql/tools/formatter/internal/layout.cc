@@ -25,6 +25,7 @@
 #include <ostream>
 #include <queue>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -257,12 +258,11 @@ std::string StmtLayout::PrintableString() const {
                                          chunks_[i])) {
         result.append(options_.NewLineType());
       }
-      spaces =
-          (chunks_[i].ChunkBlock()->Level() * options_.IndentationSpaces()) %
-          // There is no sense to make indent > than the line length limit.
-          // Instead we start from the beginning as if an editor wrapped the
-          // line at the line length.
-          options_.LineLengthLimit();
+      spaces = chunks_[i].ChunkBlock()->Level() %
+               // There is no sense to make indent > than the line length limit.
+               // Instead we start from the beginning as if an editor wrapped
+               // the line at the line length.
+               options_.LineLengthLimit();
       result.append(std::string(spaces, ' '));
     } else if (chunks_[i].StartsWithSpace()) {
       result.append(" ");
@@ -334,8 +334,9 @@ bool StmtLayout::IsMultilineStatement() const {
 }
 
 bool StmtLayout::RequiresBlankLineBefore() const {
-  // Starts with a comment that had a blank line before.
-  if (ChunkAt(0).IsCommentOnly() && ChunkAt(0).GetLineBreaksBefore() > 1) {
+  // If the user already had a blank line before the statement, preserve it,
+  // except for IMPORT statements.
+  if (FirstKeyword() != "IMPORT" && ChunkAt(0).GetLineBreaksBefore() > 1) {
     return true;
   }
   // Already has a blank line before first non-comment line.
@@ -346,8 +347,10 @@ bool StmtLayout::RequiresBlankLineBefore() const {
   if (FirstKeyword() == "SELECT") {
     return true;
   }
-  // Always require a blank line before a multiline statement.
-  if (IsMultilineStatement()) {
+  // Require a blank line before a multiline statement, except for SET
+  // statements.  (This allows for compact configuration; note that SET bodies
+  // are indented by 2.)
+  if (IsMultilineStatement() && FirstKeyword() != "SET") {
     return true;
   }
 
@@ -369,7 +372,7 @@ bool StmtLayout::ForbidsAddingBlankLineBefore() const {
 }
 
 bool StmtLayout::RequiresBlankLineAfter() const {
-  return IsMultilineStatement();
+  return IsMultilineStatement() && FirstKeyword() != "SET";
 }
 
 StmtLayout::Line StmtLayout::NewLine(int start, int end) const {
@@ -409,8 +412,7 @@ absl::Status StmtLayout::ValidateLine(int* start, int* end) const {
 
 int StmtLayout::PrintableLineLength(const Line& line) const {
   int i = line.start;
-  int line_length =
-      chunks_[i].ChunkBlock()->Level() * options_.IndentationSpaces();
+  int line_length = chunks_[i].ChunkBlock()->Level();
   line_length += chunks_[i].PrintableLength(i + 1 == line.end);
 
   while (++i < line.end) {
@@ -432,8 +434,7 @@ int StmtLayout::FirstChunkEndingAfterColumn(const Line& line,
   // formats 36MB (200k lines) of SQL in 26 seconds on a standard workstation,
   // so optimization is not needed yet.
   int i = line.start;
-  int line_length =
-      chunks_[i].ChunkBlock()->Level() * options_.IndentationSpaces();
+  int line_length = chunks_[i].ChunkBlock()->Level();
   line_length += chunks_[i].PrintableLength(i + 1 == line.end);
 
   while (line_length <= column && ++i < line.end) {
@@ -606,9 +607,8 @@ void StmtLayout::BreakOnMandatoryLineBreaks() {
         if (i > line.start) {
           breakpoints.insert(i);
         }
-        if (i + 1 < line.end && chunk.SecondKeyword() == "(") {
-          // Only for top-level `AS` keywords, always add a line break after
-          // `AS (`.
+        if (i + 1 < line.end) {
+          // Add line break after top-level `AS` keywords as well.
           breakpoints.insert(i + 1);
         }
       } else if ((chunk.IsStartOfCreateStatement() ||
@@ -725,6 +725,9 @@ void StmtLayout::BreakOnMandatoryLineBreaks() {
       }
     }
 
+    if (!breakpoints.empty() && *breakpoints.begin() == line.start) {
+      breakpoints.erase(breakpoints.begin());
+    }
     if (breakpoints.empty()) {
       // Line is not broken, add it to the result as is.
       new_lines.insert(line);
@@ -1027,8 +1030,7 @@ void StmtLayout::PruneLineBreaks() {
         if (first_chunk.StartsWithSpace()) {
           ++prev_chunk_length;
         }
-        if (prev_chunk_length == options_.IndentationSpaces() *
-                                     (curr_line_level - prev_line_level)) {
+        if (prev_chunk_length == (curr_line_level - prev_line_level)) {
           try_merging_line = true;
         }
       }
@@ -1374,8 +1376,7 @@ absl::btree_set<int> StmtLayout::BreakpointsCloseToLineLength(
     const Line& line, const int level) const {
   absl::btree_set<int> breakpoints;
 
-  int length =
-      ChunkAt(line.start).ChunkBlock()->Level() * Options().IndentationSpaces();
+  int length = ChunkAt(line.start).ChunkBlock()->Level();
   length += ChunkAt(line.start).PrintableLength(line.LengthInChunks() == 1);
 
   int last_before_length = -1;
@@ -1411,8 +1412,7 @@ absl::btree_set<int> StmtLayout::BreakpointsCloseToLineLength(
     if (length > Options().LineLengthLimit()) {
       if (last_before_length != -1) {
         breakpoints.insert(last_before_length);
-        length = l * Options().IndentationSpaces();
-        length += ChunkAt(i).PrintableLength(i + 1 == line.end);
+        length = l + ChunkAt(i).PrintableLength(i + 1 == line.end);
         last_before_length = -1;
       }
     }
@@ -1802,7 +1802,7 @@ bool StmtLayout::ShouldBreakCloseToLineLength(const Line& line,
   const int start_level = ChunkAt(line.start).ChunkBlock()->Level();
   const int break_point_level = ChunkAt(break_point).ChunkBlock()->Level();
   if (!(break_point_level == start_level ||
-        break_point_level == start_level + 1)) {
+        break_point_level == start_level + options_.IndentationSpaces())) {
     return false;
   }
 

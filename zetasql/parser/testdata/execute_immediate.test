@@ -18,7 +18,8 @@ EXECUTE IMMEDIATE {{"select 1"|CONCAT("a", "b")|x|@x|@@x}};
 ALTERNATION GROUP: "select 1"
 --
 ExecuteImmediateStatement [0-28] [EXECUTE IMMEDIATE "select 1"]
-  StringLiteral("select 1") [18-28] ["select 1"]
+  StringLiteral [18-28] ["select 1"]
+    StringLiteralComponent("select 1") [18-28] ["select 1"]
 --
 EXECUTE IMMEDIATE "select 1"
 --
@@ -28,8 +29,10 @@ ExecuteImmediateStatement [0-34] [EXECUTE IMMEDIATE...("a", "b")]
   FunctionCall [18-34] [CONCAT("a", "b")]
     PathExpression [18-24] [CONCAT]
       Identifier(CONCAT) [18-24] [CONCAT]
-    StringLiteral("a") [25-28] ["a"]
-    StringLiteral("b") [30-33] ["b"]
+    StringLiteral [25-28] ["a"]
+      StringLiteralComponent("a") [25-28] ["a"]
+    StringLiteral [30-33] ["b"]
+      StringLiteralComponent("b") [30-33] ["b"]
 --
 EXECUTE IMMEDIATE CONCAT("a", "b")
 --
@@ -103,7 +106,8 @@ ALTERNATION GROUP: "?" USING 0
 --
 
 ExecuteImmediateStatement [0-29] [EXECUTE IMMEDIATE "?" USING 0]
-  StringLiteral("?") [18-21] ["?"]
+  StringLiteral [18-21] ["?"]
+    StringLiteralComponent("?") [18-21] ["?"]
   ExecuteUsingClause [28-29] [0]
     ExecuteUsingArgument [28-29] [0]
       IntLiteral(0) [28-29] [0]
@@ -113,7 +117,8 @@ EXECUTE IMMEDIATE "?" USING 0
 ALTERNATION GROUP: "? ?" USING 0, 1
 --
 ExecuteImmediateStatement [0-34] [EXECUTE IMMEDIATE...USING 0, 1]
-  StringLiteral("? ?") [18-23] ["? ?"]
+  StringLiteral [18-23] ["? ?"]
+    StringLiteralComponent("? ?") [18-23] ["? ?"]
   ExecuteUsingClause [30-34] [0, 1]
     ExecuteUsingArgument [30-31] [0]
       IntLiteral(0) [30-31] [0]
@@ -286,7 +291,8 @@ FROM
 EXECUTE IMMEDIATE "select ?, @x" USING 0, 5 AS x;
 --
 ExecuteImmediateStatement [0-48] [EXECUTE IMMEDIATE...0, 5 AS x]
-  StringLiteral("select ?, @x") [18-32] ["select ?, @x"]
+  StringLiteral [18-32] ["select ?, @x"]
+    StringLiteralComponent("select ?, @x") [18-32] ["select ?, @x"]
   ExecuteUsingClause [39-48] [0, 5 AS x]
     ExecuteUsingArgument [39-40] [0]
       IntLiteral(0) [39-40] [0]

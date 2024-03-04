@@ -19,17 +19,23 @@
 #include <memory>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
+#include "zetasql/public/coercer.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/enum_type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/cord.h"
-#include "absl/time/time.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 

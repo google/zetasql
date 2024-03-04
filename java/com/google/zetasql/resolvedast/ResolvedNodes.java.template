@@ -751,6 +751,7 @@ public final class ResolvedNodes {
     # if field.javadoc
 {{field.javadoc}}
     # endif
+    {%if field.override_virtual_getter %}@Override{% endif %}
     public final {{field.full_java_type}} get{{field.name|upper_camel_case}}() {
       return {{field.name|lower_camel_case}};
     }
@@ -764,6 +765,13 @@ public final class ResolvedNodes {
     public final ResolvedColumn getElementColumn() {
       return getElementColumnList().get(0);
     }
+  # endif
+  # if node.name == "ResolvedComputedColumnBase"
+    // Special getter for backward compatibility purposes.
+    public abstract ResolvedColumn getColumn();
+
+    // Special getter for backward compatibility purposes.
+    public abstract ResolvedExpr getExpr();
   # endif
   # if not node.is_abstract
   {{ blank_line }}

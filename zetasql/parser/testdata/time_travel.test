@@ -12,7 +12,8 @@ QueryStatement [0-69] [SELECT * FROM...12:20:20']
             Identifier(t) [14-15] [t]
           ForSystemTime [16-69] [FOR SYSTEM_TIME...12:20:20']
             DateOrTimeLiteral(TYPE_TIMESTAMP) [38-69] [TIMESTAMP...12:20:20']
-              StringLiteral('2011-01-01 12:20:20') [48-69] ['2011-01-01 12:20:20']
+              StringLiteral [48-69] ['2011-01-01 12:20:20']
+                StringLiteralComponent('2011-01-01 12:20:20') [48-69] ['2011-01-01 12:20:20']
 --
 SELECT
   *
@@ -35,7 +36,8 @@ QueryStatement [0-69] [SELECT * FROM...12:20:20']
             Identifier(t) [14-15] [t]
           ForSystemTime [16-69] [FOR SYSTEM...12:20:20']
             DateOrTimeLiteral(TYPE_TIMESTAMP) [38-69] [TIMESTAMP...12:20:20']
-              StringLiteral('2011-01-01 12:20:20') [48-69] ['2011-01-01 12:20:20']
+              StringLiteral [48-69] ['2011-01-01 12:20:20']
+                StringLiteralComponent('2011-01-01 12:20:20') [48-69] ['2011-01-01 12:20:20']
 --
 SELECT
   *

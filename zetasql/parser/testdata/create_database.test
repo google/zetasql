@@ -73,7 +73,8 @@ CreateDatabaseStatement [0-51] [create database...ption_2='2')]
       IntLiteral(1) [36-37] [1]
     OptionsEntry [38-50] [option_2='2']
       Identifier(option_2) [38-46] [option_2]
-      StringLiteral('2') [47-50] ['2']
+      StringLiteral [47-50] ['2']
+        StringLiteralComponent('2') [47-50] ['2']
 --
 CREATE DATABASE db OPTIONS(option_1 = 1, option_2 = '2')
 ==
@@ -89,7 +90,8 @@ CreateDatabaseStatement [0-56] [CREATE DATABASE...ption_2='2')]
       IntLiteral(1) [41-42] [1]
     OptionsEntry [43-55] [option_2='2']
       Identifier(option_2) [43-51] [option_2]
-      StringLiteral('2') [52-55] ['2']
+      StringLiteral [52-55] ['2']
+        StringLiteralComponent('2') [52-55] ['2']
 --
 CREATE DATABASE OPTIONS OPTIONS(option_1 = 1, option_2 = '2')
 ==

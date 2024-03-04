@@ -20,8 +20,8 @@ END
 begin
 end;
 --
-Script [0-11]
-  StatementList [0-11]
+Script [0-10]
+  StatementList [0-10]
     BeginEndBlock [0-9]
       StatementList [5-5]
 --
@@ -36,10 +36,10 @@ begin
   select 4;
 end;
 --
-Script [0-35]
-  StatementList [0-35]
+Script [0-34]
+  StatementList [0-34]
     BeginEndBlock [0-33]
-      StatementList [8-30]
+      StatementList [8-29]
         QueryStatement [8-16]
           Query [8-16]
             Select [8-16]
@@ -73,12 +73,12 @@ begin
   select 5;
 end;
 --
-Script [0-66]
-  StatementList [0-66]
+Script [0-65]
+  StatementList [0-65]
     BeginEndBlock [0-64]
-      StatementList [8-61]
+      StatementList [8-60]
         BeginEndBlock [8-47]
-          StatementList [18-44]
+          StatementList [18-41]
             QueryStatement [18-26]
               Query [18-26]
                 Select [18-26]
@@ -130,9 +130,9 @@ end;
 begin
   select 3;
 --
-ERROR: Syntax error: Expected keyword END but got end of script [at 3:1]
-
-^
+ERROR: Syntax error: Expected keyword END but got end of script [at 2:12]
+  select 3;
+           ^
 ==
 
 # Error (extra semi-colon after BEGIN)

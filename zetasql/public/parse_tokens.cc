@@ -23,12 +23,12 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
+#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/bison_parser_mode.h"
-#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/keywords.h"
+#include "zetasql/parser/token_disambiguator.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/strings.h"
@@ -37,6 +37,7 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -55,7 +56,7 @@ enum class TokenizerState { kNone, kIdentifier, kIdentifierDot };
 // offset 'error_offset' into 'location'.
 static absl::Status MakeSyntaxErrorAtLocationOffset(
     const ParseLocationRange& location, int error_offset,
-    const std::string& error_message) {
+    absl::string_view error_message) {
   absl::string_view filename = location.start().filename();
   const int total_error_offset =
       location.start().GetByteOffset() + error_offset;
@@ -83,34 +84,6 @@ static absl::Status ConvertBisonToken(int bison_token,
       adjusted_location.set_end(ParseLocationPoint::FromByteOffset(
           location.start().filename(), location.start().GetByteOffset() + 1));
       parse_tokens->emplace_back(adjusted_location, ";", ParseToken::KEYWORD);
-      break;
-    }
-
-    case BisonParserImpl::token::KW_OPEN_HINT: {
-      // This is one token "@{" in Flex, but we want to return two tokens.
-      ParseLocationRange first_location = location;
-      first_location.set_end(ParseLocationPoint::FromByteOffset(
-          location.start().filename(), location.start().GetByteOffset() + 1));
-      parse_tokens->emplace_back(first_location, "@", ParseToken::KEYWORD);
-
-      ParseLocationRange second_location = location;
-      second_location.set_start(ParseLocationPoint::FromByteOffset(
-          location.end().filename(), location.end().GetByteOffset() - 1));
-      parse_tokens->emplace_back(second_location, "{", ParseToken::KEYWORD);
-      break;
-    }
-
-    case BisonParserImpl::token::KW_DOT_STAR: {
-      // This is one token ".*" in Flex, but we want to return two tokens.
-      ParseLocationRange first_location = location;
-      first_location.set_end(ParseLocationPoint::FromByteOffset(
-          location.start().filename(), location.start().GetByteOffset() + 1));
-      parse_tokens->emplace_back(first_location, ".", ParseToken::KEYWORD);
-
-      ParseLocationRange second_location = location;
-      second_location.set_start(ParseLocationPoint::FromByteOffset(
-          location.end().filename(), location.end().GetByteOffset() - 1));
-      parse_tokens->emplace_back(second_location, "*", ParseToken::KEYWORD);
       break;
     }
 
@@ -251,9 +224,13 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
     mode = parser::BisonParserMode::kTokenizerPreserveComments;
   }
 
-  auto tokenizer = std::make_unique<parser::ZetaSqlFlexTokenizer>(
-      mode, resume_location->filename(), resume_location->input(),
-      resume_location->byte_position(), options.language_options);
+  auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto tokenizer,
+      parser::DisambiguatorLexer::Create(
+          mode, resume_location->filename(), resume_location->input(),
+          resume_location->byte_position(), options.language_options,
+          /*macro_catalog=*/nullptr, arena.get()));
 
   absl::Status status;
   ParseLocationRange location;

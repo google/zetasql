@@ -16,17 +16,23 @@
 
 #include "zetasql/resolved_ast/validator.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/node_sources.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -273,6 +279,111 @@ MakeAggregationThresholdQuery(
       .set_query(ResolvedProjectScanBuilder()
                      .add_column_list(column_dp_count)
                      .set_input_scan(std::move(aggregation_threshold_builder)))
+      .Build();
+}
+
+enum class GroupingSetTestMode {
+  kValid,
+  // group by key list doesn't contain all referenced keys in the grouping
+  // set list.
+  kMissGroupByKey,
+  // grouping set list doesn't contains references of all keys in the group
+  // by list.
+  KMissGroupByKeyRef,
+};
+
+absl::StatusOr<std::unique_ptr<const ResolvedQueryStmt>>
+MakeGroupingSetsResolvedAST(IdStringPool& pool, GroupingSetTestMode mode) {
+  // Prepare 3 group by columns, col3 will be used as the missing test key or
+  // reference.
+  ResolvedColumn col1 = ResolvedColumn(1, pool.Make("$groupby"),
+                                       pool.Make("col1"), types::Int64Type());
+  ResolvedColumn col2 = ResolvedColumn(2, pool.Make("$groupby"),
+                                       pool.Make("col2"), types::Int64Type());
+  ResolvedColumn col3 = ResolvedColumn(3, pool.Make("$groupby"),
+                                       pool.Make("col3"), types::Int64Type());
+  std::vector<ResolvedColumn> columns = {col1, col2, col3};
+
+  // Prepare the input scan.
+  ResolvedAggregateScanBuilder builder =
+      ResolvedAggregateScanBuilder().set_input_scan(
+          ResolvedSingleRowScanBuilder());
+  // Prepare the group by list
+  builder
+      .add_group_by_list(
+          ResolvedComputedColumnBuilder().set_column(col1).set_expr(
+              ResolvedLiteralBuilder()
+                  .set_value(Value::Int64(1))
+                  .set_type(types::Int64Type())))
+      .add_group_by_list(
+          ResolvedComputedColumnBuilder().set_column(col2).set_expr(
+              ResolvedLiteralBuilder()
+                  .set_value(Value::Int64(2))
+                  .set_type(types::Int64Type())));
+
+  // Otherwise col3 is missing in the group by key list.
+  if (mode != GroupingSetTestMode::kMissGroupByKey) {
+    builder.add_group_by_list(
+        ResolvedComputedColumnBuilder().set_column(col3).set_expr(
+            ResolvedLiteralBuilder()
+                .set_value(Value::Int64(3))
+                .set_type(types::Int64Type())));
+  }
+
+  // Prepare grouping set list
+  // Simulate the group by clause GROUPING SETS((col1, col3), CUBE(col1,
+  // col2), ROLLUP((col1, col2)))
+  auto resolved_grouping_set =
+      ResolvedGroupingSetBuilder().add_group_by_column_list(
+          ResolvedColumnRefBuilder()
+              .set_type(col1.type())
+              .set_column(col1)
+              .set_is_correlated(false));
+  // Otherwise the key reference of col3 is missing.
+  if (mode != GroupingSetTestMode::KMissGroupByKeyRef) {
+    resolved_grouping_set.add_group_by_column_list(
+        ResolvedColumnRefBuilder()
+            .set_type(col3.type())
+            .set_column(col3)
+            .set_is_correlated(false));
+  }
+  builder.add_grouping_set_list(resolved_grouping_set);
+  builder.add_grouping_set_list(
+      ResolvedCubeBuilder()
+          .add_cube_column_list(
+              ResolvedGroupingSetMultiColumnBuilder().add_column_list(
+                  ResolvedColumnRefBuilder()
+                      .set_type(col1.type())
+                      .set_column(col1)
+                      .set_is_correlated(false)))
+          .add_cube_column_list(
+              ResolvedGroupingSetMultiColumnBuilder().add_column_list(
+                  ResolvedColumnRefBuilder()
+                      .set_type(col2.type())
+                      .set_column(col2)
+                      .set_is_correlated(false))));
+  builder.add_grouping_set_list(ResolvedRollupBuilder().add_rollup_column_list(
+      ResolvedGroupingSetMultiColumnBuilder()
+          .add_column_list(ResolvedColumnRefBuilder()
+                               .set_type(col1.type())
+                               .set_column(col1)
+                               .set_is_correlated(false))
+          .add_column_list(ResolvedColumnRefBuilder()
+                               .set_type(col2.type())
+                               .set_column(col2)
+                               .set_is_correlated(false))));
+  builder.set_column_list(columns);
+
+  return ResolvedQueryStmtBuilder()
+      .add_output_column_list(
+          ResolvedOutputColumnBuilder().set_column(col1).set_name("col1"))
+      .add_output_column_list(
+          ResolvedOutputColumnBuilder().set_column(col2).set_name("col2"))
+      .add_output_column_list(
+          ResolvedOutputColumnBuilder().set_column(col3).set_name("col3"))
+      .set_query(
+          ResolvedProjectScanBuilder().set_column_list(columns).set_input_scan(
+              builder))
       .Build();
 }
 
@@ -1652,54 +1763,124 @@ static std::unique_ptr<ResolvedSetOperationItem> CreateSetOperationItem(
   ResolvedColumn column = ResolvedColumn(
       column_id, pool.Make("table"), pool.Make("column"), types::Int64Type());
   std::unique_ptr<ResolvedScan> scan = MakeResolvedSingleRowScan({column});
-  scan->set_node_source(std::string(node_source));
+  scan->set_node_source(node_source);
   std::unique_ptr<ResolvedSetOperationItem> item =
       MakeResolvedSetOperationItem(std::move(scan), {column});
   return item;
 }
 
-TEST(ValidateTest, SetOperationCorrespondingStrictMode) {
+TEST(ValidateTest, ValidGroupingSetsResolvedAST) {
   IdStringPool pool;
-  // Prepare a set operation scan with mode = STRICT CORRESPONDING, but its
-  // input scans have node_source =
-  // kNodeSourceResolverSetOperationCorresponding, so the validation should
-  // fail.
-  std::vector<std::unique_ptr<ResolvedSetOperationItem>> items;
-  items.push_back(CreateSetOperationItem(
-      /*column_id=*/1, kNodeSourceResolverSetOperationCorresponding, pool));
-  items.push_back(CreateSetOperationItem(
-      /*column_id=*/2, kNodeSourceResolverSetOperationCorresponding, pool));
-
-  ResolvedColumn result_column = ResolvedColumn(
-      3, pool.Make("set_op"), pool.Make("column"), types::Int64Type());
-  std::unique_ptr<ResolvedSetOperationScan> set_operation_scan =
-      MakeResolvedSetOperationScan({result_column},
-                                   ResolvedSetOperationScan::UNION_ALL,
-                                   std::move(items));
-  set_operation_scan->set_column_match_mode(
-      ResolvedSetOperationScan::CORRESPONDING);
-  set_operation_scan->set_column_propagation_mode(
-      ResolvedSetOperationScan::STRICT);
-
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt, MakeGroupingSetsResolvedAST(
+                                            pool, GroupingSetTestMode::kValid));
   LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_CORRESPONDING);
-  language_options.EnableLanguageFeature(
-      FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE);
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
   Validator validator(language_options);
 
-  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
-  output_column_list.push_back(
-      MakeResolvedOutputColumn("column", result_column));
-  std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeResolvedQueryStmt(
-      std::move(output_column_list),
-      /*is_value_table=*/false, std::move(set_operation_scan));
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
+}
+
+// The ResolvedAggregateScan.grouping_set_list has additional key references
+// that are not in the group_by_list.
+TEST(ValidateTest, InvalidGroupingSetsResolvedASTMissingGroupByKey) {
+  IdStringPool pool;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto query_stmt,
+      MakeGroupingSetsResolvedAST(pool, GroupingSetTestMode::kMissGroupByKey));
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
+  Validator validator(language_options);
 
   absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
   EXPECT_THAT(status, testing::StatusIs(absl::StatusCode::kInternal));
-  EXPECT_THAT(status.message(),
-              testing::HasSubstr(
-                  absl::StrCat("STRICT mode should not have node_source = ",
-                               kNodeSourceResolverSetOperationCorresponding)));
+  EXPECT_THAT(status.message(), HasSubstr("Incorrect reference to column"));
+}
+
+// The ResolvedAggregateScan.grouping_set_list doesn't contain all keys in the
+// group_by_list.
+TEST(ValidateTest, InvalidGroupingSetsResolvedASTMissingGroupByKeyReference) {
+  IdStringPool pool;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt,
+                       MakeGroupingSetsResolvedAST(
+                           pool, GroupingSetTestMode::KMissGroupByKeyRef));
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_GROUPING_SETS);
+  Validator validator(language_options);
+
+  absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
+  EXPECT_THAT(status, testing::StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(status.message(), HasSubstr("Incorrect reference to column"));
+}
+
+TEST(ValidateTest, ErrorWhenSideEffectColumnIsNotConsumed) {
+  IdStringPool pool;
+
+  ResolvedColumn main_column(/*column_id=*/1, pool.Make("table"),
+                             pool.Make("main_col"), types::Int64Type());
+  ResolvedColumn side_effect_column(/*column_id=*/2, pool.Make("table"),
+                                    pool.Make("side_effect"),
+                                    types::BytesType());
+
+  // Manually construct an invalid ResolvedAST where the side effect column
+  // is not consumed.
+  Function agg_fn("agg1", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(/*result_type=*/FunctionArgumentType(
+                            types::Int64Type(), /*num_occurrences=*/1),
+                        /*arguments=*/{},
+                        /*context_id=*/static_cast<int64_t>(1234));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto stmt,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(ResolvedOutputColumnBuilder()
+                                      .set_column(main_column)
+                                      .set_name("col1"))
+          .set_query(
+              ResolvedAggregateScanBuilder()
+                  .set_input_scan(ResolvedSingleRowScanBuilder())
+                  .add_column_list(main_column)
+                  .add_aggregate_list(
+                      ResolvedDeferredComputedColumnBuilder()
+                          .set_column(main_column)
+                          .set_side_effect_column(side_effect_column)
+                          .set_expr(ResolvedAggregateFunctionCallBuilder()
+                                        .set_type(types::Int64Type())
+                                        .set_function(&agg_fn)
+                                        .set_signature(sig))))
+          .Build());
+
+  LanguageOptions options_with_conditional_eval;
+  options_with_conditional_eval.EnableLanguageFeature(
+      FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION);
+
+  // Validate statement
+  EXPECT_THAT(Validator().ValidateResolvedStatement(stmt.get()),
+              testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  HasSubstr("FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION)")));
+
+  EXPECT_THAT(
+      Validator(options_with_conditional_eval)
+          .ValidateResolvedStatement(stmt.get()),
+      testing::StatusIs(absl::StatusCode::kInternal,
+                        HasSubstr("unconsumed_side_effect_columns_.empty()")));
+
+  // Validating a standalone expr
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto expr, ResolvedSubqueryExprBuilder()
+                     .set_type(types::Int64Type())
+                     .set_subquery_type(ResolvedSubqueryExpr::SCALAR)
+                     .set_subquery(ToBuilder(std::move(stmt)).release_query())
+                     .Build());
+
+  EXPECT_THAT(Validator().ValidateStandaloneResolvedExpr(expr.get()),
+              testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  HasSubstr("FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION")));
+  EXPECT_THAT(
+      Validator(options_with_conditional_eval)
+          .ValidateStandaloneResolvedExpr(expr.get()),
+      testing::StatusIs(absl::StatusCode::kInternal,
+                        HasSubstr("unconsumed_side_effect_columns_.empty()")));
 }
 
 }  // namespace

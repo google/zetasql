@@ -204,12 +204,31 @@ transform (a + b as t)
 ==
 
 create model tt
+input (a INT64) output (b BOOL)
+remote
+as select 1 a, TRUE b
+--
+ERROR: The AS SELECT clause cannot be used with INPUT and OUTPUT [at 4:4]
+as select 1 a, TRUE b
+   ^
+==
+
+create model tt
 remote
 as select 1 a
 --
-ERROR: The AS SELECT clause cannot be used with REMOTE [at 3:4]
-as select 1 a
-   ^
+CreateModelStmt
++-name_path=tt
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=[$create_as.a#1]
+|   +-expr_list=
+|   | +-a#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-is_remote=TRUE
 ==
 
 create model tt
@@ -381,9 +400,9 @@ transform (c as A, c+B as d, *)
 remote
 as select 1 c, 2 b;
 --
-ERROR: The AS SELECT clause cannot be used with REMOTE [at 4:4]
-as select 1 c, 2 b;
-   ^
+ERROR: The TRANSFORM clause cannot be used with REMOTE [at 2:1]
+transform (c as A, c+B as d, *)
+^
 ==
 
 [language_features=ANALYTIC_FUNCTIONS]
@@ -967,7 +986,7 @@ remote with connection connection1
 options (abc = def)
 as select * from t2;
 --
-ERROR: The AS SELECT clause cannot be used with REMOTE [at 7:4]
+ERROR: The AS SELECT clause cannot be used with INPUT and OUTPUT [at 7:4]
 as select * from t2;
    ^
 ==

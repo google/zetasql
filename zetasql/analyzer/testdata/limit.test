@@ -75,24 +75,87 @@ select key from KeyValue order by 1 offset 5;
                                     ^
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT -1;
 --
-ERROR: Syntax error: Unexpected "-" [at 3:7]
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-limit=
+      +-Literal(type=INT64, value=-1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT expects a non-negative integer literal or parameter [at 3:7]
 LIMIT -1;
       ^
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT Key, Value
 FROM KeyValue
 LIMIT 0 OFFSET -1;
 --
-ERROR: Syntax error: Unexpected "-" [at 3:16]
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-limit=
+    | +-Literal(type=INT64, value=0)
+    +-offset=
+      +-Literal(type=INT64, value=-1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: OFFSET expects a non-negative integer literal or parameter [at 3:16]
 LIMIT 0 OFFSET -1;
                ^
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+SELECT Key, Value
+FROM KeyValue
+LIMIT 9223372036854775808;
+--
+ERROR: Could not cast literal 9223372036854775808 to type INT64 [at 3:7]
+LIMIT 9223372036854775808;
+      ^
+==
+
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+SELECT Key, Value
+FROM KeyValue
+LIMIT 1 OFFSET 9223372036854775808;
+--
+ERROR: Could not cast literal 9223372036854775808 to type INT64 [at 3:16]
+LIMIT 1 OFFSET 9223372036854775808;
+               ^
+==
+
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET 1;
 --
 QueryStmt
@@ -114,6 +177,7 @@ QueryStmt
       +-Literal(type=INT64, value=1)
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_int32;
 --
 QueryStmt
@@ -134,6 +198,7 @@ QueryStmt
         +-Parameter(type=INT32, name="test_param_int32")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_int64;
 --
 QueryStmt
@@ -153,6 +218,7 @@ QueryStmt
       +-Parameter(type=INT64, name="test_param_int64")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_uint32;
 --
 QueryStmt
@@ -173,7 +239,16 @@ QueryStmt
         +-Parameter(type=UINT32, name="test_param_uint32")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT @test_param_uint64;
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:16]
+SELECT 1 LIMIT @test_param_uint64;
+               ^
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -193,6 +268,7 @@ QueryStmt
         +-Parameter(type=UINT64, name="test_param_uint64")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_int32;
 --
 QueryStmt
@@ -215,6 +291,7 @@ QueryStmt
         +-Parameter(type=INT32, name="test_param_int32")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_int64;
 --
 QueryStmt
@@ -236,6 +313,7 @@ QueryStmt
       +-Parameter(type=INT64, name="test_param_int64")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_uint32;
 --
 QueryStmt
@@ -258,7 +336,16 @@ QueryStmt
         +-Parameter(type=UINT32, name="test_param_uint32")
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 SELECT 1 LIMIT 1 OFFSET @test_param_uint64;
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:25]
+SELECT 1 LIMIT 1 OFFSET @test_param_uint64;
+                        ^
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -330,13 +417,244 @@ select 1 limit cast(@test_param_int64 as int32)
                ^
 ==
 
-# Casting of other expressions does not work.
-select 1 limit cast(`key` as int64)
-from KeyValue
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+# Expressions may or may not be allowed as arguments to LIMIT/OFFSET depending
+# on V_1_4_LIMIT_OFFSET_EXPRESSIONS.
+select 1 limit mod(1, 10)
 --
-ERROR: Syntax error: Expected "@" or "@@" or integer literal but got identifier `key` [at 1:21]
-select 1 limit cast(`key` as int64)
-                    ^
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+        +-Literal(type=INT64, value=1)
+        +-Literal(type=INT64, value=10)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT expects an integer literal or parameter [at 3:16]
+select 1 limit mod(1, 10)
+               ^
+==
+
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+select 1 limit 1 offset mod(1, 10)
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+        +-Literal(type=INT64, value=1)
+        +-Literal(type=INT64, value=10)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: OFFSET expects an integer literal or parameter [at 1:25]
+select 1 limit 1 offset mod(1, 10)
+                        ^
+==
+
+# Null arguments to LIMIT & OFFSET are not allowed.
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+select 1 limit null
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT must not be null [at 1:16]
+select 1 limit null
+               ^
+==
+
+# Null arguments to LIMIT & OFFSET are not allowed.
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
+select 1 limit null
+--
+ALTERNATION GROUP: V_1_4_LIMIT_OFFSET_EXPRESSIONS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: LIMIT must not be null [at 1:16]
+select 1 limit null
+               ^
+==
+
+# LIMIT & OFFSET can take expressions that reference query parameters.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select 1 limit mod(@test_param_int64, 10)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+        +-Parameter(type=INT64, name="test_param_int64")
+        +-Literal(type=INT64, value=10)
+==
+
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select 1 limit 1 offset mod(@test_param_int64, 10)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+        +-Parameter(type=INT64, name="test_param_int64")
+        +-Literal(type=INT64, value=10)
+==
+
+# LIMIT & OFFSET cannot use the current name scope.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select Key, Value from KeyValue limit max(Key)
+--
+ERROR: Unrecognized name: Key [at 1:43]
+select Key, Value from KeyValue limit max(Key)
+                                          ^
+==
+
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select Key, Value from KeyValue limit 1 offset max(Key)
+--
+ERROR: Unrecognized name: Key [at 1:52]
+select Key, Value from KeyValue limit 1 offset max(Key)
+                                                   ^
+==
+
+# LIMIT & OFFSET can reference the parent name scope, but will still fail
+# because a correlated reference is not constant.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+WITH sub AS (SELECT 1 AS lim)
+SELECT lim FROM sub WHERE lim = (SELECT 1 LIMIT sub.lim)
+--
+ERROR: LIMIT expression must be constant [at 2:49]
+SELECT lim FROM sub WHERE lim = (SELECT 1 LIMIT sub.lim)
+                                                ^
+==
+
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+WITH sub AS (SELECT 0 AS lim)
+SELECT lim FROM sub WHERE lim = (SELECT 0 LIMIT 1 OFFSET sub.lim)
+--
+ERROR: OFFSET expression must be constant [at 2:58]
+SELECT lim FROM sub WHERE lim = (SELECT 0 LIMIT 1 OFFSET sub.lim)
+                                                         ^
+==
+
+# LIMIT & OFFSET cannot take correlated expression subqueries.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select Key, Value from KeyValue limit (select max(Key))
+--
+ERROR: Unrecognized name: Key [at 1:51]
+select Key, Value from KeyValue limit (select max(Key))
+                                                  ^
+==
+
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select Key, Value from KeyValue limit 1 offset (select max(Key))
+--
+ERROR: Unrecognized name: Key [at 1:60]
+select Key, Value from KeyValue limit 1 offset (select max(Key))
+                                                           ^
+==
+
+# LIMIT & OFFSET expressions must be INT64.
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select 1 limit cast(mod(1, 10) as uint64)
+--
+ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:16]
+select 1 limit cast(mod(1, 10) as uint64)
+               ^
+==
+
+[language_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+select 1 limit 1 offset cast(mod(1, 10) as uint64)
+--
+ERROR: LIMIT ... OFFSET ... expects INT64, got UINT64 [at 1:25]
+select 1 limit 1 offset cast(mod(1, 10) as uint64)
+                        ^
 ==
 
 SELECT *
@@ -498,15 +816,20 @@ select key from KeyValue order by 1 offset 5;
                                     ^
 ==
 
+[language_features={{V_1_4_LIMIT_OFFSET_EXPRESSIONS|}}]
 select key FROM KeyValue ORDER BY 1 {{LIMIT|LIMIT 1 OFFSET}} 18446744073709551615;
 --
-ALTERNATION GROUP: LIMIT
+ALTERNATION GROUPS:
+    V_1_4_LIMIT_OFFSET_EXPRESSIONS,LIMIT
+    LIMIT
 --
 ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:43]
 select key FROM KeyValue ORDER BY 1 LIMIT 18446744073709551615;
                                           ^
 --
-ALTERNATION GROUP: LIMIT 1 OFFSET
+ALTERNATION GROUPS:
+    V_1_4_LIMIT_OFFSET_EXPRESSIONS,LIMIT 1 OFFSET
+    LIMIT 1 OFFSET
 --
 ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:52]
 select key FROM KeyValue ORDER BY 1 LIMIT 1 OFFSET 18446744073709551615;

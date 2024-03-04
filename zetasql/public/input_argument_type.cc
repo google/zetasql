@@ -27,6 +27,7 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -183,7 +184,7 @@ std::string InputArgumentType::DebugString(bool verbose) const {
 
 // static
 std::string InputArgumentType::ArgumentsToString(
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
     absl::Span<const absl::string_view> argument_names) {
   constexpr int kMaxArgumentsStringLength = 1024;
   std::string arguments_string;

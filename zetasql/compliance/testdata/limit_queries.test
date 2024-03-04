@@ -433,160 +433,27 @@ ARRAY<STRUCT<
     int64_key_2: 8
   }}]
 ==
-
-# ------
-# Errors
-# ------
-
-[name=limit_too_big_for_int64]
-SELECT a FROM (SELECT 1 a) LIMIT 9999999999999999999999999999999999999999999999
---
-ERROR: generic::invalid_argument: Invalid integer literal: 9999999999999999999999999999999999999999999999 [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT 9999999999999999999999999999999999999999999999
-                                 ^
-==
 [name=limit_in_parethesis]
 SELECT a FROM (SELECT 1 a) LIMIT (1)
 --
-ERROR: generic::invalid_argument: Syntax error: Unexpected "(" [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT (1)
-                                 ^
+ARRAY<STRUCT<a INT64>>[{1}]
 ==
-[name=limit_aliased]
-SELECT a FROM (SELECT 1 a) LIMIT 1 AS lmt
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword AS [at 1:36]
-SELECT a FROM (SELECT 1 a) LIMIT 1 AS lmt
-                                   ^
-==
-[name=limit_negative]
-SELECT a FROM (SELECT 1 a) LIMIT -1
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected "-" [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT -1
-                                 ^
-==
-[name=limit_double]
-SELECT a FROM (SELECT 1 a) LIMIT 1.0
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected floating point literal "1.0" [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT 1.0
-                                 ^
-==
-[name=limit_string]
-SELECT a FROM (SELECT 1 a) LIMIT '1'
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected string literal '1' [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT '1'
-                                 ^
-==
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
 [name=limit_null]
 SELECT a FROM (SELECT 1 a) LIMIT NULL
 --
-ERROR: generic::invalid_argument: Syntax error: Unexpected keyword NULL [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT NULL
-                                 ^
-==
-[name=limit_identifier]
-SELECT a FROM (SELECT 1 a) LIMIT a
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected identifier "a" [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT a
-                                 ^
-==
-[name=limit_limit]
-SELECT a FROM (SELECT 1 a) LIMIT LIMIT
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected keyword LIMIT [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT LIMIT
-                                 ^
-==
-[name=limit_1_limit_1]
-SELECT a FROM (SELECT 1 a) LIMIT 1 LIMIT 1
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword LIMIT [at 1:36]
-SELECT a FROM (SELECT 1 a) LIMIT 1 LIMIT 1
-                                   ^
-==
-
-
-[name=offset_too_big_for_int64]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 99999999999999999999999999999999999999
---
-ERROR: generic::invalid_argument: Invalid integer literal: 99999999999999999999999999999999999999 [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 99999999999999999999999999999999999999
-                                          ^
+ERROR: generic::out_of_range: Limit requires non-null count and offset
 ==
 [name=offset_in_parethesis]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET (1)
 --
-ERROR: generic::invalid_argument: Syntax error: Unexpected "(" [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET (1)
-                                          ^
+ARRAY<STRUCT<a INT64>>[]
 ==
-[name=offset_aliased]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1 AS ofst
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword AS [at 1:45]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1 AS ofst
-                                            ^
-==
-[name=offset_negative]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET -1
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected "-" [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET -1
-                                          ^
-==
-[name=offset_double]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1.0
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected floating point literal "1.0" [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1.0
-                                          ^
-==
-[name=offset_string]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET '1'
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected string literal '1' [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET '1'
-                                          ^
-==
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
 [name=offset_null]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET NULL
 --
-ERROR: generic::invalid_argument: Syntax error: Unexpected keyword NULL [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET NULL
-                                          ^
-==
-[name=offset_identifier]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET a
---
-ERROR: generic::invalid_argument: Syntax error: Unexpected identifier "a" [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET a
-                                          ^
-==
-[name=offset_1_offset_1]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1 OFFSET 1
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword OFFSET [at 1:45]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET 1 OFFSET 1
-                                            ^
-==
-[name=limit_offset_no_limit]
-SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) OFFSET 1
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "1" [at 1:73]
-SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) OFFSET 1
-                                                                        ^
-==
-[name=limit_offset_limit]
-SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3)
-OFFSET 1 LIMIT 1
---
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got integer literal "1" [at 2:8]
-OFFSET 1 LIMIT 1
-       ^
+ERROR: generic::out_of_range: Limit requires non-null count and offset
 ==
 
 # ----------
@@ -635,22 +502,6 @@ SELECT a FROM (SELECT 1 a) LIMIT @lmt
 --
 ERROR: generic::out_of_range: Limit requires non-negative count and offset
 ==
-[name=param_limit_string]
-[parameters='1' as lmt]
-SELECT a FROM (SELECT 1 a) LIMIT @lmt
---
-ERROR: generic::invalid_argument: LIMIT expects an integer literal or parameter [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT @lmt
-                                 ^
-==
-[name=param_limit_double]
-[parameters=1.2 as lmt]
-SELECT a FROM (SELECT 1 a) LIMIT @lmt
---
-ERROR: generic::invalid_argument: LIMIT expects an integer literal or parameter [at 1:34]
-SELECT a FROM (SELECT 1 a) LIMIT @lmt
-                                 ^
-==
 [name=param_limit_null]
 [parameters=NULL as lmt]
 SELECT a FROM (SELECT 1 a) LIMIT @lmt
@@ -698,22 +549,6 @@ SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
 --
 ERROR: generic::out_of_range: Limit requires non-negative count and offset
 ==
-[name=param_offset_date]
-[parameters=DATE '2000-01-01' as ofst]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
---
-ERROR: generic::invalid_argument: OFFSET expects an integer literal or parameter [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
-                                          ^
-==
-[name=param_offset_bool]
-[parameters=false as ofst]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
---
-ERROR: generic::invalid_argument: OFFSET expects an integer literal or parameter [at 1:43]
-SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
-                                          ^
-==
 [name=param_offset_null]
 [parameters=NULL as ofst]
 SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET @ofst
@@ -729,5 +564,73 @@ ARRAY<STRUCT<a STRING>>[{"*"}]
 [name=param_limit_max_offset]
 [parameters=9223372036854775807 as lmt, 2 as ofst]
 SELECT a FROM (SELECT '*' a) LIMIT @lmt OFFSET @ofst
+--
+ARRAY<STRUCT<a STRING>>[]
+==
+
+# ----------
+# Expressions
+# ----------
+
+[name=expr_limit_0]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=0 as lmt]
+SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2)
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=expr_limit_1]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=1 as lmt]
+SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2)
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=expr_limit_negative]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=1 as lmt]
+SELECT a FROM (SELECT 1 a) LIMIT MOD(@lmt, 2) - 2
+--
+ERROR: generic::out_of_range: Limit requires non-negative count and offset
+==
+[name=expr_limit_null]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=NULL as lmt]
+SELECT a FROM (SELECT 1 a) LIMIT COALESCE(@lmt, NULL)
+--
+ERROR: generic::out_of_range: Limit requires non-null count and offset
+==
+[name=expr_offset_0]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=0 as ofst]
+SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET MOD(@ofst, 2)
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=expr_offset_negative]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=1 as ofst]
+SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET MOD(@ofst, 2) - 2
+--
+ERROR: generic::out_of_range: Limit requires non-negative count and offset
+==
+[name=expr_offset_null]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=NULL as ofst]
+SELECT a FROM (SELECT 1 a) LIMIT 1 OFFSET COALESCE(@ofst, NULL)
+--
+ERROR: generic::out_of_range: Limit requires non-null count and offset
+==
+[name=expr_limit_1_offset_0]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=1 as lmt, 0 as ofst]
+SELECT a FROM (SELECT '*' a) LIMIT MOD(@lmt, 2) OFFSET MOD(@ofst, 2)
+--
+ARRAY<STRUCT<a STRING>>[{"*"}]
+==
+[name=expr_limit_max_offset]
+[required_features=V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[parameters=9223372036854775806 as lmt, 2 as ofst]
+SELECT a FROM (SELECT '*' a) LIMIT MOD(@lmt, 9223372036854775807) + 1 OFFSET @ofst
 --
 ARRAY<STRUCT<a STRING>>[]

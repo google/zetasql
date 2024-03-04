@@ -33,8 +33,11 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -78,7 +81,7 @@ class QueryParamsWithResult {
                         const ValueConstructor& result,
                         absl::Status status = absl::OkStatus());
 
-  QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
+  QueryParamsWithResult(absl::Span<const ValueConstructor> arguments,
                         const ValueConstructor& result,
                         FloatMargin float_margin_arg,
                         absl::Status status = absl::OkStatus());
@@ -175,7 +178,7 @@ class QueryParamsWithResult {
 // Return a vector of test cases with boolean results inverted, as in
 // CopyWithInvertedResult above.
 std::vector<QueryParamsWithResult> InvertResults(
-    const std::vector<QueryParamsWithResult>& tests);
+    absl::Span<const QueryParamsWithResult> tests);
 
 struct FunctionTestCall {
   std::string function_name;

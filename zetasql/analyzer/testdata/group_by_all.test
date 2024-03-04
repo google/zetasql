@@ -490,6 +490,110 @@ QueryStmt
                 +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
 ==
 
+# Repro for b/323439034: When SELECT clause does not contain aggregate column
+# and no grouping keys are chosen, it should produce AggregateScan with no
+# aggregate_list and no group_by_list.
+[language_features=V_1_4_GROUP_BY_ALL,V_1_4_GROUPING_SETS]
+SELECT 'a' AS x
+FROM KeyValue
+GROUP BY {{ALL|()}}
+--
+QueryStmt
++-output_column_list=
+| +-$query.x#3 AS x [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#3]
+    +-expr_list=
+    | +-x#3 := Literal(type=STRING, value="a")
+    +-input_scan=
+      +-AggregateScan
+        +-input_scan=
+          +-TableScan(table=KeyValue)
+==
+
+# Repro for b/323567303:
+# When SELECT clause does not contain aggregate column and no grouping keys are
+# chosen, HAVING should not inject group_by_list.
+[language_features=V_1_4_GROUP_BY_ALL,V_1_4_GROUPING_SETS]
+SELECT 'a' AS x
+FROM KeyValue
+GROUP BY {{ALL|()}}
+HAVING TRUE
+--
+QueryStmt
++-output_column_list=
+| +-$query.x#4 AS x [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#4]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$query.x#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$query.x#4]
+        |   +-expr_list=
+        |   | +-x#4 := Literal(type=STRING, value="a")
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-input_scan=
+        |         +-ProjectScan
+        |           +-column_list=[$pre_groupby.x#3]
+        |           +-expr_list=
+        |           | +-x#3 := Literal(type=STRING, value="a")
+        |           +-input_scan=
+        |             +-TableScan(table=KeyValue)
+        +-filter_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+# Repro for b/323567303:
+# When SELECT clause contains only constant computed exprs and no grouping keys
+# are chosen, HAVING should not inject group_by_list.
+[language_features=V_1_4_GROUP_BY_ALL,V_1_4_GROUPING_SETS]
+SELECT (1 + 3) AS x, COUNT(*)
+FROM KeyValue
+GROUP BY ALL
+HAVING TRUE
+--
+QueryStmt
++-output_column_list=
+| +-$query.x#5 AS x [INT64]
+| +-$aggregate.$agg1#3 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#5, $aggregate.$agg1#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$aggregate.$agg1#3, $query.x#5]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.$agg1#3, $query.x#5]
+        |   +-expr_list=
+        |   | +-x#5 :=
+        |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |   |     +-Literal(type=INT64, value=1)
+        |   |     +-Literal(type=INT64, value=3)
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$aggregate.$agg1#3]
+        |       +-input_scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=[$pre_groupby.x#4]
+        |       |   +-expr_list=
+        |       |   | +-x#4 :=
+        |       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |   |     +-Literal(type=INT64, value=1)
+        |       |   |     +-Literal(type=INT64, value=3)
+        |       |   +-input_scan=
+        |       |     +-TableScan(table=KeyValue)
+        |       +-aggregate_list=
+        |         +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-filter_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
 # SELECT clause only contains aggregate column.
 # GROUP BY ALL behaves as if no GROUP BY clause is specified.
 select sum(`int32`)
@@ -1159,11 +1263,13 @@ QueryStmt
         | +-AnalyticScan
         |   +-column_list=[$analytic.a#4]
         |   +-input_scan=
-        |   | +-FilterScan
+        |   | +-AggregateScan
         |   |   +-input_scan=
-        |   |   | +-TableScan(table=KeyValue)
-        |   |   +-filter_expr=
-        |   |     +-Literal(type=BOOL, value=true)
+        |   |     +-FilterScan
+        |   |       +-input_scan=
+        |   |       | +-TableScan(table=KeyValue)
+        |   |       +-filter_expr=
+        |   |         +-Literal(type=BOOL, value=true)
         |   +-function_group_list=
         |     +-AnalyticFunctionGroup
         |       +-analytic_function_list=
@@ -1570,16 +1676,18 @@ QueryStmt
     +-column_list=[$distinct.$col1#3]
     +-input_scan=
     | +-ProjectScan
-    |   +-column_list=[$subquery1.a#1, $query.$col1#2]
+    |   +-column_list=[$query.$col1#2]
     |   +-expr_list=
     |   | +-$col1#2 := Literal(type=INT64, value=1)
     |   +-input_scan=
-    |     +-ProjectScan
-    |       +-column_list=[$subquery1.a#1]
-    |       +-expr_list=
-    |       | +-a#1 := Literal(type=INT64, value=1)
+    |     +-AggregateScan
     |       +-input_scan=
-    |         +-SingleRowScan
+    |         +-ProjectScan
+    |           +-column_list=[$subquery1.a#1]
+    |           +-expr_list=
+    |           | +-a#1 := Literal(type=INT64, value=1)
+    |           +-input_scan=
+    |             +-SingleRowScan
     +-group_by_list=
       +-$col1#3 := ColumnRef(type=INT64, column=$query.$col1#2)
 ==
@@ -2413,5 +2521,212 @@ QueryStmt
               +-$agg1#6 :=
                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                   +-ColumnRef(type=INT64, column=T.y#4)
+==
+
+# Regression test for b/310705631
+[language_features=V_1_2_GROUP_BY_ARRAY,V_1_4_GROUP_BY_ALL]
+WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
+SELECT
+  ( SELECT e FROM t5.arr_col AS e ) AS scalar_subq_col,
+  t5.arr_col
+FROM Table5 AS t5
+GROUP BY {{1,2|ALL}}
+--
+ALTERNATION GROUP: 1,2
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.scalar_subq_col#4 AS scalar_subq_col [INT64]
+| +-$groupby.arr_col#5 AS arr_col [ARRAY<INT64>]
++-query=
+  +-WithScan
+    +-column_list=$groupby.[scalar_subq_col#4, arr_col#5]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Table5"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[Table5.arr_col#1]
+    |       +-expr_list=
+    |       | +-arr_col#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=$groupby.[scalar_subq_col#4, arr_col#5]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=$groupby.[scalar_subq_col#4, arr_col#5]
+            +-input_scan=
+            | +-WithRefScan(column_list=[Table5.arr_col#2], with_query_name="Table5")
+            +-group_by_list=
+              +-scalar_subq_col#4 :=
+              | +-SubqueryExpr
+              |   +-type=INT64
+              |   +-subquery_type=SCALAR
+              |   +-parameter_list=
+              |   | +-ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
+              |   +-subquery=
+              |     +-ProjectScan
+              |       +-column_list=[$array.e#3]
+              |       +-input_scan=
+              |         +-ArrayScan
+              |           +-column_list=[$array.e#3]
+              |           +-array_expr_list=
+              |           | +-ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2, is_correlated=TRUE)
+              |           +-element_column_list=[$array.e#3]
+              +-arr_col#5 := ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.scalar_subq_col#6 AS scalar_subq_col [INT64]
+| +-$groupby.arr_col#4 AS arr_col [ARRAY<INT64>]
++-query=
+  +-WithScan
+    +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Table5"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[Table5.arr_col#1]
+    |       +-expr_list=
+    |       | +-arr_col#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+        +-expr_list=
+        | +-scalar_subq_col#6 :=
+        |   +-SubqueryExpr
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$array.e#5]
+        |         +-input_scan=
+        |           +-ArrayScan
+        |             +-column_list=[$array.e#5]
+        |             +-array_expr_list=
+        |             | +-ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4, is_correlated=TRUE)
+        |             +-element_column_list=[$array.e#5]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.arr_col#4]
+            +-input_scan=
+            | +-WithRefScan(column_list=[Table5.arr_col#2], with_query_name="Table5")
+            +-group_by_list=
+              +-arr_col#4 := ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
+==
+
+# Regression test for b/310705631
+[language_features=V_1_2_GROUP_BY_ARRAY,V_1_4_GROUP_BY_ALL]
+WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
+SELECT
+  ( SELECT t5.arr_col ) AS scalar_subq_col,
+  t5.arr_col
+FROM Table5 AS t5
+GROUP BY 2
+--
+QueryStmt
++-output_column_list=
+| +-$query.scalar_subq_col#6 AS scalar_subq_col [ARRAY<INT64>]
+| +-$groupby.arr_col#4 AS arr_col [ARRAY<INT64>]
++-query=
+  +-WithScan
+    +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Table5"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[Table5.arr_col#1]
+    |       +-expr_list=
+    |       | +-arr_col#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+        +-expr_list=
+        | +-scalar_subq_col#6 :=
+        |   +-SubqueryExpr
+        |     +-type=ARRAY<INT64>
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$expr_subquery.arr_col#5]
+        |         +-expr_list=
+        |         | +-arr_col#5 := ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4, is_correlated=TRUE)
+        |         +-input_scan=
+        |           +-SingleRowScan
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.arr_col#4]
+            +-input_scan=
+            | +-WithRefScan(column_list=[Table5.arr_col#2], with_query_name="Table5")
+            +-group_by_list=
+              +-arr_col#4 := ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
+==
+
+# Regression test for b/310705631
+[language_features=V_1_2_GROUP_BY_ARRAY,V_1_4_GROUP_BY_ALL]
+WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
+SELECT
+  ( SELECT e FROM UNNEST(t5.arr_col) AS e ) AS scalar_subq_col,
+  t5.arr_col
+FROM Table5 AS t5
+GROUP BY 2
+--
+QueryStmt
++-output_column_list=
+| +-$query.scalar_subq_col#6 AS scalar_subq_col [INT64]
+| +-$groupby.arr_col#4 AS arr_col [ARRAY<INT64>]
++-query=
+  +-WithScan
+    +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="Table5"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[Table5.arr_col#1]
+    |       +-expr_list=
+    |       | +-arr_col#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.scalar_subq_col#6, $groupby.arr_col#4]
+        +-expr_list=
+        | +-scalar_subq_col#6 :=
+        |   +-SubqueryExpr
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$array.e#5]
+        |         +-input_scan=
+        |           +-ArrayScan
+        |             +-column_list=[$array.e#5]
+        |             +-array_expr_list=
+        |             | +-ColumnRef(type=ARRAY<INT64>, column=$groupby.arr_col#4, is_correlated=TRUE)
+        |             +-element_column_list=[$array.e#5]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.arr_col#4]
+            +-input_scan=
+            | +-WithRefScan(column_list=[Table5.arr_col#2], with_query_name="Table5")
+            +-group_by_list=
+              +-arr_col#4 := ColumnRef(type=ARRAY<INT64>, column=Table5.arr_col#2)
 ==
 

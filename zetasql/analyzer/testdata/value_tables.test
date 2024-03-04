@@ -1284,10 +1284,11 @@ QueryStmt
         |   +-input_scan=
         |     +-SingleRowScan
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-Cast(INT32 -> INT64)
-            | +-ColumnRef(type=INT32, column=$join_left.a#4)
-            +-ColumnRef(type=INT64, column=$subquery1.a#3)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-Cast(INT32 -> INT64)
+        |   | +-ColumnRef(type=INT32, column=$join_left.a#4)
+        |   +-ColumnRef(type=INT64, column=$subquery1.a#3)
+        +-has_using=TRUE
 ==
 
 # Output table from SELECT AS STRUCT is a value table.

@@ -530,23 +530,23 @@ FROM
 # DotStar is only supported as select column expression.
 select a from a.*;
 --
-ERROR: Syntax error: Expected end of input but got "." [at 1:16]
+ERROR: Syntax error: Unexpected "*" [at 1:17]
 select a from a.*;
+                ^
+==
+
+select count(a.*);
+--
+ERROR: Syntax error: Unexpected "*" [at 1:16]
+select count(a.*);
                ^
 ==
 
-select count(a.*);
---
-ERROR: Syntax error: Expected ")" but got "." [at 1:15]
-select count(a.*);
-              ^
-==
-
 select anon_count(a.*, 0, 1);
 --
-ERROR: Syntax error: Expected ")" but got "." [at 1:20]
+ERROR: Syntax error: Unexpected "*" [at 1:21]
 select anon_count(a.*, 0, 1);
-                   ^
+                    ^
 ==
 
 # Star and DotStar in the select list cannot have an alias.
@@ -608,26 +608,9 @@ SELECT
 
 SELECT a+b.* FROM Table
 --
-QueryStatement [0-23] [SELECT a+b.* FROM Table]
-  Query [0-23] [SELECT a+b.* FROM Table]
-    Select [0-23] [SELECT a+b.* FROM Table]
-      SelectList [7-12] [a+b.*]
-        SelectColumn [7-12] [a+b.*]
-          DotStar [7-12] [a+b.*]
-            BinaryExpression(+) [7-10] [a+b]
-              PathExpression [7-8] [a]
-                Identifier(a) [7-8] [a]
-              PathExpression [9-10] [b]
-                Identifier(b) [9-10] [b]
-      FromClause [13-23] [FROM Table]
-        TablePathExpression [18-23] [Table]
-          PathExpression [18-23] [Table]
-            Identifier(Table) [18-23] [Table]
---
-SELECT
-  a + b.*
-FROM
-  Table
+ERROR: Syntax error: Unexpected "*" [at 1:12]
+SELECT a+b.* FROM Table
+           ^
 ==
 
 SELECT (a+b).* FROM Table

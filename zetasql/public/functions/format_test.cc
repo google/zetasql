@@ -28,6 +28,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/format_max_output_width.h"
 #include "zetasql/public/functions/string_format.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
@@ -53,20 +54,22 @@ using ::zetasql_base::testing::StatusIs;
 using FormatF = std::function<absl::Status(
     absl::string_view format_string, absl::Span<const Value> values,
     ProductMode product_mode, std::string* output, bool* is_null,
-    bool canonicalize_zero)>;
+    bool canonicalize_zero, bool use_external_float32)>;
 
 // Call `FormatFunction` and abstract error and null results into a
 // unified string representation. Also ensures error codes are of an
 // allowed type.
 static std::string TestFormatFunction(const FormatF& FormatFunction,
+                                      ProductMode product_mode,
                                       bool canonicalize_zero,
+                                      bool use_external_float32,
                                       absl::string_view format,
-                                      const std::vector<Value>& values) {
+                                      absl::Span<const Value> values) {
   std::string output;
   bool is_null;
   const absl::Status status =
-      FormatFunction(format, values, ProductMode::PRODUCT_INTERNAL, &output,
-                     &is_null, canonicalize_zero);
+      FormatFunction(format, values, product_mode, &output, &is_null,
+                     canonicalize_zero, use_external_float32);
   if (status.ok()) {
     return is_null ? "<null>" : output;
   } else {
@@ -88,9 +91,10 @@ struct FormatFunctionParam {
   FormatF FormatFunction;
 
   // Binds `FormatFunction` to TestFormatFunction.
-  TestFormatF WrapTestFormat() const {
-    return absl::bind_front(TestFormatFunction, FormatFunction,
-                            /*canonicalize_zero=*/true);
+  TestFormatF WrapTestFormat(ProductMode product_mode,
+                             bool use_external_float32) const {
+    return absl::bind_front(TestFormatFunction, FormatFunction, product_mode,
+                            /*canonicalize_zero=*/true, use_external_float32);
   }
   // String suitable for use in SCOPE-TRACE to aid in debugging failing tests.
   std::string ScopeLabel() const {
@@ -109,7 +113,8 @@ class FormatFunctionTests
 
 TEST_P(FormatFunctionTests, Test) {
   SCOPED_TRACE(GetParam().ScopeLabel());
-  TestFormatF TestFormat = GetParam().WrapTestFormat();
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_INTERNAL, /*use_external_float32=*/false);
 
   using values::Int32;
   using values::Int64;
@@ -820,9 +825,9 @@ str_value: "bar"
   EXPECT_EQ("\"" + long_string_3 + "\"",
             TestFormat("%T", {values::String(long_string_3)}));
 
-  TestFormatF TestFormatLegacy =
-      absl::bind_front(TestFormatFunction, GetParam().FormatFunction,
-                       /*canonicalize_zero=*/false);
+  TestFormatF TestFormatLegacy = absl::bind_front(
+      TestFormatFunction, GetParam().FormatFunction, PRODUCT_INTERNAL,
+      /*canonicalize_zero=*/false, /*use_external_float32=*/false);
   EXPECT_EQ("-0.000000", TestFormatLegacy("%+f", {Double(-0.0)}));
   EXPECT_EQ("-0.000000", TestFormatLegacy("%+f", {Float(-0.0)}));
   EXPECT_EQ("-0.000000", TestFormatLegacy("%f", {Double(-0.0)}));
@@ -837,6 +842,118 @@ str_value: "bar"
   EXPECT_EQ("-0", TestFormatLegacy("%+g", {Float(-0.0)}));
   EXPECT_EQ("-0", TestFormatLegacy("%g", {Double(-0.0)}));
   EXPECT_EQ("-0", TestFormatLegacy("%g", {Float(-0.0)}));
+}
+
+TEST_P(FormatFunctionTests, FloatingPointInInternalModeWithFloat32) {
+  SCOPED_TRACE(GetParam().ScopeLabel());
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_INTERNAL, /*use_external_float32=*/true);
+
+  // Even when the product mode is PRODUCT_INTERNAL, if `use_external_float32`
+  // is true, it will return FLOAT32.
+  // Reason for this behavior: Format functions are currently calling
+  // GetSQLLiteral with PRODUCT_EXTERNAL, which we cannot change without
+  // breaking backward compatibility.
+  EXPECT_EQ(
+      "CAST(\"nan\" AS FLOAT32)",
+      TestFormat("%T",
+                 {values::Float(std::numeric_limits<float>::quiet_NaN())}));
+
+  const float kNegativeFloatNan = -std::numeric_limits<float>::quiet_NaN();
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
+            TestFormat("%T", {values::Float(kNegativeFloatNan)}));
+}
+
+TEST_P(FormatFunctionTests, FloatingPointInExternalModeWithoutFloat32) {
+  using values::Double;
+  using values::DoubleArray;
+  using values::Float;
+  using values::FloatArray;
+  using values::Int64;
+
+  SCOPED_TRACE(GetParam().ScopeLabel());
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_EXTERNAL, /*use_external_float32=*/false);
+
+  EXPECT_EQ(
+      "ERROR: Invalid type for argument 2 to FORMAT; "
+      "Expected FLOAT64; Got INT64",
+      TestFormat("%f", {Int64(1)}));
+
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+            TestFormat("%T", {Float(std::numeric_limits<float>::quiet_NaN())}));
+  EXPECT_EQ(
+      "[4.0, -2.5, CAST(\"nan\" AS FLOAT)]",
+      TestFormat(
+          "%T",
+          {FloatArray({4, -2.5, std::numeric_limits<float>::quiet_NaN()})}));
+  EXPECT_EQ("nan",
+            TestFormat("%t", {Float(std::numeric_limits<float>::quiet_NaN())}));
+
+  const float kNegativeFloatNan = -std::numeric_limits<float>::quiet_NaN();
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+            TestFormat("%T", {Float(kNegativeFloatNan)}));
+  EXPECT_EQ(
+      "[-4.0, CAST(\"-inf\" AS FLOAT64)]",
+      TestFormat(
+          "%T", {DoubleArray({-4, -std::numeric_limits<double>::infinity()})}));
+  EXPECT_EQ("nan", TestFormat("%t", {Float(kNegativeFloatNan)}));
+
+  EXPECT_EQ(
+      "CAST(\"nan\" AS FLOAT64)",
+      TestFormat("%T", {Double(std::numeric_limits<double>::quiet_NaN())}));
+  EXPECT_EQ(
+      "nan",
+      TestFormat("%t", {Double(std::numeric_limits<double>::quiet_NaN())}));
+
+  const double kNegativeDoubleNan = -std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT64)",
+            TestFormat("%T", {Double(kNegativeDoubleNan)}));
+  EXPECT_EQ("nan", TestFormat("%t", {Double(kNegativeDoubleNan)}));
+}
+
+TEST_P(FormatFunctionTests, FloatingPointInExternalModeWithFloat32) {
+  using values::Double;
+  using values::Float;
+  using values::Int64;
+
+  SCOPED_TRACE(GetParam().ScopeLabel());
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_EXTERNAL, /*use_external_float32=*/true);
+
+  EXPECT_EQ(
+      "ERROR: Invalid type for argument 2 to FORMAT; "
+      "Expected FLOAT64; Got INT64",
+      TestFormat("%f", {Int64(1)}));
+
+  // Tests to check that positive and negative NaNs are formatted as "nan".
+  EXPECT_EQ(
+      "CAST(\"nan\" AS FLOAT32)",
+      TestFormat("%T",
+                 {values::Float(std::numeric_limits<float>::quiet_NaN())}));
+  EXPECT_EQ(
+      "nan",
+      TestFormat("%t",
+                 {values::Float(std::numeric_limits<float>::quiet_NaN())}));
+
+  const float kNegativeFloatNan = -std::numeric_limits<float>::quiet_NaN();
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
+            TestFormat("%T", {values::Float(kNegativeFloatNan)}));
+  EXPECT_EQ("nan", TestFormat("%t", {values::Float(kNegativeFloatNan)}));
+
+  EXPECT_EQ(
+      "CAST(\"nan\" AS FLOAT64)",
+      TestFormat("%T",
+                 {values::Double(std::numeric_limits<double>::quiet_NaN())}));
+  EXPECT_EQ(
+      "nan",
+      TestFormat("%t",
+                 {values::Double(std::numeric_limits<double>::quiet_NaN())}));
+
+  const double kNegativeDoubleNan = -std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT64)",
+            TestFormat("%T", {values::Double(kNegativeDoubleNan)}));
+  EXPECT_EQ("nan", TestFormat("%t", {values::Double(kNegativeDoubleNan)}));
 }
 
 static absl::Status TestCheckFormat(absl::string_view format_string,
@@ -881,7 +998,8 @@ static Value BigNumericFromString(absl::string_view str) {
 // Normal cases are tested in TEST_P(FormatComplianceTests, Test).
 TEST_P(FormatFunctionTests, NumericFormat_Errors) {
   SCOPED_TRACE(GetParam().ScopeLabel());
-  TestFormatF TestFormat = GetParam().WrapTestFormat();
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_INTERNAL, /*use_external_float32=*/false);
 
   using values::Int32;
   using values::Numeric;
@@ -913,7 +1031,8 @@ TEST_P(FormatFunctionTests, NumericFormat_Errors) {
 TEST_P(FormatFunctionTests, BigNumericFormat_Errors) {
   SCOPED_TRACE(GetParam().ScopeLabel());
 
-  TestFormatF TestFormat = GetParam().WrapTestFormat();
+  TestFormatF TestFormat = GetParam().WrapTestFormat(
+      PRODUCT_INTERNAL, /*use_external_float32=*/false);
 
   using values::BigNumeric;
   using values::Int32;
@@ -1000,8 +1119,10 @@ void CompareFormattedStrings(const std::string& formatted_double,
 
 template <typename T>  // T must be NumericValue or BigNumericValue.
 void TestFormatNumericWithRandomData(FormatF FormatFunction) {
-  auto TestFormat = absl::bind_front(TestFormatFunction, FormatFunction,
-                                     /*canonicalize_zero=*/true);
+  auto TestFormat =
+      absl::bind_front(TestFormatFunction, FormatFunction, PRODUCT_INTERNAL,
+                       /*canonicalize_zero=*/true,
+                       /*use_external_float32=*/false);
   using values::Int32;
   absl::BitGen random;
   for (int i = 0; i < 20000; ++i) {
@@ -1106,9 +1227,9 @@ TEST_P(FormatComplianceTests, Test) {
 
   std::string actual;
   bool is_null = false;
-  const absl::Status status =
-      FormatFunction(pattern, args, ProductMode::PRODUCT_INTERNAL, &actual,
-                     &is_null, /*canonicalize_zero=*/true);
+  const absl::Status status = FormatFunction(
+      pattern, args, ProductMode::PRODUCT_INTERNAL, &actual, &is_null,
+      /*canonicalize_zero=*/true, /*use_external_float32=*/false);
 
   if (using_any_civil_time_values &&
       !zetasql_base::ContainsKey(test.params.required_features(),

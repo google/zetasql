@@ -87,7 +87,6 @@
 #include <string>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
 #include "openssl/bn.h"
 
 namespace zetasql_base {

@@ -2936,7 +2936,7 @@ absl::Status ConvertProto3TimestampToTimestamp(
   ZETASQL_RETURN_IF_ERROR(ConvertProto3TimestampToTimestamp(input_timestamp, &time));
   if (!FromTime(time, output_scale, output)) {
     return MakeEvalError() << "Invalid Proto3 Timestamp input: "
-                           << input_timestamp.DebugString();
+                           << absl::StrCat(input_timestamp);
   }
   return absl::OkStatus();
 }
@@ -2945,7 +2945,8 @@ absl::Status ConvertProto3TimestampToTimestamp(
     const google::protobuf::Timestamp& input_timestamp, absl::Time* output) {
   auto result_or = zetasql_base::DecodeGoogleApiProto(input_timestamp);
   if (!result_or.ok()) {
-    return MakeEvalError() << "Invalid Proto3 Timestamp input: "
+    return MakeEvalError()
+           << "Invalid Proto3 Timestamp input: "
                         << input_timestamp.DebugString();
   }
   *output = result_or.value();

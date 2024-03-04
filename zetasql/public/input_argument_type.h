@@ -31,6 +31,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -163,7 +164,7 @@ class InputArgumentType {
   // TODO: Separate ArgumentsToString into a debug string function,
   // which is what many callers want, and a function for generating diagnostics.
   static std::string ArgumentsToString(
-      const std::vector<InputArgumentType>& arguments,
+      absl::Span<const InputArgumentType> arguments,
       ProductMode product_mode = PRODUCT_INTERNAL,
       absl::Span<const absl::string_view> argument_names = {});
 

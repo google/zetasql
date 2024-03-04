@@ -36,6 +36,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
@@ -204,9 +205,8 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   ClearErrorLocation(&status3);
 }
 
-static void TestGetCaret(const std::string& query,
-                         const ErrorLocation& location,
-                         const std::string& expected_output) {
+static void TestGetCaret(absl::string_view query, const ErrorLocation& location,
+                         absl::string_view expected_output) {
   EXPECT_EQ(expected_output, GetErrorStringWithCaret(query, location));
 }
 

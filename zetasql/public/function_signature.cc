@@ -48,6 +48,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -1236,8 +1237,8 @@ std::string FunctionSignature::DebugString(absl::string_view function_name,
 }
 
 std::string FunctionSignature::SignaturesToString(
-    const std::vector<FunctionSignature>& signatures, bool verbose,
-    absl::string_view prefix, const std::string& separator) {
+    absl::Span<const FunctionSignature> signatures, bool verbose,
+    absl::string_view prefix, absl::string_view separator) {
   std::string out;
   for (const FunctionSignature& signature : signatures) {
     absl::StrAppend(&out, (out.empty() ? "" : separator), prefix,
@@ -1294,7 +1295,7 @@ absl::StatusOr<bool> ShouldHaveReturnsClauseInSQLDeclaration(
 }  // namespace
 
 std::string FunctionSignature::GetSQLDeclaration(
-    const std::vector<std::string>& argument_names,
+    absl::Span<const std::string> argument_names,
     ProductMode product_mode) const {
   std::string out = "(";
   for (int i = 0; i < arguments_.size(); ++i) {
@@ -1633,8 +1634,8 @@ int FunctionSignature::ComputeNumOptionalArguments() const {
 }
 
 void FunctionSignature::SetConcreteResultType(const Type* type) {
-  result_type_ = type;
-  result_type_.set_num_occurrences(1);  // Make concrete.
+  result_type_ =
+      FunctionArgumentType(type, result_type_.options(), /*num_occurrences=*/1);
   // Recompute <is_concrete_> since it now may have changed by setting a
   // concrete result type.
   is_concrete_ = ComputeIsConcrete();
@@ -1648,7 +1649,7 @@ bool FunctionSignature::HasEnabledRewriteImplementation() const {
 
 bool FunctionSignature::HideInSupportedSignatureList(
     const LanguageOptions& language_options) const {
-  return IsDeprecated() || IsInternal() ||
+  return IsDeprecated() || IsInternal() || IsHidden() ||
          HasUnsupportedType(language_options) ||
          !options().check_all_required_features_are_enabled(
              language_options.GetEnabledLanguageFeatures());

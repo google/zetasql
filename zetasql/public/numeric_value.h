@@ -50,7 +50,7 @@ class NumericValue final {
  public:
   // Must use integral_constant to utilize the optimizations for integer
   // divisions with constant 64-bit divisors.
-  static constexpr std::integral_constant<uint64_t, internal::k1e9>
+  static constexpr std::integral_constant<uint64_t, ::zetasql::internal::k1e9>
       kScalingFactor{};
   static constexpr int kMaxIntegerDigits = 29;
   static constexpr int kMaxFractionalDigits = 9;

@@ -42,6 +42,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -193,7 +194,7 @@ class TypeGlobalOrderChecker {
     return checker.Check();
   }
 
-  static absl::Status Check(const std::vector<TypeSuperTypes>& supertypes_list,
+  static absl::Status Check(absl::Span<const TypeSuperTypes> supertypes_list,
                             Catalog* catalog = nullptr) {
     std::vector<const Type*> types;
     for (const TypeSuperTypes& supertypes : supertypes_list) {
@@ -304,7 +305,7 @@ class TypeGlobalOrderChecker {
 };
 
 absl::Status CheckSupertypesGlobalOrderForCoercer(
-    const std::vector<TypeSuperTypes>& supertypes_list, Catalog* catalog) {
+    absl::Span<const TypeSuperTypes> supertypes_list, Catalog* catalog) {
   if (!std::any_of(
           supertypes_list.begin(), supertypes_list.end(),
           [](const auto& st) { return st.type()->IsExtendedType(); })) {

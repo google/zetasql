@@ -19,8 +19,13 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/base/case.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/type.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"

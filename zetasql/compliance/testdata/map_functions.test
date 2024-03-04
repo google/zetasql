@@ -1,0 +1,113 @@
+[default required_features=V_1_4_MAP_TYPE]
+
+[name=map_from_array_basic]
+SELECT MAP_FROM_ARRAY([('a', true), ('b', false)]);
+--
+ARRAY<STRUCT<MAP<STRING, BOOL>>>[{{"a": true, "b": false}}]
+==
+
+[name=map_from_array_map_array_value]
+SELECT MAP_FROM_ARRAY([('a', [50, 100]), ('b', [1, 2])]);
+--
+ARRAY<STRUCT<MAP<STRING, ARRAY<INT64>>>>[{{"a": [50, 100], "b": [1, 2]}}]
+==
+
+[name=map_from_array_confusing_struct_names]
+SELECT MAP_FROM_ARRAY([STRUCT('k1' as value, 0 as key), ('k2', 1)]);
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"k1": 0, "k2": 1}}]
+==
+
+[name=map_from_array_empty_array]
+SELECT MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<INT64, INT64>>));
+--
+ARRAY<STRUCT<MAP<INT64, INT64>>>[{{}}]
+==
+
+[name=map_from_array_null_array]
+SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, INT64>>));
+--
+ARRAY<STRUCT<MAP<INT64, INT64>>>[{NULL}]
+==
+
+[name=map_from_array_nesting]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+SELECT MAP_FROM_ARRAY([
+  ('a', MAP_FROM_ARRAY([
+    ((1, 'b'), MAP_FROM_ARRAY([
+      (1.5, MAP_FROM_ARRAY([
+        (DATE("2020-01-01"), 'e')
+      ]))
+    ]))
+  ]))
+]);
+--
+ARRAY<STRUCT<
+        MAP<STRING, MAP<STRUCT<INT64, STRING>, MAP<DOUBLE, MAP<DATE, STRING>>>>
+      >>[{{"a": {{1, "b"}: {1.5: {2020-01-01: "e"}}}}}]
+==
+
+[name=map_from_array_nested_containers]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+SELECT MAP_FROM_ARRAY([(('key_struct', ['array_key1', 'array_key2']), 'foo_val')]);
+--
+ARRAY<STRUCT<MAP<STRUCT<STRING, ARRAY<STRING>>, STRING>>>[
+  {{{"key_struct", ["array_key1", "array_key2"]}: "foo_val"}}
+]
+==
+
+[name=map_from_array_repeated_key]
+SELECT MAP_FROM_ARRAY([('a', [50, 100]), ('b', [50, 100]), ('b', [1, 2]), ('c', []), ('d', []), ('d', [50, 100])]);
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: "b"
+==
+
+[name=map_from_array_repeated_null_key]
+SELECT MAP_FROM_ARRAY([(NULL, 0), (NULL, 0)])
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: NULL
+==
+
+[name=map_from_array_repeated_null_key_2]
+SELECT MAP_FROM_ARRAY([(NULL, 0), (A, 1)])
+FROM UNNEST([CAST(NULL AS DOUBLE)]) AS A;
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: NULL
+==
+
+[name=map_from_array_repeated_array_key]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+SELECT MAP_FROM_ARRAY([(['a'], 0), (['a'], 0)])
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: ARRAY<STRING>["a"]
+==
+
+[name=map_from_array_repeated_inf_float_key]
+SELECT MAP_FROM_ARRAY([(CAST('inf' AS FLOAT), 0), (CAST('inf' AS FLOAT), 0)]);
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: inf
+==
+
+[name=map_from_array_repeated_nan_float_key]
+SELECT MAP_FROM_ARRAY([(CAST('nan' AS FLOAT), 0), (CAST('nan' AS FLOAT), 0)]);
+--
+ERROR: generic::out_of_range: Duplicate map keys are not allowed, but got multiple instances of key: nan
+==
+
+[name=map_from_array_transformed_input]
+[required_features=V_1_4_MAP_TYPE,V_1_4_ARRAY_ZIP]
+SELECT MAP_FROM_ARRAY(ARRAY_ZIP(["a", "b", "c"], [1, 2, 3]));
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 1, "b": 2, "c": 3}}]
+==
+
+[name=map_from_array_correlated_subquery]
+SELECT (SELECT MAP_FROM_ARRAY([(x, 1)]))
+  FROM UNNEST(['a', 'b', 'c']) as x;
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[unknown order:
+  {{"b": 1}},
+  {{"a": 1}},
+  {{"c": 1}}
+]
+==

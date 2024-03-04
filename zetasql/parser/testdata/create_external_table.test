@@ -12,7 +12,8 @@ CreateExternalTableStatement [0-47] [create external..., c="def")]
         Identifier(b) [36-37] [b]
     OptionsEntry [39-46] [c="def"]
       Identifier(c) [39-40] [c]
-      StringLiteral("def") [41-46] ["def"]
+      StringLiteral [41-46] ["def"]
+        StringLiteralComponent("def") [41-46] ["def"]
 --
 CREATE EXTERNAL TABLE t1 OPTIONS(a = b, c = "def")
 ==
@@ -563,10 +564,12 @@ CreateExternalTableStatement [0-104] [create external..., c="def")]
   OptionsList [65-104] [(a='{"jsonkey..., c="def")]
     OptionsEntry [66-94] [a='{"jsonkey": "jsonvalue"}']
       Identifier(a) [66-67] [a]
-      StringLiteral('{"jsonkey": "jsonvalue"}') [68-94] ['{"jsonkey": "jsonvalue"}']
+      StringLiteral [68-94] ['{"jsonkey": "jsonvalue"}']
+        StringLiteralComponent('{"jsonkey": "jsonvalue"}') [68-94] ['{"jsonkey": "jsonvalue"}']
     OptionsEntry [96-103] [c="def"]
       Identifier(c) [96-97] [c]
-      StringLiteral("def") [98-103] ["def"]
+      StringLiteral [98-103] ["def"]
+        StringLiteralComponent("def") [98-103] ["def"]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -735,7 +738,8 @@ CreateExternalTableStatement [0-49] [create external..., c="def")]
         Identifier(b) [38-39] [b]
     OptionsEntry [41-48] [c="def"]
       Identifier(c) [41-42] [c]
-      StringLiteral("def") [43-48] ["def"]
+      StringLiteral [43-48] ["def"]
+        StringLiteralComponent("def") [43-48] ["def"]
 --
 CREATE EXTERNAL TABLE `t1-2` OPTIONS(a = b, c = "def")
 ==

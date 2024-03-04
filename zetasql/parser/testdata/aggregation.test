@@ -605,7 +605,8 @@ QueryStatement [0-73] [select x,...group by x]
                 PathExpression [32-33] [y]
                   Identifier(y) [32-33] [y]
                 Collate [34-49] [collate "en_US"]
-                  StringLiteral("en_US") [42-49] ["en_US"]
+                  StringLiteral [42-49] ["en_US"]
+                    StringLiteralComponent("en_US") [42-49] ["en_US"]
       FromClause [56-62] [from T]
         TablePathExpression [61-62] [T]
           PathExpression [61-62] [T]
@@ -2201,3 +2202,13 @@ GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
 ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:31]
 GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
                               ^
+==
+
+# Trailing commas don't work.  It would be nice, but causes a parser conflict.
+select COUNT(*)
+from T
+group by x,y,
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:14]
+group by x,y,
+             ^

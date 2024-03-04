@@ -111,7 +111,8 @@ AssignmentFromStruct [0-26] [SET (a,b) = (1 + 3, 'foo')]
     BinaryExpression(+) [13-18] [1 + 3]
       IntLiteral(1) [13-14] [1]
       IntLiteral(3) [17-18] [3]
-    StringLiteral('foo') [20-25] ['foo']
+    StringLiteral [20-25] ['foo']
+      StringLiteralComponent('foo') [20-25] ['foo']
 --
 SET(a, b) = (1 + 3, 'foo')
 ==
@@ -251,7 +252,8 @@ ALTERNATION GROUP: @
 ParameterAssignment [0-22] [SET @value="something"]
   ParameterExpr [4-10] [@value]
     Identifier(value) [5-10] [value]
-  StringLiteral("something") [11-22] ["something"]
+  StringLiteral [11-22] ["something"]
+    StringLiteralComponent("something") [11-22] ["something"]
 --
 SET @value = "something"
 --
@@ -261,7 +263,8 @@ SystemVariableAssignment [0-23] [SET @@value="something"]
   SystemVariableExpr [4-11] [@@value]
     PathExpression [6-11] [value]
       Identifier(value) [6-11] [value]
-  StringLiteral("something") [12-23] ["something"]
+  StringLiteral [12-23] ["something"]
+    StringLiteralComponent("something") [12-23] ["something"]
 --
 SET @@value = "something"
 ==
@@ -274,7 +277,8 @@ ALTERNATION GROUP: @
 ParameterAssignment [0-20] [SET @AND="something"]
   ParameterExpr [4-8] [@AND]
     Identifier(`AND`) [5-8] [AND]
-  StringLiteral("something") [9-20] ["something"]
+  StringLiteral [9-20] ["something"]
+    StringLiteralComponent("something") [9-20] ["something"]
 --
 SET @`AND` = "something"
 --
@@ -284,7 +288,8 @@ SystemVariableAssignment [0-21] [SET @@AND="something"]
   SystemVariableExpr [4-9] [@@AND]
     PathExpression [6-9] [AND]
       Identifier(`AND`) [6-9] [AND]
-  StringLiteral("something") [10-21] ["something"]
+  StringLiteral [10-21] ["something"]
+    StringLiteralComponent("something") [10-21] ["something"]
 --
 SET @@`AND` = "something"
 ==
@@ -297,7 +302,8 @@ ALTERNATION GROUP: @
 ParameterAssignment [0-22] [SET @ABORT="something"]
   ParameterExpr [4-10] [@ABORT]
     Identifier(ABORT) [5-10] [ABORT]
-  StringLiteral("something") [11-22] ["something"]
+  StringLiteral [11-22] ["something"]
+    StringLiteralComponent("something") [11-22] ["something"]
 --
 SET @ABORT = "something"
 --
@@ -307,7 +313,8 @@ SystemVariableAssignment [0-23] [SET @@ABORT="something"]
   SystemVariableExpr [4-11] [@@ABORT]
     PathExpression [6-11] [ABORT]
       Identifier(ABORT) [6-11] [ABORT]
-  StringLiteral("something") [12-23] ["something"]
+  StringLiteral [12-23] ["something"]
+    StringLiteralComponent("something") [12-23] ["something"]
 --
 SET @@ABORT = "something"
 ==

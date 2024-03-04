@@ -20,14 +20,12 @@
 #include <string>
 
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/resolved_ast/resolved_node.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace {

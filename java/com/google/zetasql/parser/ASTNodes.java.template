@@ -142,6 +142,13 @@ public class ASTNodes {
           new DebugStringField("{{field.name}}",
             {{field.name|lower_camel_case}}));
       }
+   # elif not field.serialize_default_value
+      {# Reusing serialization option to decide not to print default values. #}
+      if ({{field.name|lower_camel_case}}) {
+        debugStringfields.add(
+          new DebugStringField("{{field.name}}",
+            {{field.name|lower_camel_case}}));
+      }
    # else
       debugStringfields.add(
         new DebugStringField("{{field.name}}",

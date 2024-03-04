@@ -17,7 +17,7 @@
 #include "zetasql/tools/formatter/internal/chunk_grouping_strategy.h"
 
 #include <iterator>
-#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "zetasql/tools/formatter/internal/chunk.h"
@@ -247,7 +247,7 @@ void AddBlockForAsKeyword(ChunkBlock* const chunk_block, Chunk* as_chunk) {
               Token::Type::CAST_AS);
           return;
         }
-        // AS is within parantheses, stop searching for the special cases.
+        // AS is within parentheses, stop searching for the special cases.
         if (i != t->children().rbegin()) {
           expression_block = *(i - 1);
         }
@@ -925,6 +925,8 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       AddBlockForClosingBracket(&previous_chunk, &chunk);
     } else if (chunk.IsCreateOrExportIndentedClauseChunk()) {
       AddBlockForCreateOrExportIndentedClause(&previous_chunk, &chunk);
+    } else if (chunk.IsTopLevelClauseChunk()) {
+      AddBlockForTopLevelClause(chunk_block, &chunk);
     } else if (chunk.IsJoin()) {
       AddBlockForJoinClause(chunk_block, &chunk);
     } else if (chunk.FirstKeyword() == "ON" ||
@@ -935,8 +937,6 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       // Should be before handling top level clause keywords, since some ddl
       // keywords may be top level in other contexts.
       AddBlockForDdlChunk(chunk_block, &chunk);
-    } else if (chunk.IsTopLevelClauseChunk()) {
-      AddBlockForTopLevelClause(chunk_block, &chunk);
     } else if (chunk.FirstKeyword() == ".") {
       if (previous_chunk.StartsWithChainableOperator() ||
           previous_chunk.FirstKeyword() == "=") {

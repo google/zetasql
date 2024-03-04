@@ -37,6 +37,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -140,8 +141,12 @@ static const auto& GetTypeKindInfoMap() {
            {"JSON",               26,          26,    true }},
           {TYPE_INTERVAL,
            {"INTERVAL",           27,          27,    true }},
+          {TYPE_TOKENLIST,
+           {"TOKENLIST",          28,          28,    true }},
           {TYPE_RANGE,
            {"RANGE",              29,          29,   false }},
+          {TYPE_MAP,
+           {"MAP",                31,          31,   false }},
           // clang-format on
           // When a new entry is added here, update
           // TypeTest::VerifyCostAndSpecificity.
@@ -183,7 +188,8 @@ TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(
       &language_options.GetEnabledLanguageFeatures());
 }
 
-std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
+std::string Type::TypeKindToString(TypeKind kind, ProductMode mode,
+                                   bool use_external_float32) {
   // Note that for types not externally supported we still want to produce
   // the internal names for them.  This is because during development
   // we want error messages to indicate what the unsupported type actually
@@ -192,6 +198,9 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
   if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
     if (mode == PRODUCT_EXTERNAL && kind == TYPE_DOUBLE) {
       return "FLOAT64";
+    } else if (mode == PRODUCT_EXTERNAL && use_external_float32 &&
+               kind == TYPE_FLOAT) {
+      return "FLOAT32";
     }
     return GetTypeKindInfoMap().at(kind).name;
   }
@@ -199,20 +208,22 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
 }
 
 std::string Type::TypeKindListToString(const std::vector<TypeKind>& kinds,
-                                       ProductMode mode) {
+                                       ProductMode mode,
+                                       bool use_external_float32) {
   std::vector<std::string> kind_strings;
   kind_strings.reserve(kinds.size());
   for (const TypeKind& kind : kinds) {
-    kind_strings.push_back(TypeKindToString(kind, mode));
+    kind_strings.push_back(TypeKindToString(kind, mode, use_external_float32));
   }
   return absl::StrJoin(kind_strings, ", ");
 }
 
-std::string Type::TypeListToString(TypeListView types, ProductMode mode) {
+std::string Type::TypeListToString(TypeListView types, ProductMode mode,
+                                   bool use_external_float32) {
   std::vector<std::string> type_strings;
   type_strings.reserve(types.size());
   for (const Type* type : types) {
-    type_strings.push_back(type->ShortTypeName(mode));
+    type_strings.push_back(type->ShortTypeName(mode, use_external_float32));
   }
   return absl::StrJoin(type_strings, ", ");
 }
@@ -409,6 +420,8 @@ std::string Type::CapitalizedName() const {
       return "BigNumeric";
     case TYPE_JSON:
       return "Json";
+    case TYPE_TOKENLIST:
+      return "TokenList";
     case TYPE_RANGE:
       // TODO: Consider moving to the types library and audit use of
       // DebugString.
@@ -416,6 +429,9 @@ std::string Type::CapitalizedName() const {
       // in zetasql::Value.
       return absl::StrCat("Range<",
                           this->AsRange()->element_type()->DebugString(), ">");
+    case TYPE_MAP:
+      return absl::StrCat("Map<", GetMapKeyType(this)->CapitalizedName(), ", ",
+                          GetMapValueType(this)->CapitalizedName(), ">");
     case TYPE_ENUM: {
       if (AsEnum()->IsOpaque()) {
         return AsEnum()->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
@@ -497,6 +513,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
   bool supports_partitioning =
       !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson();
+  if (this->IsTokenList()) supports_partitioning = false;
 
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
@@ -507,6 +524,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
   bool supports_ordering = !IsGeography() && !IsJson();
+  if (this->IsTokenList()) supports_ordering = false;
   if (supports_ordering) return true;
   if (type_description != nullptr) {
     *type_description = TypeKindToString(this->kind(),
@@ -543,6 +561,25 @@ bool Type::SupportsEquality(
   return this->SupportsEquality();
 }
 
+bool Type::SupportsReturning(const LanguageOptions& language_options,
+                             std::string* type_description) const {
+  switch (this->kind()) {
+    case TYPE_ARRAY:
+      return this->AsArray()->element_type()->SupportsReturning(
+          language_options, type_description);
+    case TYPE_STRUCT:
+      for (const StructField& field : this->AsStruct()->fields()) {
+        if (!field.type->SupportsReturning(language_options,
+                                           type_description)) {
+          return false;
+        }
+      }
+      return true;
+    default:
+      return true;
+  }
+}
+
 void Type::CopyValueContent(const ValueContent& from, ValueContent* to) const {
   *to = from;
 }
@@ -558,10 +595,10 @@ absl::HashState Type::Hash(absl::HashState state) const {
 absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {
   return absl::Status(
       absl::StatusCode::kInternal,
-      absl::StrCat("Type mismatch: provided type ", DebugString(),
-                   " but proto <",
-                   value_proto.ShortDebugString(),
-                   "> doesn't have field of that type and is not null"));
+      absl::StrCat(
+          "Type mismatch: provided type ", DebugString(), " but proto <",
+          value_proto.ShortDebugString(),
+          "> doesn't have field of that type and is not null"));
 }
 
 bool TypeEquals::operator()(const Type* const type1,
@@ -612,7 +649,7 @@ absl::Status Type::ValidateResolvedTypeParameters(
   return absl::OkStatus();
 }
 
-std::string Type::AddCapitalizedTypePrefix(const std::string& input,
+std::string Type::AddCapitalizedTypePrefix(absl::string_view input,
                                            bool is_null) const {
   if (kind() == TYPE_PROTO && !is_null) {
     // Proto types wrap their values using curly brackets, so don't need

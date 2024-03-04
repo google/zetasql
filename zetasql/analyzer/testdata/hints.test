@@ -765,9 +765,10 @@ QueryStmt
         |   |   |   +-right_scan=
         |   |   |   | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
         |   |   |   +-join_expr=
-        |   |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |   |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |   |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   |   |   +-has_using=TRUE
         |   |   +-right_scan=
         |   |   | +-TableScan(table=KeyValue, alias="kv3")
         |   |   +-join_expr=

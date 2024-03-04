@@ -25,6 +25,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -133,7 +134,7 @@ GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation) {
 
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollationList(
-    const std::vector<ResolvedCollation>& collation_list) {
+    absl::Span<const ResolvedCollation> collation_list) {
   ZETASQL_RET_CHECK_LE(collation_list.size(), 1);
   if (collation_list.empty()) {
     return nullptr;
@@ -157,7 +158,7 @@ GetCollatorFromResolvedCollationValue(const Value& collation_value) {
 }
 
 absl::StatusOr<CollatorList> MakeCollatorList(
-    const std::vector<ResolvedCollation>& collation_list) {
+    absl::Span<const ResolvedCollation> collation_list) {
   CollatorList collator_list;
 
   if (collation_list.empty()) {

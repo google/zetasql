@@ -38,6 +38,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 
 namespace {
 
@@ -451,7 +452,7 @@ TEST(JSONValueTest, MoveFrom) {
   constexpr absl::string_view kInitialValue =
       R"({"a":{"b":{"c":1}}, "d":2, "e":[3, 4, [5, 6]]})";
   using TokenValue = std::variant<std::string, int64_t>;
-  auto verify_func = [&](const std::vector<TokenValue>& path_tokens,
+  auto verify_func = [&](absl::Span<const TokenValue> path_tokens,
                          absl::string_view member_json_string,
                          absl::string_view modified_original_json_string) {
     JSONValue original_value =

@@ -19,21 +19,18 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/common/aggregate_null_handling.h"
-#include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/parse_location.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -48,9 +45,10 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -115,7 +113,7 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeAggregateExpr(
       const ResolvedExpr* pivot_expr, const ResolvedExpr* pivot_value_expr,
       const ResolvedColumn& pivot_column,
-      const std::vector<ResolvedColumn>& agg_fn_arg_columns);
+      absl::Span<const ResolvedColumn> agg_fn_arg_columns);
 
   // Wraps the input scan of a pivot with a project scan, adding computed
   // columns holding the result of the FOR expression, plus each argument to the
@@ -587,7 +585,7 @@ absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 PivotRewriterVisitor::MakeAggregateExpr(
     const ResolvedExpr* pivot_expr, const ResolvedExpr* pivot_value_expr,
     const ResolvedColumn& pivot_column,
-    const std::vector<ResolvedColumn>& agg_fn_arg_columns) {
+    absl::Span<const ResolvedColumn> agg_fn_arg_columns) {
   // This condition guaranteed by the resolver and this check
   // really belongs in the validator; however, the validator currently has no
   // way to call IsConstantExpression() without creating a circular build

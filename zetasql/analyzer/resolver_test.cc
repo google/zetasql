@@ -99,6 +99,8 @@ class ResolverTest : public ::testing::Test {
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_ANONYMIZATION);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_AGGREGATION_THRESHOLD);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_INTERVAL_TYPE);
@@ -1188,6 +1190,43 @@ TEST_F(ResolverTest, TestHasAnonymization) {
       REWRITE_ANONYMIZATION));
 }
 
+TEST_F(ResolverTest, TestHasAggregationThreshold) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  std::string sql;
+  // Test that a statement with aggregation thresholding uses the new rewriter.
+  sql = "SELECT WITH AGGREGATION_THRESHOLD key FROM KeyValue GROUP BY key";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql,
+                           ParserOptions(analyzer_options_.GetParserOptions()),
+                           &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  // Aggregation threshold rewriter should be present, anonymization rewriter
+  // should not be present.
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_AGGREGATION_THRESHOLD));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
+}
+
+TEST_F(ResolverTest, TestDoesNotHaveAggregationThreshold) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  std::string sql;
+
+  // Test a statement without aggregation thresholding.
+  sql = "SELECT * FROM KeyValue";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql,
+                           ParserOptions(analyzer_options_.GetParserOptions()),
+                           &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_AGGREGATION_THRESHOLD));
+}
+
 TEST_F(ResolverTest, FlattenInCatalogButFeatureOff) {
   analyzer_options_.mutable_language()->DisableAllLanguageFeatures();
   ResetResolver(sample_catalog_->catalog());
@@ -1342,6 +1381,30 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
                       "INTERVAL '-99999999999' SECOND");
   TestIntervalLiteral("0-0 0 87840000:0:0", "INTERVAL '316224000000' SECOND");
   TestIntervalLiteral("0-0 0 -87840000:0:0", "INTERVAL '-316224000000' SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' MILLISECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0' MILLISECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0' MILLISECOND");
+  TestIntervalLiteral("0-0 0 27777777:46:39.999",
+                      "INTERVAL '99999999999999' MILLISECOND");
+  TestIntervalLiteral("0-0 0 -27777777:46:39.999",
+                      "INTERVAL '-99999999999999' MILLISECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '316224000000000' MILLISECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '-316224000000000' MILLISECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' MICROSECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0' MICROSECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0' MICROSECOND");
+  TestIntervalLiteral("0-0 0 27777777:46:39.999999",
+                      "INTERVAL '99999999999999999' MICROSECOND");
+  TestIntervalLiteral("0-0 0 -27777777:46:39.999999",
+                      "INTERVAL '-99999999999999999' MICROSECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '316224000000000000' MICROSECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '-316224000000000000' MICROSECOND");
 
   TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0' YEAR TO MONTH");
   TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0-0' YEAR TO MONTH");
@@ -1860,11 +1923,49 @@ TEST_F(ResolverTest, TestIntervalLiteral) {
   TestIntervalLiteralError("INTERVAL '9223372036854775808' SECOND");
   TestIntervalLiteralError("INTERVAL '-9223372036854775809' SECOND");
 
+  TestIntervalLiteralError("INTERVAL '' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL ' 1' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '1 ' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '.' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '1.' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '-1.' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '+1.' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '\t1' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '1\t' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '\\n1' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '1\\n' MILLISECOND");
+  // fractional digits
+  TestIntervalLiteralError("INTERVAL '0.1' MILLISECOND");
+  // exceeds max number of milliseconds
+  TestIntervalLiteralError("INTERVAL '316224000000001' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '-316224000000001' MILLISECOND");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' MILLISECOND");
+
+  TestIntervalLiteralError("INTERVAL '' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL ' 1' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '1 ' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '.' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '1.' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '-1.' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '+1.' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '\t1' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '1\t' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '\\n1' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '1\\n' MICROSECOND");
+  // fractional digits
+  TestIntervalLiteralError("INTERVAL '0.1' MICROSECOND");
+  // exceeds max number of microseconds
+  TestIntervalLiteralError("INTERVAL '316224000000000001' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '-316224000000000001' MICROSECOND");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' MICROSECOND");
+
   // Unsupported dateparts
   TestIntervalLiteralError("INTERVAL '0' DAYOFWEEK");
   TestIntervalLiteralError("INTERVAL '0' DAYOFYEAR");
-  TestIntervalLiteralError("INTERVAL '0' MILLISECOND");
-  TestIntervalLiteralError("INTERVAL '0' MICROSECOND");
   TestIntervalLiteralError("INTERVAL '0' NANOSECOND");
   TestIntervalLiteralError("INTERVAL '0' DATE");
   TestIntervalLiteralError("INTERVAL '0' DATETIME");

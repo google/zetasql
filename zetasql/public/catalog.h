@@ -622,6 +622,11 @@ class EnumerableCatalog : public Catalog {
       absl::flat_hash_set<const Type*>* output) const = 0;
   virtual absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const = 0;
+  virtual absl::Status GetTableValuedFunctions(
+      absl::flat_hash_set<const TableValuedFunction*>* output) const {
+    return absl::NotFoundError(
+        "TableValuedFunctions are not supported in this EnumerableCatalog");
+  }
   virtual absl::Status GetConversions(
       absl::flat_hash_set<const Conversion*>* output) const {
     return absl::NotFoundError(

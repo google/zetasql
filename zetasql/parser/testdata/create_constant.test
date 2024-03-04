@@ -15,7 +15,8 @@ CreateConstantStatement [0-29] [create constant a.b.c = 'str']
     Identifier(a) [16-17] [a]
     Identifier(b) [18-19] [b]
     Identifier(c) [20-21] [c]
-  StringLiteral('str') [24-29] ['str']
+  StringLiteral [24-29] ['str']
+    StringLiteralComponent('str') [24-29] ['str']
 --
 CREATE CONSTANT a.b.c = 'str'
 ==
@@ -364,7 +365,8 @@ create constant table = 'a';
 CreateConstantStatement [0-27] [create constant table = 'a']
   PathExpression [16-21] [table]
     Identifier(table) [16-21] [table]
-  StringLiteral('a') [24-27] ['a']
+  StringLiteral [24-27] ['a']
+    StringLiteralComponent('a') [24-27] ['a']
 --
 CREATE CONSTANT table = 'a'
 ==

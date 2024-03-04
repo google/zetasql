@@ -109,6 +109,8 @@ message ValueProto {
     // Encoded interval value. For the encoding format see documentation for
     // IntervalValue::SerializeAsBytes().
     bytes interval_value = 24;
+    // Encoded tokenlist value.
+    bytes tokenlist_value = 25;
     // Encoded range value. See (broken link).
     Range range_value = 26;
     // User code that switches on this oneoff enum must have a default case so

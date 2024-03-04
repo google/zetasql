@@ -19,20 +19,19 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
 #include "google/type/latlng.pb.h"
 #include "google/type/timeofday.pb.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "zetasql/base/status.h"
+#include "zetasql/base/check.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 namespace testing {
@@ -96,10 +95,11 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
 }
 
 std::vector<std::string> ZetaSqlTestProtoFilepaths() {
-  // `rounding_mode` and `array_find_mode` fixes `Enum not found`
+  // `rounding_mode`, `array_find_mode`, `array_zip_mode` fixes `Enum not found`
   // error in RQG / RSG: b/293474126.
   return {"zetasql/public/functions/rounding_mode.proto",
           "zetasql/public/functions/array_find_mode.proto",
+          "zetasql/public/functions/array_zip_mode.proto",
           "zetasql/testdata/test_schema.proto",
           "zetasql/testdata/test_proto3.proto",
           "google/protobuf/timestamp.proto",
@@ -154,11 +154,12 @@ std::vector<std::string> ZetaSqlRandomTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlTestEnumNames() {
-  // `RoundingMode` and `ArrayFindMode` fixes `Enum not found`
+  // `RoundingMode`, `ArrayFindMode`, `ArrayZipMode` fixes `Enum not found`
   // error in RQG / RSG: b/293474126.
   return {"zetasql_test__.TestEnum", "zetasql_test__.AnotherTestEnum",
           "zetasql.functions.RoundingMode",
-          "zetasql.functions.ArrayFindEnums.ArrayFindMode"};
+          "zetasql.functions.ArrayFindEnums.ArrayFindMode",
+          "zetasql.functions.ArrayZipEnums.ArrayZipMode"};
 }
 
 }  // namespace testing

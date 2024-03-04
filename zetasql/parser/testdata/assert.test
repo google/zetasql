@@ -53,7 +53,8 @@ AssertStatement [0-38]
             SelectColumn [15-16]
               IntLiteral(1) [15-16]
     IntLiteral(1) [20-21]
-  StringLiteral("simple test") [25-38]
+  StringLiteral [25-38]
+    StringLiteralComponent("simple test") [25-38]
 --
 ASSERT(
   SELECT
@@ -85,7 +86,8 @@ AssertStatement [0-33]
     ParameterExpr [7-13]
       Identifier(param) [8-13]
     IntLiteral(1) [16-17]
-  StringLiteral("param test") [21-33]
+  StringLiteral [21-33]
+    StringLiteralComponent("param test") [21-33]
 --
 ASSERT @param = 1 AS "param test"
 ==
@@ -98,7 +100,8 @@ AssertStatement [0-36]
       PathExpression [9-15]
         Identifier(sysvar) [9-15]
     IntLiteral(1) [18-19]
-  StringLiteral("sysvar test") [23-36]
+  StringLiteral [23-36]
+    StringLiteralComponent("sysvar test") [23-36]
 --
 ASSERT @@sysvar = 1 AS "sysvar test"
 ==
@@ -107,11 +110,14 @@ ASSERT "123" IN ("123", "456");
 --
 AssertStatement [0-30]
   InExpression(IN) [7-30]
-    StringLiteral("123") [7-12]
+    StringLiteral [7-12]
+      StringLiteralComponent("123") [7-12]
     Location [13-15]
     InList [17-29]
-      StringLiteral("123") [17-22]
-      StringLiteral("456") [24-29]
+      StringLiteral [17-22]
+        StringLiteralComponent("123") [17-22]
+      StringLiteral [24-29]
+        StringLiteralComponent("456") [24-29]
 --
 ASSERT "123" IN ("123", "456")
 ==
@@ -129,9 +135,12 @@ AssertStatement [0-59]
     FunctionCall [24-50]
       PathExpression [24-33]
         Identifier(ENDS_WITH) [24-33]
-      StringLiteral("suffix") [34-42]
-      StringLiteral("fix") [44-49]
-  StringLiteral("abc") [54-59]
+      StringLiteral [34-42]
+        StringLiteralComponent("suffix") [34-42]
+      StringLiteral [44-49]
+        StringLiteralComponent("fix") [44-49]
+  StringLiteral [54-59]
+    StringLiteralComponent("abc") [54-59]
 --
 ASSERT IS_NAN(NULL) AND ENDS_WITH("suffix", "fix") AS "abc"
 --
@@ -146,9 +155,12 @@ AssertStatement [0-58]
     FunctionCall [23-49]
       PathExpression [23-32]
         Identifier(ENDS_WITH) [23-32]
-      StringLiteral("suffix") [33-41]
-      StringLiteral("fix") [43-48]
-  StringLiteral("abc") [53-58]
+      StringLiteral [33-41]
+        StringLiteralComponent("suffix") [33-41]
+      StringLiteral [43-48]
+        StringLiteralComponent("fix") [43-48]
+  StringLiteral [53-58]
+    StringLiteralComponent("abc") [53-58]
 --
 ASSERT IS_NAN(NULL) OR ENDS_WITH("suffix", "fix") AS "abc"
 ==
@@ -157,7 +169,8 @@ ASSERT "123" IS NOT NULL;
 --
 AssertStatement [0-24]
   BinaryExpression(IS NOT) [7-24]
-    StringLiteral("123") [7-12]
+    StringLiteral [7-12]
+      StringLiteralComponent("123") [7-12]
     NullLiteral(NULL) [20-24]
 --
 ASSERT "123" IS NOT NULL

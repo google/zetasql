@@ -38,6 +38,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace functions {
@@ -59,6 +60,26 @@ template <typename T>
 T ValueOrDie(absl::StatusOr<T>& s) {
   ZETASQL_CHECK_OK(s.status());
   return s.value();
+}
+
+Value MakeArray(std::vector<int64_t> arr) {
+  std::vector<Value> values;
+  values.reserve(arr.size());
+  for (const auto& v : arr) {
+    values.push_back(Value::Int64(v));
+  }
+  auto status = Value::MakeArray(zetasql::types::Int64ArrayType(), values);
+  return ValueOrDie(status);
+}
+
+Value MakeArray(std::vector<float> arr) {
+  std::vector<Value> values;
+  values.reserve(arr.size());
+  for (const auto& v : arr) {
+    values.push_back(Value::Float(v));
+  }
+  auto status = Value::MakeArray(zetasql::types::FloatArrayType(), values);
+  return ValueOrDie(status);
 }
 
 Value MakeArray(std::vector<double> arr) {
@@ -133,14 +154,14 @@ TEST(CosineDistanceTest, DenseArrayLengthMismatch) {
   std::vector<Value> args = CreateArrayPair<double>({1.0, 2.0}, {3.0});
   EXPECT_THAT(CosineDistanceDense(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Array length mismatch: 2 and 1."));
+                       "Array length mismatch: 2 and 1"));
 }
 
 TEST(CosineDistanceTest, DenseZeroArray) {
   std::vector<Value> args = CreateArrayPair<double>({1.0, 2.0}, {0.0, 0.0});
   EXPECT_THAT(CosineDistanceDense(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Cannot compute cosine distance against zero vector."));
+                       "Cannot compute cosine distance against zero vector"));
 }
 
 TEST(CosineDistanceTest, SparseArrayDuplicateInt64Key) {
@@ -148,7 +169,7 @@ TEST(CosineDistanceTest, SparseArrayDuplicateInt64Key) {
       CreateArrayPair<Int64Value>({{1, 1.0}, {1, 2.0}}, {{2, 3.0}, {3, 4.0}});
   EXPECT_THAT(CosineDistanceSparseInt64Key(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Duplicate index 1 found in the input array."));
+                       "Duplicate index 1 found in the input array"));
 }
 
 TEST(CosineDistanceTest, SparseArrayDuplicateStringKey) {
@@ -156,14 +177,14 @@ TEST(CosineDistanceTest, SparseArrayDuplicateStringKey) {
       {{"a", 1.0}, {"a", 2.0}}, {{"a", 3.0}, {"b", 4.0}});
   EXPECT_THAT(CosineDistanceSparseStringKey(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Duplicate index a found in the input array."));
+                       "Duplicate index a found in the input array"));
 }
 
 TEST(EuclideanDistanceTest, DenseArrayLengthMismatch) {
   std::vector<Value> args = CreateArrayPair<double>({1.0, 2.0}, {0.0});
   EXPECT_THAT(EuclideanDistanceDense(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Array length mismatch: 2 and 1."));
+                       "Array length mismatch: 2 and 1"));
 }
 
 TEST(EuclideanDistanceTest, SparseArrayDuplicateInt64Key) {
@@ -171,7 +192,7 @@ TEST(EuclideanDistanceTest, SparseArrayDuplicateInt64Key) {
       CreateArrayPair<Int64Value>({{1, 1.0}, {1, 2.0}}, {{2, 3.0}, {3, 4.0}});
   EXPECT_THAT(EuclideanDistanceSparseInt64Key(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Duplicate index 1 found in the input array."));
+                       "Duplicate index 1 found in the input array"));
 }
 
 TEST(EuclideanDistanceTest, SparseArrayDuplicateStringKey) {
@@ -179,7 +200,451 @@ TEST(EuclideanDistanceTest, SparseArrayDuplicateStringKey) {
       {{"a", 1.0}, {"a", 2.0}}, {{"a", 3.0}, {"b", 4.0}});
   EXPECT_THAT(EuclideanDistanceSparseStringKey(args[0], args[1]),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       "Duplicate index a found in the input array."));
+                       "Duplicate index a found in the input array"));
+}
+
+TEST(DotProductTest, ArrayLengthMismatch) {
+  std::vector<Value> args = CreateArrayPair<double>({1.0, 2.0}, {3.0});
+  EXPECT_THAT(DotProduct(args[0], args[1]),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Array length mismatch: 2 and 1"));
+}
+
+TEST(DotProductTest, Int64TypePositive) {
+  std::vector<int64_t> vector1 = {1, 2};
+  std::vector<int64_t> vector2 = {3, 4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11, 1e-6);
+}
+
+TEST(DotProductTest, Int64TypeNegative) {
+  std::vector<int64_t> vector1 = {-1, -2};
+  std::vector<int64_t> vector2 = {-3, -4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11, 1e-6);
+}
+
+TEST(DotProductTest, Int64TypeMixedSign) {
+  std::vector<int64_t> vector1 = {-1, 2};
+  std::vector<int64_t> vector2 = {3, -4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -11, 1e-6);
+}
+
+TEST(DotProductTest, Int64TypeAllZeroInput) {
+  std::vector<int64_t> vector1 = {0, 0};
+  std::vector<int64_t> vector2 = {0, 0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 0, 1e-6);
+}
+
+TEST(DotProductTest, Int64TypeSomeZeroInput) {
+  std::vector<int64_t> vector1 = {1, 0, -3};
+  std::vector<int64_t> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -18, 1e-6);
+}
+
+TEST(DotProductTest, FloatTypePositive) {
+  std::vector<float> vector1 = {1.0, 2.0};
+  std::vector<float> vector2 = {3.0, 4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11.0, 1e-6);
+}
+
+TEST(DotProductTest, FloatTypeNegative) {
+  std::vector<float> vector1 = {-1.0, -2.0};
+  std::vector<float> vector2 = {-3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11.0, 1e-6);
+}
+
+TEST(DotProductTest, FloatTypeMixedSign) {
+  std::vector<float> vector1 = {-1.0, 2.0};
+  std::vector<float> vector2 = {3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -11.0, 1e-6);
+}
+
+TEST(DotProductTest, FloatTypeAllZeroInput) {
+  std::vector<float> vector1 = {0.0, 0.0};
+  std::vector<float> vector2 = {0.0, 0.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(DotProductTest, FloatTypeSomeZeroInput) {
+  std::vector<float> vector1 = {1, 0, -3};
+  std::vector<float> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -18.0, 1e-6);
+}
+
+TEST(DotProductTest, DoubleTypePositive) {
+  std::vector<double> vector1 = {1.0, 2.0};
+  std::vector<double> vector2 = {3.0, 4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11.0, 1e-6);
+}
+
+TEST(DotProductTest, DoubleTypeNegative) {
+  std::vector<double> vector1 = {-1.0, -2.0};
+  std::vector<double> vector2 = {-3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 11.0, 1e-6);
+}
+
+TEST(DotProductTest, DoubleTypeMixedSign) {
+  std::vector<double> vector1 = {-1.0, 2.0};
+  std::vector<double> vector2 = {3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -11.0, 1e-6);
+}
+
+TEST(DotProductTest, DoubleTypeAllZeroInput) {
+  std::vector<double> vector1 = {0.0, 0.0};
+  std::vector<double> vector2 = {0.0, 0.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(DotProductTest, DoubleTypeSomeZeroInput) {
+  std::vector<double> vector1 = {1, 0, -3};
+  std::vector<double> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(DotProduct(args1, args2).value().double_value(), -18.0, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, ArrayLengthMismatch) {
+  std::vector<Value> args = CreateArrayPair<double>({1.0, 2.0}, {3.0});
+  EXPECT_THAT(ManhattanDistance(args[0], args[1]),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Array length mismatch: 2 and 1"));
+}
+
+TEST(ManhattanDistanceTest, Int64TypePositive) {
+  std::vector<int64_t> vector1 = {1, 2};
+  std::vector<int64_t> vector2 = {3, 4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, Int64TypeNegative) {
+  std::vector<int64_t> vector1 = {-1, -2};
+  std::vector<int64_t> vector2 = {-3, -4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, Int64TypeMixedSign) {
+  std::vector<int64_t> vector1 = {-1, 2};
+  std::vector<int64_t> vector2 = {3, -4};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 10, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, Int64TypeAllZeroInput) {
+  std::vector<int64_t> vector1 = {0, 0};
+  std::vector<int64_t> vector2 = {0, 0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 0, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, Int64TypeSomeZeroInput) {
+  std::vector<int64_t> vector1 = {1, 0, -3};
+  std::vector<int64_t> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 15, 1e-6);
+}
+
+TEST(ManhattanDistanceTest, FloatTypePositive) {
+  std::vector<float> vector1 = {1.0, 2.0};
+  std::vector<float> vector2 = {3.0, 4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, FloatTypeNegative) {
+  std::vector<float> vector1 = {-1.0, -2.0};
+  std::vector<float> vector2 = {-3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, FloatTypeMixedSign) {
+  std::vector<float> vector1 = {-1.0, 2.0};
+  std::vector<float> vector2 = {3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 10.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, FloatTypeAllZeroInput) {
+  std::vector<float> vector1 = {0.0, 0.0};
+  std::vector<float> vector2 = {0.0, 0.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 0.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, FloatTypeSomeZeroInput) {
+  std::vector<float> vector1 = {1, 0, -3};
+  std::vector<float> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 15.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, DoubleTypePositive) {
+  std::vector<double> vector1 = {1.0, 2.0};
+  std::vector<double> vector2 = {3.0, 4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, DoubleTypeNegative) {
+  std::vector<double> vector1 = {-1.0, -2.0};
+  std::vector<double> vector2 = {-3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 4.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, DoubleTypeMixedSign) {
+  std::vector<double> vector1 = {-1.0, 2.0};
+  std::vector<double> vector2 = {3.0, -4.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 10.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, DoubleTypeAllZeroInput) {
+  std::vector<double> vector1 = {0.0, 0.0};
+  std::vector<double> vector2 = {0.0, 0.0};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 0.0,
+              1e-6);
+}
+
+TEST(ManhattanDistanceTest, DoubleTypeSomeZeroInput) {
+  std::vector<double> vector1 = {1, 0, -3};
+  std::vector<double> vector2 = {0, 5, 6};
+  Value args1 = MakeArray(vector1);
+  Value args2 = MakeArray(vector2);
+  EXPECT_NEAR(ManhattanDistance(args1, args2).value().double_value(), 15.0,
+              1e-6);
+}
+
+TEST(L1NormTest, Int64TypePositive) {
+  std::vector<int64_t> vector = {1, 2, 3, 4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10, 1e-6);
+}
+
+TEST(L1NormTest, Int64TypeNegative) {
+  std::vector<int64_t> vector = {-1, -2, -3, -4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10, 1e-6);
+}
+
+TEST(L1NormTest, Int64TypeMixedSign) {
+  std::vector<int64_t> vector = {-1, 2, -3, 4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10, 1e-6);
+}
+
+TEST(L1NormTest, Int64TypeAllZeroInput) {
+  std::vector<int64_t> vector = {0, 0, 0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 0, 1e-6);
+}
+
+TEST(L1NormTest, Int64TypeSomeZeroInput) {
+  std::vector<int64_t> vector = {0, 2, 0, 0, -5};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 7, 1e-6);
+}
+
+TEST(L1NormTest, FloatTypePositive) {
+  std::vector<float> vector = {1.0, 2.0, 3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, FloatTypeNegative) {
+  std::vector<float> vector = {-1.0, -2.0, -3.0, -4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, FloatTypeMixedSign) {
+  std::vector<float> vector = {-1.0, 2.0, -3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, FloatTypeAllZeroInput) {
+  std::vector<float> vector = {0.0, 0.0, 0.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(L1NormTest, FloatTypeSomeZeroInput) {
+  std::vector<float> vector = {0.0, 2.0, 0.0, 0.0, -5.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 7.0, 1e-6);
+}
+
+TEST(L1NormTest, DoubleTypePositive) {
+  std::vector<float> vector = {1.0, 2.0, 3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, DoubleTypeNegative) {
+  std::vector<double> vector = {-1.0, -2.0, -3.0, -4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, DoubleTypeMixedSign) {
+  std::vector<double> vector = {-1.0, 2.0, -3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 10.0, 1e-6);
+}
+
+TEST(L1NormTest, DoubleTypeAllZeroInput) {
+  std::vector<double> vector = {0.0, 0.0, 0.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(L1NormTest, DoubleTypeSomeZeroInput) {
+  std::vector<double> vector = {0.0, 2.0, 0.0, 0.0, -5.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L1Norm(args).value().double_value(), 7.0, 1e-6);
+}
+
+TEST(L2NormTest, Int64TypePositive) {
+  std::vector<int64_t> vector = {1, 2, 3, 4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, Int64TypeNegative) {
+  std::vector<int64_t> vector = {-1, -2, -3, -4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, Int64TypeMixedSign) {
+  std::vector<int64_t> vector = {-1, 2, -3, 4};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, Int64TypeAllZeroInput) {
+  std::vector<int64_t> vector = {0, 0, 0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), 0, 1e-6);
+}
+
+TEST(L2NormTest, Int64TypeSomeZeroInput) {
+  std::vector<int64_t> vector = {0, 2, 0, 0, -5};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(29), 1e-6);
+}
+
+TEST(L2NormTest, FloatTypePositive) {
+  std::vector<float> vector = {1.0, 2.0, 3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, FloatTypeNegative) {
+  std::vector<float> vector = {-1.0, -2.0, -3.0, -4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, FloatTypeMixedSign) {
+  std::vector<float> vector = {-1.0, 2.0, -3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, FloatTypeAllZeroInput) {
+  std::vector<float> vector = {0.0, 0.0, 0.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(L2NormTest, FloatTypeSomeZeroInput) {
+  std::vector<float> vector = {0.0, 2.0, 0.0, 0.0, -5.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(29), 1e-6);
+}
+
+TEST(L2NormTest, DoubleTypePositive) {
+  std::vector<float> vector = {1.0, 2.0, 3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, DoubleTypeNegative) {
+  std::vector<double> vector = {-1.0, -2.0, -3.0, -4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, DoubleTypeMixedSign) {
+  std::vector<double> vector = {-1.0, 2.0, -3.0, 4.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(30), 1e-6);
+}
+
+TEST(L2NormTest, DoubleTypeAllZeroInput) {
+  std::vector<double> vector = {0.0, 0.0, 0.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), 0.0, 1e-6);
+}
+
+TEST(L2NormTest, DoubleTypeSomeZeroInput) {
+  std::vector<double> vector = {0.0, 2.0, 0.0, 0.0, -5.0};
+  Value args = MakeArray(vector);
+  EXPECT_NEAR(L2Norm(args).value().double_value(), std::sqrt(29), 1e-6);
 }
 
 enum class DistanceFunctionVectorTypeEnum {

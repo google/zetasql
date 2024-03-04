@@ -41,6 +41,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/base/case.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
@@ -51,6 +52,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -326,7 +328,7 @@ void SimpleCatalog::AddModel(absl::string_view name, const Model* model) {
   zetasql_base::InsertOrDie(&models_, absl::AsciiStrToLower(name), model);
 }
 
-void SimpleCatalog::AddConnection(const std::string& name,
+void SimpleCatalog::AddConnection(absl::string_view name,
                                   const Connection* connection) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&connections_, absl::AsciiStrToLower(name), connection);
@@ -343,7 +345,7 @@ void SimpleCatalog::AddType(absl::string_view name, const Type* type) {
   ABSL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
 }
 
-void SimpleCatalog::AddCatalog(const std::string& name, Catalog* catalog) {
+void SimpleCatalog::AddCatalog(absl::string_view name, Catalog* catalog) {
   absl::MutexLock l(&mutex_);
   AddCatalogLocked(name, catalog);
 }
@@ -352,7 +354,7 @@ void SimpleCatalog::AddCatalogLocked(absl::string_view name, Catalog* catalog) {
   zetasql_base::InsertOrDie(&catalogs_, absl::AsciiStrToLower(name), catalog);
 }
 
-void SimpleCatalog::AddFunctionLocked(const std::string& name,
+void SimpleCatalog::AddFunctionLocked(absl::string_view name,
                                       const Function* function) {
   zetasql_base::InsertOrDie(&functions_, absl::AsciiStrToLower(name), function);
   if (!function->alias_name().empty() &&
@@ -369,13 +371,13 @@ void SimpleCatalog::AddFunction(const std::string& name,
 }
 
 void SimpleCatalog::AddTableValuedFunctionLocked(
-    const std::string& name, const TableValuedFunction* table_function) {
+    absl::string_view name, const TableValuedFunction* table_function) {
   zetasql_base::InsertOrDie(&table_valued_functions_, absl::AsciiStrToLower(name),
                    table_function);
 }
 
 void SimpleCatalog::AddTableValuedFunction(
-    const std::string& name, const TableValuedFunction* function) {
+    absl::string_view name, const TableValuedFunction* function) {
   absl::MutexLock l(&mutex_);
   AddTableValuedFunctionLocked(name, function);
 }
@@ -386,13 +388,13 @@ void SimpleCatalog::AddProcedure(absl::string_view name,
   zetasql_base::InsertOrDie(&procedures_, absl::AsciiStrToLower(name), procedure);
 }
 
-void SimpleCatalog::AddConstant(const std::string& name,
+void SimpleCatalog::AddConstant(absl::string_view name,
                                 const Constant* constant) {
   absl::MutexLock l(&mutex_);
   AddConstantLocked(name, constant);
 }
 
-void SimpleCatalog::AddConstantLocked(const std::string& name,
+void SimpleCatalog::AddConstantLocked(absl::string_view name,
                                       const Constant* constant) {
   zetasql_base::InsertOrDie(&constants_, absl::AsciiStrToLower(name), constant);
 }
@@ -420,14 +422,14 @@ void SimpleCatalog::AddOwnedTable(absl::string_view name, const Table* table) {
   AddOwnedTable(name, absl::WrapUnique(table));
 }
 
-void SimpleCatalog::AddOwnedModel(const std::string& name,
+void SimpleCatalog::AddOwnedModel(absl::string_view name,
                                   std::unique_ptr<const Model> model) {
   AddModel(name, model.get());
   absl::MutexLock l(&mutex_);
   owned_models_.emplace_back(std::move(model));
 }
 
-void SimpleCatalog::AddOwnedModel(const std::string& name, const Model* model) {
+void SimpleCatalog::AddOwnedModel(absl::string_view name, const Model* model) {
   AddOwnedModel(name, absl::WrapUnique(model));
 }
 
@@ -473,14 +475,14 @@ void SimpleCatalog::AddOwnedTableValuedFunction(
 }
 
 void SimpleCatalog::AddOwnedTableValuedFunctionLocked(
-    const std::string& name,
+    absl::string_view name,
     std::unique_ptr<const TableValuedFunction> table_function) {
   AddTableValuedFunctionLocked(name, table_function.get());
   owned_table_valued_functions_.emplace_back(std::move(table_function));
 }
 
 void SimpleCatalog::AddOwnedProcedure(
-    const std::string& name, std::unique_ptr<const Procedure> procedure) {
+    absl::string_view name, std::unique_ptr<const Procedure> procedure) {
   AddProcedure(name, procedure.get());
   absl::MutexLock l(&mutex_);
   owned_procedures_.push_back(std::move(procedure));
@@ -498,7 +500,7 @@ bool SimpleCatalog::AddOwnedProcedureIfNotPresent(
   return true;
 }
 
-void SimpleCatalog::AddOwnedProcedure(const std::string& name,
+void SimpleCatalog::AddOwnedProcedure(absl::string_view name,
                                       const Procedure* procedure) {
   AddOwnedProcedure(name, absl::WrapUnique(procedure));
 }
@@ -593,14 +595,14 @@ void SimpleCatalog::AddOwnedCatalog(Catalog* catalog) {
   AddOwnedCatalog(absl::WrapUnique(catalog));
 }
 
-void SimpleCatalog::AddOwnedCatalogLocked(const std::string& name,
+void SimpleCatalog::AddOwnedCatalogLocked(absl::string_view name,
                                           std::unique_ptr<Catalog> catalog) {
   AddCatalogLocked(name, catalog.get());
   owned_catalogs_.emplace_back(std::move(catalog));
 }
 
 bool SimpleCatalog::AddOwnedCatalogIfNotPresent(
-    const std::string& name, std::unique_ptr<Catalog> catalog) {
+    absl::string_view name, std::unique_ptr<Catalog> catalog) {
   absl::MutexLock l(&mutex_);
   if (catalogs_.contains(absl::AsciiStrToLower(name))) {
     return false;
@@ -656,7 +658,7 @@ void SimpleCatalog::AddOwnedTableValuedFunction(
 }
 
 bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
-    const std::string& name,
+    absl::string_view name,
     std::unique_ptr<TableValuedFunction>* table_function) {
   absl::MutexLock l(&mutex_);
   // If the table function name exists, return false.
@@ -713,7 +715,7 @@ void SimpleCatalog::AddOwnedConstant(const Constant* constant) {
 }
 
 void SimpleCatalog::AddOwnedConnection(
-    const std::string& name, std::unique_ptr<const Connection> connection) {
+    absl::string_view name, std::unique_ptr<const Connection> connection) {
   AddConnection(name, connection.get());
   absl::MutexLock l(&mutex_);
   owned_connections_.push_back(std::move(connection));
@@ -1115,8 +1117,17 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
     const absl::Span<const google::protobuf::DescriptorPool* const> pools,
     const ExtendedTypeDeserializer* extended_type_deserializer) {
   // Create a top level catalog that owns the TypeFactory.
-  std::unique_ptr<SimpleCatalog> catalog(new SimpleCatalog(proto.name()));
+  return Deserialize(proto, pools, /*type_factory=*/nullptr,
+                     extended_type_deserializer);
+}
 
+absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
+    const SimpleCatalogProto& proto,
+    const absl::Span<const google::protobuf::DescriptorPool* const> pools,
+    zetasql::TypeFactory* type_factory,
+    const ExtendedTypeDeserializer* extended_type_deserializer) {
+  std::unique_ptr<SimpleCatalog> catalog(
+      new SimpleCatalog(proto.name(), type_factory));
   ZETASQL_RETURN_IF_ERROR(
       catalog->DeserializeImpl(proto,
                                TypeDeserializer(catalog->type_factory(), pools,
@@ -1332,6 +1343,15 @@ absl::Status SimpleCatalog::GetFunctions(
   return absl::OkStatus();
 }
 
+absl::Status SimpleCatalog::GetTableValuedFunctions(
+    absl::flat_hash_set<const TableValuedFunction*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(table_valued_functions_, output);
+  return absl::OkStatus();
+}
+
 std::vector<std::string> SimpleCatalog::table_names() const {
   absl::MutexLock l(&mutex_);
   std::vector<std::string> table_names;
@@ -1457,7 +1477,7 @@ SimpleTable::SimpleTable(absl::string_view name,
 }
 
 SimpleTable::SimpleTable(absl::string_view name,
-                         const std::vector<NameAndAnnotatedType>& columns,
+                         absl::Span<const NameAndAnnotatedType> columns,
                          const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
   for (const NameAndAnnotatedType& name_and_annotated_type : columns) {
@@ -1562,7 +1582,7 @@ absl::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
   return absl::OkStatus();
 }
 
-void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
+void SimpleTable::SetContents(absl::Span<const std::vector<Value>> rows) {
   column_major_contents_.clear();
   column_major_contents_.resize(NumColumns());
   for (int i = 0; i < NumColumns(); ++i) {
@@ -1835,8 +1855,8 @@ absl::StatusOr<std::unique_ptr<SimpleConstant>> SimpleConstant::Deserialize(
 }
 
 SimpleModel::SimpleModel(const std::string& name,
-                         const std::vector<NameAndType>& inputs,
-                         const std::vector<NameAndType>& outputs,
+                         absl::Span<const NameAndType> inputs,
+                         absl::Span<const NameAndType> outputs,
                          const int64_t id)
     : name_(name), id_(id) {
   for (const NameAndType& name_and_type : inputs) {

@@ -26,29 +26,33 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/public/analyzer.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/operator.h"
+#include "zetasql/reference_impl/parameters.h"
+#include "zetasql/reference_impl/variable_generator.h"
+#include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -2024,5 +2028,45 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByAny) {
 INSTANTIATE_TEST_SUITE_P(
     GroupBySum, AlgebrizerTestGroupingAggregation,
     ValuesIn(AlgebrizerTestGroupingAggregation::AllGroupByTests()));
+
+TEST_F(StatementAlgebrizerTest, TVF) {
+  TVFRelation tvf_output_schema({
+      {"o1", Int64Type()},
+      {"o2", DoubleType()},
+  });
+
+  FixedOutputSchemaTVF tvf(
+      {"tvf_no_args"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            tvf_output_schema,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        FunctionArgumentTypeList(), /*context_ptr=*/nullptr),
+      tvf_output_schema);
+
+  ResolvedColumn o1(1, IdString::MakeGlobal("tvf_no_args"),
+                    IdString::MakeGlobal("o1"), types::Int64Type());
+  ResolvedColumn o2(2, IdString::MakeGlobal("tvf_no_args"),
+                    IdString::MakeGlobal("o2"), types::DoubleType());
+
+  std::vector<TVFInputArgumentType> signature_arguments;
+  auto signature =
+      std::make_shared<TVFSignature>(signature_arguments, tvf_output_schema);
+
+  auto tvf_scan =
+      MakeResolvedTVFScan({o1, o2}, &tvf, signature, /*argument_list=*/{},
+                          /*column_index_list=*/{0, 1}, /*alias=*/"");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const AlgebraNode> algebrized_scan,
+                       algebrizer_->AlgebrizeScan(tvf_scan.get()));
+  EXPECT_EQ(algebrized_scan->DebugString(true),
+            "TvfOp(\n"
+            "+-tvf: tvf_no_args\n"
+            "+-arguments: {}\n"
+            "+-output_columns: {\n"
+            "| +-o1\n"
+            "| +-o2}\n"
+            "+-variables: {\n"
+            "| +-$o1\n"
+            "| +-$o2})");
+}
 
 }  // namespace zetasql

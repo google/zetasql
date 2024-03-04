@@ -172,6 +172,9 @@ class AnalyzerTestCase;
 //       - A text proto string for RewriteOptions proto message, the default
 //         value is an empty RewriteOptions string. The parsed RewriteOptions
 //         is used for zetasql resolved ast rewriters.
+//   kShowReferencedPropertyGraphs - if true (default is false) show the
+//                                 PropertyGraphs referenced in the original
+//                                 query before pruning or rewrite occur.
 extern const char* const kAllowInternalError;
 extern const char* const kAllowUndeclaredParameters;
 extern const char* const kDefaultAnonKappaValue;
@@ -225,6 +228,7 @@ extern const char* const kReplaceTableNotFoundErrorWithTvfErrorIfApplicable;
 extern const char* const kIdStringAllowUnicodeCharacters;
 extern const char* const kDisallowDuplicateOptions;
 extern const char* const kRewriteOptions;
+extern const char* const kShowReferencedPropertyGraphs;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run
@@ -238,16 +242,8 @@ extern const char* const kSetFlag;
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options);
 
-void SerializeAnalyzerTestOptions(
-    const file_based_test_driver::TestCaseOptions* options,
-    AnalyzerTestCase* proto);
-
 // Return a set of known parameters used in the analyzer tests.
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
-    TypeFactory* type_factory);
-
-// Returns a collection of positional parameters used in the analyzer tests.
-std::vector<const zetasql::Type*> GetPositionalQueryParameters(
     TypeFactory* type_factory);
 
 // A map-like type where keys are a canonicalized version of the string that

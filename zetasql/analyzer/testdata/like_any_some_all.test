@@ -250,6 +250,7 @@ select true LIKE ANY ('abc')
             ^
 ==
 
+[language_features=V_1_3_LIKE_ANY_SOME_ALL]
 select 'abc' NOT LIKE ANY ('abc')
 --
 QueryStmt
@@ -3522,14 +3523,105 @@ QueryStmt
 
 [no_java]
 [language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
-# Collation is disallowed on the function arguments
+# Collation test for like all unnest
 select
   string_ci LIKE ALL unnest(array_with_string_ci),
 from CollatedTable
 --
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:13]
-  string_ci LIKE ALL unnest(array_with_string_ci),
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:$like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#12]
+    |         +-expr_list=
+    |         | +-$col1#12 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#11]
+    |         |         +-expr_list=
+    |         |         | +-$col1#11 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#9)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#10)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#9, $agg2#10]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#9 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#10 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#6, patterns#7]
+    |             +-expr_list=
+    |             | +-input#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             | +-patterns#7 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
 ==
 
 [no_java]
@@ -3672,79 +3764,2215 @@ ERROR: Collation conflict: "binary" vs. "und:ci". Collation on argument 2 ("bina
 # TODO: Collation/Annotation specific ZetaSQL analyzer tests are not working as expected while executed in java mode
 [no_java]
 [language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
-# Collation is disallowed on the function arguments
-# TODO: As per discussion with shaokunz@, we might be able to allow collation on function arguments now
+# Collation test for like any unnest
 SELECT
   string_ci LIKE ANY UNNEST(array_with_string_ci)
 FROM COLLATEdTable
 --
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 4:13]
-  string_ci LIKE ANY UNNEST(array_with_string_ci)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:$like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#12]
+    |         +-expr_list=
+    |         | +-$col1#12 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#11]
+    |         |         +-expr_list=
+    |         |         | +-$col1#11 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#9)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#10)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#9, $agg2#10]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#9 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#10 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#6, patterns#7]
+    |             +-expr_list=
+    |             | +-input#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             | +-patterns#7 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
 
 ==
 
 # TODO: Collation/Annotation specific ZetaSQL analyzer tests are not working as expected while executed in java mode
 [no_java]
-[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
-# Collation is disallowed on the function arguments
-# TODO: As per discussion with shaokunz@, we might be able to allow collation on function arguments now
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Collation for not like all unnest
 SELECT
-  string_ci LIKE ALL UNNEST(array_with_string_ci)
+  string_ci NOT LIKE ALL UNNEST(array_with_string_ci)
 FROM COLLATEdTable
 --
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 4:13]
-  string_ci LIKE ALL UNNEST(array_with_string_ci)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#12]
+    |         +-expr_list=
+    |         | +-$col1#12 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#11]
+    |         |         +-expr_list=
+    |         |         | +-$col1#11 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#9)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#10)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#9, $agg2#10]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#9 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#10 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#6, patterns#7]
+    |             +-expr_list=
+    |             | +-input#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             | +-patterns#7 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
+==
+
+[no_java]
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Collation for not like any unnest
+SELECT
+  string_ci NOT LIKE ANY UNNEST(array_with_string_ci)
+FROM COLLATEdTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#12]
+    |         +-expr_list=
+    |         | +-$col1#12 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#11]
+    |         |         +-expr_list=
+    |         |         | +-$col1#11 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#9)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#10)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#9, $agg2#10]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#7[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#8{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#9 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#6{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#10 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#8{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#6, patterns#7]
+    |             +-expr_list=
+    |             | +-input#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             | +-patterns#7 := ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}], is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 3])
 ==
 
 # TODO: Collation/Annotation specific ZetaSQL analyzer tests are not working as expected while executed in java mode
 [no_java]
 [language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
-# Collation is disallowed on the function arguments
-# TODO: As per discussion with shaokunz@, we might be able to allow collation on function arguments now
+# Collation for like any/some/all with mix of collated and non collated arguments in the patterns array
 SELECT 'a' LIKE {{ANY|SOME|ALL}} UNNEST(['a', COLLATE('A', 'und:ci')])
 --
-ALTERNATION GROUP: ANY
+ALTERNATION GROUPS:
+    ANY
+    SOME
 --
-ERROR: Collation is not allowed on argument 2 (["und:ci"]) [at 3:12]
-SELECT 'a' LIKE ANY UNNEST(['a', COLLATE('A', 'und:ci')])
-           ^
---
-ALTERNATION GROUP: SOME
---
-ERROR: Collation is not allowed on argument 2 (["und:ci"]) [at 3:12]
-SELECT 'a' LIKE SOME UNNEST(['a', COLLATE('A', 'und:ci')])
-           ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-Literal(type=STRING, value="a")
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |         +-type_annotation_map={Collation:"und:ci"}
+    |         +-Literal(type=STRING, value="A")
+    |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |       +-type_annotation_map={Collation:"und:ci"}
+    |             |       +-Literal(type=STRING, value="A")
+    |             |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: ALL
 --
-ERROR: Collation is not allowed on argument 2 (["und:ci"]) [at 3:12]
-SELECT 'a' LIKE ALL UNNEST(['a', COLLATE('A', 'und:ci')])
-           ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-Literal(type=STRING, value="a")
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |         +-type_annotation_map={Collation:"und:ci"}
+    |         +-Literal(type=STRING, value="A")
+    |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |       +-type_annotation_map={Collation:"und:ci"}
+    |             |       +-Literal(type=STRING, value="A")
+    |             |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # TODO: Collation/Annotation specific ZetaSQL analyzer tests are not working as expected while executed in java mode
 [no_java]
 [language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
-# Collation is disallowed on the function arguments
-# TODO: As per discussion with shaokunz@, we might be able to allow collation on function arguments now
+# Collation for like any/some/all unnest with collation only present for search value
 SELECT COLLATE('a', 'und:ci') LIKE {{ANY|SOME|ALL}} UNNEST(['a', 'A'])
 --
-ALTERNATION GROUP: ANY
+ALTERNATION GROUPS:
+    ANY
+    SOME
 --
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:31]
-SELECT COLLATE('a', 'und:ci') LIKE ANY UNNEST(['a', 'A'])
-                              ^
---
-ALTERNATION GROUP: SOME
---
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:31]
-SELECT COLLATE('a', 'und:ci') LIKE SOME UNNEST(['a', 'A'])
-                              ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     | +-type_annotation_map={Collation:"und:ci"}
+    |     | +-Literal(type=STRING, value="a")
+    |     | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 :=
+    |             | | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             | |   +-type_annotation_map={Collation:"und:ci"}
+    |             | |   +-Literal(type=STRING, value="a")
+    |             | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: ALL
 --
-ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:31]
-SELECT COLLATE('a', 'und:ci') LIKE ALL UNNEST(['a', 'A'])
-                              ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     | +-type_annotation_map={Collation:"und:ci"}
+    |     | +-Literal(type=STRING, value="a")
+    |     | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               |     +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 :=
+    |             | | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             | |   +-type_annotation_map={Collation:"und:ci"}
+    |             | |   +-Literal(type=STRING, value="a")
+    |             | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[no_java]
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Collation for like any/some/all unnest with mix of collated and non collated arguments in the patterns array
+SELECT 'a' NOT LIKE {{ANY|SOME|ALL}} UNNEST(['a', COLLATE('A', 'und:ci')])
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-Literal(type=STRING, value="a")
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |         +-type_annotation_map={Collation:"und:ci"}
+    |         +-Literal(type=STRING, value="A")
+    |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |       +-type_annotation_map={Collation:"und:ci"}
+    |             |       +-Literal(type=STRING, value="A")
+    |             |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-Literal(type=STRING, value="a")
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |         +-type_annotation_map={Collation:"und:ci"}
+    |         +-Literal(type=STRING, value="A")
+    |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}])
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=$subquery1.patterns#3[{Collation:"und:ci"}], is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4{Collation:"und:ci"}]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$array.pattern#4{Collation:"und:ci"})
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |       +-type_annotation_map={Collation:"und:ci"}
+    |             |       +-Literal(type=STRING, value="A")
+    |             |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[no_java]
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Collation for 'not like any/some/all' with arrays
+SELECT COLLATE('a', 'und:ci') NOT LIKE {{ANY|SOME|ALL}} UNNEST(['a', 'A'])
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     | +-type_annotation_map={Collation:"und:ci"}
+    |     | +-Literal(type=STRING, value="a")
+    |     | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 :=
+    |             | | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             | |   +-type_annotation_map={Collation:"und:ci"}
+    |             | |   +-Literal(type=STRING, value="a")
+    |             | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     | +-type_annotation_map={Collation:"und:ci"}
+    |     | +-Literal(type=STRING, value="a")
+    |     | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |     +-collation_list=[und:ci]
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"})
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.input#2{Collation:"und:ci"}, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               |       +-collation_list=[und:ci]
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 :=
+    |             | | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             | |   +-type_annotation_map={Collation:"und:ci"}
+    |             | |   +-Literal(type=STRING, value="a")
+    |             | |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "A"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with string arguments
+select 'a' NOT LIKE {{ANY|SOME|ALL}} ('a', 'b');
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any(STRING, repeated(2) STRING) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-Literal(type=STRING, value="b")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all(STRING, repeated(2) STRING) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-Literal(type=STRING, value="a")
+    |             |     +-Literal(type=STRING, value="b")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with binary arguments
+select b'a' NOT LIKE {{ANY|SOME|ALL}} (b'a', b'b');
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=BYTES, value=b"b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<BYTES>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<BYTES>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |         |               |       +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |                     +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=BYTES, value=b"a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) BYTES) -> ARRAY<BYTES>)
+    |             |     +-Literal(type=BYTES, value=b"a")
+    |             |     +-Literal(type=BYTES, value=b"b")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=BYTES, value=b"b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<BYTES>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<BYTES>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |         |               |       +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |                     +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=BYTES, value=b"a")
+    |             | +-patterns#3 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) BYTES) -> ARRAY<BYTES>)
+    |             |     +-Literal(type=BYTES, value=b"a")
+    |             |     +-Literal(type=BYTES, value=b"b")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL]
+# Test NOT (LIKE ANY|SOME|ALL) to verify it is differently interpreted than (NOT LIKE ANY|SOME|ALL)
+select NOT ('a' LIKE {{ANY|SOME|ALL}} ('b'));
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:$like_any(STRING, repeated(1) STRING) -> BOOL)
+    |       +-Literal(type=STRING, value="a")
+    |       +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |     +-SubqueryExpr
+    |       +-type=BOOL
+    |       +-subquery_type=SCALAR
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[$expr_subquery.$col1#8]
+    |           +-expr_list=
+    |           | +-$col1#8 :=
+    |           |   +-SubqueryExpr
+    |           |     +-type=BOOL
+    |           |     +-subquery_type=SCALAR
+    |           |     +-parameter_list=
+    |           |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |           |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |           |     +-subquery=
+    |           |       +-ProjectScan
+    |           |         +-column_list=[$expr_subquery.$col1#7]
+    |           |         +-expr_list=
+    |           |         | +-$col1#7 :=
+    |           |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |           |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |           |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |           |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |           |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |         |     |   +-Literal(type=INT64, value=0)
+    |           |         |     +-Literal(type=BOOL, value=false)
+    |           |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |           |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |           |         |     +-Literal(type=BOOL, value=NULL)
+    |           |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |           |         |     +-Literal(type=BOOL, value=true)
+    |           |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |           |         |     +-Literal(type=BOOL, value=NULL)
+    |           |         |     +-Literal(type=BOOL, value=false)
+    |           |         +-input_scan=
+    |           |           +-AggregateScan
+    |           |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |           |             +-input_scan=
+    |           |             | +-ArrayScan
+    |           |             |   +-column_list=[$array.pattern#4]
+    |           |             |   +-array_expr_list=
+    |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |             |   +-element_column_list=[$array.pattern#4]
+    |           |             +-aggregate_list=
+    |           |               +-$agg1#5 :=
+    |           |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |           |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |           |               |     +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |           |               |     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |           |               +-$agg2#6 :=
+    |           |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |           |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |           |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |           +-input_scan=
+    |             +-ProjectScan
+    |               +-column_list=$subquery1.[input#2, patterns#3]
+    |               +-expr_list=
+    |               | +-input#2 := Literal(type=STRING, value="a")
+    |               | +-patterns#3 :=
+    |               |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    |               |     +-Literal(type=STRING, value="b")
+    |               +-input_scan=
+    |                 +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:$like_all(STRING, repeated(1) STRING) -> BOOL)
+    |       +-Literal(type=STRING, value="a")
+    |       +-Literal(type=STRING, value="b")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |     +-SubqueryExpr
+    |       +-type=BOOL
+    |       +-subquery_type=SCALAR
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[$expr_subquery.$col1#8]
+    |           +-expr_list=
+    |           | +-$col1#8 :=
+    |           |   +-SubqueryExpr
+    |           |     +-type=BOOL
+    |           |     +-subquery_type=SCALAR
+    |           |     +-parameter_list=
+    |           |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |           |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |           |     +-subquery=
+    |           |       +-ProjectScan
+    |           |         +-column_list=[$expr_subquery.$col1#7]
+    |           |         +-expr_list=
+    |           |         | +-$col1#7 :=
+    |           |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |           |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |           |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |           |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |           |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |           |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |         |     |   +-Literal(type=INT64, value=0)
+    |           |         |     +-Literal(type=BOOL, value=true)
+    |           |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |           |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |           |         |     +-Literal(type=BOOL, value=NULL)
+    |           |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |           |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |           |         |     +-Literal(type=BOOL, value=false)
+    |           |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |           |         |     +-Literal(type=BOOL, value=NULL)
+    |           |         |     +-Literal(type=BOOL, value=true)
+    |           |         +-input_scan=
+    |           |           +-AggregateScan
+    |           |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |           |             +-input_scan=
+    |           |             | +-ArrayScan
+    |           |             |   +-column_list=[$array.pattern#4]
+    |           |             |   +-array_expr_list=
+    |           |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |           |             |   +-element_column_list=[$array.pattern#4]
+    |           |             +-aggregate_list=
+    |           |               +-$agg1#5 :=
+    |           |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |           |               |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |           |               |     +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |           |               |     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |           |               +-$agg2#6 :=
+    |           |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |           |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |           |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |           +-input_scan=
+    |             +-ProjectScan
+    |               +-column_list=$subquery1.[input#2, patterns#3]
+    |               +-expr_list=
+    |               | +-input#2 := Literal(type=STRING, value="a")
+    |               | +-patterns#3 :=
+    |               |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    |               |     +-Literal(type=STRING, value="b")
+    |               +-input_scan=
+    |                 +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with array of string arguments
+select 'a' NOT LIKE {{ANY|SOME|ALL}} UNNEST(['a','b','c']);
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all_array(STRING, ARRAY<STRING>) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=STRING, value="a")
+    |             | +-patterns#3 := Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with array of binary arguments
+select b'a' NOT LIKE {{ANY|SOME|ALL}} UNNEST([b'a',b'b',b'c']);
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"a", b"b", b"c"])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<BYTES>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<BYTES>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |         |               |       +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |                     +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=BYTES, value=b"a")
+    |             | +-patterns#3 := Literal(type=ARRAY<BYTES>, value=[b"a", b"b", b"c"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"a", b"b", b"c"])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#8]
+    |         +-expr_list=
+    |         | +-$col1#8 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2)
+    |         |     | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#7]
+    |         |         +-expr_list=
+    |         |         | +-$col1#7 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<BYTES>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<BYTES>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#5)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#6)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#5, $agg2#6]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#4]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<BYTES>, column=$subquery1.patterns#3, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#4]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#5 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |         |               |       +-ColumnRef(type=BYTES, column=$subquery1.input#2, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         |               +-$agg2#6 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(BYTES) -> BOOL)
+    |         |                     +-ColumnRef(type=BYTES, column=$array.pattern#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#2, patterns#3]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=BYTES, value=b"a")
+    |             | +-patterns#3 := Literal(type=ARRAY<BYTES>, value=[b"a", b"b", b"c"])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with type mismatch on lhs and rhs
+select b'a' NOT LIKE {{ANY|SOME|ALL}} ('a', 'x', 'y')
+--
+ALTERNATION GROUP: ANY
+--
+ERROR: No matching signature for operator LIKE ANY|SOME for argument types literal BYTES and {STRING}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:17]
+select b'a' NOT LIKE ANY ('a', 'x', 'y')
+                ^
+--
+ALTERNATION GROUP: SOME
+--
+ERROR: No matching signature for operator LIKE ANY|SOME for argument types literal BYTES and {STRING}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:17]
+select b'a' NOT LIKE SOME ('a', 'x', 'y')
+                ^
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: No matching signature for operator NOT LIKE ALL for argument types literal BYTES and {STRING}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:17]
+select b'a' NOT LIKE ALL ('a', 'x', 'y')
+                ^
+
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+# Test NOT LIKE ANY|SOME|ALL with type mismatch in rhs list
+select 'a' NOT LIKE {{ANY|SOME|ALL}} ('a', b'x', 'y')
+--
+ALTERNATION GROUP: ANY
+--
+ERROR: No matching signature for operator LIKE ANY|SOME for argument types literal STRING and {STRING, BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:16]
+select 'a' NOT LIKE ANY ('a', b'x', 'y')
+               ^
+--
+ALTERNATION GROUP: SOME
+--
+ERROR: No matching signature for operator LIKE ANY|SOME for argument types literal STRING and {STRING, BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:16]
+select 'a' NOT LIKE SOME ('a', b'x', 'y')
+               ^
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: No matching signature for operator NOT LIKE ALL for argument types literal STRING and {STRING, BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 2:16]
+select 'a' NOT LIKE ALL ('a', b'x', 'y')
+               ^

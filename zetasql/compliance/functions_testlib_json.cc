@@ -44,6 +44,10 @@ namespace zetasql {
 namespace {
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
+Value ParseJson(absl::string_view json) {
+  return Json(JSONValue::ParseJSONString(json).value());
+}
+
 // Note: not enclosed in {}.
 constexpr absl::string_view kDeepJsonString = R"(
   "a" : {
@@ -413,6 +417,14 @@ const std::vector<FunctionTestCall> GetJsonTestsCommon(
          {json9, String("$..1")},
          json_constructor(std::nullopt),
          OUT_OF_RANGE},
+        {query_fn_name,
+         {json9, String("lax $.a")},
+         json_constructor(std::nullopt),
+         OUT_OF_RANGE},
+        {query_fn_name,
+         {json9, String("lax recursive $.a")},
+         json_constructor(std::nullopt),
+         OUT_OF_RANGE},
     };
     if (sql_standard_mode) {
       all_tests.push_back({query_fn_name,
@@ -643,6 +655,134 @@ std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull() {
       {{Value::Null(types::JsonArrayType())}, True()},
   };
   return v;
+}
+
+// Add test cases when "lax" and "lax recursive" have the same result.
+void JsonQueryLaxRecursiveSameResultTest(absl::string_view json_input,
+                                         absl::string_view json_path,
+                                         absl::string_view result,
+                                         std::vector<FunctionTestCall>& tests) {
+  const Value input_json = ParseJson(json_input);
+  const Value result_json = ParseJson(result);
+  tests.push_back({"json_query",
+                   {input_json, String(absl::StrCat("lax ", json_path))},
+                   result_json});
+  tests.push_back(
+      {"json_query",
+       {input_json, String(absl::StrCat("lax recursive ", json_path))},
+       result_json});
+  tests.push_back(
+      {"json_query",
+       {input_json, String(absl::StrCat("Recursive LAX ", json_path))},
+       result_json});
+}
+
+// Add test cases when "lax" and "lax recursive" have different result.
+void JsonQueryLaxRecursiveDiffResultTest(absl::string_view json_input,
+                                         absl::string_view json_path,
+                                         absl::string_view lax_result,
+                                         absl::string_view lax_recursive_result,
+                                         std::vector<FunctionTestCall>& tests) {
+  const Value input_json = ParseJson(json_input);
+  tests.push_back({"json_query",
+                   {input_json, String(absl::StrCat("lax ", json_path))},
+                   ParseJson(lax_result)});
+  const Value lax_recursive_result_json = ParseJson(lax_recursive_result);
+  tests.push_back(
+      {"json_query",
+       {input_json, String(absl::StrCat("lax recursive ", json_path))},
+       lax_recursive_result_json});
+  tests.push_back(
+      {"json_query",
+       {input_json, String(absl::StrCat("recursive lax ", json_path))},
+       lax_recursive_result_json});
+
+  tests.push_back(
+      {"json_query",
+       {input_json, String(absl::StrCat("Recursive LAX ", json_path))},
+       lax_recursive_result_json});
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonQueryLax() {
+  std::vector<FunctionTestCall> tests;
+  // Basic cases.
+  //
+  // Key doesn't exist.
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":{"b":1}})", "$.A", "[]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":{"b":1}})", "$.b", "[]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":{"b":1}})", "$.a.c", "[]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":{"b":1}})", "$[1]", "[]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":{"b":1}})", "$[0].b", "[]",
+                                      tests);
+  // NULL JSON value input.
+  JsonQueryLaxRecursiveSameResultTest("null", "$", "[null]", tests);
+  JsonQueryLaxRecursiveSameResultTest("null", "$.a", "[]", tests);
+  JsonQueryLaxRecursiveSameResultTest("null", "$[0]", "[null]", tests);
+  JsonQueryLaxRecursiveSameResultTest("null", "$[1]", "[]", tests);
+  // Simple object match with matching types.
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":null})", "$", R"([{"a":null}])",
+                                      tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":null})", "$.a", "[null]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":1, "b":2})", "$.b", "[2]", tests);
+  // Simple array match.
+  JsonQueryLaxRecursiveSameResultTest("[[null]]", "$", "[[[null]]]", tests);
+  JsonQueryLaxRecursiveSameResultTest("[[null]]", "$[0]", "[[null]]", tests);
+  // Index larger than array size.
+  JsonQueryLaxRecursiveSameResultTest("[[null], 1]", "$[2]", "[]", tests);
+  // Single level of array.
+  JsonQueryLaxRecursiveSameResultTest(R"([{"a":1}])", "$.a", "[1]", tests);
+  // 2-levels of arrays.
+  JsonQueryLaxRecursiveDiffResultTest(R"([[{"a":1}]])", "$.a", "[]", "[1]",
+                                      tests);
+  // Mix of 1,2,3 levels of arrays.
+  JsonQueryLaxRecursiveDiffResultTest(R"([{"a":1},[[{"a":2}]],[[[{"a":3}]]]])",
+                                      "$.a", "[1]", "[1,2,3]", tests);
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"([{"a":1}, {"b":2}, [[{"a":3}]],[[{"b":4}]],[[[{"a":5}]]]])", "$.b",
+      "[2]", "[2,4]", tests);
+  // Wrap non-array before match.
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":1})", "$[0].a", "[1]", tests);
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":1})", "$[0][0].a", "[1]", tests);
+  // Key 'b' doesn't exist in matched JSON subtree.
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":1})", "$[0][0].b", "[]", tests);
+  // Second index is larger than size of wrapped array.
+  JsonQueryLaxRecursiveSameResultTest(R"({"a":1})", "$[0][1].a", "[]", tests);
+  // Complex Cases
+  //
+  // 'b' is not included in every nested object.
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}]]})", "$.a.b", "[1,3]",
+      "[1,3,4]", tests);
+  // 'c' is not included in every nested object.
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"({"a":[{"b":1}, {"c":2}, {"b":3}, [{"b":4}], null,
+                     [[{"c":5}]]]})",
+      "$.a.c", "[2]", "[2,5]", tests);
+  // 'a.b' has different levels of nestedness
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"({"a":[1, {"b":2}, [{"b":3}, null, 4, {"b":[5]}]]})", "$.a.b", "[2]",
+      "[2, 3, [5]]", tests);
+  // Both 'a' and 'a.b' have different levels of nestedness.
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"([{"a":[1, {"b":2}, [{"b":3}, [{"b": 4}]]]},
+           [{"a":{"b":5}}, null]])",
+      "$.a.b", "[2]", "[2, 3, 4, 5]", tests);
+  JsonQueryLaxRecursiveDiffResultTest(
+      R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+               [{"a":{"b":5}}, null]])",
+      "$.a[0].b", "[2]", "[2, 5]", tests);
+  // Specific array indices and different levels of nestedness with
+  // autowrap.
+  JsonQueryLaxRecursiveSameResultTest(
+      R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+               [{"a":{"b":5}}, null]])",
+      "$[1].a[0].b", "[5]", tests);
+  JsonQueryLaxRecursiveSameResultTest(
+      R"([{"a":[{"b":2}, [{"b":3}, [{"b": 4}]]]},
+               [{"a":{"b":5}}, null]])",
+      "$[1].a[0][0][0].b", "[5]", tests);
+
+  return tests;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsParseJson() {
@@ -1469,14 +1609,6 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
 
   return tests;
 }
-
-namespace {
-
-Value ParseJson(absl::string_view json) {
-  return Json(JSONValue::ParseJSONString(json).value());
-}
-
-}  // namespace
 
 std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
   absl::string_view json_string =

@@ -16,6 +16,7 @@
 
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -25,30 +26,41 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/options_utils.h"
+#include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/macros/standalone_macro_expansion.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_proto_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
+#include "google/protobuf/message.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -151,6 +163,7 @@ namespace zetasql {
 namespace {
 using ToolMode = ExecuteQueryConfig::ToolMode;
 using SqlMode = ExecuteQueryConfig::SqlMode;
+using ExpansionOutput = parser::macros::ExpansionOutput;
 }  // namespace
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
@@ -443,6 +456,47 @@ void ExecuteQueryConfig::SetOwnedDescriptorDatabase(
 
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer) {
+  bool enable_macros =
+      config.sql_mode() == SqlMode::kQuery &&
+      config.analyzer_options().language().LanguageFeatureEnabled(
+          FEATURE_V_1_4_SQL_MACROS);
+  std::string expanded_sql;  // Defined outside of if() to stay in scope.
+
+  if (enable_macros) {
+    ZETASQL_ASSIGN_OR_RETURN(ExpansionOutput expansion_output,
+                     parser::macros::MacroExpander::ExpandMacros(
+                         "<filename>", sql, config.macro_catalog(),
+                         config.analyzer_options().language()));
+    expanded_sql = parser::macros::TokensToString(
+        expansion_output.expanded_tokens, /*force_single_whitespace=*/true);
+    for (const absl::Status& warning : expansion_output.warnings) {
+      ZETASQL_RETURN_IF_ERROR(
+          writer.unparsed(absl::StrCat("Warning: ", warning.message())));
+    }
+    ZETASQL_RETURN_IF_ERROR(writer.unparsed("Expanded SQL:"));
+    ZETASQL_RETURN_IF_ERROR(writer.unparsed(expanded_sql));
+    sql = expanded_sql;
+
+    // TODO: Hack: we did not implement
+    // ResolvedDefineMacroStatement yet, so for now we short-circuit into
+    // updating the macro catalog.
+    if (config.tool_mode() == ToolMode::kExecute) {
+      std::unique_ptr<ParserOutput> parser_output;
+      absl::Status parse_stmt = ParseStatement(
+          sql, ParserOptions(config.analyzer_options().language()),
+          &parser_output);
+      if (parse_stmt.ok() &&
+          parser_output->statement()->Is<ASTDefineMacroStatement>()) {
+        auto define_macro_statement =
+            parser_output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
+        std::string macro_name = define_macro_statement->name()->GetAsString();
+        config.mutable_macro_catalog().insert_or_assign(
+            macro_name, define_macro_statement->body()->image());
+        return writer.unparsed(
+            absl::StrFormat("Macro registered: %s", macro_name));
+      }
+    }
+  }
   if (config.tool_mode() == ToolMode::kParse ||
       config.tool_mode() == ToolMode::kUnparse) {
     std::unique_ptr<ParserOutput> parser_output;
@@ -450,14 +504,12 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 
     const ASTNode* root = nullptr;
     if (config.sql_mode() == SqlMode::kQuery) {
-      parser_options.set_language_options(
-          &config.analyzer_options().language());
+      parser_options.set_language_options(config.analyzer_options().language());
       ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
 
       root = parser_output->statement();
     } else if (config.sql_mode() == SqlMode::kExpression) {
-      parser_options.set_language_options(
-          &config.analyzer_options().language());
+      parser_options.set_language_options(config.analyzer_options().language());
       ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
       root = parser_output->expression();
     } else {
@@ -507,6 +559,16 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     SQLBuilder builder(sql_builder_options);
     ZETASQL_RETURN_IF_ERROR(builder.Process(*resolved_node));
     return writer.unanalyze(builder.sql());
+  }
+
+  if (resolved_node->node_kind() == RESOLVED_CREATE_FUNCTION_STMT) {
+    std::unique_ptr<const AnalyzerOutput> function_artifacts;
+    ZETASQL_RET_CHECK_OK(AddFunctionFromCreateFunction(
+        sql, config.analyzer_options(),
+        /*allow_persistent_function=*/true, /*function_options=*/std::nullopt,
+        function_artifacts, config.mutable_catalog()));
+    config.AddFunctionArtifacts(std::move(function_artifacts));
+    return writer.unparsed("Function registered.");
   }
 
   if (config.sql_mode() == SqlMode::kQuery) {

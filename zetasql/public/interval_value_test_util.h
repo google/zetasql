@@ -20,8 +20,10 @@
 #include <cstdint>
 
 #include "zetasql/public/interval_value.h"
+#include "gmock/gmock.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
+#include "absl/strings/str_format.h"
 
 namespace zetasql {
 
@@ -100,6 +102,16 @@ static_assert(kSerializedIntervalWithTooManyBytes.size() == 17);
 constexpr absl::string_view kSerializedIntervalWithInvalidFields(
     "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01", 16);
 static_assert(kSerializedIntervalWithInvalidFields.size() == 16);
+
+// The following gmock matcher can be used to verify that two INTERVAL values
+// are identical. This is different from the behavior of the default equality
+// operator, which treats some different INTERVAL values as equal (e.g.
+// INTERVAL 1 MONTH == INTERVAL 30 DAY). The matcher treats INTERVAL values as
+// identical only when all their parts are equal.
+MATCHER_P(IdenticalInterval, value,
+          absl::StrFormat("is identical to INTERVAL '%s'", value.ToString())) {
+  return IdenticalIntervals(arg, value);
+}
 
 }  // namespace interval_testing
 

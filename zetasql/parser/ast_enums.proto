@@ -49,6 +49,7 @@ enum SchemaObjectKind {
   kTableFunction = 13;
   kView = 14;
   kSnapshotTable = 15;
+  kExternalSchema = 18;
 }
 
 message ASTBinaryExpressionEnums {

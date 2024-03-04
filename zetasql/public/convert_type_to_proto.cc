@@ -35,6 +35,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -95,7 +96,7 @@ class TypeToProtoConverter {
   // Make a proto to represent <struct_type> in <in_message>, which is
   // assumed to be an empty message.
   absl::Status MakeStructProto(const StructType* struct_type,
-                               const std::string& name,
+                               absl::string_view name,
                                google::protobuf::DescriptorProto* struct_proto);
 
   // Make a proto to represent <array_type> in <in_message>, which is
@@ -228,6 +229,12 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::JSON);
       break;
     }
+    case TYPE_TOKENLIST: {
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      proto_field->mutable_options()->SetExtension(zetasql::format,
+                                                   FieldFormat::TOKENLIST);
+      break;
+    }
     case TYPE_RANGE: {
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
       const RangeType* range_type = field_type->AsRange();
@@ -318,6 +325,10 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       // TODO: fix by moving this logic into Type class.
       return absl::UnimplementedError(
           "Extended types are not fully implemented");
+    case TYPE_MAP:
+      // TODO: Implement proto type conversion for Map.
+      return absl::UnimplementedError(
+          "Proto type conversion for Map is not yet implemented.");
     case __TypeKind__switch_must_have_a_default__:
     case TYPE_UNKNOWN:
       break;  // Error generated below.
@@ -349,7 +360,7 @@ static bool IsValidFieldName(const absl::string_view name) {
 }
 
 absl::Status TypeToProtoConverter::MakeStructProto(
-    const StructType* struct_type, const std::string& name,
+    const StructType* struct_type, absl::string_view name,
     google::protobuf::DescriptorProto* struct_proto) {
   ZETASQL_RET_CHECK_EQ(struct_proto->field_size(), 0);
 
@@ -599,7 +610,7 @@ absl::Status ConvertArrayToProto(
 }
 
 absl::Status ConvertTableToProto(
-    const std::vector<std::pair<std::string, const Type*>>& columns,
+    absl::Span<const std::pair<std::string, const Type*>> columns,
     bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options) {
   TypeFactory type_factory;

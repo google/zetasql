@@ -89,6 +89,7 @@ behavior:
         <a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a><br>
         <a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a><br>
         <a href="#st_intersection"><code>ST_INTERSECTION</code></a><br>
+        <a href="#st_lineinterpolatepoint"><code>ST_LINEINTERPOLATEPOINT</code></a><br>
         <a href="#st_linesubstring"><code>ST_LINESUBSTRING</code></a><br>
         <a href="#st_simplify"><code>ST_SIMPLIFY</code></a><br>
         <a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a><br>
@@ -669,6 +670,16 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#st_lineinterpolatepoint"><code>ST_LINEINTERPOLATEPOINT</code></a>
+
+</td>
+  <td>
+    Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
+    value.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a>
 
 </td>
@@ -1225,13 +1236,13 @@ determine how much the resulting geography can deviate from the ideal
 buffer radius.
 
 +   `geography`: The input `GEOGRAPHY` to encircle with the buffer radius.
-+   `buffer_radius`: `DOUBLE` that represents the radius of the buffer
-    around the input geography. The radius is in meters. Note that polygons
-    contract when buffered with a negative `buffer_radius`. Polygon shells and
-    holes that are contracted to a point are discarded.
-+   `num_seg_quarter_circle`: (Optional) `DOUBLE` specifies the number of
-    segments that are used to approximate a quarter circle. The default value is
-    `8.0`. Naming this argument is optional.
++   `buffer_radius`: `DOUBLE` that represents the radius of the
+    buffer around the input geography. The radius is in meters. Note that
+    polygons contract when buffered with a negative `buffer_radius`. Polygon
+    shells and holes that are contracted to a point are discarded.
++   `num_seg_quarter_circle`: (Optional) `DOUBLE` specifies the
+    number of segments that are used to approximate a quarter circle. The
+    default value is `8.0`. Naming this argument is optional.
 +   `endcap`: (Optional) `STRING` allows you to specify one of two endcap
     styles: `ROUND` and `FLAT`. The default value is `ROUND`. This option only
     affects the endcaps of buffered linestrings.
@@ -1296,13 +1307,13 @@ but you provide tolerance instead of segments to determine how much the
 resulting geography can deviate from the ideal buffer radius.
 
 +   `geography`: The input `GEOGRAPHY` to encircle with the buffer radius.
-+   `buffer_radius`: `DOUBLE` that represents the radius of the buffer
-    around the input geography. The radius is in meters. Note that polygons
-    contract when buffered with a negative `buffer_radius`. Polygon shells
-    and holes that are contracted to a point are discarded.
-+   `tolerance_meters`: `DOUBLE` specifies a tolerance in meters with
-    which the shape is approximated. Tolerance determines how much a polygon can
-    deviate from the ideal radius. Naming this argument is optional.
++   `buffer_radius`: `DOUBLE` that represents the radius of the
+    buffer around the input geography. The radius is in meters. Note that
+    polygons contract when buffered with a negative `buffer_radius`. Polygon
+    shells and holes that are contracted to a point are discarded.
++   `tolerance_meters`: `DOUBLE` specifies a tolerance in
+    meters with which the shape is approximated. Tolerance determines how much a
+    polygon can deviate from the ideal radius. Naming this argument is optional.
 +   `endcap`: (Optional) `STRING` allows you to specify one of two endcap
     styles: `ROUND` and `FLAT`. The default value is `ROUND`. This option only
     affects the endcaps of buffered linestrings.
@@ -1834,7 +1845,7 @@ FROM example
  | GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
  |   LINESTRING(1 2, 2 1))             |                                    |
  *-------------------------------------+------------------------------------*/
- ```
+```
 
 The following example shows how `ST_DUMP` with the dimension argument only
 returns simple geographies of the given dimension.
@@ -2990,6 +3001,66 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 `DOUBLE`
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_LINEINTERPOLATEPOINT`
+
+```sql
+ST_LINEINTERPOLATEPOINT(linestring_geography, fraction)
+```
+
+**Description**
+
+Gets a point at a specific fraction in a linestring <code>GEOGRAPHY</code>
+value.
+
+**Definitions**
+
++  `linestring_geography`: A linestring `GEOGRAPHY` on which the target point
+    is located.
++  `fraction`: A `DOUBLE` value that represents a fraction
+    along the linestring `GEOGRAPHY` where the target point is located.
+    This should be an inclusive value between `0` (start of the
+    linestring) and `1` (end of the linestring).
+
+**Details**
+
++   Returns `NULL` if any input argument is `NULL`.
++   Returns an empty geography if `linestring_geography` is an empty geography.
++   Returns an error if `linestring_geography` is not a linestring or an empty
+    geography, or if `fraction` is outside the `[0, 1]` range.
+
+**Return Type**
+
+`GEOGRAPHY`
+
+**Example**
+
+The following query returns a few points on a linestring. Notice that the
+ midpoint of the linestring `LINESTRING(1 1, 5 5)` is slightly different from
+ `POINT(3 3)` because the `GEOGRAPHY` type uses geodesic line segments.
+
+```sql
+WITH fractions AS (
+    SELECT 0 AS fraction UNION ALL
+    SELECT 0.5 UNION ALL
+    SELECT 1 UNION ALL
+    SELECT NULL
+  )
+SELECT
+  fraction,
+  ST_LINEINTERPOLATEPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 5 5)'), fraction)
+    AS point
+FROM fractions
+
+/*-------------+-------------------------------------------*
+ | fraction    | point                                     |
+ +-------------+-------------------------------------------+
+ | 0           | POINT(1 1)                                |
+ | 0.5         | POINT(2.99633827268976 3.00182528336078)  |
+ | 1           | POINT(5 5)                                |
+ | NULL        | NULL                                      |
+ *-------------+-------------------------------------------*/
+```
 
 ### `ST_LINELOCATEPOINT`
 

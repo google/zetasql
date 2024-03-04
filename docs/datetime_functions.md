@@ -294,7 +294,7 @@ between the two `DATETIME` objects would overflow an
   `FRIDAY`, and `SATURDAY`.
 + `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
   boundaries. ISO weeks begin on Monday.
-+ `MONTH`, except when the first two arguments are `TIMESTAMP` objects.
++ `MONTH`
 + `QUARTER`
 + `YEAR`
 + `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
@@ -823,6 +823,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 ```sql
 PARSE_DATETIME(format_string, datetime_string)
 ```
+
 **Description**
 
 Converts a [string representation of a datetime][datetime-format] to a

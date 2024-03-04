@@ -204,6 +204,170 @@ protocol buffer message, or JSON object.
 A literal represents a constant value of a built-in data type. Some, but not
 all, data types can be expressed as literals.
 
+### Tokens in literals
+
+A literal can contain one or more tokens. For example:
+
+  ```sql
+  -- This date literal has one token: '2014-01-31'
+  SELECT DATE '2014-01-31'
+  ```
+
+  ```sql
+  -- This date literal has three tokens: '2014', '-01', and '-31'
+  SELECT DATE '2014' '-01' '-31'
+  ```
+
+When a literal contains multiple tokens, the tokens must be separated by
+whitespace, comments, or both. For example, the following date literals
+produce the same results:
+
+  ```sql
+  SELECT DATE '2014-01-31'
+  ```
+
+  ```sql
+  SELECT DATE '2014' '-01' '-31'
+  ```
+
+  ```sql
+  SELECT DATE /* year */ '2014' /* month */ '-01' /* day */ '-31'
+  ```
+
+  ```sql
+  SELECT DATE /* year and month */ '2014' '-01' /* day */ '-31'
+  ```
+
+A token can be a `STRING` type or a `BYTES` type. String tokens can only be
+used with string tokens and bytes tokens can only be used with
+bytes tokens. If you try to use them together in a literal, an error is
+produced. For example:
+
+  ```sql
+  -- The following string literal contains string tokens.
+  SELECT 'x' 'y' 'z'
+  ```
+
+  ```sql
+  -- The following bytes literal contains bytes tokens.
+  SELECT b'x' b'y' b'z'
+  ```
+
+  ```sql
+  -- Error: string and bytes tokens can't be used together in the same literal.
+  SELECT 'x' b'y'
+  ```
+
+String tokens can be one of the following
+[format types][quoted-literals] and used together:
+
+  +   Quoted string
+  +   Triple-quoted string
+  +   Raw string
+
+  If a raw string is used, it's applied to the immediate token, but not
+  to the results.
+
+  Examples:
+
+  ```sql
+  -- Compatible format types can be used together in a string literal.
+  SELECT 'abc' "d" '''ef'''
+
+  /*--------+
+   | abcdef |
+   +--------*/
+  ```
+
+  ```sql
+  -- \n is escaped in the raw string token but not in the quoted string token.
+  SELECT '\na' r"\n"
+
+  /*-----+
+   |     |
+   | a/n |
+   +-----*/
+  ```
+
+Bytes tokens can be one of the following
+[format types][quoted-literals] and used together:
+
+  +   Bytes
+  +   Raw bytes
+
+  If raw bytes are used, they're applied to the immediate token, but not to
+  the results.
+
+  Examples:
+
+  ```sql
+  -- Compatible format types can be used together in a bytes literal.
+  SELECT b'\x41' b'''\x42''' b"""\x41"""
+
+  /*-----+
+   | ABA |
+   +-----*/
+  ```
+
+  ```sql
+  -- Control characters are escaped in the raw bytes tokens but not in the
+  -- bytes token.
+  SELECT b'\x41' RB'\x42' br'\x41'
+
+  /*-------------+
+   | A\\x42\\x41 |
+   +-------------*/
+  ```
+
+Additional examples:
+
+```sql
+-- The following JSON literal is equivalent to: JSON '{"name":"my_file.md","regex":"\\d+"}'
+SELECT JSON '{"name": "my_file.md", "regex": ' /*start*/ r' "\\d+"' /*end*/ '}'
+
+/*--------------------------------------+
+ | {"name":"my_file.md","regex":"\\d+"} |
+ +--------------------------------------*/
+```
+
+```sql
+-- The following NUMERIC literal is equivalent to: NUMERIC '-1.2'
+SELECT NUMERIC '-' "1" '''.''' r'2'
+
+/*------+
+ | -1.2 |
+ +------*/
+```
+
+```sql
+-- The following NUMERIC literal is equivalent to: NUMERIC '1.23e-6 '
+SELECT NUMERIC "1" '''.'''' r'23' 'e-6'
+
+/*------------+
+ | 0.00000123 |
+ +------------*/
+```
+
+```sql
+-- The following DATE literal is equivalent to: DATE '2014-01-31'
+SELECT DATE /* year */ '2014' /* month and day */ "-01-31"
+
+/*------------+
+ | 2014-01-31 |
+ +------------*/
+```
+
+```sql
+-- Error: Illegal escape sequence found in '\def'.
+SELECT r'abc' '\def'
+```
+
+```sql
+-- Error: backticks are reserved for quoted identifiers and not a valid
+-- format type.
+SELECT `abc` `def` AS results;
+```
+
 ### String and bytes literals 
 <a id="string_and_bytes_literals"></a>
 
@@ -719,6 +883,81 @@ Examples:
 TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
+
+### Range literals
+
+Syntax:
+
+```sql
+RANGE<T> '[lower_bound, upper_bound)'
+```
+
+A range literal contains a contiguous range between two
+[dates][date-data-type], [datetimes][datetime-data-type], or
+[timestamps][timestamp-data-type]. The lower or upper bound can be unbounded,
+if desired.
+
+Example of a date range literal with a lower and upper bound:
+
+```sql
+RANGE<DATE> '[2020-01-01, 2020-12-31)'
+```
+
+Example of a datetime range literal with a lower and upper bound:
+
+```sql
+RANGE<DATETIME> '[2020-01-01 12:00:00, 2020-12-31 12:00:00)'
+```
+
+Example of a timestamp range literal with a lower and upper bound:
+
+```sql
+RANGE<TIMESTAMP> '[2020-10-01 12:00:00+08, 2020-12-31 12:00:00+08)'
+```
+
+Examples of a range literal without a lower bound:
+
+```sql
+RANGE<DATE> '[UNBOUNDED, 2020-12-31)'
+```
+```sql
+RANGE<DATE> '[NULL, 2020-12-31)'
+```
+
+Examples of a range literal without an upper bound:
+
+```sql
+RANGE<DATE> '[2020-01-01, UNBOUNDED)'
+```
+```sql
+RANGE<DATE> '[2020-01-01, NULL)'
+```
+
+Examples of a range literal that includes all possible values:
+
+```sql
+RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+```
+
+```sql
+RANGE<DATE> '[NULL, NULL)'
+```
+
+There must be a single whitespace after the comma in a range literal, otherwise
+an error is produced. For example:
+
+```sql
+-- This range literal is valid:
+RANGE<DATE> '[2020-01-01, 2020-12-31)'
+```
+
+```sql
+-- This range literal produces an error:
+RANGE<DATE> '[2020-01-01,2020-12-31)'
+```
+
+A range literal represents a constant value of the
+[range data type][range-data-type].
 
 ### Interval literals
 
@@ -1346,6 +1585,8 @@ WHERE book = "Ulysses";
 
 [floating-point-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
 
+[quoted-literals]: #quoted_literals
+
 [decimal-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
 
 [date-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
@@ -1379,6 +1620,8 @@ WHERE book = "Ulysses";
 [construct-single-interval]: https://github.com/google/zetasql/blob/master/docs/data-types.md#single_datetime_part_interval
 
 [construct-range-interval]: https://github.com/google/zetasql/blob/master/docs/data-types.md#range_datetime_part_interval
+
+[range-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#range_type
 
 [enum-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#enum_type
 

@@ -387,7 +387,8 @@ AlterTableStatement [0-61]
           PathExpression [34-40]
             Identifier(STRING) [34-40]
           Collate [41-61]
-            StringLiteral('unicode:ci') [49-61]
+            StringLiteral [49-61]
+              StringLiteralComponent('unicode:ci') [49-61]
 --
 ALTER TABLE foo ADD COLUMN column STRING COLLATE 'unicode:ci'
 ==
@@ -473,7 +474,8 @@ AlterTableStatement [0-62]
         SimpleColumnSchema [31-62]
           PathExpression [31-37]
             Identifier(STRING) [31-37]
-          StringLiteral("default string") [46-62]
+          StringLiteral [46-62]
+            StringLiteralComponent("default string") [46-62]
 --
 ALTER TABLE foo ADD COLUMN bar STRING DEFAULT "default string"
 ==

@@ -121,7 +121,7 @@ absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
                                         options.script_variables()));
   } else {
     ParserOptions parser_options;
-    parser_options.set_language_options(&options.language_options());
+    parser_options.set_language_options(options.language_options());
     ZETASQL_ASSIGN_OR_RETURN(
         parsed_script,
         ParsedScript::Create(script, parser_options, error_message_mode,
@@ -332,7 +332,7 @@ absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
     return zetasql_base::InternalErrorBuilder()
            << "Engines should not set ScriptException::internal field when "
               "raising an exception"
-           << exception.DebugString();
+           << absl::StrCat(exception);
   }
 
   ZETASQL_ASSIGN_OR_RETURN(*exception.mutable_internal()->mutable_statement_text(),
@@ -1875,7 +1875,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
 
 ParserOptions ScriptExecutorImpl::GetParserOptions() const {
   ParserOptions parser_options;
-  parser_options.set_language_options(&options_.language_options());
+  parser_options.set_language_options(options_.language_options());
   return parser_options;
 }
 
@@ -2008,10 +2008,9 @@ absl::Status ScriptExecutorImpl::SetState(
       ZETASQL_RET_CHECK_NE(next_cfg_node, nullptr)
           << "Deserialized AST node has no associated control flow node";
 
-      ZETASQL_RETURN_IF_ERROR(
-          ValidateVariablesOnSetState(
-              next_cfg_node, new_variables, *parsed_script))
-          << state.DebugString();
+      ZETASQL_RETURN_IF_ERROR(ValidateVariablesOnSetState(next_cfg_node, new_variables,
+                                                  *parsed_script))
+          << absl::StrCat(state);
       ZETASQL_RETURN_IF_ERROR(
           ResetVariableSizes(next_node, new_variables, &new_variable_sizes));
       ZETASQL_RETURN_IF_ERROR(

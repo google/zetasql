@@ -16,11 +16,10 @@
 
 #include "zetasql/public/value.h"
 
-#include <math.h>
-#include <stdlib.h>
 #include <time.h>
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -38,6 +37,8 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/testdata/test_proto3.pb.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -54,6 +55,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -80,9 +82,14 @@ namespace zetasql {
 namespace {
 
 using ::google::protobuf::internal::WireFormatLite;
+using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
+using ::testing::EndsWith;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::Pair;
+using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
 using interval_testing::Days;
@@ -120,6 +127,11 @@ absl::Time ParseTimeHm(absl::string_view str) {
   return ParseTimeWithFormat("%H:%M", str);
 }
 
+MATCHER_P(MapEntriesWhere, matcher, "") {
+  return ::testing::ExplainMatchResult(matcher, arg.map_entries(),
+                                       result_listener);
+}
+
 }  // namespace
 
 // Test that GetSQL returns a string that can be re-parsed as the Value.
@@ -143,6 +155,8 @@ static Value TestGetSQL(const Value& value) {
   analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_JSON_TYPE);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_INTERVAL_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_TOKENIZED_SEARCH);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_RANGE_TYPE);
 
@@ -368,6 +382,61 @@ TEST_F(ValueTest, Int64Formatting) {
   EXPECT_EQ(Value::Int64(456).Format(/*print_top_level_type=*/false), "456");
   EXPECT_EQ(Value::Int64(456).GetSQLLiteral(), "456");
   EXPECT_EQ(Value::Int64(456).GetSQL(), "456");
+}
+
+TEST_F(ValueTest, FloatNull) {
+  Value value = TestGetSQL(Value::NullFloat());
+  EXPECT_EQ("FLOAT", value.type()->DebugString());
+  EXPECT_TRUE(value.is_null());
+  EXPECT_DEATH(value.float_value(), "Null value");
+  EXPECT_EQ("NULL", value.DebugString());
+  EXPECT_EQ("Float(NULL)", value.FullDebugString());
+  EXPECT_EQ("NULL", value.GetSQLLiteral());
+  EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL());
+  EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL(PRODUCT_INTERNAL));
+  EXPECT_EQ("CAST(NULL AS FLOAT)",
+            value.GetSQL(PRODUCT_INTERNAL, /*use_external_float32=*/true));
+  EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL(PRODUCT_EXTERNAL));
+  EXPECT_EQ("CAST(NULL AS FLOAT32)",
+            value.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
+}
+
+TEST_F(ValueTest, FloatNonNull) {
+  TestGetSQL(Value::Float(3));
+  TestGetSQL(Value::Float(3.5));
+  TestGetSQL(Value::Float(3.0000004));
+  TestGetSQL(Value::Float(.0000004));
+  TestGetSQL(Value::Float(-55500000000));
+  TestGetSQL(Value::Float(-0.000034634643));
+  TestGetSQL(Value::Float(1.5e25));
+  TestGetSQL(Value::Float(-1.5e25));
+  TestGetSQL(Value::Float(std::numeric_limits<float>::quiet_NaN()));
+  TestGetSQL(Value::Float(std::numeric_limits<float>::infinity()));
+  TestGetSQL(Value::Float(-std::numeric_limits<float>::infinity()));
+}
+
+TEST_F(ValueTest, FloatFormatting) {
+  EXPECT_EQ(Value::Float(123.456).DebugString(/*verbose=*/true),
+            "Float(123.456)");
+  EXPECT_EQ(Value::Float(123.456).DebugString(), "123.456");
+  EXPECT_EQ(Value::Float(123.456).Format(), "Float(123.456)");
+  EXPECT_EQ(Value::Float(123.456).Format(/*print_top_level_type=*/false),
+            "123.456");
+  EXPECT_EQ(Value::Float(123.456).GetSQLLiteral(), "123.456");
+  EXPECT_EQ(Value::Float(123.456).GetSQL(), "CAST(123.456 AS FLOAT)");
+  EXPECT_EQ(Value::Float(123.456).GetSQL(PRODUCT_INTERNAL),
+            "CAST(123.456 AS FLOAT)");
+  EXPECT_EQ(Value::Float(123.456).GetSQL(PRODUCT_EXTERNAL,
+                                         /*use_external_float32=*/true),
+            "CAST(123.456 AS FLOAT32)");
+
+  EXPECT_EQ(Value::Float(123.456).GetSQLLiteral(PRODUCT_INTERNAL), "123.456");
+  EXPECT_EQ(Value::Float(123.456).GetSQLLiteral(PRODUCT_INTERNAL,
+                                                /*use_external_float32=*/true),
+            "123.456");
+  EXPECT_EQ(Value::Float(123.456).GetSQLLiteral(PRODUCT_EXTERNAL,
+                                                /*use_external_float32=*/true),
+            "123.456");
 }
 
 TEST_F(ValueTest, DoubleNull) {
@@ -629,6 +698,9 @@ TEST_F(ValueTest, ConvenienceDate) {
   // 1970-05-04 is 123 days after the Unix epoch. Date values are represented as
   // the number of days since the Unix epoch.
   EXPECT_EQ(Value::Date(123), values::Date(absl::CivilDay(1970, 5, 4)));
+  EXPECT_EQ(Value::Date(123).ToCivilDay(), absl::CivilDay(1970, 5, 4));
+  EXPECT_DEATH(Value::NullDate().ToCivilDay(), "Null value");
+  EXPECT_DEATH(Value::Int32(0).ToCivilDay(), "Not a date value");
 }
 
 TEST_F(ValueTest, TimestampFormatting) {
@@ -934,6 +1006,67 @@ TEST_F(ValueTest, JSONFormatting) {
       R"sql(JSON '{"foo":[1,null,"bar"],"foo2":"hello","foo3":true}')sql");
 }
 
+namespace {
+Value TokenListFromArray(std::vector<std::string> tokens) {
+  return TokenListFromStringArray(std::move(tokens));
+}
+
+Value TokenListFromToken(std::string token) {
+  return TokenListFromArray({token});
+}
+}  // namespace
+
+TEST_F(ValueTest, TokenList) {
+  EXPECT_TRUE(Value::NullTokenList().is_null());
+  EXPECT_EQ(TYPE_TOKENLIST, Value::NullTokenList().type_kind());
+
+  // Verify that there are no memory leaks.
+  {
+    Value v1(TokenListFromToken("test"));
+    EXPECT_EQ(TYPE_TOKENLIST, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    Value v2(v1);
+    EXPECT_EQ(TYPE_TOKENLIST, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+  }
+
+  // Test the assignment operator.
+  Value tokenlist = TokenListFromStringArray({"test"});
+  Value expected = TokenListFromStringArray({"test"});
+  ASSERT_TRUE(
+      tokenlist.tokenlist_value().EquivalentTo(expected.tokenlist_value()));
+  {
+    Value v1 = TokenListFromToken("test");
+    Value v2 = tokenlist;
+    EXPECT_NE("", v1.DebugString());
+    EXPECT_EQ(v1.DebugString(), v2.DebugString());
+
+    Value v3 = Value::NullTokenList();
+    v3 = v1;
+    EXPECT_EQ(TYPE_TOKENLIST, v1.type()->kind());
+    EXPECT_EQ(TYPE_TOKENLIST, v2.type()->kind());
+    EXPECT_EQ(TYPE_TOKENLIST, v3.type()->kind());
+    EXPECT_FALSE(v3.is_null());
+    EXPECT_TRUE(v1.tokenlist_value().EquivalentTo(expected.tokenlist_value()));
+    EXPECT_TRUE(v2.tokenlist_value().EquivalentTo(expected.tokenlist_value()));
+    EXPECT_TRUE(v3.tokenlist_value().EquivalentTo(expected.tokenlist_value()));
+  }
+
+  // Equals.
+  {
+    const Value v1 = TokenListFromToken("a");
+    const Value v2 = TokenListFromToken("a");
+    const Value v3 = TokenListFromToken("b");
+    EXPECT_EQ(v1, v2);
+    TestHashEqual(v1, v2);
+    EXPECT_NE(v1, v3);
+    TestHashNotEqual(v1, v3);
+  }
+
+  TestGetSQL(Value::NullTokenList());
+  TestGetSQL(TokenListFromToken("tokenlist"));
+}
+
 TEST_F(ValueTest, GenericAccessors) {
   // Return types.
   static Value v;
@@ -1085,6 +1218,8 @@ TEST_F(ValueTest, HashCode) {
       Value::BigNumeric(BigNumericValue(int64_t{1002})),
       Value::Json(JSONValue(int64_t{1})),
       Value::UnvalidatedJsonString("value"),
+      TokenListFromToken("t1"),
+      TokenListFromToken("t2"),
       // Enums of two different types.
       values::Enum(enum_type, 0),
       values::Enum(enum_type, 1),
@@ -1300,9 +1435,11 @@ TEST_F(ValueTest, CopyConstructor) {
   Value v8 = TestGetSQL(Value::String("honorificabilitudinitatibus"));
   EXPECT_EQ("honorificabilitudinitatibus", v8.string_value());
   EXPECT_EQ("honorificabilitudinitatibus", v8.ToCord());
+  EXPECT_EQ("honorificabilitudinitatibus", v8.ToString());
   Value v9 = TestGetSQL(Value::Bytes("honorificabilitudinitatibus"));
   EXPECT_EQ("honorificabilitudinitatibus", v9.bytes_value());
   EXPECT_EQ("honorificabilitudinitatibus", v9.ToCord());
+  EXPECT_EQ("honorificabilitudinitatibus", v9.ToString());
 
   Value v10 = TestGetSQL(Value::Date(12345));
   EXPECT_EQ(12345, v10.date_value());
@@ -1312,6 +1449,12 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(-12345, v11.date_value());
   EXPECT_EQ(-12345, v11.ToDouble());
   EXPECT_EQ(-12345, v11.ToInt64());
+}
+
+TEST_F(ValueTest, ToStringTests) {
+  EXPECT_DEATH(Value::NullString().ToString(), "Null value");
+  EXPECT_DEATH(Value::NullBytes().ToString(), "Null value");
+  EXPECT_DEATH(Value::Date(0).ToString(), "");
 }
 
 TEST_F(ValueTest, DateTests) {
@@ -1879,7 +2022,29 @@ TEST_F(ValueTest, FloatArray) {
       "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
       "CAST(\"nan\" AS FLOAT)]",
       v1.GetSQL());
+  EXPECT_EQ(
+      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
+      "CAST(\"nan\" AS FLOAT)]",
+      v1.GetSQL(PRODUCT_INTERNAL));
+  EXPECT_EQ(
+      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
+      "CAST(\"nan\" AS FLOAT)]",
+      v1.GetSQL(PRODUCT_INTERNAL, /*use_external_float32=*/true));
+  EXPECT_EQ(
+      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
+      "CAST(\"nan\" AS FLOAT)]",
+      v1.GetSQL(PRODUCT_EXTERNAL));
+  EXPECT_EQ(
+      "ARRAY<FLOAT32>[CAST(1.5 AS FLOAT32), CAST(2.5 AS FLOAT32), "
+      "CAST(\"nan\" AS FLOAT32)]",
+      v1.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
   EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]", v1.GetSQLLiteral());
+  EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]",
+            v1.GetSQLLiteral(PRODUCT_INTERNAL));
+  EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]",
+            v1.GetSQLLiteral(PRODUCT_INTERNAL, /*use_external_float32=*/true));
+  EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT32)]",
+            v1.GetSQLLiteral(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
 }
 
 TEST_F(ValueTest, DoubleArray) {
@@ -2140,6 +2305,253 @@ TEST_F(ValueTest, ArrayOfStructsOfStringsFormatting) {
       R"(ARRAY<STRUCT<a STRING, b STRING>>[STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), CAST(NULL AS STRUCT<a STRING, b STRING>)])");
 }
 
+TEST(MapValueTest, MapConstructionInitializerList) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(Int64Type(), Int64Type()));
+
+  EXPECT_THAT(Value::MakeMap(map_type, {}),
+              IsOkAndHolds(MapEntriesWhere(IsEmpty())));
+
+  EXPECT_THAT(Value::MakeMap(
+                  map_type, {std::make_pair(Value::Int64(1), Value::Int64(2))}),
+              IsOkAndHolds(MapEntriesWhere(
+                  ElementsAre(Pair(Value::Int64(1), Value::Int64(2))))));
+}
+
+TEST(MapValueTest, MapConstructionSpan) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(Int64Type(), Int64Type()));
+
+  EXPECT_THAT(
+      Value::MakeMap(map_type,
+                     absl::Span<const std::pair<const Value, const Value>>{}),
+      IsOkAndHolds(MapEntriesWhere(IsEmpty())));
+
+  std::vector<std::pair<const Value, const Value>> kv_vec = {
+      std::make_pair(Value::Int64(1), Value::Int64(2))};
+  // kv_vec is converted to absl::Span.
+  EXPECT_THAT(Value::MakeMap(map_type, kv_vec),
+              IsOkAndHolds(MapEntriesWhere(
+                  ElementsAre(Pair(Value::Int64(1), Value::Int64(2))))));
+}
+
+TEST(MapValueTest, MapConstructionRvalueVector) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(Int64Type(), Int64Type()));
+
+  EXPECT_THAT(Value::MakeMap(map_type, std::vector<std::pair<Value, Value>>{}),
+              IsOkAndHolds(MapEntriesWhere(IsEmpty())));
+
+  std::vector<std::pair<Value, Value>> kv_vec = {
+      std::make_pair(Value::Int64(1), Value::Int64(2))};
+  EXPECT_THAT(Value::MakeMap(map_type, std::move(kv_vec)),
+              IsOkAndHolds(MapEntriesWhere(
+                  ElementsAre(Pair(Value::Int64(1), Value::Int64(2))))));
+}
+
+struct MapConstructionInvalidTestParams {
+  const Type* key_type;
+  const Type* value_type;
+  const std::vector<std::pair<const Value, const Value>> map_entries;
+  const std::string err_expected_type;
+  const std::pair<std::string, std::string> err_actual_type;
+};
+
+#ifdef DEBUG  // Map values are only type checked in debug mode.
+class MapConstructionInvalidTest
+    : public ::testing::TestWithParam<MapConstructionInvalidTestParams> {};
+
+TEST_P(MapConstructionInvalidTest, MapConstructionInvalid) {
+  auto params = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(params.key_type, params.value_type));
+  EXPECT_THAT(
+      Value::MakeMap(map_type, params.map_entries),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::AllOf(
+              HasSubstr(absl::StrCat("Expected ", params.err_expected_type)),
+              HasSubstr(absl::StrCat(
+                  "entry with key of ", params.err_actual_type.first,
+                  " and value of ", params.err_actual_type.second)))));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapConstructionTest, MapConstructionInvalidTest,
+    ::testing::ValuesIn<MapConstructionInvalidTestParams>(
+        {{.key_type = Int64Type(),
+          .value_type = DoubleType(),
+          .map_entries = {std::make_pair(Value::String("a"),
+                                         Value::Bool(true))},
+          .err_expected_type = "MAP<INT64, DOUBLE>",
+          .err_actual_type = std::make_pair("STRING", "BOOL")},
+         {.key_type = DateType(),
+          .value_type = Int32Type(),
+          .map_entries = {std::make_pair(Value::String("a"), Value::Int32(1))},
+          .err_expected_type = "MAP<DATE, INT32>",
+          .err_actual_type = std::make_pair("STRING", "INT32")},
+         {.key_type = StringType(),
+          .value_type = Int64Type(),
+          .map_entries = {std::make_pair(Value::String("a"), Value::Date(1))},
+          .err_expected_type = "MAP<STRING, INT64>",
+          .err_actual_type = std::make_pair("STRING", "DATE")},
+         {.key_type = BoolType(),
+          .value_type = Int64Type(),
+          .map_entries = {std::make_pair(Value::Bool(true), Value::Int32(1))},
+          .err_expected_type = "MAP<BOOL, INT64>",
+          .err_actual_type = std::make_pair("BOOL", "INT32")}}));
+#endif
+
+struct MapConstructionValidTestParams {
+  const Type* key_type;
+  const Type* value_type;
+  const std::vector<std::pair<const Value, const Value>> map_entries;
+};
+
+class MapConstructionValidTest
+    : public ::testing::TestWithParam<MapConstructionValidTestParams> {};
+
+TEST_P(MapConstructionValidTest, MapConstruction) {
+  auto params = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(params.key_type, params.value_type));
+
+  EXPECT_THAT(
+      Value::MakeMap(map_type, params.map_entries),
+      IsOkAndHolds(MapEntriesWhere(ElementsAreArray(params.map_entries))));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapConstructionTest, MapConstructionValidTest,
+    ::testing::ValuesIn<MapConstructionValidTestParams>({
+        {
+            .key_type = StringType(),
+            .value_type = JsonType(),
+            .map_entries = {},
+        },
+        {
+            .key_type = Int64Type(),
+            .value_type = DoubleType(),
+            .map_entries = {std::make_pair(Value::Int64(1), Value::Double(2))},
+        },
+        {
+            .key_type = FloatType(),
+            .value_type = BoolType(),
+            .map_entries =
+                {std::make_pair(Value::Float(1.0), Value::Bool(true)),
+                 std::make_pair(Value::Float(2.0), Value::Bool(false))},
+        },
+    }));
+
+struct MapDuplicatesTestParams {
+  const absl::StatusOr<const Type*> map_type;
+  const std::vector<std::pair<const Value, const Value>> map_entries;
+  const bool expect_ok = true;
+  const std::string failure_duplicate_key;
+};
+
+class MapDuplicatesTest
+    : public ::testing::TestWithParam<MapDuplicatesTestParams> {};
+
+TEST_P(MapDuplicatesTest, MapConstructionDuplicateKeysError) {
+  const auto& params = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type, params.map_type);
+  const auto& result = Value::MakeMap(map_type, params.map_entries);
+
+  if (params.expect_ok) {
+    ZETASQL_EXPECT_OK(result);
+  } else {
+    EXPECT_THAT(
+        result,
+        StatusIs(
+            absl::StatusCode::kOutOfRange,
+            AllOf(HasSubstr("Duplicate map key"),
+                  EndsWith(absl::StrCat(": ", params.failure_duplicate_key)))));
+  }
+}
+INSTANTIATE_TEST_SUITE_P(
+    MapDuplicatesTest, MapDuplicatesTest,
+    ::testing::ValuesIn<MapDuplicatesTestParams>({
+        // Basic success tests.
+        {
+            .map_type = MakeMapType(Int64Type(), JsonType()),
+            .map_entries = {},
+        },
+        {
+            .map_type = MakeMapType(Int64Type(), DoubleType()),
+            .map_entries = {std::make_pair(Value::Int64(1), Value::Double(2))},
+        },
+        {
+            .map_type = MakeMapType(FloatType(), BoolType()),
+            .map_entries =
+                {std::make_pair(Value::Float(1.0), Value::Bool(true)),
+                 std::make_pair(Value::Float(2.0), Value::Bool(false))},
+        },
+        // Basic duplicate key failure tests.
+        {
+            .map_type = MakeMapType(Int64Type(), Int64Type()),
+            .map_entries = {{Value::Int64(1), Value::Int64(1)},
+                            {Value::Int64(2), Value::Int64(1)},
+                            {Value::Int64(2), Value::Int64(3)}},
+            .expect_ok = false,
+            .failure_duplicate_key = "2",
+        },
+        {
+            .map_type = MakeMapType(Int64Type(), Int64Type()),
+            .map_entries = {{Value::Int64(1), Value::Int64(1)},
+                            {Value::Int64(2), Value::Int64(1)},
+                            {Value::Int64(2), Value::Int64(3)},
+                            {Value::Int64(1), Value::Int64(3)}},
+            .expect_ok = false,
+            .failure_duplicate_key = "2",
+        },
+        {
+            .map_type = MakeMapType(Int64Type(), Int64Type()),
+            .map_entries = {{Value::Int64(1), Value::Int64(1)},
+                            {Value::NullInt64(), Value::Int64(1)},
+                            {Value::NullInt64(), Value::Int64(3)}},
+            .expect_ok = false,
+            .failure_duplicate_key = "NULL",
+        },
+        // Float complex value success tests.
+        {
+            .map_type = MakeMapType(FloatType(), Int64Type()),
+            .map_entries =
+                {{Value::Float(1), Value::Int64(1)},
+                 {Value::NullFloat(), Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                  Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::infinity()),
+                  Value::Int64(1)},
+                 {Value::Float(-std::numeric_limits<float>::infinity()),
+                  Value::Int64(1)}},
+            .expect_ok = true,
+        },
+        // Float complex value duplicate key tests.
+        {
+            .map_type = MakeMapType(FloatType(), Int64Type()),
+            .map_entries =
+                {{Value::Float(1), Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::infinity()),
+                  Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::infinity()),
+                  Value::Int64(3)}},
+            .expect_ok = false,
+            .failure_duplicate_key = "inf",
+        },
+        {
+            .map_type = MakeMapType(FloatType(), Int64Type()),
+            .map_entries =
+                {{Value::Float(1), Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                  Value::Int64(1)},
+                 {Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                  Value::Int64(3)}},
+            .expect_ok = false,
+            .failure_duplicate_key = "nan",
+        },
+    }));
+
 // A sanity test to make sure EqualsInternal does not blow up in the case
 // where structs have different numbers of fields.
 TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
@@ -2172,6 +2584,9 @@ TEST_F(ValueTest, NaN) {
   EXPECT_EQ("Float(nan)", float_nan.FullDebugString());
   EXPECT_EQ("Double(nan)", double_nan.FullDebugString());
   EXPECT_EQ("CAST(\"nan\" AS FLOAT)", float_nan.GetSQL());
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT)", float_nan.GetSQL(PRODUCT_EXTERNAL));
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
+            float_nan.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
   EXPECT_EQ("CAST(\"nan\" AS FLOAT64)", double_nan.GetSQL(PRODUCT_EXTERNAL));
   EXPECT_EQ("CAST(\"nan\" AS DOUBLE)", double_nan.GetSQL(PRODUCT_INTERNAL));
 }
@@ -2510,6 +2925,7 @@ TEST_F(ValueTest, Proto) {
   EXPECT_FALSE(Value::Proto(proto_type, bytes).is_null());
   Value proto = TestGetSQL(Proto(proto_type, bytes));
   EXPECT_EQ(bytes, proto.ToCord());
+  EXPECT_EQ(bytes, proto.ToString());
   EXPECT_EQ(bytes, proto.proto_value());
   EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{}", proto.FullDebugString());
   EXPECT_EQ("{}", proto.ShortDebugString());
@@ -2532,7 +2948,10 @@ TEST_F(ValueTest, Proto) {
   // Cord representation is different, but protos compare as equal.
   EXPECT_EQ(2, proto1.ToCord().size());
   EXPECT_EQ(4, proto3.ToCord().size());
+  EXPECT_EQ(2, proto1.ToString().size());
+  EXPECT_EQ(4, proto3.ToString().size());
   EXPECT_NE(std::string(proto1.ToCord()), std::string(proto3.ToCord()));
+  EXPECT_NE(absl::Cord(proto1.ToString()), absl::Cord(proto3.ToString()));
   EXPECT_TRUE(proto1.Equals(proto3));
   EXPECT_EQ(proto1, proto3);
   TestHashEqual(proto1, proto3);
@@ -2566,6 +2985,7 @@ TEST_F(ValueTest, Proto) {
   bytes.Append(bytes4);
   Value proto4 = TestGetSQL(Proto(proto_type, bytes));
   EXPECT_EQ(6, proto4.ToCord().size());
+  EXPECT_EQ(6, proto4.ToString().size());
   EXPECT_FALSE(proto1.Equals(proto4));
   EXPECT_NE(proto1, proto4);
   EXPECT_EQ("{int32_val: 7}", proto4.ShortDebugString());
@@ -2574,6 +2994,7 @@ TEST_F(ValueTest, Proto) {
   EXPECT_EQ(proto4, proto5);
   TestHashEqual(proto4, proto5);
   EXPECT_GT(proto4.ToCord().size(), proto5.ToCord().size());
+  EXPECT_GT(proto4.ToString().size(), proto5.ToString().size());
 
   // One example where we get a reason out from the proto MessageDifferencer.
   std::string reason;
@@ -2638,6 +3059,7 @@ TEST_F(ValueTest, Proto) {
       proto_2_1.FullDebugString());
   EXPECT_EQ(proto_1_2.FullDebugString(), proto_2_1.FullDebugString());
   EXPECT_NE(proto_1_2.ToCord(), proto_2_1.ToCord());
+  EXPECT_NE(proto_1_2.ToString(), proto_2_1.ToString());
 
   // Test equality and hash codes when one message explicitly sets a field to
   // the default value and the other message leaves the field unset.
@@ -2715,7 +3137,8 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-      EXPECT_EQ(24, ValueProto::descriptor()->field_count())
+  // TODO: Implement serialization/deserialization for RANGE.
+  EXPECT_EQ(25, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -3990,6 +4413,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(sizeof(Value), Value::NullTimestamp().physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::NullUint32().physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::NullUint64().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullTokenList().physical_byte_size());
 
   // Constant sized types.
   auto bool_value = Value::Bool(true);
@@ -4106,6 +4530,22 @@ TEST_F(ValueTest, PhysicalByteSize) {
                       absl::CivilSecond(2020, 01, 01, 10, 00, 00), utc)),
                   Value::UnboundedEndTimestamp())
                 .physical_byte_size());
+
+  // Map type
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       MakeMapType(Int64Type(), Int64Type()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value empty_map, Value::MakeMap(map_type, {}));
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentMapRef) +
+                sizeof(Value::TypedMap),
+            empty_map.physical_byte_size());
+
+  const Value map_string = Value::String("foo");
+  const Value map_int64 = Value::Int64(1);
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentMapRef) +
+                sizeof(Value::TypedMap) + map_string.physical_byte_size() +
+                map_int64.physical_byte_size(),
+            Map({std::make_pair(map_string, map_int64)}).physical_byte_size());
 }
 
 // Roundtrips Value through ValueProto and back.
@@ -4324,6 +4764,13 @@ TEST_F(ValueTest, Serialize) {
       Array({Value::NullInterval(), Value::Interval(Months(0)),
              Value::Interval(Days(-5)), Value::Interval(Micros(123456789)),
              Value::Interval(interval_min), Value::Interval(interval_max)}));
+
+  // TokenList
+  SerializeDeserialize(Value::NullTokenList());
+  SerializeDeserialize(TokenListFromToken("test"));
+  SerializeDeserialize(EmptyArray(types::TokenListArrayType()));
+  SerializeDeserialize(
+      Array({Value::NullTokenList(), TokenListFromToken("test")}));
 
   // Enum.
   const EnumType* enum_type = GetTestEnumType();

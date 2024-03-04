@@ -237,7 +237,7 @@ Resolver::MakeResolvedLiteralWithoutLocation(const Value& value) {
 
 absl::Status Resolver::AddAdditionalDeprecationWarningsForCalledFunction(
     const ASTNode* ast_location, const FunctionSignature& signature,
-    const std::string& function_name, bool is_tvf) {
+    absl::string_view function_name, bool is_tvf) {
   std::set<DeprecationWarning_Kind> warning_kinds_seen;
   for (const FreestandingDeprecationWarning& warning :
        signature.AdditionalDeprecationWarnings()) {
@@ -466,7 +466,7 @@ ResolvedColumnList Resolver::ConcatColumnLists(
 
 ResolvedColumnList Resolver::ConcatColumnListWithComputedColumnsAndSort(
     const ResolvedColumnList& column_list,
-    const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+    absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
         computed_columns) {
   ResolvedColumnList out = column_list;
   for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
@@ -818,6 +818,7 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
     const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
     const AllowedHintsAndOptions& allowed, const NameScope* from_name_scope,
     ASTOptionsEntry::AssignmentOp option_assignment_op,
+    bool allow_alter_array_operators,
     std::vector<std::unique_ptr<const ResolvedOption>>* option_list) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(ast_name != nullptr);
@@ -843,7 +844,7 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   ZETASQL_ASSIGN_OR_RETURN(auto option_properties,
                    GetHintOrOptionProperties(allowed, qualifier, ast_name, name,
                                              hint_or_option_type));
-  auto [expected_type, resolving_kind, allow_alter_array] =
+  auto [expected_type, resolving_kind, option_allow_alter_array] =
       std::move(option_properties);
   switch (resolving_kind) {
     case AllowedHintsAndOptionsProto::OptionProto::
@@ -928,7 +929,7 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
 
   if (hint_or_option_type == HintOrOptionType::Option &&
       option_assignment_op != ASTOptionsEntry::AssignmentOp::ASSIGN) {
-    if (!allow_alter_array) {
+    if (!allow_alter_array_operators || !option_allow_alter_array) {
       return MakeSqlErrorAt(ast_name)
              << "Operators '+=' and '-=' are not allowed for option " << name;
     }
@@ -990,7 +991,8 @@ absl::Status Resolver::ResolveHintAndAppend(
         ast_hint_entry->value(), ast_hint_entry->qualifier(),
         ast_hint_entry->name(), HintOrOptionType::Hint,
         analyzer_options_.allowed_hints_and_options(),
-        /*from_name_scope=*/nullptr, ASTOptionsEntry::ASSIGN, hints));
+        /*from_name_scope=*/nullptr, ASTOptionsEntry::ASSIGN,
+        /*allow_alter_array_operators=*/false, hints));
   }
 
   return absl::OkStatus();
@@ -1098,7 +1100,7 @@ absl::Status Resolver::ResolveTableAndColumnInfoList(
 }
 
 absl::Status Resolver::ResolveOptionsList(
-    const ASTOptionsList* options_list,
+    const ASTOptionsList* options_list, bool allow_alter_array_operators,
     std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options) {
   // Function arguments are never resolved inside options. Sanity check to make
   // sure none are accidentally in scope.
@@ -1122,7 +1124,7 @@ absl::Status Resolver::ResolveOptionsList(
           options_entry->name(), HintOrOptionType::Option,
           analyzer_options_.allowed_hints_and_options(),
           /*from_name_scope=*/nullptr, options_entry->assignment_op(),
-          resolved_options));
+          allow_alter_array_operators, resolved_options));
     }
   }
   return absl::OkStatus();
@@ -1163,7 +1165,8 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
           options_entry->value(), /*ast_qualifier=*/nullptr,
           options_entry->name(), option_type,
           analyzer_options_.allowed_hints_and_options(), &from_name_scope,
-          options_entry->assignment_op(), resolved_options));
+          options_entry->assignment_op(),
+          /*allow_alter_array_operators=*/false, resolved_options));
     }
 
     // Validate that if epsilon is specified, then only at most one of delta or
@@ -1282,7 +1285,8 @@ absl::Status Resolver::ResolveAggregationThresholdOptionsList(
         options_entry->value(), /*ast_qualifier=*/nullptr,
         options_entry->name(), HintOrOptionType::AggregationThresholdOption,
         analyzer_options_.allowed_hints_and_options(), &from_name_scope,
-        options_entry->assignment_op(), resolved_options));
+        options_entry->assignment_op(),
+        /*allow_alter_array_operators=*/false, resolved_options));
   }
 
   // Validate that at most one of the options max_groups_contributed,
@@ -1327,7 +1331,7 @@ absl::Status Resolver::ResolveAnonWithReportOptionsList(
       options_entry->value(), /*ast_qualifier=*/nullptr, options_entry->name(),
       HintOrOptionType::Option, allowed_report_options,
       /*from_name_scope=*/nullptr, options_entry->assignment_op(),
-      resolved_options));
+      /*allow_alter_array_operators=*/false, resolved_options));
 
   ZETASQL_RET_CHECK_EQ(resolved_options->size(), 1);
   ZETASQL_RET_CHECK(
@@ -1880,7 +1884,7 @@ void Resolver::RecordColumnAccess(
 }
 
 void Resolver::RecordColumnAccess(
-    const std::vector<ResolvedColumn>& columns,
+    absl::Span<const ResolvedColumn> columns,
     ResolvedStatement::ObjectAccess access_flags) {
   for (const ResolvedColumn& column : columns) {
     RecordColumnAccess(column, access_flags);

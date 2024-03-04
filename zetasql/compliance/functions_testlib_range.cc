@@ -88,7 +88,7 @@ std::vector<FunctionTestCall> WrapFeatures(
   return wrapped_tests;
 }
 
-std::vector<FunctionTestCall> EqualityTests(const std::vector<Value>& values,
+std::vector<FunctionTestCall> EqualityTests(absl::Span<const Value> values,
                                             const Value& unbounded,
                                             const Value& null_range) {
   // Verify t1 < t2 < t3 and provided values are of the same type
@@ -129,7 +129,7 @@ std::vector<FunctionTestCall> EqualityTests(const std::vector<Value>& values,
   };
 }
 
-std::vector<FunctionTestCall> ComparisonTests(const std::vector<Value>& values,
+std::vector<FunctionTestCall> ComparisonTests(absl::Span<const Value> values,
                                               const Value& unbounded,
                                               const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 and provided values are of the same type
@@ -232,9 +232,9 @@ std::vector<FunctionTestCall> ComparisonTests(const std::vector<Value>& values,
   };
 }
 
-std::vector<FunctionTestCall> RangeOverlapsTests(
-    const std::vector<Value>& values, const Value& unbounded,
-    const Value& null_range) {
+std::vector<FunctionTestCall> RangeOverlapsTests(absl::Span<const Value> values,
+                                                 const Value& unbounded,
+                                                 const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 and provided values are of the same type
   CommonInitialCheck(values, unbounded, null_range);
   const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],
@@ -471,7 +471,7 @@ std::vector<FunctionTestCall> RangeOverlapsTests(
 }
 
 std::vector<FunctionTestCall> RangeIntersectTests(
-    const std::vector<Value>& values, const Value& unbounded,
+    absl::Span<const Value> values, const Value& unbounded,
     const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 and provided values are of the same type
   CommonInitialCheck(values, unbounded, null_range);
@@ -656,9 +656,9 @@ std::vector<FunctionTestCall> RangeIntersectTests(
   };
 }
 
-std::vector<FunctionTestCall> RangeContainsTests(
-    const std::vector<Value>& values, const Value& unbounded,
-    const Value& null_range) {
+std::vector<FunctionTestCall> RangeContainsTests(absl::Span<const Value> values,
+                                                 const Value& unbounded,
+                                                 const Value& null_range) {
   // Verify t1 < t2 < t3 < t4 < t5 and provided values are of the same type
   CommonInitialCheck(values, unbounded, null_range);
   const Value &t1 = values[0], &t2 = values[1], &t3 = values[2],

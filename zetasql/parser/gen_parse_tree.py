@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 440
+NEXT_NODE_TAG_ID = 469
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -301,37 +301,41 @@ class Visibility(enum.Enum):
   PROTECTED = 1
 
 
-def Field(name,
-          ctype,
-          tag_id,
-          field_loader=FieldLoaderMethod.OPTIONAL,
-          comment=None,
-          private_comment=None,
-          gen_setters_and_getters=True,
-          getter_is_override=False,
-          visibility=Visibility.PRIVATE):
+def Field(
+    name,
+    ctype,
+    tag_id,
+    field_loader=FieldLoaderMethod.OPTIONAL,
+    comment=None,
+    private_comment=None,
+    gen_setters_and_getters=True,
+    getter_is_override=False,
+    visibility=Visibility.PRIVATE,
+    serialize_default_value=True,
+):
   """Make a field to put in a node class.
 
   Args:
     name: field name
-    ctype: c++ type for this field
-           Should be a ScalarType like an int, string or enum type,
-           or the name of a node class type (e.g. ASTExpression).
-           Cannot be a pointer type, and should not include modifiers like
-           const.
+    ctype: c++ type for this field Should be a ScalarType like an int, string or
+      enum type, or the name of a node class type (e.g. ASTExpression). Cannot
+      be a pointer type, and should not include modifiers like const.
     tag_id: Unique sequential id for this field within the node, beginning with
-            2, which should not change.
-    field_loader: FieldLoaderMethod enum specifies which FieldLoader method
-           to use for this field. Ignored when Node has gen_init_fields=False.
-           Not applicable to scalar types.
+      2, which should not change.
+    field_loader: FieldLoaderMethod enum specifies which FieldLoader method to
+      use for this field. Ignored when Node has gen_init_fields=False. Not
+      applicable to scalar types.
     comment: Comment for this field's public getter/setter method. Text will be
-             stripped and de-indented.
+      stripped and de-indented.
     private_comment: Comment for the field in the protected/private section.
     gen_setters_and_getters: When False, suppress generation of default
-           template-based get and set methods. Non-standard alternatives
-           may be supplied in extra_public_defs.
+      template-based get and set methods. Non-standard alternatives may be
+      supplied in extra_public_defs.
     getter_is_override: Indicates getter overrides virtual method in superclass.
     visibility: Indicates whether field is private or protected.
+    serialize_default_value: If false, the serializer will skip this field when
+      it has a default value.
+
   Returns:
     The newly created field.
 
@@ -428,7 +432,9 @@ def Field(name,
       'proto_optional_or_repeated': proto_optional_or_repeated,
       'is_enum': is_enum,
       'enum_value': enum_value,
+      'serialize_default_value': serialize_default_value,
   }
+
 
 # Ancestor holds the subset of a NodeDict needed to serialize its
 # immediate ancestor.
@@ -906,8 +912,10 @@ def main(argv):
               'columns',
               'ASTSelectColumn',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTSelectColumn',
@@ -918,12 +926,11 @@ def main(argv):
               'expression',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'alias',
-              'ASTAlias',
-              tag_id=3)
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('alias', 'ASTAlias', tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ASTExpression',
@@ -950,31 +957,68 @@ def main(argv):
       tag_id=9,
       parent='ASTExpression',
       is_abstract=True,
+      extra_public_defs="""
+  bool IsLeaf() const override { return true; }
+      """,
+      fields=[],
+      comment="""
+      The name ASTLeaf is kept for backward compatibility alone. However, not
+      all subclasses are necessarily leaf nodes. ASTStringLiteral and
+      ASTBytesLiteral both have children which are the one or more components
+      of literal concatenations. Similarly, ASTDateOrTimeLiteral and
+      ASTRangeLiteral each contain a child ASTStringLiteral, which itself is not
+      a leaf.
+
+      The grouping does not make much sense at this point, given that it
+      encompasses not only literals, but also ASTStar.
+
+      Its main function was intended to be the nodes that get printed through
+      image(), but this is no longer applicable. This functionality is now
+      handled by a stricted abstract class ASTPrintableLeaf.
+
+      This class should be removed, and subclasses should directly inherit from
+      ASTExpression (just as ASTDateOrTimeLiteral does right now). Once all
+      callers have been updated as such, we should remove this class from the
+      hierarchy and directly inherit from ASTExpression.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTPrintableLeaf',
+      tag_id=452,
+      parent='ASTLeaf',
+      is_abstract=True,
       use_custom_debug_string=True,
       extra_public_defs="""
   // image() references data with the same lifetime as this ASTLeaf object.
-  absl::string_view image() const { return image_; }
   void set_image(std::string image) { image_ = std::move(image); }
-
-  bool IsLeaf() const override { return true; }
+  absl::string_view image() const { return image_; }
       """,
       fields=[
-          Field(
-              'image',
-              SCALAR_STRING,
-              tag_id=2,
-              gen_setters_and_getters=False)
-      ])
+          Field('image', SCALAR_STRING, tag_id=2, gen_setters_and_getters=False)
+      ],
+      comment="""
+      Intermediate subclass of ASTLeaf which is the parent of nodes that are
+      still using image(). Ideally image() should be hidden, and only used to
+      print back to the user, but it is currently being abused in some places
+      to represent the value as well, such as with ASTIntLiteral and
+      ASTFloatLiteral.
+
+      Generally, image() should be removed, and location offsets of the node,
+      leaf or not, should be enough to print back the image, for example within
+      error messages.
+      """,
+  )
 
   gen.AddNode(
       name='ASTIntLiteral',
       tag_id=10,
-      parent='ASTLeaf',
+      parent='ASTPrintableLeaf',
       extra_public_defs="""
 
   bool is_hex() const;
       """,
-      )
+  )
 
   gen.AddNode(
       name='ASTIdentifier',
@@ -1217,14 +1261,11 @@ def main(argv):
   gen.AddNode(
       name='ASTBooleanLiteral',
       tag_id=19,
-      parent='ASTLeaf',
+      parent='ASTPrintableLeaf',
       fields=[
-          Field(
-              'value',
-              SCALAR_BOOL,
-              tag_id=2),
+          Field('value', SCALAR_BOOL, tag_id=2),
       ],
-    )
+  )
 
   gen.AddNode(
       name='ASTAndExpr',
@@ -1289,10 +1330,42 @@ def main(argv):
       parent='ASTLeaf',
       fields=[
           Field(
+              'components',
+              'ASTStringLiteralComponent',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_EXPRESSION,
+          ),
+          Field(
+              'string_value',
+              SCALAR_STRING,
+              tag_id=3,
+              gen_setters_and_getters=False,
+          ),
+      ],
+      extra_public_defs="""
+  // The parsed and validated value of this literal.
+  const std::string& string_value() const { return string_value_; }
+  void set_string_value(absl::string_view string_value) {
+    string_value_ = std::string(string_value);
+  }
+      """,
+      comment="""
+      Represents a string literal which could be just a singleton or a whole
+      concatenation.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTStringLiteralComponent',
+      tag_id=453,
+      parent='ASTPrintableLeaf',
+      fields=[
+          Field(
               'string_value',
               SCALAR_STRING,
               tag_id=2,
-              gen_setters_and_getters=False),
+              gen_setters_and_getters=False,
+          ),
       ],
       extra_public_defs="""
   // The parsed and validated value of this literal. The raw input value can be
@@ -1301,14 +1374,14 @@ def main(argv):
   void set_string_value(std::string string_value) {
     string_value_ = std::move(string_value);
   }
-       """
-      )
+       """,
+  )
 
   gen.AddNode(
       name='ASTStar',
       tag_id=23,
-      parent='ASTLeaf',
-      )
+      parent='ASTPrintableLeaf',
+  )
 
   gen.AddNode(
       name='ASTOrExpr',
@@ -1325,6 +1398,42 @@ def main(argv):
   bool IsAllowedInComparison() const override { return parenthesized(); }
       """
       )
+
+  gen.AddNode(
+      name='ASTOrderingExpression',
+      tag_id=27,
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('collate', 'ASTCollate', tag_id=3),
+          Field('null_order', 'ASTNullOrder', tag_id=4),
+          Field('ordering_spec', SCALAR_ORDERING_SPEC, tag_id=5),
+      ],
+      extra_public_defs="""
+  bool descending() const { return ordering_spec_ == DESC; }
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTOrderBy',
+      tag_id=28,
+      parent='ASTNode',
+      fields=[
+          Field('hint', 'ASTHint', tag_id=2),
+          Field(
+              'ordering_expressions',
+              'ASTOrderingExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTGroupingItem',
@@ -1371,10 +1480,7 @@ def main(argv):
       tag_id=26,
       parent='ASTNode',
       fields=[
-          Field(
-              'hint',
-              'ASTHint',
-              tag_id=2),
+          Field('hint', 'ASTHint', tag_id=2),
           Field(
               'all',
               'ASTGroupByAll',
@@ -1389,8 +1495,10 @@ def main(argv):
               'grouping_items',
               'ASTGroupingItem',
               tag_id=4,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTGroupByAll',
@@ -1401,52 +1509,6 @@ def main(argv):
       location range.
       """,
   )
-
-  gen.AddNode(
-      name='ASTOrderingExpression',
-      tag_id=27,
-      parent='ASTNode',
-      use_custom_debug_string=True,
-      fields=[
-          Field(
-              'expression',
-              'ASTExpression',
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'collate',
-              'ASTCollate',
-              tag_id=3),
-          Field(
-              'null_order',
-              'ASTNullOrder',
-              tag_id=4),
-          Field(
-              'ordering_spec',
-              SCALAR_ORDERING_SPEC,
-              tag_id=5)
-
-      ],
-      extra_public_defs="""
-  bool descending() const { return ordering_spec_ == DESC; }
-      """,
-  )
-
-  gen.AddNode(
-      name='ASTOrderBy',
-      tag_id=28,
-      parent='ASTNode',
-      fields=[
-          Field(
-              'hint',
-              'ASTHint',
-              tag_id=2),
-          Field(
-              'ordering_expressions',
-              'ASTOrderingExpression',
-              tag_id=3,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
 
   gen.AddNode(
       name='ASTLimitOffset',
@@ -1474,14 +1536,14 @@ def main(argv):
   gen.AddNode(
       name='ASTFloatLiteral',
       tag_id=30,
-      parent='ASTLeaf',
-      )
+      parent='ASTPrintableLeaf',
+  )
 
   gen.AddNode(
       name='ASTNullLiteral',
       tag_id=31,
-      parent='ASTLeaf',
-      )
+      parent='ASTPrintableLeaf',
+  )
 
   gen.AddNode(
       name='ASTOnClause',
@@ -1511,6 +1573,11 @@ def main(argv):
               'ASTQuery',
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'modifiers',
+              'ASTAliasedQueryModifiers',
+              tag_id=4,
           ),
       ],
   )
@@ -2316,17 +2383,66 @@ def main(argv):
   gen.AddNode(
       name='ASTNumericLiteral',
       tag_id=53,
-      parent='ASTLeaf')
+      parent='ASTLeaf',
+      fields=[
+          Field(
+              'string_literal',
+              'ASTStringLiteral',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTBigNumericLiteral',
       tag_id=54,
-      parent='ASTLeaf')
+      parent='ASTLeaf',
+      fields=[
+          Field(
+              'string_literal',
+              'ASTStringLiteral',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTBytesLiteral',
       tag_id=55,
       parent='ASTLeaf',
+      fields=[
+          Field(
+              'components',
+              'ASTBytesLiteralComponent',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_EXPRESSION,
+          ),
+          Field(
+              'bytes_value',
+              SCALAR_STRING,
+              tag_id=3,
+              gen_setters_and_getters=False,
+          ),
+      ],
+      extra_public_defs="""
+  // The parsed and validated value of this literal.
+  const std::string& bytes_value() const { return bytes_value_; }
+  void set_bytes_value(std::string bytes_value) {
+    bytes_value_ = std::move(bytes_value);
+  }
+      """,
+      comment="""
+      Represents a bytes literal which could be just a singleton or a whole
+      concatenation.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTBytesLiteralComponent',
+      tag_id=454,
+      parent='ASTPrintableLeaf',
       extra_public_defs="""
   // The parsed and validated value of this literal. The raw input value can be
   // found in image().
@@ -2337,7 +2453,8 @@ def main(argv):
       """,
       extra_private_defs="""
   std::string bytes_value_;
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTDateOrTimeLiteral',
@@ -2359,16 +2476,26 @@ def main(argv):
   gen.AddNode(
       name='ASTMaxLiteral',
       tag_id=57,
-      parent='ASTLeaf',
+      parent='ASTPrintableLeaf',
       comment="""
       This represents the value MAX that shows up in type parameter lists.
       It will not show up as a general expression anywhere else.
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTJSONLiteral',
       tag_id=58,
-      parent='ASTLeaf')
+      parent='ASTLeaf',
+      fields=[
+          Field(
+              'string_literal',
+              'ASTStringLiteral',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTCaseValueExpression',
@@ -4384,13 +4511,22 @@ def main(argv):
   gen.AddNode(
       name='ASTBracedConstructorFieldValue',
       tag_id=330,
-      parent='ASTExpression',
+      parent='ASTNode',
       fields=[
           Field(
               'expression',
               'ASTExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'colon_prefixed',
+              SCALAR_BOOL,
+              tag_id=3,
+              comment="""
+              True if "field:value" syntax is used.
+              False if "field value" syntax is used.
+              The later is only allowed in proto instead of struct.
+              """),
       ])
 
   gen.AddNode(
@@ -4411,6 +4547,16 @@ def main(argv):
               'ASTBracedConstructorFieldValue',
               tag_id=4,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'comma_separated',
+              SCALAR_BOOL,
+              tag_id=5,
+              comment="""
+              True if this field is separated by comma from the previous one,
+              e.g.all e.g. "a:1,b:2".
+              False if separated by whitespace, e.g. "a:1 b:2".
+              The latter is only allowed in proto instead of struct.
+              """),
       ])
 
   gen.AddNode(
@@ -4435,6 +4581,23 @@ def main(argv):
               'ASTSimpleType',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'braced_constructor',
+              'ASTBracedConstructor',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTStructBracedConstructor',
+      tag_id=462,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'type_name',
+              'ASTType',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_TYPE),
           Field(
               'braced_constructor',
               'ASTBracedConstructor',
@@ -5096,8 +5259,9 @@ def main(argv):
   gen.AddNode(
       name='ASTIndexAllColumns',
       tag_id=171,
-      parent='ASTLeaf',
-      comment="Represents 'ALL COLUMNS' index key expression.")
+      parent='ASTPrintableLeaf',
+      comment="Represents 'ALL COLUMNS' index key expression.",
+  )
 
   gen.AddNode(
       name='ASTIndexItemList',
@@ -7454,21 +7618,24 @@ def main(argv):
               'string_label',
               'ASTStringLiteral',
               tag_id=2,
-              gen_setters_and_getters=False),
+              gen_setters_and_getters=False,
+          ),
           Field(
               'int_label',
               'ASTIntLiteral',
               tag_id=3,
-              gen_setters_and_getters=False),
+              gen_setters_and_getters=False,
+          ),
       ],
       extra_public_defs="""
-  const ASTLeaf* label() const {
+  const ASTExpression* label() const {
     if (string_label_ != nullptr) {
       return string_label_;
     }
     return int_label_;
   }
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTDescriptor',
@@ -8621,6 +8788,11 @@ def main(argv):
       parent='ASTAlterStatementBase')
 
   gen.AddNode(
+      name='ASTAlterExternalSchemaStatement',
+      tag_id=440,
+      parent='ASTAlterStatementBase')
+
+  gen.AddNode(
       name='ASTAlterTableStatement',
       tag_id=308,
       parent='ASTAlterStatementBase')
@@ -9208,10 +9380,11 @@ def main(argv):
   gen.AddNode(
       name='ASTMacroBody',
       tag_id=368,
-      parent='ASTLeaf',
+      parent='ASTPrintableLeaf',
       comment="""
       Represents the body of a DEFINE MACRO statement.
-      """)
+      """,
+  )
 
   gen.AddNode(
       name='ASTDefineMacroStatement',
@@ -9250,6 +9423,7 @@ def main(argv):
           ),
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=4),
           Field('for_system_time', 'ASTForSystemTime', tag_id=5),
+          Field('options_list', 'ASTOptionsList', tag_id=6),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
@@ -9339,6 +9513,68 @@ def main(argv):
               'ASTExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTAliasedQueryModifiers',
+      tag_id=463,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'recursion_depth_modifier',
+              'ASTRecursionDepthModifier',
+              tag_id=2,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTIntOrUnbounded',
+      tag_id=464,
+      parent='ASTExpression',
+      comment='''
+      This represents an integer or an unbounded integer.
+      The semantic of unbounded integer depends on the context.
+      ''',
+      fields=[
+          Field(
+              'bound',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTRecursionDepthModifier',
+      tag_id=465,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=2,
+          ),
+          Field(
+              'lower_bound',
+              'ASTIntOrUnbounded',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+                lower bound is 0 when the node's `bound` field is unset.
+              """,
+          ),
+          Field(
+              'upper_bound',
+              'ASTIntOrUnbounded',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+                upper_bound is infinity when the node's `bound` field is unset.
+              """,
           ),
       ],
   )

@@ -31,6 +31,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -117,7 +118,7 @@ std::string Tuple::DebugString(bool verbose) const {
                       ">");
 }
 
-Tuple ConcatTuples(const std::vector<Tuple>& tuples,
+Tuple ConcatTuples(absl::Span<const Tuple> tuples,
                    std::unique_ptr<TupleSchema>* new_schema,
                    std::unique_ptr<TupleData>* new_data) {
   std::vector<VariableId> vars;

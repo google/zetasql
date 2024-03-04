@@ -40,6 +40,7 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -489,6 +490,13 @@ class TupleData {
 
   void AddSlots(int num_slots) { slots_.resize(slots_.size() + num_slots); }
 
+  // Removes the slot at 'slot_index' from this TupleData. The complexity is
+  // O(n), prefer to use more efficient ways when possible.
+  void RemoveSlotAt(int slot_index) {
+    ABSL_DCHECK_LT(slot_index, num_slots());
+    slots_.erase(slots_.begin() + slot_index);
+  }
+
   void RemoveSlots(int num_slots) { slots_.resize(slots_.size() - num_slots); }
 
   int num_slots() const { return slots_.size(); }
@@ -598,7 +606,7 @@ std::vector<T> ConcatSpans(absl::Span<const T> span1,
 // concatenation of the corresponding TupleData. If a TupleData has more slots
 // than the associated TupleSchema, the extra values are dropped. Returns the
 // corresponding Tuple.
-Tuple ConcatTuples(const std::vector<Tuple>& tuples,
+Tuple ConcatTuples(absl::Span<const Tuple> tuples,
                    std::unique_ptr<TupleSchema>* new_schema,
                    std::unique_ptr<TupleData>* new_data);
 

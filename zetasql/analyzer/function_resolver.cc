@@ -668,7 +668,7 @@ MakeResolvedLiteralForInjectedArgument(const InputArgumentType& input_arg_type,
 absl::Status FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
     absl::string_view function_name, const FunctionSignature& signature,
     absl::Span<const ArgIndexEntry> index_mapping, const ASTNode* ast_location,
-    const std::vector<InputArgumentType>& input_argument_types,
+    absl::Span<const InputArgumentType> input_argument_types,
     std::vector<const ASTNode*>* arg_locations,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
     std::vector<ResolvedTVFArg>* resolved_tvf_args) {
@@ -761,14 +761,24 @@ static absl::Status AppendMismatchReasonWithIndent(std::string* message,
 }
 
 absl::StatusOr<std::string> FunctionResolver::GetSupportedSignaturesWithMessage(
-    const Function* function, const std::vector<std::string>& mismatch_errors,
+    const Function* function, absl::Span<const std::string> mismatch_errors,
     FunctionArgumentType::NamePrintingStyle print_style,
     int* num_signatures) const {
   ZETASQL_RET_CHECK_EQ(mismatch_errors.size(), function->signatures().size());
 
+  // We don't show detailed error message when HideSupportedSignatures is true.
+  // ABSL_DCHECK for sanity.
+  ABSL_DCHECK(!function->HideSupportedSignatures());
+  if (function->HideSupportedSignatures()) {
+    return "";
+  }
+
   // Use the customized signatures callback if set.
   const LanguageOptions& language_options = resolver_->language();
-  if (function->GetSupportedSignaturesCallback() != nullptr) {
+  if (function->GetSupportedSignaturesCallback() != nullptr &&
+      // In case we have per signature callback, we have opportunity for per
+      // signature mismatch error.
+      !function->HasSignatureTextCallback()) {
     *num_signatures = function->NumSignatures();
     return function->GetSupportedSignaturesCallback()(language_options,
                                                       *function);
@@ -783,14 +793,19 @@ absl::StatusOr<std::string> FunctionResolver::GetSupportedSignaturesWithMessage(
       continue;
     }
     (*num_signatures)++;
-    std::vector<std::string> argument_texts =
-        signature.GetArgumentsUserFacingTextWithCardinality(
-            language_options, print_style, /*print_template_details=*/true);
     if (!result.empty()) {
       absl::StrAppend(&result, "\n");
     }
     absl::StrAppend(&result, "  Signature: ");
-    absl::StrAppend(&result, function->GetSQL(argument_texts));
+    if (function->HasSignatureTextCallback()) {
+      absl::StrAppend(&result, function->GetSignatureTextCallback()(
+                                   language_options, *function, signature));
+    } else {
+      std::vector<std::string> argument_texts =
+          signature.GetArgumentsUserFacingTextWithCardinality(
+              language_options, print_style, /*print_template_details=*/true);
+      absl::StrAppend(&result, function->GetSQL(argument_texts));
+    }
     ZETASQL_RETURN_IF_ERROR(
         AppendMismatchReasonWithIndent(&result, mismatch_errors[sig_idx]));
   }
@@ -826,7 +841,8 @@ FunctionResolver::GenerateErrorMessageWithSupportedSignatures(
                         (num_signatures > 1 ? "s" : ""), ": ",
                         supported_signatures);
   } else {
-    if (function->GetSupportedSignaturesCallback() == nullptr) {
+    if (function->GetSupportedSignaturesCallback() == nullptr &&
+        !function->HideSupportedSignatures()) {
       // If we do not have any supported signatures and there is
       // no custom callback for producing the signature messages,
       // then we provide an error message as if the function did
@@ -1128,6 +1144,15 @@ absl::Status ExtractStructFieldLocations(
       // Strip "AS <alias>" clauses from field arg locations.
       for (const ASTStructConstructorArg* arg : ast_struct->fields()) {
         field_arg_locations->push_back(arg->expression());
+      }
+      break;
+    }
+    case AST_BRACED_CONSTRUCTOR: {
+      const ASTBracedConstructor* ast_braced =
+          cast_free_ast_location->GetAsOrDie<ASTBracedConstructor>();
+      ABSL_DCHECK_EQ(ast_braced->fields().size(), to_struct_type->num_fields());
+      for (const ASTBracedConstructorField* field : ast_braced->fields()) {
+        field_arg_locations->push_back(field->value());
       }
       break;
     }
@@ -1795,8 +1820,11 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   std::vector<InputArgumentType> input_argument_types;
-  GetInputArgumentTypesForGenericArgumentList(arg_locations, arguments,
-                                              &input_argument_types);
+  // We do not determined the actual signature and its argument types yet, so
+  // leaving NULL arguments as untyped.
+  GetInputArgumentTypesForGenericArgumentList(
+      arg_locations, arguments,
+      /*pick_default_type_for_untyped_expr=*/false, &input_argument_types);
 
   // Check initial argument constraints, if any.
   if (function->PreResolutionConstraints() != nullptr) {
@@ -1812,9 +1840,14 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   // When function has SupportedSignaturesCallback which returns list of
   // signatures in one string, we cannot interleave signatures and mismatch
   // errors.
-  // TODO: better support SupportedSignaturesCallback.
+  // When function has SignatureTextCallback, we have opportunity for per
+  // signature mismatch error.
+  // Skip mismatch details when we don't even want to show list of signatures
+  // with HideSupportedSignatures.
   bool show_mismatch_details =
-      function->GetSupportedSignaturesCallback() == nullptr &&
+      (function->GetSupportedSignaturesCallback() == nullptr ||
+       function->HasSignatureTextCallback()) &&
+      !function->HideSupportedSignatures() &&
       resolver_->analyzer_options().show_function_signature_mismatch_details();
   auto mismatch_errors = show_mismatch_details
                              ? std::make_unique<std::vector<std::string>>()
@@ -2060,38 +2093,22 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       }
     }
 
-    // If we have a cast of a parameter, we want to check the expression inside
-    // the cast.  Even if the query just has a parameter, when we unparse, we
-    // may get a cast of a parameter, and that should be legal too.
-    const ResolvedExpr* unwrapped_argument = arguments[idx].get();
-    while (unwrapped_argument->node_kind() == RESOLVED_CAST) {
-      unwrapped_argument = unwrapped_argument->GetAs<ResolvedCast>()->expr();
+    bool satisfies_non_aggregate_requirement = true;
+    if (concrete_argument.options().is_not_aggregate()) {
+      ZETASQL_ASSIGN_OR_RETURN(satisfies_non_aggregate_requirement,
+                       IsNonAggregateFunctionArg(arguments[idx].get()));
     }
-    // We currently use the same validation for must_be_constant and
-    // is_not_aggregate, except that is_not_aggregate also allows
-    // ResolvedArgumentRefs with kind NOT_AGGREGATE, so that we can have SQL
-    // UDF bodies that wrap calls with NOT_AGGREGATE arguments.
-    if (concrete_argument.must_be_constant() ||
-        concrete_argument.options().is_not_aggregate()) {
-      switch (unwrapped_argument->node_kind()) {
-        case RESOLVED_PARAMETER:
-        case RESOLVED_LITERAL:
-        case RESOLVED_CONSTANT:
-          break;
-        case RESOLVED_ARGUMENT_REF:
-          // A NOT_AGGREGATE argument is allowed (for is_not_aggregate mode),
-          // but any other argument type should fall through to the error case.
-          if (!concrete_argument.must_be_constant() &&
-              unwrapped_argument->GetAs<ResolvedArgumentRef>()
-                      ->argument_kind() == ResolvedArgumentRef::NOT_AGGREGATE) {
-            break;
-          }
-          ABSL_FALLTHROUGH_INTENDED;
-        default:
-          return MakeSqlErrorAt(arg_locations[idx])
-                 << BadArgErrorPrefix(idx)
-                 << " must be a literal or query parameter";
-      }
+    bool satisfies_constant_requirement = true;
+    if (concrete_argument.must_be_constant()) {
+      ZETASQL_ASSIGN_OR_RETURN(satisfies_constant_requirement,
+                       IsConstantFunctionArg(arguments[idx].get()));
+    }
+    // TODO: b/323602106 - Improve correctness of error message
+    if (!satisfies_constant_requirement ||
+        !satisfies_non_aggregate_requirement) {
+      return MakeSqlErrorAt(arg_locations[idx])
+             << BadArgErrorPrefix(idx)
+             << " must be a literal or query parameter";
     }
 
     const Type* target_type = concrete_argument.type();
@@ -2107,8 +2124,11 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       // Update the argument type with the casted one, so that the
       // PostResolutionArgumentConstraintsCallback and the
       // ComputeResultTypeCallback can get the exact types passed to function.
-      input_argument_types[idx] =
-          GetInputArgumentTypeForExpr(arguments[idx].get());
+      input_argument_types[idx] = GetInputArgumentTypeForExpr(
+          arguments[idx].get(),
+          /*pick_default_type_for_untyped_expr=*/
+          resolver_->language().LanguageFeatureEnabled(
+              FEATURE_TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS));
     }
 
     // If we have a literal argument value, check it against the value
@@ -2398,7 +2418,7 @@ absl::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
 absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     const ASTNode* ast_location, const TemplatedSQLFunction& function,
     const AnalyzerOptions& analyzer_options,
-    const std::vector<InputArgumentType>& actual_arguments,
+    absl::Span<const InputArgumentType> actual_arguments,
     std::shared_ptr<ResolvedFunctionCallInfo>* function_call_info_out) {
   // Check if this function calls itself. If so, return an error. Otherwise, add
   // a pointer to this class to the cycle detector in the analyzer options.

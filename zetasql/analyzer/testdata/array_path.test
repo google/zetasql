@@ -6,13 +6,13 @@ from ArrayTypes t, unnest(t.ProtoArray.int32_val1) value
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -27,39 +27,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-expr_list=
-        | +-value#18 := ColumnRef(type=INT32, column=$flatten.injected#20)
+        | +-value#21 := ColumnRef(type=INT32, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 select value
@@ -67,13 +67,13 @@ from ArrayTypes t, unnest(t.ProtoArray.has_int32_val1) value
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [BOOL]
+| +-$array.value#21 AS value [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -88,39 +88,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-get_has_bit=TRUE
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [BOOL]
+| +-$array.value#21 AS value [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-expr_list=
-        | +-value#18 := ColumnRef(type=BOOL, column=$flatten.injected#20)
+        | +-value#21 := ColumnRef(type=BOOL, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-GetProtoField
             |     +-type=BOOL
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     +-field_descriptor=int32_val1
             |     +-get_has_bit=TRUE
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 select value
@@ -128,13 +128,13 @@ from ArrayTypes t, t.ProtoArray.int32_val1 value
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -149,39 +149,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-expr_list=
-        | +-value#18 := ColumnRef(type=INT32, column=$flatten.injected#20)
+        | +-value#21 := ColumnRef(type=INT32, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 select str_value
@@ -189,13 +189,13 @@ from ArrayTypes t, unnest(t.ProtoArray.str_value) str_value
 --
 QueryStmt
 +-output_column_list=
-| +-$array.str_value#18 AS str_value [STRING]
+| +-$array.str_value#21 AS str_value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.str_value#18]
+    +-column_list=[$array.str_value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.str_value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.str_value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -210,39 +210,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
-        +-element_column_list=[$array.str_value#18]
+        +-element_column_list=[$array.str_value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.str_value#18 AS str_value [STRING]
+| +-$array.str_value#21 AS str_value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.str_value#18]
+    +-column_list=[$array.str_value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.str_value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.str_value#21]
         +-expr_list=
-        | +-str_value#18 := ColumnRef(type=STRING, column=$flatten.injected#20)
+        | +-str_value#21 := ColumnRef(type=STRING, column=$flatten.injected#23)
         +-input_scan=
           +-ArrayScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr_list=
             |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-            |   +-element_column_list=[$flatten.injected#19]
+            |   +-element_column_list=[$flatten.injected#22]
             +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
-            +-element_column_list=[$flatten.injected#20]
+            +-element_column_list=[$flatten.injected#23]
 ==
 
 select t.key, value
@@ -1075,13 +1075,13 @@ from ArrayTypes t, unnest(t.ProtoArray.(zetasql_test__.TestExtraPBExtensionHolde
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -1102,31 +1102,31 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>)
         |       +-field_descriptor=ext_value
         |       +-default_value=[]
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-expr_list=
-        | +-value#18 := ColumnRef(type=INT32, column=$flatten.injected#20)
+        | +-value#21 := ColumnRef(type=INT32, column=$flatten.injected#23)
         +-input_scan=
           +-ArrayScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr_list=
             |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-            |   +-element_column_list=[$flatten.injected#19]
+            |   +-element_column_list=[$flatten.injected#22]
             +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
@@ -1134,12 +1134,12 @@ QueryStmt
             |   | +-GetProtoField
             |   |   +-type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>
             |   |   +-expr=
-            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |   |   +-field_descriptor=[zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension]
             |   |   +-default_value=NULL
             |   +-field_descriptor=ext_value
             |   +-default_value=[]
-            +-element_column_list=[$flatten.injected#20]
+            +-element_column_list=[$flatten.injected#23]
 ==
 
 select value
@@ -1341,13 +1341,13 @@ from ArrayTypes t, unnest(array_concat(t.ProtoArray, []).str_value) value
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [STRING]
+| +-$array.value#21 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -1364,41 +1364,41 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [STRING]
+| +-$array.value#21 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-expr_list=
-        | +-value#18 := ColumnRef(type=STRING, column=$flatten.injected#20)
+        | +-value#21 := ColumnRef(type=STRING, column=$flatten.injected#23)
         +-input_scan=
           +-ArrayScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+            |   +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr_list=
             |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test__.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test__.TestExtraPB>>)
             |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             |   |   +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[])
-            |   +-element_column_list=[$flatten.injected#19]
+            |   +-element_column_list=[$flatten.injected#22]
             +-array_expr_list=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
-            +-element_column_list=[$flatten.injected#20]
+            +-element_column_list=[$flatten.injected#23]
 ==
 
 select value
@@ -1415,13 +1415,13 @@ from ArrayTypes t, unnest(array_concat(flatten(t.ProtoArray.str_value), ["foo"])
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [STRING]
+| +-$array.value#21 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -1438,19 +1438,19 @@ QueryStmt
         |   |     +-field_descriptor=str_value
         |   |     +-default_value=[]
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-WITH_EXPR' ]]
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [STRING]
+| +-$array.value#21 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -1458,63 +1458,63 @@ QueryStmt
         |   +-WithExpr
         |   | +-type=ARRAY<STRING>
         |   | +-assignment_list=
-        |   | | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-expr=
         |   |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
         |   |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |   |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |   |     +-SubqueryExpr
         |   |       +-type=ARRAY<STRING>
         |   |       +-subquery_type=ARRAY
         |   |       +-parameter_list=
-        |   |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |   |       +-subquery=
         |   |         +-OrderByScan
-        |   |           +-column_list=[$flatten.injected#22]
+        |   |           +-column_list=[$flatten.injected#25]
         |   |           +-is_ordered=TRUE
         |   |           +-input_scan=
         |   |           | +-ArrayScan
-        |   |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22, $offset.injected#23]
+        |   |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25, $offset.injected#26]
         |   |           |   +-input_scan=
         |   |           |   | +-ArrayScan
-        |   |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
+        |   |           |   |   +-column_list=[$flatten.injected#23, $offset.injected#24]
         |   |           |   |   +-array_expr_list=
-        |   |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |   |           |   |   +-element_column_list=[$flatten.injected#20]
+        |   |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+        |   |           |   |   +-element_column_list=[$flatten.injected#23]
         |   |           |   |   +-array_offset_column=
-        |   |           |   |     +-ColumnHolder(column=$offset.injected#21)
+        |   |           |   |     +-ColumnHolder(column=$offset.injected#24)
         |   |           |   +-array_expr_list=
         |   |           |   | +-GetProtoField
         |   |           |   |   +-type=ARRAY<STRING>
         |   |           |   |   +-expr=
-        |   |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+        |   |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
         |   |           |   |   +-field_descriptor=str_value
         |   |           |   |   +-default_value=[]
-        |   |           |   +-element_column_list=[$flatten.injected#22]
+        |   |           |   +-element_column_list=[$flatten.injected#25]
         |   |           |   +-array_offset_column=
-        |   |           |     +-ColumnHolder(column=$offset.injected#23)
+        |   |           |     +-ColumnHolder(column=$offset.injected#26)
         |   |           +-order_by_item_list=
         |   |             +-OrderByItem
         |   |             | +-column_ref=
-        |   |             |   +-ColumnRef(type=INT64, column=$offset.injected#21)
+        |   |             |   +-ColumnRef(type=INT64, column=$offset.injected#24)
         |   |             +-OrderByItem
         |   |               +-column_ref=
-        |   |                 +-ColumnRef(type=INT64, column=$offset.injected#23)
+        |   |                 +-ColumnRef(type=INT64, column=$offset.injected#26)
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 
 [[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS' ]]
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [STRING]
+| +-$array.value#21 AS value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -1526,59 +1526,59 @@ QueryStmt
         |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-subquery=
         |   |   +-ProjectScan
-        |   |     +-column_list=[$with_expr.injected#24]
+        |   |     +-column_list=[$with_expr.injected#27]
         |   |     +-expr_list=
-        |   |     | +-injected#24 :=
+        |   |     | +-injected#27 :=
         |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
         |   |     |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-        |   |     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |   |     |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |   |     |     +-SubqueryExpr
         |   |     |       +-type=ARRAY<STRING>
         |   |     |       +-subquery_type=ARRAY
         |   |     |       +-parameter_list=
-        |   |     |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |     |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |   |     |       +-subquery=
         |   |     |         +-OrderByScan
-        |   |     |           +-column_list=[$flatten.injected#22]
+        |   |     |           +-column_list=[$flatten.injected#25]
         |   |     |           +-is_ordered=TRUE
         |   |     |           +-input_scan=
         |   |     |           | +-ArrayScan
-        |   |     |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22, $offset.injected#23]
+        |   |     |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25, $offset.injected#26]
         |   |     |           |   +-input_scan=
         |   |     |           |   | +-ArrayScan
-        |   |     |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
+        |   |     |           |   |   +-column_list=[$flatten.injected#23, $offset.injected#24]
         |   |     |           |   |   +-array_expr_list=
-        |   |     |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |   |     |           |   |   +-element_column_list=[$flatten.injected#20]
+        |   |     |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+        |   |     |           |   |   +-element_column_list=[$flatten.injected#23]
         |   |     |           |   |   +-array_offset_column=
-        |   |     |           |   |     +-ColumnHolder(column=$offset.injected#21)
+        |   |     |           |   |     +-ColumnHolder(column=$offset.injected#24)
         |   |     |           |   +-array_expr_list=
         |   |     |           |   | +-GetProtoField
         |   |     |           |   |   +-type=ARRAY<STRING>
         |   |     |           |   |   +-expr=
-        |   |     |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+        |   |     |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
         |   |     |           |   |   +-field_descriptor=str_value
         |   |     |           |   |   +-default_value=[]
-        |   |     |           |   +-element_column_list=[$flatten.injected#22]
+        |   |     |           |   +-element_column_list=[$flatten.injected#25]
         |   |     |           |   +-array_offset_column=
-        |   |     |           |     +-ColumnHolder(column=$offset.injected#23)
+        |   |     |           |     +-ColumnHolder(column=$offset.injected#26)
         |   |     |           +-order_by_item_list=
         |   |     |             +-OrderByItem
         |   |     |             | +-column_ref=
-        |   |     |             |   +-ColumnRef(type=INT64, column=$offset.injected#21)
+        |   |     |             |   +-ColumnRef(type=INT64, column=$offset.injected#24)
         |   |     |             +-OrderByItem
         |   |     |               +-column_ref=
-        |   |     |                 +-ColumnRef(type=INT64, column=$offset.injected#23)
+        |   |     |                 +-ColumnRef(type=INT64, column=$offset.injected#26)
         |   |     +-input_scan=
         |   |       +-ProjectScan
-        |   |         +-column_list=[$flatten_input.injected#19]
+        |   |         +-column_list=[$flatten_input.injected#22]
         |   |         +-expr_list=
-        |   |         | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |   |         | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |   |         +-input_scan=
         |   |           +-SingleRowScan
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
-        +-element_column_list=[$array.value#18]
+        +-element_column_list=[$array.value#21]
 ==
 
 select flatten([
@@ -1729,12 +1729,12 @@ from ArrayTypes t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.value#18 AS value [ARRAY<STRING>]
+| +-$query.value#21 AS value [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.value#18]
+    +-column_list=[$query.value#21]
     +-expr_list=
-    | +-value#18 :=
+    | +-value#21 :=
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
@@ -1752,12 +1752,12 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.value#18 AS value [ARRAY<STRING>]
+| +-$query.value#21 AS value [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.value#18]
+    +-column_list=[$query.value#21]
     +-expr_list=
-    | +-value#18 :=
+    | +-value#21 :=
     |   +-SubqueryExpr
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
@@ -1765,55 +1765,55 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#24]
+    |         +-column_list=[$with_expr.injected#27]
     |         +-expr_list=
-    |         | +-injected#24 :=
+    |         | +-injected#27 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |       +-subquery=
     |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#22]
+    |         |           +-column_list=[$flatten.injected#25]
     |         |           +-is_ordered=TRUE
     |         |           +-input_scan=
     |         |           | +-ArrayScan
-    |         |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22, $offset.injected#23]
+    |         |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25, $offset.injected#26]
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
-    |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
+    |         |           |   |   +-column_list=[$flatten.injected#23, $offset.injected#24]
     |         |           |   |   +-array_expr_list=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |   |   +-element_column_list=[$flatten.injected#20]
+    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+    |         |           |   |   +-element_column_list=[$flatten.injected#23]
     |         |           |   |   +-array_offset_column=
-    |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
+    |         |           |   |     +-ColumnHolder(column=$offset.injected#24)
     |         |           |   +-array_expr_list=
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
-    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
-    |         |           |   +-element_column_list=[$flatten.injected#22]
+    |         |           |   +-element_column_list=[$flatten.injected#25]
     |         |           |   +-array_offset_column=
-    |         |           |     +-ColumnHolder(column=$offset.injected#23)
+    |         |           |     +-ColumnHolder(column=$offset.injected#26)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
     |         |             | +-column_ref=
-    |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#21)
+    |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#24)
     |         |             +-OrderByItem
     |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#23)
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#26)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#19]
+    |             +-column_list=[$flatten_input.injected#22]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -1825,12 +1825,12 @@ from ArrayTypes t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.value#18 AS value [ARRAY<STRING>]
+| +-$query.value#21 AS value [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.value#18]
+    +-column_list=[$query.value#21]
     +-expr_list=
-    | +-value#18 :=
+    | +-value#21 :=
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
@@ -1848,12 +1848,12 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.value#18 AS value [ARRAY<STRING>]
+| +-$query.value#21 AS value [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.value#18]
+    +-column_list=[$query.value#21]
     +-expr_list=
-    | +-value#18 :=
+    | +-value#21 :=
     |   +-SubqueryExpr
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
@@ -1861,55 +1861,55 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#24]
+    |         +-column_list=[$with_expr.injected#27]
     |         +-expr_list=
-    |         | +-injected#24 :=
+    |         | +-injected#27 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |       +-subquery=
     |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#22]
+    |         |           +-column_list=[$flatten.injected#25]
     |         |           +-is_ordered=TRUE
     |         |           +-input_scan=
     |         |           | +-ArrayScan
-    |         |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22, $offset.injected#23]
+    |         |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25, $offset.injected#26]
     |         |           |   +-input_scan=
     |         |           |   | +-ArrayScan
-    |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
+    |         |           |   |   +-column_list=[$flatten.injected#23, $offset.injected#24]
     |         |           |   |   +-array_expr_list=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |   |   +-element_column_list=[$flatten.injected#20]
+    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+    |         |           |   |   +-element_column_list=[$flatten.injected#23]
     |         |           |   |   +-array_offset_column=
-    |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
+    |         |           |   |     +-ColumnHolder(column=$offset.injected#24)
     |         |           |   +-array_expr_list=
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
-    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
-    |         |           |   +-element_column_list=[$flatten.injected#22]
+    |         |           |   +-element_column_list=[$flatten.injected#25]
     |         |           |   +-array_offset_column=
-    |         |           |     +-ColumnHolder(column=$offset.injected#23)
+    |         |           |     +-ColumnHolder(column=$offset.injected#26)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
     |         |             | +-column_ref=
-    |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#21)
+    |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#24)
     |         |             +-OrderByItem
     |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#23)
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#26)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#19]
+    |             +-column_list=[$flatten_input.injected#22]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -2306,14 +2306,14 @@ order by o
 --
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-is_ordered=TRUE
     +-input_scan=
     | +-ArrayScan
-    |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18, $array_offset.o#19]
+    |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21, $array_offset.o#22]
     |   +-input_scan=
     |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
     |   +-array_expr_list=
@@ -2328,25 +2328,25 @@ QueryStmt
     |   |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |   |       +-field_descriptor=int32_val1
     |   |       +-default_value=0
-    |   +-element_column_list=[$array.value#18]
+    |   +-element_column_list=[$array.value#21]
     |   +-array_offset_column=
-    |     +-ColumnHolder(column=$array_offset.o#19)
+    |     +-ColumnHolder(column=$array_offset.o#22)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$array_offset.o#19)
+          +-ColumnRef(type=INT64, column=$array_offset.o#22)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.value#18 AS value [INT32]
+| +-$array.value#21 AS value [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$array.value#18]
+    +-column_list=[$array.value#21]
     +-is_ordered=TRUE
     +-input_scan=
     | +-ArrayScan
-    |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#18, $array_offset.o#19]
+    |   +-column_list=[ArrayTypes.ProtoArray#15, $array.value#21, $array_offset.o#22]
     |   +-input_scan=
     |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
     |   +-array_expr_list=
@@ -2357,40 +2357,40 @@ QueryStmt
     |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |   |   +-subquery=
     |   |     +-OrderByScan
-    |   |       +-column_list=[$flatten.injected#22]
+    |   |       +-column_list=[$flatten.injected#25]
     |   |       +-is_ordered=TRUE
     |   |       +-input_scan=
     |   |       | +-ProjectScan
-    |   |       |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
+    |   |       |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
     |   |       |   +-expr_list=
-    |   |       |   | +-injected#22 :=
+    |   |       |   | +-injected#25 :=
     |   |       |   |   +-GetProtoField
     |   |       |   |     +-type=INT32
     |   |       |   |     +-expr=
-    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
     |   |       |   |     +-field_descriptor=int32_val1
     |   |       |   |     +-default_value=0
     |   |       |   +-input_scan=
     |   |       |     +-ArrayScan
-    |   |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
+    |   |       |       +-column_list=[$flatten.injected#23, $offset.injected#24]
     |   |       |       +-input_scan=
     |   |       |       | +-SingleRowScan
     |   |       |       +-array_expr_list=
     |   |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |   |       |       +-element_column_list=[$flatten.injected#20]
+    |   |       |       +-element_column_list=[$flatten.injected#23]
     |   |       |       +-array_offset_column=
-    |   |       |         +-ColumnHolder(column=$offset.injected#21)
+    |   |       |         +-ColumnHolder(column=$offset.injected#24)
     |   |       +-order_by_item_list=
     |   |         +-OrderByItem
     |   |           +-column_ref=
-    |   |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-    |   +-element_column_list=[$array.value#18]
+    |   |             +-ColumnRef(type=INT64, column=$offset.injected#24)
+    |   +-element_column_list=[$array.value#21]
     |   +-array_offset_column=
-    |     +-ColumnHolder(column=$array_offset.o#19)
+    |     +-ColumnHolder(column=$array_offset.o#22)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$array_offset.o#19)
+          +-ColumnRef(type=INT64, column=$array_offset.o#22)
 ==
 
 select value, o
@@ -3830,12 +3830,12 @@ SELECT FLATTEN(JsonArray.field) FROM ArrayTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<JSON>]
+| +-$query.$col1#21 AS `$col1` [ARRAY<JSON>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#18]
+    +-column_list=[$query.$col1#21]
     +-expr_list=
-    | +-$col1#18 :=
+    | +-$col1#21 :=
     |   +-Flatten
     |     +-type=ARRAY<JSON>
     |     +-expr=
@@ -3852,12 +3852,12 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<JSON>]
+| +-$query.$col1#21 AS `$col1` [ARRAY<JSON>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#18]
+    +-column_list=[$query.$col1#21]
     +-expr_list=
-    | +-$col1#18 :=
+    | +-$col1#21 :=
     |   +-SubqueryExpr
     |     +-type=ARRAY<JSON>
     |     +-subquery_type=SCALAR
@@ -3865,49 +3865,49 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#23]
+    |         +-column_list=[$with_expr.injected#26]
     |         +-expr_list=
-    |         | +-injected#23 :=
+    |         | +-injected#26 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<JSON>, ARRAY<JSON>) -> ARRAY<JSON>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<JSON>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#19)
+    |         |     | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#22)
     |         |     +-Literal(type=ARRAY<JSON>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<JSON>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#22)
     |         |       +-subquery=
     |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#22]
+    |         |           +-column_list=[$flatten.injected#25]
     |         |           +-is_ordered=TRUE
     |         |           +-input_scan=
     |         |           | +-ProjectScan
-    |         |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
+    |         |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
     |         |           |   +-expr_list=
-    |         |           |   | +-injected#22 :=
+    |         |           |   | +-injected#25 :=
     |         |           |   |   +-GetJsonField
     |         |           |   |     +-type=JSON
     |         |           |   |     +-expr=
-    |         |           |   |     | +-ColumnRef(type=JSON, column=$flatten.injected#20)
+    |         |           |   |     | +-ColumnRef(type=JSON, column=$flatten.injected#23)
     |         |           |   |     +-field_name="field"
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
-    |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
+    |         |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
     |         |           |       +-array_expr_list=
-    |         |           |       | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column_list=[$flatten.injected#20]
+    |         |           |       | +-ColumnRef(type=ARRAY<JSON>, column=$flatten_input.injected#22, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$flatten.injected#23]
     |         |           |       +-array_offset_column=
-    |         |           |         +-ColumnHolder(column=$offset.injected#21)
+    |         |           |         +-ColumnHolder(column=$offset.injected#24)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
     |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#21)
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#24)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#19]
+    |             +-column_list=[$flatten_input.injected#22]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17, is_correlated=TRUE)
+    |             | +-injected#22 := ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -4747,19 +4747,19 @@ ON key IN UNNEST(elements)
 --
 QueryStmt
 +-output_column_list=
-| +-$subquery1.elements#18 AS elements [ARRAY<STRING>]
-| +-$array.key#19 AS key [STRING]
+| +-$subquery1.elements#21 AS elements [ARRAY<STRING>]
+| +-$array.key#22 AS key [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$subquery1.elements#18, $array.key#19]
+    +-column_list=[$subquery1.elements#21, $array.key#22]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$subquery1.elements#18, $array.key#19]
+        +-column_list=[$subquery1.elements#21, $array.key#22]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[$subquery1.elements#18]
+        |   +-column_list=[$subquery1.elements#21]
         |   +-expr_list=
-        |   | +-elements#18 :=
+        |   | +-elements#21 :=
         |   |   +-Flatten
         |   |     +-type=ARRAY<STRING>
         |   |     +-expr=
@@ -4784,28 +4784,28 @@ QueryStmt
         |       +-expr=
         |       | +-FlattenedArg(type=STRUCT<a STRING>)
         |       +-field_idx=0
-        +-element_column_list=[$array.key#19]
+        +-element_column_list=[$array.key#22]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$in_array(STRING, ARRAY<STRING>) -> BOOL)
-            +-ColumnRef(type=STRING, column=$array.key#19)
-            +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.elements#18)
+            +-ColumnRef(type=STRING, column=$array.key#22)
+            +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.elements#21)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$subquery1.elements#18 AS elements [ARRAY<STRING>]
-| +-$array.key#19 AS key [STRING]
+| +-$subquery1.elements#21 AS elements [ARRAY<STRING>]
+| +-$array.key#22 AS key [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$subquery1.elements#18, $array.key#19]
+    +-column_list=[$subquery1.elements#21, $array.key#22]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$subquery1.elements#18, $array.key#19]
+        +-column_list=[$subquery1.elements#21, $array.key#22]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[$subquery1.elements#18]
+        |   +-column_list=[$subquery1.elements#21]
         |   +-expr_list=
-        |   | +-elements#18 :=
+        |   | +-elements#21 :=
         |   |   +-SubqueryExpr
         |   |     +-type=ARRAY<STRING>
         |   |     +-subquery_type=SCALAR
@@ -4813,55 +4813,55 @@ QueryStmt
         |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   |     +-subquery=
         |   |       +-ProjectScan
-        |   |         +-column_list=[$with_expr.injected#27]
+        |   |         +-column_list=[$with_expr.injected#30]
         |   |         +-expr_list=
-        |   |         | +-injected#27 :=
+        |   |         | +-injected#30 :=
         |   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
         |   |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-        |   |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20)
+        |   |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
         |   |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |   |         |     +-SubqueryExpr
         |   |         |       +-type=ARRAY<STRING>
         |   |         |       +-subquery_type=ARRAY
         |   |         |       +-parameter_list=
-        |   |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20)
+        |   |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
         |   |         |       +-subquery=
         |   |         |         +-OrderByScan
-        |   |         |           +-column_list=[$flatten.injected#23]
+        |   |         |           +-column_list=[$flatten.injected#26]
         |   |         |           +-is_ordered=TRUE
         |   |         |           +-input_scan=
         |   |         |           | +-ArrayScan
-        |   |         |           |   +-column_list=[$flatten.injected#21, $offset.injected#22, $flatten.injected#23, $offset.injected#24]
+        |   |         |           |   +-column_list=[$flatten.injected#24, $offset.injected#25, $flatten.injected#26, $offset.injected#27]
         |   |         |           |   +-input_scan=
         |   |         |           |   | +-ArrayScan
-        |   |         |           |   |   +-column_list=[$flatten.injected#21, $offset.injected#22]
+        |   |         |           |   |   +-column_list=[$flatten.injected#24, $offset.injected#25]
         |   |         |           |   |   +-array_expr_list=
-        |   |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20, is_correlated=TRUE)
-        |   |         |           |   |   +-element_column_list=[$flatten.injected#21]
+        |   |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23, is_correlated=TRUE)
+        |   |         |           |   |   +-element_column_list=[$flatten.injected#24]
         |   |         |           |   |   +-array_offset_column=
-        |   |         |           |   |     +-ColumnHolder(column=$offset.injected#22)
+        |   |         |           |   |     +-ColumnHolder(column=$offset.injected#25)
         |   |         |           |   +-array_expr_list=
         |   |         |           |   | +-GetProtoField
         |   |         |           |   |   +-type=ARRAY<STRING>
         |   |         |           |   |   +-expr=
-        |   |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#21)
+        |   |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#24)
         |   |         |           |   |   +-field_descriptor=str_value
         |   |         |           |   |   +-default_value=[]
-        |   |         |           |   +-element_column_list=[$flatten.injected#23]
+        |   |         |           |   +-element_column_list=[$flatten.injected#26]
         |   |         |           |   +-array_offset_column=
-        |   |         |           |     +-ColumnHolder(column=$offset.injected#24)
+        |   |         |           |     +-ColumnHolder(column=$offset.injected#27)
         |   |         |           +-order_by_item_list=
         |   |         |             +-OrderByItem
         |   |         |             | +-column_ref=
-        |   |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#22)
+        |   |         |             |   +-ColumnRef(type=INT64, column=$offset.injected#25)
         |   |         |             +-OrderByItem
         |   |         |               +-column_ref=
-        |   |         |                 +-ColumnRef(type=INT64, column=$offset.injected#24)
+        |   |         |                 +-ColumnRef(type=INT64, column=$offset.injected#27)
         |   |         +-input_scan=
         |   |           +-ProjectScan
-        |   |             +-column_list=[$flatten_input.injected#20]
+        |   |             +-column_list=[$flatten_input.injected#23]
         |   |             +-expr_list=
-        |   |             | +-injected#20 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |   |             | +-injected#23 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |   |             +-input_scan=
         |   |               +-SingleRowScan
         |   +-input_scan=
@@ -4872,40 +4872,40 @@ QueryStmt
         |   +-subquery_type=ARRAY
         |   +-subquery=
         |     +-ProjectScan
-        |       +-column_list=[$flatten.injected#26]
+        |       +-column_list=[$flatten.injected#29]
         |       +-expr_list=
-        |       | +-injected#26 :=
+        |       | +-injected#29 :=
         |       |   +-GetStructField
         |       |     +-type=STRING
         |       |     +-expr=
-        |       |     | +-ColumnRef(type=STRUCT<a STRING>, column=$flatten.injected#25)
+        |       |     | +-ColumnRef(type=STRUCT<a STRING>, column=$flatten.injected#28)
         |       |     +-field_idx=0
         |       +-input_scan=
         |         +-ArrayScan
-        |           +-column_list=[$flatten.injected#25]
+        |           +-column_list=[$flatten.injected#28]
         |           +-input_scan=
         |           | +-SingleRowScan
         |           +-array_expr_list=
         |           | +-Literal(type=ARRAY<STRUCT<a STRING>>, value=[{a:"hello"}])
-        |           +-element_column_list=[$flatten.injected#25]
-        +-element_column_list=[$array.key#19]
+        |           +-element_column_list=[$flatten.injected#28]
+        +-element_column_list=[$array.key#22]
         +-join_expr=
           +-FunctionCall(ZetaSQL:$in_array(STRING, ARRAY<STRING>) -> BOOL)
-            +-ColumnRef(type=STRING, column=$array.key#19)
-            +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.elements#18)
+            +-ColumnRef(type=STRING, column=$array.key#22)
+            +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.elements#21)
 ==
 
 select count(*) from ArrayTypes t where 3 in unnest(t.ProtoArray.int32_val1);
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#18 AS `$col1` [INT64]
+| +-$aggregate.$agg1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#18]
+    +-column_list=[$aggregate.$agg1#21]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#18]
+        +-column_list=[$aggregate.$agg1#21]
         +-input_scan=
         | +-FilterScan
         |   +-column_list=[ArrayTypes.ProtoArray#15]
@@ -4926,18 +4926,18 @@ QueryStmt
         |             +-field_descriptor=int32_val1
         |             +-default_value=0
         +-aggregate_list=
-          +-$agg1#18 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#18 AS `$col1` [INT64]
+| +-$aggregate.$agg1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#18]
+    +-column_list=[$aggregate.$agg1#21]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#18]
+        +-column_list=[$aggregate.$agg1#21]
         +-input_scan=
         | +-FilterScan
         |   +-column_list=[ArrayTypes.ProtoArray#15]
@@ -4953,54 +4953,54 @@ QueryStmt
         |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |         +-subquery=
         |           +-ProjectScan
-        |             +-column_list=[$with_expr.injected#23]
+        |             +-column_list=[$with_expr.injected#26]
         |             +-expr_list=
-        |             | +-injected#23 :=
+        |             | +-injected#26 :=
         |             |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT32>, ARRAY<INT32>) -> ARRAY<INT32>)
         |             |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-        |             |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |             |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |             |     +-Literal(type=ARRAY<INT32>, value=NULL)
         |             |     +-SubqueryExpr
         |             |       +-type=ARRAY<INT32>
         |             |       +-subquery_type=ARRAY
         |             |       +-parameter_list=
-        |             |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+        |             |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
         |             |       +-subquery=
         |             |         +-OrderByScan
-        |             |           +-column_list=[$flatten.injected#22]
+        |             |           +-column_list=[$flatten.injected#25]
         |             |           +-is_ordered=TRUE
         |             |           +-input_scan=
         |             |           | +-ProjectScan
-        |             |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
+        |             |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
         |             |           |   +-expr_list=
-        |             |           |   | +-injected#22 :=
+        |             |           |   | +-injected#25 :=
         |             |           |   |   +-GetProtoField
         |             |           |   |     +-type=INT32
         |             |           |   |     +-expr=
-        |             |           |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+        |             |           |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
         |             |           |   |     +-field_descriptor=int32_val1
         |             |           |   |     +-default_value=0
         |             |           |   +-input_scan=
         |             |           |     +-ArrayScan
-        |             |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
+        |             |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
         |             |           |       +-array_expr_list=
-        |             |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-        |             |           |       +-element_column_list=[$flatten.injected#20]
+        |             |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+        |             |           |       +-element_column_list=[$flatten.injected#23]
         |             |           |       +-array_offset_column=
-        |             |           |         +-ColumnHolder(column=$offset.injected#21)
+        |             |           |         +-ColumnHolder(column=$offset.injected#24)
         |             |           +-order_by_item_list=
         |             |             +-OrderByItem
         |             |               +-column_ref=
-        |             |                 +-ColumnRef(type=INT64, column=$offset.injected#21)
+        |             |                 +-ColumnRef(type=INT64, column=$offset.injected#24)
         |             +-input_scan=
         |               +-ProjectScan
-        |                 +-column_list=[$flatten_input.injected#19]
+        |                 +-column_list=[$flatten_input.injected#22]
         |                 +-expr_list=
-        |                 | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |                 | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |                 +-input_scan=
         |                   +-SingleRowScan
         +-aggregate_list=
-          +-$agg1#18 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 select FLATTEN(t.ProtoArray.str_value[OFFSET((SELECT COUNT(*) FROM TestTable))])
@@ -5008,12 +5008,12 @@ from ArrayTypes t;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#22 AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#25 AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#22]
+    +-column_list=[$query.$col1#25]
     +-expr_list=
-    | +-$col1#22 :=
+    | +-$col1#25 :=
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
@@ -5031,26 +5031,26 @@ QueryStmt
     |           +-subquery_type=SCALAR
     |           +-subquery=
     |             +-ProjectScan
-    |               +-column_list=[$aggregate.$agg1#21]
+    |               +-column_list=[$aggregate.$agg1#24]
     |               +-input_scan=
     |                 +-AggregateScan
-    |                   +-column_list=[$aggregate.$agg1#21]
+    |                   +-column_list=[$aggregate.$agg1#24]
     |                   +-input_scan=
     |                   | +-TableScan(table=TestTable)
     |                   +-aggregate_list=
-    |                     +-$agg1#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |                     +-$agg1#24 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-input_scan=
       +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#22 AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#25 AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#22]
+    +-column_list=[$query.$col1#25]
     +-expr_list=
-    | +-$col1#22 :=
+    | +-$col1#25 :=
     |   +-SubqueryExpr
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
@@ -5058,32 +5058,32 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#27]
+    |         +-column_list=[$with_expr.injected#30]
     |         +-expr_list=
-    |         | +-injected#27 :=
+    |         | +-injected#30 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#26)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#26)
     |         |       +-subquery=
     |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#26]
+    |         |           +-column_list=[$flatten.injected#29]
     |         |           +-is_ordered=TRUE
     |         |           +-input_scan=
     |         |           | +-ProjectScan
-    |         |           |   +-column_list=[$flatten.injected#24, $offset.injected#25, $flatten.injected#26]
+    |         |           |   +-column_list=[$flatten.injected#27, $offset.injected#28, $flatten.injected#29]
     |         |           |   +-expr_list=
-    |         |           |   | +-injected#26 :=
+    |         |           |   | +-injected#29 :=
     |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         |           |   |     +-GetProtoField
     |         |           |   |     | +-type=ARRAY<STRING>
     |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#24)
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#27)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
     |         |           |   |     +-SubqueryExpr
@@ -5091,31 +5091,31 @@ QueryStmt
     |         |           |   |       +-subquery_type=SCALAR
     |         |           |   |       +-subquery=
     |         |           |   |         +-ProjectScan
-    |         |           |   |           +-column_list=[$aggregate.$agg1#21]
+    |         |           |   |           +-column_list=[$aggregate.$agg1#24]
     |         |           |   |           +-input_scan=
     |         |           |   |             +-AggregateScan
-    |         |           |   |               +-column_list=[$aggregate.$agg1#21]
+    |         |           |   |               +-column_list=[$aggregate.$agg1#24]
     |         |           |   |               +-input_scan=
     |         |           |   |               | +-TableScan(table=TestTable)
     |         |           |   |               +-aggregate_list=
-    |         |           |   |                 +-$agg1#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |         |           |   |                 +-$agg1#24 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
-    |         |           |       +-column_list=[$flatten.injected#24, $offset.injected#25]
+    |         |           |       +-column_list=[$flatten.injected#27, $offset.injected#28]
     |         |           |       +-array_expr_list=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23, is_correlated=TRUE)
-    |         |           |       +-element_column_list=[$flatten.injected#24]
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#26, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$flatten.injected#27]
     |         |           |       +-array_offset_column=
-    |         |           |         +-ColumnHolder(column=$offset.injected#25)
+    |         |           |         +-ColumnHolder(column=$offset.injected#28)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
     |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#25)
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#28)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#23]
+    |             +-column_list=[$flatten_input.injected#26]
     |             +-expr_list=
-    |             | +-injected#23 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#26 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -5128,13 +5128,13 @@ from ArrayTypes t, unnest(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.ProtoArra
 --
 QueryStmt
 +-output_column_list=
-| +-$array.v#18 AS v [STRING]
+| +-$array.v#21 AS v [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.v#18]
+    +-column_list=[$array.v#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#21]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -5152,42 +5152,42 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
         |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column_list=[$array.v#18]
+        +-element_column_list=[$array.v#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.v#18 AS v [STRING]
+| +-$array.v#21 AS v [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.v#18]
+    +-column_list=[$array.v#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#21]
         +-expr_list=
-        | +-v#18 := ColumnRef(type=STRING, column=$flatten.injected#20)
+        | +-v#21 := ColumnRef(type=STRING, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
             |     +-GetProtoField
             |     | +-type=ARRAY<STRING>
             |     | +-expr=
-            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     | +-field_descriptor=str_value
             |     | +-default_value=[]
             |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
             |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 select v, o
@@ -5195,14 +5195,14 @@ from ArrayTypes t, unnest(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.ProtoArra
 --
 QueryStmt
 +-output_column_list=
-| +-$array.v#18 AS v [STRING]
-| +-$array_offset.o#19 AS o [INT64]
+| +-$array.v#21 AS v [STRING]
+| +-$array_offset.o#22 AS o [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.v#18, $array_offset.o#19]
+    +-column_list=[$array.v#21, $array_offset.o#22]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#21, $array_offset.o#22]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -5220,21 +5220,21 @@ QueryStmt
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
         |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column_list=[$array.v#18]
+        +-element_column_list=[$array.v#21]
         +-array_offset_column=
-          +-ColumnHolder(column=$array_offset.o#19)
+          +-ColumnHolder(column=$array_offset.o#22)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.v#18 AS v [STRING]
-| +-$array_offset.o#19 AS o [INT64]
+| +-$array.v#21 AS v [STRING]
+| +-$array_offset.o#22 AS o [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.v#18, $array_offset.o#19]
+    +-column_list=[$array.v#21, $array_offset.o#22]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
+        +-column_list=[ArrayTypes.ProtoArray#15, $array.v#21, $array_offset.o#22]
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr_list=
@@ -5245,39 +5245,39 @@ QueryStmt
         |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-subquery=
         |     +-OrderByScan
-        |       +-column_list=[$flatten.injected#22]
+        |       +-column_list=[$flatten.injected#25]
         |       +-is_ordered=TRUE
         |       +-input_scan=
         |       | +-ProjectScan
-        |       |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
+        |       |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
         |       |   +-expr_list=
-        |       |   | +-injected#22 :=
+        |       |   | +-injected#25 :=
         |       |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
         |       |   |     +-GetProtoField
         |       |   |     | +-type=ARRAY<STRING>
         |       |   |     | +-expr=
-        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
+        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
         |       |   |     | +-field_descriptor=str_value
         |       |   |     | +-default_value=[]
         |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
         |       |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |       |   +-input_scan=
         |       |     +-ArrayScan
-        |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
+        |       |       +-column_list=[$flatten.injected#23, $offset.injected#24]
         |       |       +-input_scan=
         |       |       | +-SingleRowScan
         |       |       +-array_expr_list=
         |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-        |       |       +-element_column_list=[$flatten.injected#20]
+        |       |       +-element_column_list=[$flatten.injected#23]
         |       |       +-array_offset_column=
-        |       |         +-ColumnHolder(column=$offset.injected#21)
+        |       |         +-ColumnHolder(column=$offset.injected#24)
         |       +-order_by_item_list=
         |         +-OrderByItem
         |           +-column_ref=
-        |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-        +-element_column_list=[$array.v#18]
+        |             +-ColumnRef(type=INT64, column=$offset.injected#24)
+        +-element_column_list=[$array.v#21]
         +-array_offset_column=
-          +-ColumnHolder(column=$array_offset.o#19)
+          +-ColumnHolder(column=$array_offset.o#22)
 ==
 
 select FLATTEN(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.ProtoArray))])
@@ -5285,12 +5285,12 @@ from ArrayTypes t;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<STRING>]
+| +-$query.$col1#21 AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#18]
+    +-column_list=[$query.$col1#21]
     +-expr_list=
-    | +-$col1#18 :=
+    | +-$col1#21 :=
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
@@ -5311,373 +5311,6 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<STRING>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#18]
-    +-expr_list=
-    | +-$col1#18 :=
-    |   +-SubqueryExpr
-    |     +-type=ARRAY<STRING>
-    |     +-subquery_type=SCALAR
-    |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     +-subquery=
-    |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#23]
-    |         +-expr_list=
-    |         | +-injected#23 :=
-    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
-    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
-    |         |     +-SubqueryExpr
-    |         |       +-type=ARRAY<STRING>
-    |         |       +-subquery_type=ARRAY
-    |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
-    |         |       +-subquery=
-    |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#22]
-    |         |           +-is_ordered=TRUE
-    |         |           +-input_scan=
-    |         |           | +-ProjectScan
-    |         |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
-    |         |           |   +-expr_list=
-    |         |           |   | +-injected#22 :=
-    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-    |         |           |   |     +-GetProtoField
-    |         |           |   |     | +-type=ARRAY<STRING>
-    |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
-    |         |           |   |     | +-field_descriptor=str_value
-    |         |           |   |     | +-default_value=[]
-    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
-    |         |           |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |         |           |   +-input_scan=
-    |         |           |     +-ArrayScan
-    |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |       +-array_expr_list=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column_list=[$flatten.injected#20]
-    |         |           |       +-array_offset_column=
-    |         |           |         +-ColumnHolder(column=$offset.injected#21)
-    |         |           +-order_by_item_list=
-    |         |             +-OrderByItem
-    |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#21)
-    |         +-input_scan=
-    |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#19]
-    |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |             +-input_scan=
-    |               +-SingleRowScan
-    +-input_scan=
-      +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-
-==
-
-select FLATTEN(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))])
-from ArrayTypes t;
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<STRING>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#18]
-    +-expr_list=
-    | +-$col1#18 :=
-    |   +-Flatten
-    |     +-type=ARRAY<STRING>
-    |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     +-get_field_list=
-    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-    |         +-GetProtoField
-    |         | +-type=ARRAY<STRING>
-    |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
-    |         | +-field_descriptor=str_value
-    |         | +-default_value=[]
-    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-    |           +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-    +-input_scan=
-      +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#18 AS `$col1` [ARRAY<STRING>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#18]
-    +-expr_list=
-    | +-$col1#18 :=
-    |   +-SubqueryExpr
-    |     +-type=ARRAY<STRING>
-    |     +-subquery_type=SCALAR
-    |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     +-subquery=
-    |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#23]
-    |         +-expr_list=
-    |         | +-injected#23 :=
-    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
-    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
-    |         |     +-SubqueryExpr
-    |         |       +-type=ARRAY<STRING>
-    |         |       +-subquery_type=ARRAY
-    |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
-    |         |       +-subquery=
-    |         |         +-OrderByScan
-    |         |           +-column_list=[$flatten.injected#22]
-    |         |           +-is_ordered=TRUE
-    |         |           +-input_scan=
-    |         |           | +-ProjectScan
-    |         |           |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
-    |         |           |   +-expr_list=
-    |         |           |   | +-injected#22 :=
-    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-    |         |           |   |     +-GetProtoField
-    |         |           |   |     | +-type=ARRAY<STRING>
-    |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
-    |         |           |   |     | +-field_descriptor=str_value
-    |         |           |   |     | +-default_value=[]
-    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-    |         |           |   |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
-    |         |           |   +-input_scan=
-    |         |           |     +-ArrayScan
-    |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-    |         |           |       +-array_expr_list=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
-    |         |           |       +-element_column_list=[$flatten.injected#20]
-    |         |           |       +-array_offset_column=
-    |         |           |         +-ColumnHolder(column=$offset.injected#21)
-    |         |           +-order_by_item_list=
-    |         |             +-OrderByItem
-    |         |               +-column_ref=
-    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#21)
-    |         +-input_scan=
-    |           +-ProjectScan
-    |             +-column_list=[$flatten_input.injected#19]
-    |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-    |             +-input_scan=
-    |               +-SingleRowScan
-    +-input_scan=
-      +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-
-==
-
-select v
-from ArrayTypes t, UNNEST(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))]) v;
---
-QueryStmt
-+-output_column_list=
-| +-$array.v#18 AS v [STRING]
-+-query=
-  +-ProjectScan
-    +-column_list=[$array.v#18]
-    +-input_scan=
-      +-ArrayScan
-        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18]
-        +-input_scan=
-        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr_list=
-        | +-Flatten
-        |   +-type=ARRAY<STRING>
-        |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   +-get_field_list=
-        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-        |       +-GetProtoField
-        |       | +-type=ARRAY<STRING>
-        |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
-        |       | +-field_descriptor=str_value
-        |       | +-default_value=[]
-        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-        |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-        +-element_column_list=[$array.v#18]
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$array.v#18 AS v [STRING]
-+-query=
-  +-ProjectScan
-    +-column_list=[$array.v#18]
-    +-input_scan=
-      +-ProjectScan
-        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18]
-        +-expr_list=
-        | +-v#18 := ColumnRef(type=STRING, column=$flatten.injected#20)
-        +-input_scan=
-          +-ProjectScan
-            +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
-            +-expr_list=
-            | +-injected#20 :=
-            |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-            |     +-GetProtoField
-            |     | +-type=ARRAY<STRING>
-            |     | +-expr=
-            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
-            |     | +-field_descriptor=str_value
-            |     | +-default_value=[]
-            |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-            |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-            +-input_scan=
-              +-ArrayScan
-                +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $flatten.injected#19]
-                +-input_scan=
-                | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-                +-array_expr_list=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
-==
-
-select v, o
-from ArrayTypes t, UNNEST(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))]) v WITH OFFSET o;
---
-QueryStmt
-+-output_column_list=
-| +-$array.v#18 AS v [STRING]
-| +-$array_offset.o#19 AS o [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$array.v#18, $array_offset.o#19]
-    +-input_scan=
-      +-ArrayScan
-        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
-        +-input_scan=
-        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr_list=
-        | +-Flatten
-        |   +-type=ARRAY<STRING>
-        |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   +-get_field_list=
-        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-        |       +-GetProtoField
-        |       | +-type=ARRAY<STRING>
-        |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
-        |       | +-field_descriptor=str_value
-        |       | +-default_value=[]
-        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-        |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-        +-element_column_list=[$array.v#18]
-        +-array_offset_column=
-          +-ColumnHolder(column=$array_offset.o#19)
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$array.v#18 AS v [STRING]
-| +-$array_offset.o#19 AS o [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$array.v#18, $array_offset.o#19]
-    +-input_scan=
-      +-ArrayScan
-        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#18, $array_offset.o#19]
-        +-input_scan=
-        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
-        +-array_expr_list=
-        | +-SubqueryExpr
-        |   +-type=ARRAY<STRING>
-        |   +-subquery_type=ARRAY
-        |   +-parameter_list=
-        |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   +-subquery=
-        |     +-OrderByScan
-        |       +-column_list=[$flatten.injected#22]
-        |       +-is_ordered=TRUE
-        |       +-input_scan=
-        |       | +-ProjectScan
-        |       |   +-column_list=[$flatten.injected#20, $offset.injected#21, $flatten.injected#22]
-        |       |   +-expr_list=
-        |       |   | +-injected#22 :=
-        |       |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-        |       |   |     +-GetProtoField
-        |       |   |     | +-type=ARRAY<STRING>
-        |       |   |     | +-expr=
-        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
-        |       |   |     | +-field_descriptor=str_value
-        |       |   |     | +-default_value=[]
-        |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
-        |       |   |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
-        |       |   +-input_scan=
-        |       |     +-ArrayScan
-        |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
-        |       |       +-input_scan=
-        |       |       | +-SingleRowScan
-        |       |       +-array_expr_list=
-        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
-        |       |       +-element_column_list=[$flatten.injected#20]
-        |       |       +-array_offset_column=
-        |       |         +-ColumnHolder(column=$offset.injected#21)
-        |       +-order_by_item_list=
-        |         +-OrderByItem
-        |           +-column_ref=
-        |             +-ColumnRef(type=INT64, column=$offset.injected#21)
-        +-element_column_list=[$array.v#18]
-        +-array_offset_column=
-          +-ColumnHolder(column=$array_offset.o#19)
-==
-
-select FLATTEN(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(test.KitchenSink.nested_repeated_value))])
-from ArrayTypes t, TestTable test;
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#21 AS `$col1` [ARRAY<STRING>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#21]
-    +-expr_list=
-    | +-$col1#21 :=
-    |   +-Flatten
-    |     +-type=ARRAY<STRING>
-    |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     +-get_field_list=
-    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
-    |         +-GetProtoField
-    |         | +-type=ARRAY<STRING>
-    |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
-    |         | +-field_descriptor=str_value
-    |         | +-default_value=[]
-    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
-    |           +-GetProtoField
-    |             +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
-    |             +-expr=
-    |             | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20)
-    |             +-field_descriptor=nested_repeated_value
-    |             +-default_value=[]
-    +-input_scan=
-      +-JoinScan
-        +-column_list=[ArrayTypes.ProtoArray#15, TestTable.KitchenSink#20]
-        +-left_scan=
-        | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
-        +-right_scan=
-          +-TableScan(column_list=[TestTable.KitchenSink#20], table=TestTable, column_index_list=[2], alias="test")
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
 | +-$query.$col1#21 AS `$col1` [ARRAY<STRING>]
 +-query=
   +-ProjectScan
@@ -5689,7 +5322,6 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$with_expr.injected#26]
@@ -5703,7 +5335,7 @@ QueryStmt
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -5721,13 +5353,8 @@ QueryStmt
     |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
-    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
-    |         |           |   |       +-GetProtoField
-    |         |           |   |         +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
-    |         |           |   |         +-expr=
-    |         |           |   |         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
-    |         |           |   |         +-field_descriptor=nested_repeated_value
-    |         |           |   |         +-default_value=[]
+    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+    |         |           |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
@@ -5748,12 +5375,385 @@ QueryStmt
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
+      +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
+
+==
+
+select FLATTEN(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))])
+from ArrayTypes t;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#21 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#21]
+    +-expr_list=
+    | +-$col1#21 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     +-get_field_list=
+    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         +-GetProtoField
+    |         | +-type=ARRAY<STRING>
+    |         | +-expr=
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
+    |         | +-field_descriptor=str_value
+    |         | +-default_value=[]
+    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+    |           +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+    +-input_scan=
+      +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#21 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#21]
+    +-expr_list=
+    | +-$col1#21 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#26]
+    |         +-expr_list=
+    |         | +-injected#26 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<STRING>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#25]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#25 :=
+    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         |           |   |     +-GetProtoField
+    |         |           |   |     | +-type=ARRAY<STRING>
+    |         |           |   |     | +-expr=
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
+    |         |           |   |     | +-field_descriptor=str_value
+    |         |           |   |     | +-default_value=[]
+    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+    |         |           |   |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
+    |         |           |       +-array_expr_list=
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$flatten.injected#23]
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#24)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#24)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#22]
+    |             +-expr_list=
+    |             | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+
+==
+
+select v
+from ArrayTypes t, UNNEST(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))]) v;
+--
+QueryStmt
++-output_column_list=
+| +-$array.v#21 AS v [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.v#21]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#21]
+        +-input_scan=
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+        +-array_expr_list=
+        | +-Flatten
+        |   +-type=ARRAY<STRING>
+        |   +-expr=
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   +-get_field_list=
+        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+        |       +-GetProtoField
+        |       | +-type=ARRAY<STRING>
+        |       | +-expr=
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
+        |       | +-field_descriptor=str_value
+        |       | +-default_value=[]
+        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+        |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        +-element_column_list=[$array.v#21]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$array.v#21 AS v [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.v#21]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#21]
+        +-expr_list=
+        | +-v#21 := ColumnRef(type=STRING, column=$flatten.injected#23)
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
+            +-expr_list=
+            | +-injected#23 :=
+            |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+            |     +-GetProtoField
+            |     | +-type=ARRAY<STRING>
+            |     | +-expr=
+            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
+            |     | +-field_descriptor=str_value
+            |     | +-default_value=[]
+            |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+            |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+            +-input_scan=
+              +-ArrayScan
+                +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $flatten.injected#22]
+                +-input_scan=
+                | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+                +-array_expr_list=
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                +-element_column_list=[$flatten.injected#22]
+==
+
+select v, o
+from ArrayTypes t, UNNEST(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(t.Int32Array))]) v WITH OFFSET o;
+--
+QueryStmt
++-output_column_list=
+| +-$array.v#21 AS v [STRING]
+| +-$array_offset.o#22 AS o [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.v#21, $array_offset.o#22]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#21, $array_offset.o#22]
+        +-input_scan=
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+        +-array_expr_list=
+        | +-Flatten
+        |   +-type=ARRAY<STRING>
+        |   +-expr=
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   +-get_field_list=
+        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+        |       +-GetProtoField
+        |       | +-type=ARRAY<STRING>
+        |       | +-expr=
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
+        |       | +-field_descriptor=str_value
+        |       | +-default_value=[]
+        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+        |         +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        +-element_column_list=[$array.v#21]
+        +-array_offset_column=
+          +-ColumnHolder(column=$array_offset.o#22)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$array.v#21 AS v [STRING]
+| +-$array_offset.o#22 AS o [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.v#21, $array_offset.o#22]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.ProtoArray#15, $array.v#21, $array_offset.o#22]
+        +-input_scan=
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
+        +-array_expr_list=
+        | +-SubqueryExpr
+        |   +-type=ARRAY<STRING>
+        |   +-subquery_type=ARRAY
+        |   +-parameter_list=
+        |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   +-subquery=
+        |     +-OrderByScan
+        |       +-column_list=[$flatten.injected#25]
+        |       +-is_ordered=TRUE
+        |       +-input_scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=[$flatten.injected#23, $offset.injected#24, $flatten.injected#25]
+        |       |   +-expr_list=
+        |       |   | +-injected#25 :=
+        |       |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+        |       |   |     +-GetProtoField
+        |       |   |     | +-type=ARRAY<STRING>
+        |       |   |     | +-expr=
+        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
+        |       |   |     | +-field_descriptor=str_value
+        |       |   |     | +-default_value=[]
+        |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
+        |       |   |       +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
+        |       |   +-input_scan=
+        |       |     +-ArrayScan
+        |       |       +-column_list=[$flatten.injected#23, $offset.injected#24]
+        |       |       +-input_scan=
+        |       |       | +-SingleRowScan
+        |       |       +-array_expr_list=
+        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |       |       +-element_column_list=[$flatten.injected#23]
+        |       |       +-array_offset_column=
+        |       |         +-ColumnHolder(column=$offset.injected#24)
+        |       +-order_by_item_list=
+        |         +-OrderByItem
+        |           +-column_ref=
+        |             +-ColumnRef(type=INT64, column=$offset.injected#24)
+        +-element_column_list=[$array.v#21]
+        +-array_offset_column=
+          +-ColumnHolder(column=$array_offset.o#22)
+==
+
+select FLATTEN(t.ProtoArray.str_value[OFFSET(ARRAY_LENGTH(test.KitchenSink.nested_repeated_value))])
+from ArrayTypes t, TestTable test;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#24 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#24]
+    +-expr_list=
+    | +-$col1#24 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     +-get_field_list=
+    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         +-GetProtoField
+    |         | +-type=ARRAY<STRING>
+    |         | +-expr=
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
+    |         | +-field_descriptor=str_value
+    |         | +-default_value=[]
+    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
+    |           +-GetProtoField
+    |             +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
+    |             +-expr=
+    |             | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#23)
+    |             +-field_descriptor=nested_repeated_value
+    |             +-default_value=[]
+    +-input_scan=
       +-JoinScan
-        +-column_list=[ArrayTypes.ProtoArray#15, TestTable.KitchenSink#20]
+        +-column_list=[ArrayTypes.ProtoArray#15, TestTable.KitchenSink#23]
         +-left_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-right_scan=
-          +-TableScan(column_list=[TestTable.KitchenSink#20], table=TestTable, column_index_list=[2], alias="test")
+          +-TableScan(column_list=[TestTable.KitchenSink#23], table=TestTable, column_index_list=[2], alias="test")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#24 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#24]
+    +-expr_list=
+    | +-$col1#24 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#23)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#29]
+    |         +-expr_list=
+    |         | +-injected#29 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#25)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<STRING>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#23, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#25)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#28]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#26, $offset.injected#27, $flatten.injected#28]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#28 :=
+    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         |           |   |     +-GetProtoField
+    |         |           |   |     | +-type=ARRAY<STRING>
+    |         |           |   |     | +-expr=
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#26)
+    |         |           |   |     | +-field_descriptor=str_value
+    |         |           |   |     | +-default_value=[]
+    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
+    |         |           |   |       +-GetProtoField
+    |         |           |   |         +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
+    |         |           |   |         +-expr=
+    |         |           |   |         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#23, is_correlated=TRUE)
+    |         |           |   |         +-field_descriptor=nested_repeated_value
+    |         |           |   |         +-default_value=[]
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#26, $offset.injected#27]
+    |         |           |       +-array_expr_list=
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#25, is_correlated=TRUE)
+    |         |           |       +-element_column_list=[$flatten.injected#26]
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#27)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#27)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#25]
+    |             +-expr_list=
+    |             | +-injected#25 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[ArrayTypes.ProtoArray#15, TestTable.KitchenSink#23]
+        +-left_scan=
+        | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
+        +-right_scan=
+          +-TableScan(column_list=[TestTable.KitchenSink#23], table=TestTable, column_index_list=[2], alias="test")
 ==
 
 select t.KitchenSink.nested_repeated_value.nested_int64 in unnest(t.KitchenSink.nested_repeated_value.nested_int64)

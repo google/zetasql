@@ -205,7 +205,7 @@ class AnalyticFunctionResolver {
       analytic_function_groups_;
 
   // Map from grouping windows to their related analytic function group info.
-  // An analytic function group is uniquely  identified by a grouping window.
+  // An analytic function group is uniquely identified by a grouping window.
   // This map is used to find the group that an analytic function belongs to
   // according to the grouping window of the analytic function.
   std::map<const ASTWindowSpecification*, AnalyticFunctionGroupInfo*>
@@ -309,8 +309,7 @@ class AnalyticFunctionResolver {
       ExprResolutionInfo* expr_resolution_info,
       WindowExprInfoList** order_by_info_out);
 
-  // Resolves a window (partitioning/ordering expression) expression and
-  // identifies whether it is an alias reference to a SELECT-list column.
+  // Resolves a window (partitioning/ordering expression) expression.
   absl::Status ResolveWindowExpression(
       const char* clause_name, const ASTExpression* ast_expr,
       ExprResolutionInfo* expr_resolution_info,

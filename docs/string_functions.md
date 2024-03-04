@@ -1007,18 +1007,6 @@ FROM Employees;
 
 ### `EDIT_DISTANCE`
 
-<aside class="beta">
-  <p><strong>Preview</strong></p>
-  <p>
-    This product or feature is subject to the "Pre-GA Offerings Terms"
-    in the General Service Terms section of the
-    <a href="/terms/service-terms">Service Specific Terms</a>.
-    Pre-GA products and features are available "as is" and might have
-    limited support. For more information, see the
-    <a href="/products#product-launch-stages">launch stage descriptions</a>.
-  </p>
-</aside>
-
 ```sql
 EDIT_DISTANCE(value1, value2, [max_distance => max_distance_value])
 ```
@@ -1808,11 +1796,11 @@ The `STRING` is formatted as follows:
     <td>BYTES</td>
     <td>
       unquoted escaped bytes<br/>
-      e.g. abc\x01\x02
+      e.g., abc\x01\x02
     </td>
     <td>
       quoted bytes literal<br/>
-      e.g. b"abc\x01\x02"
+      e.g., b"abc\x01\x02"
     </td>
   </tr>
   <tr>

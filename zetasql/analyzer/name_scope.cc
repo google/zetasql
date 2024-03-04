@@ -18,6 +18,7 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <set>
@@ -41,6 +42,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -63,11 +65,12 @@ std::string ValidNamePath::DebugString() const {
                       target_column_.DebugString());
 }
 
+// Includes a leading space if non-empty.
 static std::string ValidNamePathListDebugString(
     const ValidNamePathList& valid_name_path_list) {
   std::string debug_string;
   if (!valid_name_path_list.empty()) {
-    absl::StrAppend(&debug_string, "(");
+    absl::StrAppend(&debug_string, " (");
     bool first = true;
     for (const ValidNamePath& valid_name_path : valid_name_path_list) {
       if (first) {
@@ -119,12 +122,13 @@ std::string ValidFieldInfoMap::DebugString(absl::string_view indent) const {
   return debug_string;
 }
 
-std::string NamedColumn::DebugString(const absl::string_view prefix) const {
+std::string NamedColumn::DebugString() const {
   return absl::StrCat(
-      prefix, "Column: ", ToIdentifierLiteral(name_),
-      (is_explicit_ ? " explicit" : " implicit"),
+      IsInternalAlias(name_) ? "<unnamed>" : ToIdentifierLiteral(name_), " ",
+      column_.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL), " ",
+      column_.DebugString(),
       (is_value_table_column_
-           ? absl::StrCat(" value_table",
+           ? absl::StrCat(" (value table)",
                           ExclusionsDebugString(excluded_field_names_))
            : ""));
 }
@@ -283,7 +287,7 @@ bool NameScope::LookupName(
 
 bool ValidFieldInfoMap::FindLongestMatchingPathIfAny(
     const ValidNamePathList& name_path_list,
-    const std::vector<IdString>& path_names, ResolvedColumn* resolved_column,
+    absl::Span<const IdString> path_names, ResolvedColumn* resolved_column,
     int* name_at) {
   bool found = false;
   *name_at = 0;
@@ -654,27 +658,62 @@ bool NameScope::HasLocalRangeVariables() const {
 
 std::string NameScope::ValueTableColumn::DebugString() const {
   std::string out;
-  absl::StrAppend(&out, "value_table_column: ", column_.DebugString(),
+  absl::StrAppend(&out, column_.DebugString(),
                   ExclusionsDebugString(excluded_field_names_),
-                  (is_valid_to_access_ ? "" : " ACCESS_INVALID"), " ",
+                  (is_valid_to_access_ ? "" : " ACCESS_INVALID"),
                   ValidNamePathListDebugString(valid_name_path_list_));
   return out;
 }
 
-std::string NameScope::DebugString(absl::string_view indent) const {
-  std::string out;
+// `name_list_columns` is the set of columns present in the NameList.
+// These are assumed to not be pseudo-columns.
+std::string NameScope::DebugString(
+    absl::string_view indent, const IdStringSetCase* name_list_columns) const {
+  // Sort the output lines for the hash_set to make the output deterministic,
+  // and split a separate list for range variables.
+  std::vector<std::string> name_lines;
+  std::vector<std::string> rv_name_lines;
   for (const auto& name : names()) {
-    if (!out.empty()) out += "\n";
-    absl::StrAppend(&out, indent, name.first.ToStringView(), " -> ",
-                    name.second.DebugString());
+    std::string line = absl::StrCat(name.first.ToStringView(), " -> ",
+                                    name.second.DebugString());
+    if (name.second.IsRangeVariable()) {
+      rv_name_lines.push_back(line);
+    } else {
+      if (name_list_columns != nullptr && name.second.IsColumn() &&
+          !zetasql_base::ContainsKey(*name_list_columns, name.first)) {
+        absl::StrAppend(&line, " (pseudo-column)");
+      }
+      name_lines.push_back(line);
+    }
   }
-  for (const ValueTableColumn& value_table_column : value_table_columns()) {
+  std::sort(name_lines.begin(), name_lines.end());
+  std::sort(rv_name_lines.begin(), rv_name_lines.end());
+
+  std::string out;
+  if (!name_lines.empty()) {
+    absl::StrAppend(&out, indent, "Names:");
+    for (const auto& name_line : name_lines) {
+      absl::StrAppend(&out, "\n", indent, "  ", name_line);
+    }
+  }
+  if (!rv_name_lines.empty()) {
     if (!out.empty()) out += "\n";
-    absl::StrAppend(&out, indent, value_table_column.DebugString());
+    absl::StrAppend(&out, indent, "Range variables:");
+    for (const auto& name_line : rv_name_lines) {
+      absl::StrAppend(&out, "\n", indent, "  ", name_line);
+    }
+  }
+  if (!value_table_columns().empty()) {
+    if (!out.empty()) out += "\n";
+    absl::StrAppend(&out, indent, "Value table columns:");
+    for (const ValueTableColumn& value_table_column : value_table_columns()) {
+      absl::StrAppend(&out, "\n", indent, "  ",
+                      value_table_column.DebugString());
+    }
   }
   if (previous_scope_ != nullptr) {
     if (!out.empty()) out += "\n";
-    absl::StrAppend(&out, indent, " previous_scope:\n",
+    absl::StrAppend(&out, indent, "Parent scope:\n",
                     previous_scope_->DebugString(absl::StrCat(indent, "  ")));
   }
   return out;
@@ -1087,7 +1126,7 @@ absl::Status NameScope::CreateNameScopeGivenValidNamePaths(
 }
 
 void NameTarget::SetAccessError(const Kind original_kind,
-                                const std::string& access_error_message) {
+                                absl::string_view access_error_message) {
   // Initialize fields.
   kind_ = ACCESS_ERROR;
   access_error_message_ = access_error_message;
@@ -1138,8 +1177,10 @@ std::string NameTarget::DebugString() const {
                           ">");
     case IMPLICIT_COLUMN:
     case EXPLICIT_COLUMN:
-      return absl::StrCat(column_.DebugString(),
-                          (kind_ == IMPLICIT_COLUMN ? " (implicit)" : ""));
+      return absl::StrCat(
+          column_.type()->ShortTypeName(ProductMode::PRODUCT_INTERNAL), " (",
+          column_.DebugString(), ")",
+          (kind_ == IMPLICIT_COLUMN ? " (implicit)" : ""));
     case FIELD_OF:
       return absl::StrCat("FIELD_OF<", column_.DebugString(),
                           "> (id: ", field_id_, ")");
@@ -1371,15 +1412,27 @@ absl::Status NameList::MergeFrom(const NameList& other,
     ZETASQL_RET_CHECK(!options.flatten_to_table);
     ZETASQL_RET_CHECK(other.is_value_table());
   }
+  ZETASQL_RET_CHECK(!options.columns_to_replace || !options.excluded_field_names);
 
   const IdStringSetCase* excluded_field_names = options.excluded_field_names;
+  const MergeOptions::ColumnsToReplaceMap* columns_to_replace =
+      options.columns_to_replace;
 
   // Copy the columns vector, with exclusions.
   // We're not using AddColumn because we're going to copy the NameScope
   // maps directly below.
   for (const NamedColumn& named_column : other.columns()) {
-    if (excluded_field_names == nullptr ||
-        !zetasql_base::ContainsKey(*excluded_field_names, named_column.name())) {
+    const ResolvedColumn* replacement_column = nullptr;
+    if (columns_to_replace != nullptr) {
+      replacement_column =
+          zetasql_base::FindOrNull(*columns_to_replace, named_column.name());
+    }
+
+    if (replacement_column != nullptr) {
+      columns_.push_back(NamedColumn(named_column.name(), *replacement_column,
+                                     /*is_explicit=*/true));
+    } else if (excluded_field_names == nullptr ||
+               !zetasql_base::ContainsKey(*excluded_field_names, named_column.name())) {
       // For value table columns, we add new excluded_field_names so fields
       // with those names won't show up in SELECT *.
       // With `flatten_to_table`, we skip handling the column as
@@ -1387,9 +1440,14 @@ absl::Status NameList::MergeFrom(const NameList& other,
       if (named_column.is_value_table_column() && !options.flatten_to_table) {
         // Compute the union of the existing excluded_field_names and the
         // newly added excluded_field_names.
+        // Columns from `columns_to_replace` are also excluded.
         IdStringSetCase new_excluded_field_names;
         if (excluded_field_names != nullptr) {
           InsertFrom(*excluded_field_names, &new_excluded_field_names);
+        }
+        if (columns_to_replace != nullptr) {
+          zetasql_base::InsertKeysFromMap(*columns_to_replace,
+                                 &new_excluded_field_names);
         }
         InsertFrom(named_column.excluded_field_names(),
                    &new_excluded_field_names);
@@ -1429,6 +1487,18 @@ absl::Status NameList::MergeFrom(const NameList& other,
     if (excluded_field_names != nullptr &&
         zetasql_base::ContainsKey(*excluded_field_names, name)) {
       continue;
+    }
+
+    // If we have a replacement column, replace whatever we have in the scope
+    // with that column.  Even range variables, error targets, etc.
+    if (columns_to_replace != nullptr) {
+      const ResolvedColumn* replacement_column =
+          zetasql_base::FindOrNull(*columns_to_replace, name);
+      if (replacement_column != nullptr) {
+        NameTarget new_target(*replacement_column, /*is_explicit=*/true);
+        name_scope_.AddNameTarget(name, new_target);
+        continue;
+      }
     }
 
     if (target.IsRangeVariable()) {
@@ -1602,16 +1672,33 @@ Type::HasFieldResult NameList::SelectStarHasColumn(IdString name) const {
 
 std::string NameList::DebugString(absl::string_view indent) const {
   std::string out;
-  if (is_value_table()) {
-    absl::StrAppend(&out, indent, "is_value_table = true");
+  if (!is_value_table()) {
+    absl::StrAppend(&out, indent, "NameList:");
+  } else {
+    absl::StrAppend(&out, indent, "NameList (is_value_table = true):");
   }
+
+  // We don't track whether names in the NameScope are pseudo-columns, so we
+  // reverse engineer this by checking if the names match any name from the
+  // NameList.  If not, they must have been pseudo-columns.
+  IdStringSetCase name_list_columns;
+
   for (const NamedColumn& named_column : columns_) {
     if (!out.empty()) out += "\n";
     absl::StrAppend(&out, indent, "  ", named_column.DebugString());
+
+    if (!IsInternalAlias(named_column.name())) {
+      name_list_columns.insert(named_column.name());
+    }
   }
+
+  const std::string name_scope_contents =
+      name_scope_.DebugString(absl::StrCat(indent, "  "), &name_list_columns);
   if (!out.empty()) out += "\n";
-  absl::StrAppend(&out, indent, "Inline NameScope:\n",
-                  name_scope_.DebugString(absl::StrCat(indent, "  ")));
+  absl::StrAppend(&out, indent, "NameScope:");
+  if (!name_scope_contents.empty()) {
+    absl::StrAppend(&out, "\n", name_scope_contents);
+  }
   return out;
 }
 

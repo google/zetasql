@@ -38,6 +38,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -1909,7 +1910,7 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
 
   auto nonnull_constraints_callback =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments) -> std::string {
+         absl::Span<const InputArgumentType> arguments) -> std::string {
     if (signature.NumConcreteArguments() != arguments.size()) {
       return absl::StrCat("Expecting ", signature.NumConcreteArguments(),
                           " arguments, but got ", arguments.size());
@@ -2149,4 +2150,18 @@ TEST(FunctionSignatureTests, SignatureSupportsArgumentAlias) {
       /*context_id=*/-1);
   EXPECT_FALSE(SignatureSupportsArgumentAliases(unsupport_alias));
 }
+
+TEST(FunctionSignatureTests, SetConcreteResultTypePreservesArgumentOptions) {
+  FunctionSignature result_arg_has_options(
+      FunctionArgumentType(
+          ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()),
+      {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+      /*context_id=*/-1);
+  result_arg_has_options.SetConcreteResultType(types::Int64Type());
+  EXPECT_TRUE(result_arg_has_options.result_type()
+                  .options()
+                  .uses_array_element_for_collation());
+}
+
 }  // namespace zetasql

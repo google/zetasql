@@ -23,9 +23,11 @@
 #include <ostream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/options_utils.h"
+#include "zetasql/parser/macros/macro_expander.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/simple_catalog.h"
@@ -131,6 +133,18 @@ class ExecuteQueryConfig {
     return descriptor_pool_;
   }
 
+  const parser::macros::MacroCatalog& macro_catalog() const {
+    return macro_catalog_;
+  }
+  parser::macros::MacroCatalog& mutable_macro_catalog() {
+    return macro_catalog_;
+  }
+
+  void AddFunctionArtifacts(
+      std::unique_ptr<const AnalyzerOutput> function_artifact) {
+    function_artifacts_.push_back(std::move(function_artifact));
+  }
+
  private:
   ExamineResolvedASTCallback examine_resolved_ast_callback_ = nullptr;
   ToolMode tool_mode_ = ToolMode::kExecute;
@@ -142,6 +156,8 @@ class ExecuteQueryConfig {
   const google::protobuf::DescriptorPool* descriptor_pool_ = nullptr;
   std::unique_ptr<const google::protobuf::DescriptorPool> owned_descriptor_pool_;
   std::unique_ptr<google::protobuf::DescriptorDatabase> descriptor_db_;
+  parser::macros::MacroCatalog macro_catalog_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> function_artifacts_;
 };
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);

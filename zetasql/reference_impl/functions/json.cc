@@ -29,7 +29,9 @@
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
@@ -40,6 +42,15 @@ namespace zetasql {
 namespace {
 
 using functions::json_internal::StrictJSONPathIterator;
+
+JSONParsingOptions GetJSONParsingOptions(
+    const LanguageOptions& language_options) {
+  return JSONParsingOptions{
+      .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
+}
 
 absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
     const Value& json, const JSONParsingOptions& json_parsing_options,
@@ -88,6 +99,22 @@ Value CreateValueFromOptional(std::optional<T> opt) {
     return Value::Make<T>(opt.value());
   }
   return Value::MakeNull<T>();
+}
+
+template <typename T>
+absl::StatusOr<Value> CreateArrayValueFromOptional(
+    const std::optional<std::vector<std::optional<T>>>& opt,
+    const ArrayType* array_type) {
+  if (opt.has_value()) {
+    std::vector<Value> values;
+    for (const auto& item : opt.value()) {
+      values.push_back(item.has_value() ? Value::Make<T>(*item)
+                                        : Value::MakeNull<T>());
+    }
+    return Value::MakeArray(array_type, std::move(values));
+  } else {
+    return Value::Null(array_type);
+  }
 }
 
 // Signal that statement evaluation encountered non-determinism if a potentially
@@ -314,6 +341,34 @@ absl::StatusOr<Value> JsonExtractJson(
   return Value::Null(output_type);
 }
 
+// Compute JSON_QUERY with lax semantics if applicable. The expression is in
+// lax mode if the input path is a lax version such as "lax $.a".
+//
+// Returns std::nullopt if the path is not in lax mode.
+absl::StatusOr<std::optional<Value>> MaybeExecuteJsonQueryLax(
+    const Value& json, absl::string_view json_path,
+    const LanguageOptions& language_options) {
+  // Check if JSONPath is in lax mode.
+  // For example: JSON_QUERY(json_col, "lax $.a");
+  ZETASQL_ASSIGN_OR_RETURN(bool is_lax,
+                   functions::json_internal::IsValidAndLaxJSONPath(json_path));
+  if (!is_lax) {
+    // This is a non-lax path.
+    return std::nullopt;
+  }
+  JSONValue json_backing;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef json_value_const_ref,
+      GetJSONValueConstRef(json, GetJSONParsingOptions(language_options),
+                           json_backing));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<StrictJSONPathIterator> path_iterator,
+      StrictJSONPathIterator::Create(json_path, /*enable_lax_mode=*/true));
+  ZETASQL_ASSIGN_OR_RETURN(JSONValue result, functions::JsonQueryLax(
+                                         json_value_const_ref, *path_iterator));
+  return Value::Json(std::move(result));
+}
+
 absl::StatusOr<Value> JsonSubscriptFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -369,32 +424,42 @@ absl::StatusOr<Value> JsonExtractFunction::Eval(
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
+  std::string json_path = args.size() > 1 ? args[1].string_value() : "$";
+  const auto& language_options = context->GetLanguageOptions();
+
+  // Compute JSON_QUERY with lax semantics if applicable. The expression is in
+  // lax mode if the following criteria is met:
+  // 1) The language option FEATURE_JSON_QUERY_LAX is enabled
+  // 2) The function is JSON_QUERY with JSON input type.
+  // 3) The input path is a lax version
+  if (language_options.LanguageFeatureEnabled(FEATURE_JSON_QUERY_LAX) &&
+      kind() == FunctionKind::kJsonQuery && args[0].type_kind() == TYPE_JSON) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::optional<zetasql::Value> result,
+        MaybeExecuteJsonQueryLax(args[0], json_path, language_options));
+    if (result.has_value()) {
+      return std::move(*result);
+    }
+    // This is a non-lax path. Execute JSON_QUERY in non-lax mode.
+  }
+
   // Note that since the second argument, json_path, is always a constant, it
   // would be better performance-wise just to create the JsonPathEvaluator once.
   bool sql_standard_mode = (kind() == FunctionKind::kJsonQuery ||
                             kind() == FunctionKind::kJsonValue);
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-      functions::JsonPathEvaluator::Create(
-          /*json_path=*/((args.size() > 1) ? args[1].string_value() : "$"),
-          sql_standard_mode,
-          /*enable_special_character_escaping_in_values=*/true,
-          /*enable_special_character_escaping_in_keys=*/true));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+                   functions::JsonPathEvaluator::Create(
+                       json_path, sql_standard_mode,
+                       /*enable_special_character_escaping_in_values=*/true,
+                       /*enable_special_character_escaping_in_keys=*/true));
   bool scalar = kind() == FunctionKind::kJsonValue ||
                 kind() == FunctionKind::kJsonExtractScalar;
   if (args[0].type_kind() == TYPE_STRING) {
     return JsonExtractString(*evaluator, args[0].string_value(), scalar);
   } else {
-    const auto& language_options = context->GetLanguageOptions();
-    return JsonExtractJson(
-        *evaluator, args[0], output_type(), scalar,
-        JSONParsingOptions{
-            .wide_number_mode =
-                (language_options.LanguageFeatureEnabled(
-                     FEATURE_JSON_STRICT_NUMBER_PARSING)
-                     ? JSONParsingOptions::WideNumberMode::kExact
-                     : JSONParsingOptions::WideNumberMode::kRound)});
+    return JsonExtractJson(*evaluator, args[0], output_type(), scalar,
+                           GetJSONParsingOptions(language_options));
   }
 }
 
@@ -650,6 +715,33 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
                        functions::ConvertJsonToInt64(json_value_const_ref));
       return Value::Int64(output);
     }
+    case FunctionKind::kInt32: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(const int32_t output,
+                       functions::ConvertJsonToInt32(json_value_const_ref));
+      return Value::Int32(output);
+    }
+    case FunctionKind::kUint64: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(const uint64_t output,
+                       functions::ConvertJsonToUint64(json_value_const_ref));
+      return Value::Uint64(output);
+    }
+    case FunctionKind::kUint32: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(const uint32_t output,
+                       functions::ConvertJsonToUint32(json_value_const_ref));
+      return Value::Uint32(output);
+    }
     case FunctionKind::kDouble: {
       ZETASQL_RET_CHECK_EQ(args.size(), 2);
       ZETASQL_RET_CHECK(args[1].type()->IsString());
@@ -676,6 +768,32 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
                                          language_options.product_mode()));
       return Value::Double(output);
     }
+    case FunctionKind::kFloat: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 2);
+      ZETASQL_RET_CHECK(args[1].type()->IsString());
+      std::string wide_number_mode_as_string = args[1].string_value();
+      functions::WideNumberMode wide_number_mode;
+      if (wide_number_mode_as_string == "exact") {
+        wide_number_mode = functions::WideNumberMode::kExact;
+      } else if (wide_number_mode_as_string == "round") {
+        wide_number_mode = functions::WideNumberMode::kRound;
+      } else {
+        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
+                               << wide_number_mode_as_string;
+      }
+      json_parsing_options.wide_number_mode =
+          (wide_number_mode == functions::WideNumberMode::kExact
+               ? JSONParsingOptions::WideNumberMode::kExact
+               : JSONParsingOptions::WideNumberMode::kRound);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const float output,
+          functions::ConvertJsonToFloat(json_value_const_ref, wide_number_mode,
+                                        language_options.product_mode()));
+      return Value::Float(output);
+    }
     case FunctionKind::kBool: {
       ZETASQL_RET_CHECK_EQ(args.size(), 1);
       ZETASQL_ASSIGN_OR_RETURN(
@@ -684,6 +802,117 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
       ZETASQL_ASSIGN_OR_RETURN(const bool output,
                        functions::ConvertJsonToBool(json_value_const_ref));
       return Value::Bool(output);
+    }
+    case FunctionKind::kStringArray: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<std::string> output,
+          functions::ConvertJsonToStringArray(json_value_const_ref));
+      return values::StringArray(output);
+    }
+    case FunctionKind::kInt64Array: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<int64_t> output,
+          functions::ConvertJsonToInt64Array(json_value_const_ref));
+      return values::Int64Array(output);
+    }
+    case FunctionKind::kInt32Array: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<int32_t> output,
+          functions::ConvertJsonToInt32Array(json_value_const_ref));
+      return values::Int32Array(output);
+    }
+    case FunctionKind::kUint64Array: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<uint64_t> output,
+          functions::ConvertJsonToUint64Array(json_value_const_ref));
+      return values::Uint64Array(output);
+    }
+    case FunctionKind::kUint32Array: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::vector<uint32_t> output,
+          functions::ConvertJsonToUint32Array(json_value_const_ref));
+      return values::Uint32Array(output);
+    }
+    case FunctionKind::kDoubleArray: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 2);
+      ZETASQL_RET_CHECK(args[1].type()->IsString());
+      std::string wide_number_mode_as_string = args[1].string_value();
+      functions::WideNumberMode wide_number_mode;
+      if (wide_number_mode_as_string == "exact") {
+        wide_number_mode = functions::WideNumberMode::kExact;
+      } else if (wide_number_mode_as_string == "round") {
+        wide_number_mode = functions::WideNumberMode::kRound;
+      } else {
+        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
+                               << wide_number_mode_as_string;
+      }
+      json_parsing_options.wide_number_mode =
+          (wide_number_mode == functions::WideNumberMode::kExact
+               ? JSONParsingOptions::WideNumberMode::kExact
+               : JSONParsingOptions::WideNumberMode::kRound);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(std::vector<double> output,
+                       functions::ConvertJsonToDoubleArray(
+                           json_value_const_ref, wide_number_mode,
+                           language_options.product_mode()));
+      return values::DoubleArray(output);
+    }
+    case FunctionKind::kFloatArray: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 2);
+      ZETASQL_RET_CHECK(args[1].type()->IsString());
+      std::string wide_number_mode_as_string = args[1].string_value();
+      functions::WideNumberMode wide_number_mode;
+      if (wide_number_mode_as_string == "exact") {
+        wide_number_mode = functions::WideNumberMode::kExact;
+      } else if (wide_number_mode_as_string == "round") {
+        wide_number_mode = functions::WideNumberMode::kRound;
+      } else {
+        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
+                               << wide_number_mode_as_string;
+      }
+      json_parsing_options.wide_number_mode =
+          (wide_number_mode == functions::WideNumberMode::kExact
+               ? JSONParsingOptions::WideNumberMode::kExact
+               : JSONParsingOptions::WideNumberMode::kRound);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(std::vector<float> output,
+                       functions::ConvertJsonToFloatArray(
+                           json_value_const_ref, wide_number_mode,
+                           language_options.product_mode()));
+      return values::FloatArray(output);
+    }
+    case FunctionKind::kBoolArray: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(std::vector<bool> output,
+                       functions::ConvertJsonToBoolArray(json_value_const_ref));
+      return values::BoolArray(output);
     }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
@@ -717,8 +946,28 @@ absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
       ZETASQL_RET_CHECK(result.ok());
       return CreateValueFromOptional(*result);
     }
+    case FunctionKind::kLaxInt32: {
+      auto result = functions::LaxConvertJsonToInt32(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxUint64: {
+      auto result = functions::LaxConvertJsonToUint64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxUint32: {
+      auto result = functions::LaxConvertJsonToUint32(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
     case FunctionKind::kLaxDouble: {
       auto result = functions::LaxConvertJsonToFloat64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxFloat: {
+      auto result = functions::LaxConvertJsonToFloat32(json_value_const_ref);
       ZETASQL_RET_CHECK(result.ok());
       return CreateValueFromOptional(*result);
     }
@@ -726,6 +975,51 @@ absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
       auto result = functions::LaxConvertJsonToString(json_value_const_ref);
       ZETASQL_RET_CHECK(result.ok());
       return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxBoolArray: {
+      auto result = functions::LaxConvertJsonToBoolArray(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::BoolArrayType());
+    }
+    case FunctionKind::kLaxInt64Array: {
+      auto result = functions::LaxConvertJsonToInt64Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::Int64ArrayType());
+    }
+    case FunctionKind::kLaxInt32Array: {
+      auto result = functions::LaxConvertJsonToInt32Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::Int32ArrayType());
+    }
+    case FunctionKind::kLaxUint64Array: {
+      auto result =
+          functions::LaxConvertJsonToUint64Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::Uint64ArrayType());
+    }
+    case FunctionKind::kLaxUint32Array: {
+      auto result =
+          functions::LaxConvertJsonToUint32Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::Uint32ArrayType());
+    }
+    case FunctionKind::kLaxDoubleArray: {
+      auto result =
+          functions::LaxConvertJsonToFloat64Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::DoubleArrayType());
+    }
+    case FunctionKind::kLaxFloatArray: {
+      auto result =
+          functions::LaxConvertJsonToFloat32Array(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::FloatArrayType());
+    }
+    case FunctionKind::kLaxStringArray: {
+      auto result =
+          functions::LaxConvertJsonToStringArray(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateArrayValueFromOptional(*result, types::StringArrayType());
     }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
@@ -1088,13 +1382,25 @@ void RegisterBuiltinJsonFunctions() {
         return new ParseJsonFunction();
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kInt64, FunctionKind::kDouble, FunctionKind::kBool},
+      {FunctionKind::kBool, FunctionKind::kBoolArray, FunctionKind::kDouble,
+       FunctionKind::kDoubleArray, FunctionKind::kFloat,
+       FunctionKind::kFloatArray, FunctionKind::kInt64,
+       FunctionKind::kInt64Array, FunctionKind::kInt32,
+       FunctionKind::kInt32Array, FunctionKind::kUint64,
+       FunctionKind::kUint64Array, FunctionKind::kUint32,
+       FunctionKind::kUint32Array, FunctionKind::kStringArray},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new ConvertJsonFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kLaxInt64, FunctionKind::kLaxDouble,
-       FunctionKind::kLaxBool, FunctionKind::kLaxString},
+      {FunctionKind::kLaxBool, FunctionKind::kLaxBoolArray,
+       FunctionKind::kLaxDouble, FunctionKind::kLaxDoubleArray,
+       FunctionKind::kLaxFloat, FunctionKind::kLaxFloatArray,
+       FunctionKind::kLaxInt64, FunctionKind::kLaxInt64Array,
+       FunctionKind::kLaxInt32, FunctionKind::kLaxInt32Array,
+       FunctionKind::kLaxUint64, FunctionKind::kLaxUint64Array,
+       FunctionKind::kLaxUint32, FunctionKind::kLaxUint32Array,
+       FunctionKind::kLaxString, FunctionKind::kLaxStringArray},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new ConvertJsonLaxFunction(kind, output_type);
       });

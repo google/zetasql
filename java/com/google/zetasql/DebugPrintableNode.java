@@ -98,7 +98,8 @@ public interface DebugPrintableNode {
       sb.append("\n");
       for (DebugStringField field : fields) {
         boolean printFieldName = !field.name.isEmpty();
-        boolean printOneLine = field.nodes.isEmpty();
+        boolean hasNewlines = field.value != null && field.value.contains("\n");
+        boolean printOneLine = field.nodes.isEmpty() && !hasNewlines;
 
         if (printFieldName) {
           sb.append(prefix1).append("+-").append(field.name).append("=");
@@ -111,6 +112,13 @@ public interface DebugPrintableNode {
         }
 
         if (!printOneLine) {
+          if (hasNewlines) {
+            sb.append(prefix1).append("|   \"\"\"\n");
+            for (String line : field.value.split("\n", /*limit=*/-1)) {
+              sb.append(prefix1).append("|   ").append(line).append("\n");
+            }
+            sb.append(prefix1).append("|   \"\"\"\n");
+          }
           for (DebugPrintableNode node : field.nodes) {
             Preconditions.checkState(node != null);
             String fieldNameIndent =

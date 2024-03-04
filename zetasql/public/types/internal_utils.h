@@ -168,10 +168,22 @@ absl::Status PopulateDistinctFileDescriptorSets(
 // Generates a SQL cast expression that casts the literal represented by given
 // value (which can have any type V supported by absl::StrCat) to the given
 // ZetaSQL type.
+// Setting the optional parameter `use_external_float32` to true will return
+// FLOAT32 as the type name for TYPE_FLOAT.
+// TODO: Remove `use_external_float32` once all engines are
+// updated.
+template <typename V>
+std::string GetCastExpressionString(const V& value, const Type* type,
+                                    ProductMode mode,
+                                    bool use_external_float32) {
+  return absl::StrCat("CAST(", value, " AS ",
+                      type->TypeName(mode, use_external_float32), ")");
+}
 template <typename V>
 std::string GetCastExpressionString(const V& value, const Type* type,
                                     ProductMode mode) {
-  return absl::StrCat("CAST(", value, " AS ", type->TypeName(mode), ")");
+  return GetCastExpressionString(value, type, mode,
+                                 /*use_external_float32=*/false);
 }
 
 }  // namespace internal

@@ -158,7 +158,8 @@ AlterTableStatement [0-56] [ALTER TABLE...foo="bar")]
       OptionsList [45-56] [(foo="bar")]
         OptionsEntry [46-55] [foo="bar"]
           Identifier(foo) [46-49] [foo]
-          StringLiteral("bar") [50-55] ["bar"]
+          StringLiteral [50-55] ["bar"]
+            StringLiteralComponent("bar") [50-55] ["bar"]
 
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = "bar")
@@ -177,7 +178,8 @@ AlterTableStatement [0-66] [ALTER TABLE...foo="bar")]
       OptionsList [55-66] [(foo="bar")]
         OptionsEntry [56-65] [foo="bar"]
           Identifier(foo) [56-59] [foo]
-          StringLiteral("bar") [60-65] ["bar"]
+          StringLiteral [60-65] ["bar"]
+            StringLiteralComponent("bar") [60-65] ["bar"]
 
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS(foo = "bar")
@@ -257,7 +259,8 @@ AlterTableStatement [0-103] [ALTER TABLE...description")]
         OptionsList [72-103] [(description...description")]
           OptionsEntry [73-102] [description="new description"]
             Identifier(description) [73-84] [description]
-            StringLiteral("new description") [85-102] ["new description"]
+            StringLiteral [85-102] ["new description"]
+              StringLiteralComponent("new description") [85-102] ["new description"]
 --
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING NOT NULL OPTIONS(description = "new description")
 --
@@ -277,7 +280,8 @@ AlterTableStatement [0-112] [ALTER TABLE...description")]
         OptionsList [81-112] [(description...description")]
           OptionsEntry [82-111] [description="new description"]
             Identifier(description) [82-93] [description]
-            StringLiteral("new description") [94-111] ["new description"]
+            StringLiteral [94-111] ["new description"]
+              StringLiteralComponent("new description") [94-111] ["new description"]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING NOT NULL OPTIONS(description = "new description")
 ==
@@ -297,7 +301,8 @@ AlterTableStatement [0-75] [ALTER TABLE...unicode:ci']
         PathExpression [48-54] [STRING]
           Identifier(STRING) [48-54] [STRING]
         Collate [55-75] [COLLATE 'unicode:ci']
-          StringLiteral('unicode:ci') [63-75] ['unicode:ci']
+          StringLiteral [63-75] ['unicode:ci']
+            StringLiteralComponent('unicode:ci') [63-75] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING COLLATE 'unicode:ci'
 --
@@ -313,7 +318,8 @@ AlterTableStatement [0-84] [ALTER TABLE...unicode:ci']
         PathExpression [57-63] [STRING]
           Identifier(STRING) [57-63] [STRING]
         Collate [64-84] [COLLATE 'unicode:ci']
-          StringLiteral('unicode:ci') [72-84] ['unicode:ci']
+          StringLiteral [72-84] ['unicode:ci']
+            StringLiteralComponent('unicode:ci') [72-84] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING COLLATE 'unicode:ci'
 ==
@@ -335,7 +341,8 @@ AlterTableStatement [0-82] [ALTER TABLE...unicode:ci'>]
           PathExpression [54-60] [STRING]
             Identifier(STRING) [54-60] [STRING]
           Collate [61-81] [COLLATE 'unicode:ci']
-            StringLiteral('unicode:ci') [69-81] ['unicode:ci']
+            StringLiteral [69-81] ['unicode:ci']
+              StringLiteralComponent('unicode:ci') [69-81] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE ARRAY< STRING COLLATE 'unicode:ci' >
 --
@@ -352,7 +359,8 @@ AlterTableStatement [0-91] [ALTER TABLE...unicode:ci'>]
           PathExpression [63-69] [STRING]
             Identifier(STRING) [63-69] [STRING]
           Collate [70-90] [COLLATE 'unicode:ci']
-            StringLiteral('unicode:ci') [78-90] ['unicode:ci']
+            StringLiteral [78-90] ['unicode:ci']
+              StringLiteralComponent('unicode:ci') [78-90] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE ARRAY< STRING COLLATE 'unicode:ci' >
 ==
@@ -375,7 +383,8 @@ AlterTableStatement [0-96] [ALTER TABLE...b NUMERIC>]
             PathExpression [57-63] [STRING]
               Identifier(STRING) [57-63] [STRING]
             Collate [64-84] [COLLATE 'unicode:ci']
-              StringLiteral('unicode:ci') [72-84] ['unicode:ci']
+              StringLiteral [72-84] ['unicode:ci']
+                StringLiteralComponent('unicode:ci') [72-84] ['unicode:ci']
         StructColumnField [86-95] [b NUMERIC]
           Identifier(b) [86-87] [b]
           SimpleColumnSchema [88-95] [NUMERIC]
@@ -399,7 +408,8 @@ AlterTableStatement [0-105] [ALTER TABLE...b NUMERIC>]
             PathExpression [66-72] [STRING]
               Identifier(STRING) [66-72] [STRING]
             Collate [73-93] [COLLATE 'unicode:ci']
-              StringLiteral('unicode:ci') [81-93] ['unicode:ci']
+              StringLiteral [81-93] ['unicode:ci']
+                StringLiteralComponent('unicode:ci') [81-93] ['unicode:ci']
         StructColumnField [95-104] [b NUMERIC]
           Identifier(b) [95-96] [b]
           SimpleColumnSchema [97-104] [NUMERIC]

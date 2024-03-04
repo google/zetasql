@@ -48,7 +48,7 @@ absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeCollateCallForTest(
 absl::StatusOr<std::vector<std::unique_ptr<const ResolvedExpr>>>
 BuildResolvedLiteralsWithCollationForTest(
     std::vector<std::pair<std::string, std::string>> literals,
-    AnalyzerOptions& analyzer_options, Catalog& catlog,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
     TypeFactory& type_factory);
 
 // Convenience function to create concat function for string literals.

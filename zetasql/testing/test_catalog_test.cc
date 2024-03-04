@@ -17,12 +17,13 @@
 #include "zetasql/testing/test_catalog.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 

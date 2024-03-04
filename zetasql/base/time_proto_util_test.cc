@@ -21,7 +21,6 @@
 #include "google/protobuf/util/message_differencer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/time/time.h"
 #include "zetasql/base/testing/status_matchers.h"
 

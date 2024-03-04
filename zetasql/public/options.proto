@@ -108,7 +108,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 13046, 14001, 999003;
+  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 110, 13046, 14001, 14024, 999003;
 
   // CROSS-VERSION FEATURES
   //
@@ -291,7 +291,7 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // Enables the group_selection_strategy=PUBLIC_GROUPS option. See
-  // (broken link).
+  // (broken link). Requires FEATURE_V_1_1_WITH_ON_SUBQUERY.
   FEATURE_DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS = 100
       [(language_feature_options).in_development = true];
 
@@ -433,6 +433,10 @@ enum LanguageFeature {
   // See (broken link) for details.
   FEATURE_JSON_MUTATOR_FUNCTIONS = 98;
 
+  // Enables JSON lax notation for JSON_QUERY function.
+  // See (broken link) for details.
+  FEATURE_JSON_QUERY_LAX = 115;
+
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
   // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
@@ -441,7 +445,6 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // INTERVAL data type. (broken link)
-  // TODO: remove in_development and consider enabling it.
   FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
 
   // Enables support for the ONEOF_CASE pseudo-accessor in the EXTRACT function.
@@ -450,6 +453,11 @@ enum LanguageFeature {
   // enabled.
   // ((broken link))
   FEATURE_EXTRACT_ONEOF_CASE = 50;
+
+  // Enables tokenized search ((broken link)).
+  // TODO: Remove "in_development" tag.
+  FEATURE_TOKENIZED_SEARCH = 51
+      [(language_feature_options).in_development = true];
 
   // Enables support for the following parameterized types.
   // - STRING(L) / BYTES(L)
@@ -606,9 +614,7 @@ enum LanguageFeature {
 
   // Enables support for WITH CONNECTION in CREATE TABLE.
   // More details in (broken link).
-  // TODO: Remove in_development tag
-  FEATURE_CREATE_TABLE_WITH_CONNECTION = 91
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_TABLE_WITH_CONNECTION = 91;
 
   // This feature can be enabled to disable the OUTER JOIN of arrays.
   // RIGHT JOIN or FULL JOIN of independent arrays is producing a shape that
@@ -678,6 +684,20 @@ enum LanguageFeature {
   //         )
   // );
   FEATURE_IDENTITY_COLUMNS = 109;
+
+  // Enables support for EXTERNAL SCHEMA DDL statements.
+  // Example:
+  // CREATE EXTERNAL SCHEMA external_ds WITH CONNECTION some_connection OPTIONS(
+  // external_source = "some_external_source")
+  FEATURE_EXTERNAL_SCHEMA_DDL = 111
+      [(language_feature_options).in_development = true];
+
+  // When an non-templated argument to a templated SQL function is a NULL or
+  // empty array literal, it will be attached to the exact argument type in the
+  // signature, if the feature is enabled. Otherwise, the NULL or empty array
+  // argument will be passed as untyped.
+  // Background: b/259962379.
+  FEATURE_TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS = 114;
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -1047,8 +1067,7 @@ enum LanguageFeature {
 
   // Enable support for remote models (e.g. CREATE MODEL ... REMOTE ...)
   // (broken link)
-  FEATURE_V_1_4_REMOTE_MODEL = 14009
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_REMOTE_MODEL = 14009;
 
   // Allow struct field access like s[OFFSET(0)].
   // See (broken link)
@@ -1079,8 +1098,7 @@ enum LanguageFeature {
   // Enables CREATE MODEL statement to support one or more aliased queries as
   // input.
   // See (broken link).
-  FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST = 14016
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST = 14016;
 
   // Enables load to temp tables
   FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE = 14017;
@@ -1096,15 +1114,11 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // Enables grouping builtin function for grouping sets ((broken link))
-  // TODO: Remove "in_development" flag.
-  FEATURE_V_1_4_GROUPING_BUILTIN = 14020
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_GROUPING_BUILTIN = 14020;
 
   // Enables group by grouping sets/cube (see (broken link))
   // This will also enable GROUP BY ().
-  // TODO: Remove "in_development" flag
-  FEATURE_V_1_4_GROUPING_SETS = 14021
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_GROUPING_SETS = 14021;
 
   // Preserve the original annotation when adding implicit CAST over the
   // expression inside scan.
@@ -1112,13 +1126,10 @@ enum LanguageFeature {
   FEATURE_V_1_4_PRESERVE_ANNOTATION_IN_IMPLICIT_CAST_IN_SCAN = 14022
       [(language_feature_options).in_development = true];
 
-  // Enables outer and strict modes (FULL/LEFT/STRICT) for set operations.
+  // Enables all the features of CORRESPONDING, including outer and strict modes
+  // (FULL/LEFT/STRICT) and CORRESPONDING_BY.
   // (broken link)
-  FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE = 14023;
-
-  // Enables CORRESPONDING_BY for set operations.
-  // (broken link)
-  FEATURE_V_1_4_CORRESPONDING_BY = 14024;
+  FEATURE_V_1_4_CORRESPONDING_FULL = 14023;
 
   // Supporting LIKE ANY/SOME/ALL with array of elements.
   // (broken link)
@@ -1169,10 +1180,7 @@ enum LanguageFeature {
   // Enables the ARRAY_ZIP function, which has both non-lambda and lambda
   // signatures.
   // See (broken link).
-  // TODO: Remove the "in_development" flag when the feature
-  // implementation is done.
-  FEATURE_V_1_4_ARRAY_ZIP = 14032
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_ARRAY_ZIP = 14032;
 
   // Enables explicit UNNEST with multiple arguments in FROM clause.
   // See (broken link)
@@ -1192,9 +1200,7 @@ enum LanguageFeature {
   // Enables the following float32 signatures:
   // * COSINE_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>)
   // * EUCLIDEAN_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>)
-  // TODO: Remove "in_development" flag.
-  FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS = 14037
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS = 14037;
 
   // Enables MEASURE syntax.  See (broken link).
   // This is an EXPERIMENTAL feature in a prototype state.
@@ -1209,6 +1215,114 @@ enum LanguageFeature {
   // the other GROUP BY <grouping items> syntax.
   // (broken link)
   FEATURE_V_1_4_GROUP_BY_ALL = 14039;
+
+  // REQUIRES: FEATURE_V_1_4_SQL_MACROS must be enabled
+  // Enforces strict macro expansions. For example: require exact number of
+  // arguments, always require parentheses on invocations, no implicit splicing.
+  // See (broken link)
+  FEATURE_V_1_4_ENFORCE_STRICT_MACROS = 14040
+      [(language_feature_options).in_development = true];
+
+  // Allows general expression arguments to LIMIT and OFFSET.
+  FEATURE_V_1_4_LIMIT_OFFSET_EXPRESSIONS = 14042
+      [(language_feature_options).in_development = true];
+
+  // MAP datatype. (broken link)
+  FEATURE_V_1_4_MAP_TYPE = 14043
+      [(language_feature_options).in_development = true];
+
+  // Disables the FLOAT32 type. See (broken link).
+  // FLOAT32 type is expected to be enabled by default in all the engines, so
+  // this feature should only be used when the engine does not want to support
+  // the type. Hence this feature should NOT be `ideally_enabled`.
+  FEATURE_V_1_4_DISABLE_FLOAT32 = 14044 [
+    (language_feature_options).in_development = true,
+    (language_feature_options).ideally_enabled = false
+  ];
+
+  // Enables string & bytes literal concatenation.
+  // See (broken link)
+  FEATURE_V_1_4_LITERAL_CONCATENATION = 14045;
+
+  // Enables the following DOT_PRODUCT function signatures:
+  // * DOT_PRODUCT(ARRAY<INT64>, ARRAY<INT64>)
+  // * DOT_PRODUCT(ARRAY<FLOAT>, ARRAY<FLOAT>)
+  // * DOT_PRODUCT(ARRAY<DOUBLE>, ARRAY<DOUBLE>)
+  FEATURE_V_1_4_DOT_PRODUCT = 14046;
+
+  // Feature flag to opt in from the newer implementation of NOT LIKE
+  // ANY|SOME|ALL as  described in (broken link).
+  // TODO: Remove "in_development" flag.
+  // TODO: Remove this flag after BQ rolls out the
+  // feature. ETA Q1 2024.
+  FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL = 14047
+      [(language_feature_options).in_development = true];
+
+  // Enables the following MANHATTAN_DISTANCE function signatures:
+  // * MANHATTAN_DISTANCE(ARRAY<INT64>, ARRAY<INT64>)
+  // * MANHATTAN_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>)
+  // * MANHATTAN_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>)
+  FEATURE_V_1_4_MANHATTAN_DISTANCE = 14048;
+
+  // Enables the following L1_NORM function signatures:
+  // * L1_NORM(ARRAY<INT64>)
+  // * L1_NORM(ARRAY<FLOAT>)
+  // * L1_NORM(ARRAY<DOUBLE>)
+  FEATURE_V_1_4_L1_NORM = 14049;
+
+  // Enables the following L1_NORM function signatures:
+  // * L2_NORM(ARRAY<INT64>)
+  // * L2_NORM(ARRAY<FLOAT>)
+  // * L2_NORM(ARRAY<DOUBLE>)
+  FEATURE_V_1_4_L2_NORM = 14050;
+
+  // REQUIRES: FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS must be enabled.
+  // Enables braced STRUCT constructor: STRUCT {a:1, b:2}.
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_STRUCT_BRACED_CONSTRUCTORS = 14051
+      [(language_feature_options).in_development = true];
+
+  // Enable WITH RECURSIVE DEPTH modifier.
+  // See (broken link):explicit-recursion-depth.
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER = 14052
+      [(language_feature_options).in_development = true];
+
+  // Enables the following JSON functions:
+  // * BOOL_ARRAY, FLOAT64_ARRAY, INT64_ARRAY, STRING_ARRAY
+  //
+  // If JSON_LAX_VALUE_EXTRACTION_FUNCTIONS is also enabled,
+  // then these functions are also enabled:
+  // * LAX_BOOL_ARRAY, LAX_FLOAT64_ARRAY, LAX_INT64_ARRAY, LAX_STRING_ARRAY
+  //
+  FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS = 14053
+      [(language_feature_options).in_development = true];
+
+  // Ensures that computations properly defer side effects such as errors when
+  // they get separated from larger expressions with conditional operators,
+  // to fulfill the language spec on conditional evaluation.
+  // See (broken link)
+  FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION = 14054
+      [(language_feature_options).in_development = true];
+
+  // Enables the following JSON functions:
+  // * FLOAT32, INT32, UINT64, UINT32
+  //
+  // If JSON_LAX_VALUE_EXTRACTION_FUNCTIONS is also enabled,
+  // then these functions are also enabled:
+  // * LAX_FLOAT32, LAX_INT32, LAX_UINT64, LAX_UINT32
+  //
+  // If FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS is also enabled,
+  // then these functions are also enabled:
+  // * FLOAT32_ARRAY,INT32_ARRAY, UINT32_ARRAY, UINT64_ARRAY
+  //
+  // If FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS and
+  // JSON_LAX_VALUE_EXTRACTION_FUNCTIONS are also enabled, then these functions
+  // are also enabled:
+  // * LAX_FLOAT32_ARRAY, LAX_INT32_ARRAY, LAX_UINT32_ARRAY, LAX_UINT64_ARRAY
+  //
+  FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS = 14055
+      [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation
@@ -1253,9 +1367,9 @@ message ResolvedASTRewriteOptions {
 // We support these rewrites to allow syntactic improvements which generate new
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
-// Next ID: 24
+// Next ID: 27
 enum ResolvedASTRewrite {
-  reserved 13, 15;
+  reserved 13, 15, 21;
 
   // Make sure default value of 0 is not an resolved AST rewrite.
   REWRITE_INVALID_DO_NOT_USE = 0;
@@ -1384,9 +1498,6 @@ enum ResolvedASTRewrite {
     (rewrite_options).in_development = true
   ];
 
-  REWRITE_SET_OPERATION_CORRESPONDING = 21
-      [(rewrite_options).default_enabled = true];
-
   // Rewrites rollup and cube to grouping sets, more specifically rewrites
   // ResolvedRollup and ResolvedCube to ResolvedGroupingSet. This rewriter is
   // supposed to be enabled by default.
@@ -1394,6 +1505,19 @@ enum ResolvedASTRewrite {
     (rewrite_options).default_enabled = true,
     (rewrite_options).in_development = true
   ];
+
+  REWRITE_INSERT_DML_VALUES = 24 [(rewrite_options).default_enabled = false];
+
+  // Rewrite multiway UNNEST to joins against singleton UNNEST.
+  REWRITE_MULTIWAY_UNNEST = 25 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  // Supports rewriting ResolvedAggregationThresholdAggregateScan.
+  // See (broken link).
+  REWRITE_AGGREGATION_THRESHOLD = 26
+      [(rewrite_options).default_enabled = false];
 }
 
 // ZetaSQL rewriter options.

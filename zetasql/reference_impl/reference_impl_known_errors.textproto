@@ -16,3 +16,12 @@
 
 # Known errors file for zetasql compliance framework. Add labels and queries
 # here to exclude them from compliance tests.
+
+# TODO: Remove once internal engines are updated to use FLOAT32
+# for FORMAT("%T").
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "Internal engines still return the type as FLOAT for FORMAT('%T')"
+  label: "code:format_STRING_<external.*: %T>_ARRAY<FLOAT>_<4, -2@5, nan>"
+  label: "code:format_STRING_<external.*: %T>_FLOAT_.*"
+}

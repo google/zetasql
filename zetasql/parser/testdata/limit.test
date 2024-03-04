@@ -130,9 +130,26 @@ LIMIT CAST(@@sysvar1 AS int32) OFFSET CAST(@@sysvar2 AS string)
 
 SELECT 1 LIMIT cast(cast(1 as int32) as int32);
 --
-ERROR: Syntax error: Expected "@" or "@@" or integer literal but got keyword CAST [at 1:21]
-SELECT 1 LIMIT cast(cast(1 as int32) as int32);
-                    ^
+QueryStatement [0-46] [SELECT 1 LIMIT...as int32)]
+  Query [0-46] [SELECT 1 LIMIT...as int32)]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-46] [LIMIT cast...as int32)]
+      CastExpression [15-46] [cast(cast(...as int32)]
+        CastExpression [20-36] [cast(1 as int32)]
+          IntLiteral(1) [25-26] [1]
+          SimpleType [30-35] [int32]
+            PathExpression [30-35] [int32]
+              Identifier(int32) [30-35] [int32]
+        SimpleType [40-45] [int32]
+          PathExpression [40-45] [int32]
+            Identifier(int32) [40-45] [int32]
+--
+SELECT
+  1
+LIMIT CAST(CAST(1 AS int32) AS int32)
 ==
 
 SELECT 1 LIMIT 1 OFFSET 1
@@ -365,20 +382,187 @@ ORDER BY 1
 LIMIT 2 OFFSET 1
 ==
 
-# OFFSET is not a reserved keyword, but is rejected here because we don't
-# expect an identifier here.
+# LIMIT can take an identifier for argument.
+select a from t order by a, b LIMIT a OFFSET 10;
+--
+QueryStatement [0-47] [select a from...OFFSET 10]
+  Query [0-47] [select a from...OFFSET 10]
+    Select [0-15] [select a from t]
+      SelectList [7-8] [a]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+      FromClause [9-15] [from t]
+        TablePathExpression [14-15] [t]
+          PathExpression [14-15] [t]
+            Identifier(t) [14-15] [t]
+    OrderBy [16-29] [order by a, b]
+      OrderingExpression(ASC) [25-26] [a]
+        PathExpression [25-26] [a]
+          Identifier(a) [25-26] [a]
+      OrderingExpression(ASC) [28-29] [b]
+        PathExpression [28-29] [b]
+          Identifier(b) [28-29] [b]
+    LimitOffset [30-47] [LIMIT a OFFSET 10]
+      PathExpression [36-37] [a]
+        Identifier(a) [36-37] [a]
+      IntLiteral(10) [45-47] [10]
+--
+SELECT
+  a
+FROM
+  t
+ORDER BY a, b
+LIMIT a OFFSET 10
+==
+
+# OFFSET is not a reserved keyword and so it is parsed as an identifier here.
 select 1 limit offset;
 --
-ERROR: Syntax error: Unexpected keyword OFFSET [at 1:16]
-select 1 limit offset;
-               ^
+QueryStatement [0-21] [select 1 limit offset]
+  Query [0-21] [select 1 limit offset]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-21] [limit offset]
+      PathExpression [15-21] [offset]
+        Identifier(offset) [15-21] [offset]
+--
+SELECT
+  1
+LIMIT offset
 ==
 
 select 1 from t limit 5 offset offset;
 --
-ERROR: Syntax error: Unexpected keyword OFFSET [at 1:32]
-select 1 from t limit 5 offset offset;
-                               ^
+QueryStatement [0-37] [select 1 from...offset offset]
+  Query [0-37] [select 1 from...offset offset]
+    Select [0-15] [select 1 from t]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+      FromClause [9-15] [from t]
+        TablePathExpression [14-15] [t]
+          PathExpression [14-15] [t]
+            Identifier(t) [14-15] [t]
+    LimitOffset [16-37] [limit 5 offset offset]
+      IntLiteral(5) [22-23] [5]
+      PathExpression [31-37] [offset]
+        Identifier(offset) [31-37] [offset]
+--
+SELECT
+  1
+FROM
+  t
+LIMIT 5 OFFSET offset
+==
+
+# Negative arguments to LIMIT/OFFSET will parse but later get rejected by
+# analyzer.
+SELECT 1 LIMIT -1;
+--
+QueryStatement [0-17] [SELECT 1 LIMIT -1]
+  Query [0-17] [SELECT 1 LIMIT -1]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-17] [LIMIT -1]
+      UnaryExpression(-) [15-17] [-1]
+        IntLiteral(1) [16-17] [1]
+--
+SELECT
+  1
+LIMIT -1
+==
+
+SELECT 1 LIMIT 10 OFFSET -1;
+--
+QueryStatement [0-27] [SELECT 1 LIMIT 10 OFFSET -1]
+  Query [0-27] [SELECT 1 LIMIT 10 OFFSET -1]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-27] [LIMIT 10 OFFSET -1]
+      IntLiteral(10) [15-17] [10]
+      UnaryExpression(-) [25-27] [-1]
+        IntLiteral(1) [26-27] [1]
+--
+SELECT
+  1
+LIMIT 10 OFFSET -1
+==
+
+SELECT 1 LIMIT -10 OFFSET -22;
+--
+QueryStatement [0-29] [SELECT 1 LIMIT -10 OFFSET -22]
+  Query [0-29] [SELECT 1 LIMIT -10 OFFSET -22]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-29] [LIMIT -10 OFFSET -22]
+      UnaryExpression(-) [15-18] [-10]
+        IntLiteral(10) [16-18] [10]
+      UnaryExpression(-) [26-29] [-22]
+        IntLiteral(22) [27-29] [22]
+--
+SELECT
+  1
+LIMIT -10 OFFSET -22
+==
+
+# Non-INT64 argument to LIMIT/OFFSET will parse but later get rejected by analyzer.
+SELECT 1 LIMIT 1.5;
+--
+QueryStatement [0-18] [SELECT 1 LIMIT 1.5]
+  Query [0-18] [SELECT 1 LIMIT 1.5]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-18] [LIMIT 1.5]
+      FloatLiteral(1.5) [15-18] [1.5]
+--
+SELECT
+  1
+LIMIT 1.5
+==
+
+SELECT 1 LIMIT 'abc';
+--
+QueryStatement [0-20] [SELECT 1 LIMIT 'abc']
+  Query [0-20] [SELECT 1 LIMIT 'abc']
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-20] [LIMIT 'abc']
+      StringLiteral [15-20] ['abc']
+        StringLiteralComponent('abc') [15-20] ['abc']
+--
+SELECT
+  1
+LIMIT 'abc'
+==
+
+SELECT 1 LIMIT @param;
+--
+QueryStatement [0-21] [SELECT 1 LIMIT @param]
+  Query [0-21] [SELECT 1 LIMIT @param]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-21] [LIMIT @param]
+      ParameterExpr [15-21] [@param]
+        Identifier(param) [16-21] [param]
+--
+SELECT
+  1
+LIMIT @param
 ==
 
 # Expected Errors Below
@@ -394,13 +578,6 @@ select 1 limit 5 offset;
 ERROR: Syntax error: Unexpected ";" [at 1:24]
 select 1 limit 5 offset;
                        ^
-==
-
-select a from t order by a, b LIMIT a OFFSET 10;
---
-ERROR: Syntax error: Unexpected identifier "a" [at 1:37]
-select a from t order by a, b LIMIT a OFFSET 10;
-                                    ^
 ==
 
 select 1 limit 1 order by 1;
@@ -438,53 +615,34 @@ SELECT 1 LIMIT 10 OFFSET 1 LIMIT 1;
                            ^
 ==
 
-SELECT 1 LIMIT -1;
+SELECT 1 LIMIT NULL
 --
-ERROR: Syntax error: Unexpected "-" [at 1:16]
-SELECT 1 LIMIT -1;
-               ^
-==
-
-SELECT 1 LIMIT 10 OFFSET -1;
---
-ERROR: Syntax error: Unexpected "-" [at 1:26]
-SELECT 1 LIMIT 10 OFFSET -1;
-                         ^
-==
-
-SELECT 1 LIMIT -10 OFFSET -22;
---
-ERROR: Syntax error: Unexpected "-" [at 1:16]
-SELECT 1 LIMIT -10 OFFSET -22;
-               ^
-==
-
-SELECT 1 LIMIT 1.5;
---
-ERROR: Syntax error: Unexpected floating point literal "1.5" [at 1:16]
-SELECT 1 LIMIT 1.5;
-               ^
-==
-
-SELECT 1 LIMIT 'abc';
---
-ERROR: Syntax error: Unexpected string literal 'abc' [at 1:16]
-SELECT 1 LIMIT 'abc';
-               ^
-==
-
-SELECT 1 LIMIT @param;
---
-QueryStatement [0-21] [SELECT 1 LIMIT @param]
-  Query [0-21] [SELECT 1 LIMIT @param]
+QueryStatement [0-19] [SELECT 1 LIMIT NULL]
+  Query [0-19] [SELECT 1 LIMIT NULL]
     Select [0-8] [SELECT 1]
       SelectList [7-8] [1]
         SelectColumn [7-8] [1]
           IntLiteral(1) [7-8] [1]
-    LimitOffset [9-21] [LIMIT @param]
-      ParameterExpr [15-21] [@param]
-        Identifier(param) [16-21] [param]
+    LimitOffset [9-19] [LIMIT NULL]
+      NullLiteral(NULL) [15-19] [NULL]
 --
 SELECT
   1
-LIMIT @param
+LIMIT NULL
+==
+
+SELECT 1 LIMIT 1 OFFSET NULL
+--
+QueryStatement [0-28] [SELECT 1 LIMIT 1 OFFSET NULL]
+  Query [0-28] [SELECT 1 LIMIT 1 OFFSET NULL]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    LimitOffset [9-28] [LIMIT 1 OFFSET NULL]
+      IntLiteral(1) [15-16] [1]
+      NullLiteral(NULL) [24-28] [NULL]
+--
+SELECT
+  1
+LIMIT 1 OFFSET NULL

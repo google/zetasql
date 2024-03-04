@@ -28,6 +28,10 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/range_type.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/value.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -322,6 +326,13 @@ template <typename T>
 void SerializeRangeAndAppendToBytes(const RangeBoundaries<T>& range_boundaries,
                                     std::string* bytes);
 
+template <typename T>
+std::string SerializeRange(const RangeBoundaries<T>& range_boundaries) {
+  std::string bytes;
+  SerializeRangeAndAppendToBytes(range_boundaries, &bytes);
+  return bytes;
+}
+
 // Deserializes RANGE<T> from bytes and returns range boundaries.
 // The number of bytes would be written to "bytes_read" if it is not null
 // Size of "bytes" can be longer than the size of the encoded range value
@@ -415,6 +426,10 @@ absl::StatusOr<RangeBoundaries<T>> DeserializeRangeFromBytes(
   }
   return RangeBoundaries<T>{start, end};
 }
+
+absl::StatusOr<Value> DeserializeRangeValueFromBytes(
+    const RangeType* range_type, absl::string_view bytes,
+    size_t* bytes_read = nullptr);
 
 template <typename T>
 absl::StatusOr<size_t> GetEncodedRangeSize(absl::string_view bytes) {

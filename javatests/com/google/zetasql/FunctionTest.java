@@ -86,7 +86,7 @@ public class FunctionTest {
             Mode.AGGREGATE,
             new ArrayList<FunctionSignature>(),
             options.build());
-    assertThat(fn2.getSignatureList()).hasSize(0);
+    assertThat(fn2.getSignatureList()).isEmpty();
     assertThat(fn2.debugString(true)).isEqualTo("ZetaSQLTest:test_function_2");
 
     assertThat(fn2.getMode()).isEqualTo(Mode.AGGREGATE);

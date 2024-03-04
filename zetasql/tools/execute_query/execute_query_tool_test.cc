@@ -29,6 +29,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -589,6 +590,49 @@ TEST(ExecuteQuery, ExecuteQuery) {
 +---+
 | 1 |
 +---+
+
+)");
+}
+
+TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExecute);
+  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_MACROS);
+  std::ostringstream output;
+  EXPECT_THAT(ExecuteQuery("define macro", config, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Syntax error: Unexpected end of statement")));
+  EXPECT_EQ(output.str(), R"(Expanded SQL:
+define macro
+)");
+
+  output.str("");
+  ZETASQL_EXPECT_OK(ExecuteQuery("define macro repeat $1, $1, $2, $2", config, output));
+  EXPECT_EQ(output.str(), R"(Expanded SQL:
+define macro repeat $1 , $1 , $2 , $2
+Macro registered: repeat
+)");
+
+  output.str("");
+  EXPECT_THAT(
+      ExecuteQuery("select $absent", config, output),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Syntax error: Unexpected \"$absent\" [at 1:8]")));
+  EXPECT_EQ(output.str(), R"(Warning: Macro 'absent' not found.
+Expanded SQL:
+select $absent
+)");
+
+  output.str("");
+  ZETASQL_EXPECT_OK(ExecuteQuery("select $repeat(1, (2))", config, output));
+  EXPECT_EQ(output.str(), R"(Expanded SQL:
+select 1 , 1 , ( 2 ) , ( 2 )
++---+---+---+---+
+|   |   |   |   |
++---+---+---+---+
+| 1 | 1 | 2 | 2 |
++---+---+---+---+
 
 )");
 }

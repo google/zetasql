@@ -421,7 +421,7 @@ select key as a, value as a
 from keyvalue
 order by afn_agg() over (partition by a)
 --
-ERROR: Name a in PARTITION BY is ambiguous; it may refer to multiple columns in the SELECT-list [at 3:39]
+ERROR: Column name a is ambiguous [at 3:39]
 order by afn_agg() over (partition by a)
                                       ^
 ==
@@ -430,7 +430,7 @@ select key as a, key as a
 from keyvalue
 order by afn_agg() over (partition by a)
 --
-ERROR: Name a in PARTITION BY is ambiguous; it may refer to multiple columns in the SELECT-list [at 3:39]
+ERROR: Column name a is ambiguous [at 3:39]
 order by afn_agg() over (partition by a)
                                       ^
 ==
@@ -440,7 +440,7 @@ select key as a, value as a
 from keyvalue
 order by afn_agg() over (order by a)
 --
-ERROR: Name a in Window ORDER BY is ambiguous; it may refer to multiple columns in the SELECT-list [at 3:35]
+ERROR: Column name a is ambiguous [at 3:35]
 order by afn_agg() over (order by a)
                                   ^
 ==

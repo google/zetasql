@@ -20,6 +20,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -409,6 +410,17 @@ class ResolvedNode {
 
   std::unique_ptr<ParseLocationRange> parse_location_range_;  // May be NULL.
 };
+
+template <typename T1, typename T2>
+std::vector<const T1*> GetAsPointerList(
+    const std::vector<const T2*>& input_list) {
+  std::vector<const T1*> output_list;
+  output_list.resize(input_list.size());
+  for (const T2* element : input_list) {
+    output_list.push_back(element);
+  }
+  return output_list;
+}
 
 }  // namespace zetasql
 

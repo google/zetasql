@@ -18,9 +18,11 @@
 #define ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_value.h"
 #include "absl/random/random.h"
 #include "absl/status/statusor.h"
@@ -30,9 +32,8 @@ namespace zetasql {
 // Generates a random valid numeric value, intended to cover all precisions
 // and scales when enough numbers are generated. Do not assume the result to
 // follow any specific distribution.
-template <typename T>
-T MakeRandomNumericValue(absl::BitGen* random,
-                         int* num_truncated_digits = nullptr) {
+template <typename T, typename URBG>
+T MakeRandomNumericValue(URBG* random, int* num_truncated_digits = nullptr) {
   constexpr int kNumWords = sizeof(T) / sizeof(uint64_t);
   constexpr int kNumBits = sizeof(T) * 8;
   std::array<uint64_t, kNumWords> value;
@@ -70,8 +71,8 @@ T MakeRandomNumericValue(absl::BitGen* random,
   return result.Trunc(scale - digits_to_trunc);
 }
 
-template <typename T>
-T MakeRandomNonZeroNumericValue(absl::BitGen* random) {
+template <typename T, typename URBG>
+T MakeRandomNonZeroNumericValue(URBG* random) {
   T result = MakeRandomNumericValue<T>(random);
   if (result == T()) {
     int64_t v = absl::Uniform<uint32_t>(*random);
@@ -80,17 +81,16 @@ T MakeRandomNonZeroNumericValue(absl::BitGen* random) {
   return result;
 }
 
-template <typename T>
-T MakeRandomPositiveNumericValue(absl::BitGen* random) {
+template <typename T, typename URBG>
+T MakeRandomPositiveNumericValue(URBG* random) {
   absl::StatusOr<T> abs = MakeRandomNonZeroNumericValue<T>(random).Abs();
   // Abs fails only when result = T::MinValue().
   return abs.ok() ? abs.value() : T::MaxValue();
 }
 
 // Generate a random double value that can be losslessly converted to T.
-template <typename T>
-double MakeLosslessRandomDoubleValue(uint max_integer_bits,
-                                     absl::BitGen* random) {
+template <typename T, typename URBG>
+double MakeLosslessRandomDoubleValue(uint max_integer_bits, URBG* random) {
   uint max_mantissa_bits =
       std::min<uint>(53, T::kMaxFractionalDigits + max_integer_bits);
   int64_t mantissa = absl::Uniform<int64_t>(

@@ -1131,7 +1131,7 @@ static absl::StatusOr<bool> ArrayZipSignatureHasLambda(
 static absl::StatusOr<const Type*> ComputeArrayZipOutputType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_ASSIGN_OR_RETURN(bool has_lambda, ArrayZipSignatureHasLambda(signature));
   if (has_lambda) {
@@ -1526,7 +1526,9 @@ static void AddArrayZipModeLambdaSignatures(
           END)
       )sql";
   signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_3,
+      FunctionArgumentType(
+          ARG_ARRAY_TYPE_ANY_3,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()),
       {input_array_1, input_array_2, two_array_transformation,
        array_zip_mode_arg},
       FN_ARRAY_ZIP_TWO_ARRAY_LAMBDA,
@@ -1595,7 +1597,9 @@ static void AddArrayZipModeLambdaSignatures(
           END)
       )sql";
   signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_4,
+      FunctionArgumentType(
+          ARG_ARRAY_TYPE_ANY_4,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()),
       {input_array_1, input_array_2, input_array_3, three_array_transformation,
        array_zip_mode_arg},
       FN_ARRAY_ZIP_THREE_ARRAY_LAMBDA,
@@ -1670,7 +1674,9 @@ static void AddArrayZipModeLambdaSignatures(
           END)
       )sql";
   signatures.push_back(FunctionSignatureOnHeap(
-      ARG_ARRAY_TYPE_ANY_5,
+      FunctionArgumentType(
+          ARG_ARRAY_TYPE_ANY_5,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()),
       {input_array_1, input_array_2, input_array_3, input_array_4,
        four_array_transformation, array_zip_mode_arg},
       FN_ARRAY_ZIP_FOUR_ARRAY_LAMBDA,

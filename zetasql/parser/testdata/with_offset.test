@@ -159,7 +159,8 @@ QueryStatement [0-135] [select pos...key='Mykey']
         BinaryExpression(=) [124-135] [key='Mykey']
           PathExpression [124-127] [key]
             Identifier(key) [124-127] [key]
-          StringLiteral('Mykey') [128-135] ['Mykey']
+          StringLiteral [128-135] ['Mykey']
+            StringLiteralComponent('Mykey') [128-135] ['Mykey']
 --
 SELECT
   pos,
@@ -275,7 +276,8 @@ QueryStatement [0-121] [select pos1...2007-01-02']
               Alias [80-84] [pos2]
                 Identifier(pos2) [80-84] [pos2]
             ForSystemTime [87-121] [FOR SYSTEM...2007-01-02']
-              StringLiteral('2007-01-02') [109-121] ['2007-01-02']
+              StringLiteral [109-121] ['2007-01-02']
+                StringLiteralComponent('2007-01-02') [109-121] ['2007-01-02']
 --
 SELECT
   pos1,

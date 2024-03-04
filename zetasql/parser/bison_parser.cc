@@ -25,14 +25,19 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/timer_util.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
+#include "zetasql/parser/macros/macro_catalog.h"
+#include "zetasql/parser/token_disambiguator.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
@@ -168,7 +173,7 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
 // BisonParser::Parse(). It is required that 'bison_error_message' is the actual
 // error message produced by the bison parser for the given inputs.
 static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
-    const LanguageOptions& language_options, ParseLocationPoint error_location,
+    const LanguageOptions& language_options, ParseLocationPoint& error_location,
     absl::string_view bison_error_message, BisonParserMode mode,
     absl::string_view input, int start_offset) {
   // Bison error messages are always of the form "syntax error, unexpected X,
@@ -260,11 +265,12 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
   auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
-      BisonParserMode::kTokenizer, error_location.filename(), input,
-      start_offset, language_options);
+      BisonParserMode::kTokenizerPreserveComments, error_location.filename(),
+      input, start_offset, language_options);
   ParseLocationRange token_location;
   int token = -1;
   while (token != 0) {
+    ParseLocationPoint last_token_location_end = token_location.end();
     ZETASQL_RETURN_IF_ERROR(tokenizer->GetNextToken(&token_location, &token));
     // Bison always returns parse errors at token boundaries, so this should
     // never happen.
@@ -272,16 +278,22 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
                  token_location.start().GetByteOffset());
     if (token == 0 || error_location.GetByteOffset() ==
                           token_location.start().GetByteOffset()) {
-      const absl::string_view token_text =
-          absl::ClippedSubstr(input, token_location.start().GetByteOffset(),
-                              token_location.end().GetByteOffset() -
-                                  token_location.start().GetByteOffset());
+      const absl::string_view token_text = token_location.GetTextFrom(input);
       std::string actual_token_description;
       if (token == 0) {
         // The error location was at end-of-input, so this is an
-        // unexpected-end-of error.
+        // unexpected-end-of error. Format with a better string, and move its
+        // location to the end of the last token.
         actual_token_description =
             absl::StrCat("end of ", GetBisonParserModeName(mode));
+        if (last_token_location_end.IsValid()) {
+          error_location = last_token_location_end;
+        } else {
+          // There was not even a comment, the input is just whitespace. Move
+          // the error to skip it all.
+          error_location = token_location.start();
+          error_location.SetByteOffset(start_offset);
+        }
       } else if (token ==
                  zetasql_bison_parser::BisonParserImpl::token::KW_OVER) {
         // When the OVER keyword is used in the wrong place, we tell the user
@@ -340,11 +352,6 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       } else if (token ==
                  zetasql_bison_parser::BisonParserImpl::token::KW_DOUBLE_AT) {
         actual_token_description = "\"@@\"";
-      } else if (token ==
-                 zetasql_bison_parser::BisonParserImpl::token::KW_DOT_STAR) {
-        // This is a single token for ".*", but we want to expose this as "."
-        // externally.
-        actual_token_description = "\".\"";
       } else {
         actual_token_description = absl::StrCat("\"", token_text, "\"");
       }
@@ -364,13 +371,16 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
 static absl::Status ParseWithBison(
     BisonParser* parser, absl::string_view filename, absl::string_view input,
     BisonParserMode mode, int start_byte_offset,
-    const LanguageOptions& language_options, ASTNode*& output_node,
-    std::string& error_message, ParseLocationPoint& error_location,
+    const LanguageOptions& language_options,
+    const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
+    ASTNode*& output_node, std::string& error_message,
+    ParseLocationPoint& error_location,
     ASTStatementProperties* ast_statement_properties,
     bool& move_error_location_past_whitespace, int* statement_end_byte_offset,
     bool& format_error, int64_t& out_num_lexical_tokens) {
-  auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
-      mode, filename, input, start_byte_offset, language_options);
+  ZETASQL_ASSIGN_OR_RETURN(auto tokenizer, DisambiguatorLexer::Create(
+                                       mode, filename, input, start_byte_offset,
+                                       language_options, macro_catalog, arena));
 
   zetasql_bison_parser::BisonParserImpl bison_parser_impl(
       tokenizer.get(), parser, &output_node, ast_statement_properties,
@@ -439,14 +449,15 @@ static absl::Status InitNodes(
 absl::Status BisonParser::Parse(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
-    const LanguageOptions& language_options, std::unique_ptr<ASTNode>* output,
+    const LanguageOptions& language_options,
+    const macros::MacroCatalog* macro_catalog, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
-  absl::Status status =
-      ParseInternal(mode, filename, input, start_byte_offset, id_string_pool,
-                    arena, language_options, output, other_allocated_ast_nodes,
-                    ast_statement_properties, statement_end_byte_offset);
+  absl::Status status = ParseInternal(
+      mode, filename, input, start_byte_offset, id_string_pool, arena,
+      language_options, macro_catalog, output, other_allocated_ast_nodes,
+      ast_statement_properties, statement_end_byte_offset);
   if (!status.ok() && absl::GetFlag(FLAGS_zetasql_parser_strip_errors)) {
     return absl::InvalidArgumentError("Syntax error");
   }
@@ -456,7 +467,8 @@ absl::Status BisonParser::Parse(
 absl::Status BisonParser::ParseInternal(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
-    const LanguageOptions& language_options, std::unique_ptr<ASTNode>* output,
+    const LanguageOptions& language_options,
+    const macros::MacroCatalog* macro_catalog, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
@@ -493,9 +505,9 @@ absl::Status BisonParser::ParseInternal(
   int64_t num_lexical_tokens;
   absl::Status parse_status = ParseWithBison(
       this, filename, input, mode, start_byte_offset, language_options,
-      output_node, error_message, error_location, ast_statement_properties,
-      move_error_location_past_whitespace, statement_end_byte_offset,
-      format_error, num_lexical_tokens);
+      macro_catalog, arena, output_node, error_message, error_location,
+      ast_statement_properties, move_error_location_past_whitespace,
+      statement_end_byte_offset, format_error, num_lexical_tokens);
   parser_runtime_info_->add_lexical_tokens(num_lexical_tokens);
 
   if (parse_status.ok()) {
@@ -513,13 +525,15 @@ absl::Status BisonParser::ParseInternal(
     // missing. In those cases we typically don't have the position of the
     // next token available, and the parser can request that the error
     // location be moved past any whitespace onto the next token.
-    ZetaSqlFlexTokenizer skip_whitespace_tokenizer(
-        BisonParserMode::kTokenizer, filename_.ToStringView(), input_,
-        error_location.GetByteOffset(), this->language_options());
+    ZETASQL_ASSIGN_OR_RETURN(auto skip_whitespace_tokenizer,
+                     DisambiguatorLexer::Create(
+                         BisonParserMode::kTokenizer, filename_.ToStringView(),
+                         input_, error_location.GetByteOffset(),
+                         this->language_options(), macro_catalog, arena));
     ParseLocationRange next_token_location;
     int token;
     ZETASQL_RETURN_IF_ERROR(
-        skip_whitespace_tokenizer.GetNextToken(&next_token_location, &token));
+        skip_whitespace_tokenizer->GetNextToken(&next_token_location, &token));
     // Ignore the token. We only care about its starting location.
     error_location = next_token_location.start();
   }

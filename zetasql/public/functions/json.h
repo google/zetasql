@@ -280,10 +280,35 @@ absl::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
 //   fractional part or is not within the INT64 range).
 absl::StatusOr<int64_t> ConvertJsonToInt64(JSONValueConstRef input);
 
-// Converts 'input' into a Boolean.
+// Converts 'input' into a INT32.
+// Returns an error if:
+// - 'input' does not contain a number.
+// - 'input' is not within the INT32 value domain (meaning the number has a
+//   fractional part or is not within the INT32 range).
+absl::StatusOr<int32_t> ConvertJsonToInt32(JSONValueConstRef input);
+
+// Converts 'input' into a UINT64.
+// Returns an error if:
+// - 'input' does not contain a number.
+// - 'input' is not within the UINT64 value domain (meaning the number has a
+//   fractional part, is negative or is not within the UINT64 range).
+absl::StatusOr<uint64_t> ConvertJsonToUint64(JSONValueConstRef input);
+
+// Converts 'input' into a UINT32.
+// Returns an error if:
+// - 'input' does not contain a number.
+// - 'input' is not within the UINT32 value domain (meaning the number has a
+//   fractional part, is negative or is not within the UINT32 range).
+absl::StatusOr<uint32_t> ConvertJsonToUint32(JSONValueConstRef input);
+
+// Converts 'input' into a BOOL.
+// Returns an error if:
+// - 'input' does not contain a boolean.
 absl::StatusOr<bool> ConvertJsonToBool(JSONValueConstRef input);
 
-// Converts 'input' into a String.
+// Converts 'input' into a STRING.
+// Returns an error if:
+// - 'input' does not contain a string.
 absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input);
 
 // Mode to determine how to handle numbers that cannot be round-tripped.
@@ -297,6 +322,71 @@ enum class WideNumberMode { kRound, kExact };
 absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
                                            WideNumberMode mode,
                                            ProductMode product_mode);
+
+// Converts 'input' into a Float.
+// 'mode': defines what happens with a number that cannot be converted to float
+// without loss of precision:
+// - 'exact': function fails if result cannot be round-tripped through float.
+// - 'round': the numeric value stored in JSON will be rounded to FLOAT.
+absl::StatusOr<float> ConvertJsonToFloat(JSONValueConstRef input,
+                                         WideNumberMode mode,
+                                         ProductMode product_mode);
+
+// Converts 'input' into a ARRAY<INT64>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToInt64` fails for any element of 'input'.
+absl::StatusOr<std::vector<int64_t>> ConvertJsonToInt64Array(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<INT32>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToInt32` fails for any element of 'input'.
+absl::StatusOr<std::vector<int32_t>> ConvertJsonToInt32Array(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<UINT64>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToUint64` fails for any element of 'input'.
+absl::StatusOr<std::vector<uint64_t>> ConvertJsonToUint64Array(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<UINT32>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToUint32` fails for any element of 'input'.
+absl::StatusOr<std::vector<uint32_t>> ConvertJsonToUint32Array(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<BOOL>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToBool` fails for any element of 'input'.
+absl::StatusOr<std::vector<bool>> ConvertJsonToBoolArray(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<STRING>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToString` fails for any element of 'input'.
+absl::StatusOr<std::vector<std::string>> ConvertJsonToStringArray(
+    JSONValueConstRef input);
+
+// Converts 'input' into a ARRAY<DOUBLE>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToDouble` fails for any element of 'input'.
+absl::StatusOr<std::vector<double>> ConvertJsonToDoubleArray(
+    JSONValueConstRef input, WideNumberMode mode, ProductMode product_mode);
+
+// Converts 'input' into a ARRAY<FLOAT>.
+// Returns an error if:
+// - 'input' is not a JSON array.
+// - `ConvertJsonToFloat` fails for any element of 'input'.
+absl::StatusOr<std::vector<float>> ConvertJsonToFloatArray(
+    JSONValueConstRef input, WideNumberMode mode, ProductMode product_mode);
 
 // Returns the type of the outermost JSON value as a text string.
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input);
@@ -314,13 +404,79 @@ absl::StatusOr<std::optional<bool>> LaxConvertJsonToBool(
 absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
     JSONValueConstRef input);
 
-// Similar to the above function except converts json 'input' into Float.
+// Similar to the above function except converts json 'input' into INT32.
+// Floating point numbers are rounded when converted to INT32.
+// Integers outside INT32 range yield nullopt.
+absl::StatusOr<std::optional<int32_t>> LaxConvertJsonToInt32(
+    JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into UINT64.
+// Floating point numbers are rounded when converted to UINT64.
+// Integers outside UINT64 range yield nullopt.
+absl::StatusOr<std::optional<uint64_t>> LaxConvertJsonToUint64(
+    JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into UINT32.
+// Floating point numbers are rounded when converted to UINT32.
+// Integers outside UINT32 range yield nullopt.
+absl::StatusOr<std::optional<uint32_t>> LaxConvertJsonToUint32(
+    JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into DOUBLE.
 absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
     JSONValueConstRef input);
 
-// Similar to the above function except converts json 'input' into String.
+// Similar to the above function except converts json 'input' into FLOAT.
+absl::StatusOr<std::optional<float>> LaxConvertJsonToFloat32(
+    JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into STRING.
 absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
     JSONValueConstRef input);
+
+// Converts a JSON 'input' into a ARRAY<BOOL>.
+// Upon success the function returns the converted value. If the value is not
+// an array, returns nullopt. If an element of the input array fails lax
+// conversion, that element will be set to nullopt in the resulting vector.
+// Returns non-ok status if there's an internal error during execution.
+// For more details on the conversion rules
+// see (broken link).
+absl::StatusOr<std::optional<std::vector<std::optional<bool>>>>
+LaxConvertJsonToBoolArray(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into INT64 array.
+// Floating point numbers are rounded when converted to INT64.
+absl::StatusOr<std::optional<std::vector<std::optional<int64_t>>>>
+LaxConvertJsonToInt64Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into INT32 array.
+// Floating point numbers are rounded when converted to INT32.
+absl::StatusOr<std::optional<std::vector<std::optional<int32_t>>>>
+LaxConvertJsonToInt32Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into UINT64 array.
+// Floating point numbers are rounded when converted to UINT64.
+absl::StatusOr<std::optional<std::vector<std::optional<uint64_t>>>>
+LaxConvertJsonToUint64Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into UINT32 array.
+// Floating point numbers are rounded when converted to UINT32.
+absl::StatusOr<std::optional<std::vector<std::optional<uint32_t>>>>
+LaxConvertJsonToUint32Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into FLOAT32
+// array.
+absl::StatusOr<std::optional<std::vector<std::optional<double>>>>
+LaxConvertJsonToFloat64Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into FLOAT32
+// array.
+absl::StatusOr<std::optional<std::vector<std::optional<float>>>>
+LaxConvertJsonToFloat32Array(JSONValueConstRef input);
+
+// Similar to the above function except converts JSON 'input' into STRING array.
+absl::StatusOr<std::optional<std::vector<std::optional<std::string>>>>
+LaxConvertJsonToStringArray(JSONValueConstRef input);
 
 // Converts a variadic number of arguments into a JSON array of these arguments.
 // If 'canonicalize_zero' is true, the sign on a signed zero is removed when
@@ -522,13 +678,6 @@ absl::Status JsonSet(JSONValueRef input,
                      const LanguageOptions& language_options,
                      bool canonicalize_zero);
 
-ABSL_DEPRECATED("Use above version of JsonSet() instead")
-absl::Status JsonSet(JSONValueRef input,
-                     json_internal::StrictJSONPathIterator& path_iterator,
-                     const Value& value,
-                     const LanguageOptions& language_options,
-                     bool canonicalize_zero);
-
 // Cleans up `input` by removing JSON 'null' and optionally empty containers
 // from the JSON subtree pointed to by `path_iterator`.  If `path_iterator`
 // points to a nonexistent path does nothing.
@@ -599,6 +748,70 @@ absl::Status JsonSet(JSONValueRef input,
 absl::Status JsonStripNulls(
     JSONValueRef input, json_internal::StrictJSONPathIterator& path_iterator,
     bool include_arrays, bool remove_empty);
+
+// Extracts values from `input` matched by JSONPath `path_iterator`. This
+// version of JSON_QUERY implementation extracts data using lax semantics. Lax
+// semantics implicitly adapts matching JSONPath to the structure of the
+// `input`.
+//
+// If the `path_iterator`.GetJsonPathOptions().recursive is set to true: A path
+// token expects an object(.member) and the json_doc element is an array, each
+// element in the array is recursively unwrapped until a non-array type is
+// encountered prior to matching member.
+// If set to false: Only a single level array is unwrapped prior to matching
+// member.
+//
+// Matched results are wrapped in a JSON array. If `path_iterator` matches no
+// data an empty JSON array is returned.
+//
+// Example 1:
+// JsonQueryLax(JSON '[{"a":1}, [{"a":[2], {"b":3}, 4]]', '$.a')
+// `path_iterator`.GetJsonPathOptions().recursive = true
+// Result: JSON '[1, [2]]'
+// Reasoning: Because `recursive` is set to true, we recursively unwrap before
+// matching token `.a`.
+//
+// Example 2:
+// JsonQueryLax(JSON '[{"a":1}, [{"a":[2], {"b":3}, 4]]', '$.a')
+// `path_iterator`.GetJsonPathOptions().recursive = false
+// Result: JSON '[1]'
+// Reasoning: Because `recursive` is set to false, token `.a` does not match
+// json_doc element '[{"a":[2], {"b":3}, 4]]'.
+//
+// Example 3:
+// JsonQueryLax(JSON '[[{"a":[]}]]', '$.a')
+// Result: JSON '[[]]'
+// `path_iterator`.GetJsonPathOptions().recursive = true
+// Reasoning: Because `recursive` is set to true, we recursively unwrap before
+// matching token `.a`.
+//
+// Example 4:
+// JsonQueryLax(JSON '[[{"a":[]}]]', '$.a')
+// `path_iterator`.GetJsonPathOptions().recursive = false
+// Result: JSON '[]'
+// Reasoning: Because `recursive` is set to false, no data is matched.
+//
+// Example 5:
+// JSON_QUERY_LAX(JSON '1', '$[0]')
+// `path_iterator`.GetJsonPathOptions().recursive = {false or true}
+// Result: JSON '[1]'
+// Reasoning: Path '[0]' forces autowrap of json doc element '1' -> '[1]' before
+// matching the token '[0]. `recursive` has no effect on autowrap of arrays.
+//
+// Example 6:
+// JSON_QUERY_LAX(JSON '1', '$[1]')
+// `path_iterator`.GetJsonPathOptions().recursive = {false or true}
+// Result: JSON '[]' (No matching results)
+// Reasoning: Path '[1]' forces autowrap of json doc element '1' -> '[1]' before
+// matching the token '[1]'. However, index 1 is larger than the array size.
+// `recursive` has no effect on autowrap of arrays.
+//
+// Invariant: path_iterator->JsonPathOptions->lax must be 'true', otherwise the
+// function will return an error. This is because non-lax JSON_QUERY does not
+// follow StrictPath semantics.
+absl::StatusOr<JSONValue> JsonQueryLax(
+    JSONValueConstRef input,
+    json_internal::StrictJSONPathIterator& path_iterator);
 
 }  // namespace functions
 }  // namespace zetasql

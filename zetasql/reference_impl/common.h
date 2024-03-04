@@ -25,6 +25,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -50,7 +51,7 @@ GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation);
 // Returns error when the collation list has more than one collation.
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollationList(
-    const std::vector<ResolvedCollation>& collation_list);
+    absl::Span<const ResolvedCollation> collation_list);
 
 // Returns a collator from a value representing a ResolvedCollation object.
 // An error will be returned if the input <collation_value> cannot be converted
@@ -63,7 +64,7 @@ using CollatorList = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
 // Returns a list of ZetaSqlCollator based on collation information obtained
 // from resolved function call.
 absl::StatusOr<CollatorList> MakeCollatorList(
-    const std::vector<ResolvedCollation>& collation_list);
+    absl::Span<const ResolvedCollation> collation_list);
 
 }  // namespace zetasql
 

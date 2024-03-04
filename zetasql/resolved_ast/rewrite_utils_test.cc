@@ -25,18 +25,23 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_format.h"
 
@@ -778,6 +783,501 @@ TEST_F(FunctionCallBuilderTest, AndInvalidExpressionsTest) {
 
   EXPECT_THAT(fn_builder_.And(std::move(expressions)),
               StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, ErrorFunctionWithCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a1,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("a"))
+                           .set_type(types::StringType())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a2,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("A"))
+                           .set_type(types::StringType())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr1,
+      testing::MakeCollateCallForTest(
+          std::move(a1), "und:ci", analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr2,
+      testing::MakeCollateCallForTest(
+          std::move(a2), "und:cs", analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn1,
+                       fn_builder_.Error(std::move(expr1)));
+  EXPECT_EQ(resolved_fn1->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:error(STRING) -> INT64)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="a")
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> resolved_fn2,
+      fn_builder_.Error(std::move(expr2), types::StringType()));
+  EXPECT_EQ(resolved_fn2->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:error(STRING) -> STRING)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:cs"}
+  +-Literal(type=STRING, value="A")
+  +-Literal(type=STRING, value="und:cs", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, NotEqualWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a1,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("a"))
+                           .set_type(types::StringType())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a2,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("A"))
+                           .set_type(types::StringType())
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr1,
+      testing::MakeCollateCallForTest(
+          std::move(a1), "und:ci", analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr2,
+      testing::MakeCollateCallForTest(
+          std::move(a2), "und:ci", analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder_.NotEqual(std::move(expr1), std::move(expr2)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="a")
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="A")
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-collation_list=[und:ci]
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, NotEqualWithMixedCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a1,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("a"))
+                           .set_type(types::StringType())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a2,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("A"))
+                           .set_type(types::StringType())
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr1,
+      testing::MakeCollateCallForTest(
+          std::move(a1), "und:ci", analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr2,
+      testing::MakeCollateCallForTest(
+          std::move(a2), "und:cs", analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder_.NotEqual(std::move(expr1), std::move(expr2)));
+  // When different arguments have different collation attached, the collation
+  // propagator does not attach `collation_list`.
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="a")
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:cs"}
+  +-Literal(type=STRING, value="A")
+  +-Literal(type=STRING, value="und:cs", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, LeastWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "und:ci"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Least(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:least(repeated(2) STRING) -> STRING)
++-type_annotation_map={Collation:"und:ci"}
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, LeastWithMixedCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"FOO", "binary"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Least(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:least(repeated(2) STRING) -> STRING)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"binary"}
+  +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, GreatestWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<std::unique_ptr<const ResolvedExpr>> args,
+      testing::BuildResolvedLiteralsWithCollationForTest(
+          {{"foo", "und:ci"}, {"FOO", "und:ci"}, {"BaR", "und:ci"}},
+          analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Greatest(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:greatest(repeated(3) STRING) -> STRING)
++-type_annotation_map={Collation:"und:ci"}
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="BaR", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, GreatestWithMixedCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"FOO", "binary"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Greatest(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:greatest(repeated(2) STRING) -> STRING)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"binary"}
+  +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, CoalesceWithCommonSuperTypeTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a1,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::Int64(1))
+                           .set_type(types::Int64Type())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a2,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::Int32(2))
+                           .set_type(types::Int32Type())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a3,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::Uint32(300))
+                           .set_type(types::Uint32Type())
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(std::move(a1));
+  args.push_back(std::move(a2));
+  args.push_back(std::move(a3));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Coalesce(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:coalesce(repeated(3) INT64) -> INT64)
++-Literal(type=INT64, value=1)
++-Literal(type=INT32, value=2)
++-Literal(type=UINT32, value=300)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, CoalesceWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<std::unique_ptr<const ResolvedExpr>> args,
+      testing::BuildResolvedLiteralsWithCollationForTest(
+          {{"foo", "und:ci"}, {"FOO", "und:ci"}, {"BaR", "und:ci"}},
+          analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Coalesce(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:coalesce(repeated(3) STRING) -> STRING)
++-type_annotation_map={Collation:"und:ci"}
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="BaR", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, CoalesceWithMixedCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"FOO", "binary"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
+                       fn_builder_.Coalesce(std::move(args)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:coalesce(repeated(2) STRING) -> STRING)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"binary"}
+  +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, LessWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a1,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("a"))
+                           .set_type(types::StringType())
+                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedLiteral> a2,
+                       ResolvedLiteralBuilder()
+                           .set_value(Value::String("A"))
+                           .set_type(types::StringType())
+                           .Build());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr1,
+      testing::MakeCollateCallForTest(
+          std::move(a1), "und:ci", analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> expr2,
+      testing::MakeCollateCallForTest(
+          std::move(a2), "und:ci", analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder_.Less(std::move(expr1), std::move(expr2)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$less(STRING, STRING) -> BOOL)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="a")
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="A")
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-collation_list=[und:ci]
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArrayLengthWithSameCollationTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "und:ci"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> array_expr,
+                       fn_builder_.MakeArray(args[0]->type(), args));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder_.ArrayLength(std::move(array_expr)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
++-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+  +-type_annotation_map=[{Collation:"und:ci"}]
+  +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  | +-type_annotation_map={Collation:"und:ci"}
+  | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+  | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+  +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    +-type_annotation_map={Collation:"und:ci"}
+    +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+    +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArrayAtOffsetTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
+                       testing::BuildResolvedLiteralsWithCollationForTest(
+                           {{"foo", "und:ci"}, {"bar", "und:ci"}},
+                           analyzer_options_, catalog_, type_factory_));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> array_expr,
+                       fn_builder_.MakeArray(args[0]->type(), args));
+  std::unique_ptr<const ResolvedExpr> offset_expr =
+      MakeResolvedLiteral(Value::Int64(0));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder_.ArrayAtOffset(std::move(array_expr), std::move(offset_expr)));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
++-type_annotation_map={Collation:"und:ci"}
++-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+| +-type_annotation_map=[{Collation:"und:ci"}]
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| | +-type_annotation_map={Collation:"und:ci"}
+| | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+| +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+|   +-type_annotation_map={Collation:"und:ci"}
+|   +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+|   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-Literal(type=INT64, value=0)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ModInt64Test) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder_.Mod(/*dividend_expr=*/MakeResolvedLiteral(Value::Int64(1)),
+                      /*divisor_expr=*/MakeResolvedLiteral(Value::Int64(2))));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
++-Literal(type=INT64, value=1)
++-Literal(type=INT64, value=2)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ModUint64Test) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder_.Mod(/*dividend_expr=*/MakeResolvedLiteral(Value::Uint64(1)),
+                      /*divisor_expr=*/MakeResolvedLiteral(Value::Uint64(2))));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:mod(UINT64, UINT64) -> UINT64)
++-Literal(type=UINT64, value=1)
++-Literal(type=UINT64, value=2)
+)"));
+}
+
+// The catalog does not have the FN_MOD_NUMERIC signature.
+TEST_F(FunctionCallBuilderTest, ModNumericNoSignatureTest) {
+  EXPECT_THAT(
+      fn_builder_.Mod(/*dividend_expr=*/MakeResolvedLiteral(
+                          Value::Numeric(NumericValue(1))),
+                      /*divisor_expr=*/MakeResolvedLiteral(
+                          Value::Numeric(NumericValue(2)))),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          ::testing::HasSubstr(
+              "The provided catalog does not have the FN_MOD_NUMERIC "
+              "signature. Did you forget to enable FEATURE_NUMERIC_TYPE?")));
+}
+
+// The new catalog has the FN_MOD_NUMERIC signature.
+TEST_F(FunctionCallBuilderTest, ModNumericTest) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_NUMERIC_TYPE);
+  SimpleCatalog catalog("mod_numeric_builder_catalog");
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
+  FunctionCallBuilder fn_builder(analyzer_options, catalog, type_factory_);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+                       fn_builder.Mod(/*dividend_expr=*/MakeResolvedLiteral(
+                                          Value::Numeric(NumericValue(1))),
+                                      /*divisor_expr=*/MakeResolvedLiteral(
+                                          Value::Numeric(NumericValue(2)))));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:mod(NUMERIC, NUMERIC) -> NUMERIC)
++-Literal(type=NUMERIC, value=1)
++-Literal(type=NUMERIC, value=2)
+)"));
+}
+
+// The catalog does not have the FN_MOD_BIGNUMERIC signature.
+TEST_F(FunctionCallBuilderTest, ModBigNumericNoSignatureTest) {
+  EXPECT_THAT(
+      fn_builder_.Mod(/*dividend_expr=*/MakeResolvedLiteral(
+                          Value::BigNumeric(BigNumericValue(1))),
+                      /*divisor_expr=*/MakeResolvedLiteral(
+                          Value::BigNumeric(BigNumericValue(2)))),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          ::testing::HasSubstr(
+              "The provided catalog does not have the FN_MOD_BIGNUMERIC "
+              "signature. Did you forget to enable FEATURE_BIGNUMERIC_TYPE?")));
+}
+
+// The new catalog has the FN_MOD_BIGNUMERIC signature.
+TEST_F(FunctionCallBuilderTest, ModBigNumericTest) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_BIGNUMERIC_TYPE);
+  SimpleCatalog catalog("mod_big_numeric_builder_catalog");
+  catalog.AddBuiltinFunctions(
+      BuiltinFunctionOptions(analyzer_options.language()));
+  FunctionCallBuilder fn_builder(analyzer_options, catalog, type_factory_);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
+      fn_builder.Mod(/*dividend_expr=*/MakeResolvedLiteral(
+                         Value::BigNumeric(BigNumericValue(1))),
+                     /*divisor_expr=*/MakeResolvedLiteral(
+                         Value::BigNumeric(BigNumericValue(2)))));
+
+  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:mod(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
++-Literal(type=BIGNUMERIC, value=1)
++-Literal(type=BIGNUMERIC, value=2)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ModInvalidInputTypeTest) {
+  EXPECT_THAT(
+      fn_builder_.Mod(/*dividend_expr=*/MakeResolvedLiteral(Value::String("a")),
+                      /*divisor_expr=*/MakeResolvedLiteral(Value::String("b"))),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               ::testing::HasSubstr("Unsupported input type for mod: STRING")));
 }
 
 class LikeAnyAllSubqueryScanBuilderTest

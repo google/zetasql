@@ -30,6 +30,7 @@
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace {
@@ -386,6 +387,7 @@ void ExpectLess(IntervalValue v1, IntervalValue v2) {
   EXPECT_NE(v2, v1);
   EXPECT_FALSE(v1 == v2);
   EXPECT_FALSE(v2 == v1);
+  EXPECT_FALSE(IdenticalIntervals(v1, v2));
 }
 
 TEST(IntervalValueTest, Comparisons) {
@@ -447,6 +449,90 @@ TEST(IntervalValueTest, Comparisons) {
   ExpectLess(MonthsDaysNanos(2, -30, 0), MonthsDaysNanos(1, 0, 1));
   ExpectLess(MonthsDaysNanos(2, 0, -1), MonthsDaysNanos(0, 60, 1));
   ExpectLess(MonthsDaysNanos(5, 15, 9999999), MonthsDaysNanos(5, 15, 10000000));
+}
+
+TEST(IntervalValueTest, IdenticalIntervals) {
+  // Zeros are identical.
+  EXPECT_TRUE(IdenticalIntervals(Micros(0), Nanos(0)));
+  EXPECT_TRUE(IdenticalIntervals(Seconds(0), Micros(0)));
+  EXPECT_TRUE(IdenticalIntervals(Minutes(0), Seconds(0)));
+  EXPECT_TRUE(IdenticalIntervals(Hours(0), Minutes(0)));
+  EXPECT_TRUE(IdenticalIntervals(Days(0), Hours(0)));
+  EXPECT_TRUE(IdenticalIntervals(Months(0), Days(0)));
+  EXPECT_TRUE(IdenticalIntervals(Years(0), Months(0)));
+
+  // Exact parts
+  EXPECT_TRUE(IdenticalIntervals(Nanos(12345), Nanos(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Nanos(-12345), Nanos(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Micros(12345), Micros(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Micros(-12345), Micros(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Seconds(12345), Seconds(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Seconds(-12345), Seconds(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Minutes(12345), Minutes(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Minutes(-12345), Minutes(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Hours(12345), Hours(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Hours(-12345), Hours(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Days(12345), Days(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Days(-12345), Days(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Months(12345), Months(12345)));
+  EXPECT_TRUE(IdenticalIntervals(Months(-12345), Months(-12345)));
+  EXPECT_TRUE(IdenticalIntervals(Years(1234), Years(1234)));
+  EXPECT_TRUE(IdenticalIntervals(Years(-1234), Years(-1234)));
+
+  // Identical within micros part
+  EXPECT_TRUE(
+      IdenticalIntervals(Micros(-1), Nanos(-1 * IntervalValue::kNanosInMicro)));
+  EXPECT_TRUE(
+      IdenticalIntervals(Micros(3), Nanos(3 * IntervalValue::kNanosInMicro)));
+  EXPECT_TRUE(IdenticalIntervals(Seconds(-5),
+                                 Micros(-5 * IntervalValue::kMicrosInSecond)));
+  EXPECT_TRUE(IdenticalIntervals(Seconds(7),
+                                 Micros(7 * IntervalValue::kMicrosInSecond)));
+  EXPECT_TRUE(IdenticalIntervals(
+      Minutes(-11), Seconds(-11 * IntervalValue::kSecondsInMinute)));
+  EXPECT_TRUE(IdenticalIntervals(
+      Minutes(13), Seconds(13 * IntervalValue::kSecondsInMinute)));
+  EXPECT_TRUE(IdenticalIntervals(Hours(-17),
+                                 Minutes(-17 * IntervalValue::kMinutesInHour)));
+  EXPECT_TRUE(IdenticalIntervals(Hours(-31),
+                                 Minutes(-31 * IntervalValue::kMinutesInHour)));
+  EXPECT_TRUE(IdenticalIntervals(Years(-37),
+                                 Months(-37 * IntervalValue::kMonthsInYear)));
+  EXPECT_TRUE(
+      IdenticalIntervals(Years(41), Months(41 * IntervalValue::kMonthsInYear)));
+  // Not identical when mixing micros and days parts
+  EXPECT_FALSE(
+      IdenticalIntervals(Days(-43), Hours(-43 * IntervalValue::kHoursInDay)));
+  EXPECT_FALSE(
+      IdenticalIntervals(Days(47), Hours(47 * IntervalValue::kHoursInDay)));
+  // Not identical when mixing days and months parts
+  EXPECT_FALSE(
+      IdenticalIntervals(Months(-53), Days(-53 * IntervalValue::kDaysInMonth)));
+  EXPECT_FALSE(
+      IdenticalIntervals(Months(59), Days(59 * IntervalValue::kDaysInMonth)));
+  // Not identical when mixing micros and months parts
+  EXPECT_FALSE(IdenticalIntervals(Months(-61),
+                                  Micros(-61 * IntervalValue::kMicrosInMonth)));
+  EXPECT_FALSE(IdenticalIntervals(Months(67),
+                                  Micros(67 * IntervalValue::kMicrosInMonth)));
+  // Mixed parts
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(1, 1, 0), Days(31)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(1, -1, 0), Days(29)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(-1, 1, 0), Days(-29)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(-1, -1, 0), Days(-31)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(0, 1, 10),
+                                  Micros(IntervalValue::kMicrosInDay + 10)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(-1, 30, 1), Micros(1)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(2, -61, 0), Days(-1)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(-3, 92, -10),
+                                  MonthsDaysMicros(0, 2, -10)));
+
+  EXPECT_TRUE(IdenticalIntervals(MonthsDaysMicros(1, 2, 3),
+                                 MonthsDaysNanos(1, 2, 3000)));
+  EXPECT_TRUE(IdenticalIntervals(MonthsDaysMicros(1, 2, -3),
+                                 MonthsDaysNanos(1, 2, -3000)));
+  EXPECT_FALSE(IdenticalIntervals(MonthsDaysMicros(10, -301, 9),
+                                  MonthsDaysNanos(0, -1, 9000)));
 }
 
 TEST(IntervalValueTest, UnaryMinus) {
@@ -1344,11 +1430,54 @@ TEST(IntervalValueTest, ParseFromString1) {
   ExpectParseError("9223372036854775808", SECOND, /*allow_nanos=*/false);
   ExpectParseError("-9223372036854775809", SECOND, /*allow_nanos=*/false);
 
+  EXPECT_EQ("0-0 0 0:0:0.123",
+            ParseToString("123", MILLISECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.123",
+            ParseToString("-123", MILLISECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 5:7:36.123",
+            ParseToString("18456123", MILLISECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -5:7:36.123",
+            ParseToString("-18456123", MILLISECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("316224000000000", MILLISECOND,
+                                                /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("-316224000000000", MILLISECOND, /*allow_nanos=*/false));
+
+  // exceeds max number of milliseconds
+  ExpectParseError("3162240000000001", MILLISECOND, /*allow_nanos=*/false);
+  ExpectParseError("-3162240000000001", MILLISECOND, /*allow_nanos=*/false);
+  // overflow fitting into int64_t at SimpleAtoi
+  ExpectParseError("9223372036854775808", MILLISECOND, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", MILLISECOND, /*allow_nanos=*/false);
+  // Overflow in multiplication
+  ExpectParseError("9223372036854775807", MILLISECOND, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775807", MILLISECOND, /*allow_nanos=*/false);
+
+  EXPECT_EQ("0-0 0 0:0:0.123456",
+            ParseToString("123456", MICROSECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -0:0:0.123456",
+            ParseToString("-123456", MICROSECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 5:7:36.123456",
+            ParseToString("18456123456", MICROSECOND, /*allow_nanos=*/false));
+  EXPECT_EQ("0-0 0 -5:7:36.123456",
+            ParseToString("-18456123456", MICROSECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 87840000:0:0",
+      ParseToString("316224000000000000", MICROSECOND, /*allow_nanos=*/false));
+  EXPECT_EQ(
+      "0-0 0 -87840000:0:0",
+      ParseToString("-316224000000000000", MICROSECOND, /*allow_nanos=*/false));
+  // exceeds max number of microseconds
+  ExpectParseError("3162240000000000001", MICROSECOND, /*allow_nanos=*/false);
+  ExpectParseError("-3162240000000000001", MICROSECOND, /*allow_nanos=*/false);
+  // overflow fitting into int64_t at SimpleAtoi
+  ExpectParseError("9223372036854775808", MICROSECOND, /*allow_nanos=*/false);
+  ExpectParseError("-9223372036854775809", MICROSECOND, /*allow_nanos=*/false);
+
   // Unsupported dateparts
   ExpectParseError("0", functions::DAYOFWEEK, /*allow_nanos=*/false);
   ExpectParseError("0", functions::DAYOFYEAR, /*allow_nanos=*/false);
-  ExpectParseError("0", functions::MILLISECOND, /*allow_nanos=*/false);
-  ExpectParseError("0", functions::MICROSECOND, /*allow_nanos=*/false);
   ExpectParseError("0", functions::NANOSECOND, /*allow_nanos=*/true);
   ExpectParseError("0", functions::DATE, /*allow_nanos=*/false);
   ExpectParseError("0", functions::DATETIME, /*allow_nanos=*/false);
@@ -2363,7 +2492,7 @@ void ExpectFromISO8601(absl::string_view expected, absl::string_view input,
 }
 
 void ExpectFromISO8601Error(absl::string_view input,
-                            const std::string& error_text, bool allow_nanos) {
+                            absl::string_view error_text, bool allow_nanos) {
   EXPECT_THAT(
       IntervalValue::ParseFromISO8601(input, allow_nanos),
       StatusIs(absl::StatusCode::kOutOfRange, testing::HasSubstr(error_text)))
@@ -2624,11 +2753,36 @@ TEST(IntervalValueTest, FixedBinaryRepresentation) {
 
 std::string FromIntegerToString(int64_t value,
                                 functions::DateTimestampPart part) {
-  return IntervalValue::FromInteger(value, part).value().ToString();
+  // Verify that micros and nanos modes produce the same results.
+  std::string micros_mode =
+      IntervalValue::FromInteger(value, part, /*allow_nanos=*/false)
+          .value()
+          .ToString();
+  std::string nanos_mode =
+      IntervalValue::FromInteger(value, part, /*allow_nanos=*/true)
+          .value()
+          .ToString();
+  EXPECT_EQ(micros_mode, nanos_mode);
+  return micros_mode;
+}
+
+std::string FromIntegerToStringAllowNanos(int64_t value,
+                                          functions::DateTimestampPart part) {
+  return IntervalValue::FromInteger(value, part, /*allow_nanos=*/true)
+      .value()
+      .ToString();
 }
 
 void ExpectFromIntegerError(int64_t value, functions::DateTimestampPart part) {
-  EXPECT_THAT(IntervalValue::FromInteger(value, part),
+  EXPECT_THAT(IntervalValue::FromInteger(value, part, /*allow_nanos=*/false),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IntervalValue::FromInteger(value, part, /*allow_nanos=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+void ExpectFromIntegerErrorDisallowNanos(int64_t value,
+                                         functions::DateTimestampPart part) {
+  EXPECT_THAT(IntervalValue::FromInteger(value, part, /*allow_nanos=*/false),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
@@ -2650,11 +2804,40 @@ TEST(IntervalValueTest, FromInteger) {
   EXPECT_EQ("0-0 0 0:0:8", FromIntegerToString(8, SECOND));
   EXPECT_EQ("0-0 0 -87840000:0:0", FromIntegerToString(-316224000000, SECOND));
 
+  EXPECT_EQ("0-0 0 0:0:0.123", FromIntegerToString(123, MILLISECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.123", FromIntegerToString(-123, MILLISECOND));
+  EXPECT_EQ("0-0 0 5:7:36.123", FromIntegerToString(18456123, MILLISECOND));
+  EXPECT_EQ("0-0 0 -5:7:36.123", FromIntegerToString(-18456123, MILLISECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            FromIntegerToString(316224000000000, MILLISECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            FromIntegerToString(-316224000000000, MILLISECOND));
+  EXPECT_EQ("0-0 0 0:0:0.123456", FromIntegerToString(123456, MICROSECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.123456", FromIntegerToString(-123456, MICROSECOND));
+  EXPECT_EQ("0-0 0 5:7:36.123456",
+            FromIntegerToString(18456123456, MICROSECOND));
+  EXPECT_EQ("0-0 0 -5:7:36.123456",
+            FromIntegerToString(-18456123456, MICROSECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            FromIntegerToString(316224000000000000, MICROSECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            FromIntegerToString(-316224000000000000, MICROSECOND));
+  EXPECT_EQ("0-0 0 5:7:36.123456789",
+            FromIntegerToStringAllowNanos(18456123456789, NANOSECOND));
+  EXPECT_EQ("0-0 0 -5:7:36.123456789",
+            FromIntegerToStringAllowNanos(-18456123456789, NANOSECOND));
+
   EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, YEAR));
   EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, QUARTER));
   EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, MONTH));
   EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, WEEK));
   EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, DAY));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, HOUR));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, MINUTE));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, MILLISECOND));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, MICROSECOND));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToStringAllowNanos(0, NANOSECOND));
 
   // Exceeds maximum allowed value
   ExpectFromIntegerError(10001, YEAR);
@@ -2665,19 +2848,23 @@ TEST(IntervalValueTest, FromInteger) {
   ExpectFromIntegerError(87840001, HOUR);
   ExpectFromIntegerError(-5270400001, MINUTE);
   ExpectFromIntegerError(316224000001, SECOND);
+  ExpectFromIntegerError(3162240000000001, MILLISECOND);
+  ExpectFromIntegerError(-3162240000000001, MILLISECOND);
+  ExpectFromIntegerError(3162240000000000001, MICROSECOND);
+  ExpectFromIntegerError(-3162240000000000001, MICROSECOND);
 
   // Overflow in multiplication
   ExpectFromIntegerError(9223372036854775807, QUARTER);
   ExpectFromIntegerError(-9223372036854775807, QUARTER);
   ExpectFromIntegerError(9223372036854775807, WEEK);
   ExpectFromIntegerError(-9223372036854775807, WEEK);
+  ExpectFromIntegerError(9223372036854775807, MILLISECOND);
+  ExpectFromIntegerError(-9223372036854775807, MILLISECOND);
 
   // Invalid datetime part fields
   ExpectFromIntegerError(0, functions::DAYOFWEEK);
   ExpectFromIntegerError(0, functions::DAYOFYEAR);
-  ExpectFromIntegerError(0, functions::MILLISECOND);
-  ExpectFromIntegerError(0, functions::MICROSECOND);
-  ExpectFromIntegerError(0, functions::NANOSECOND);
+  ExpectFromIntegerErrorDisallowNanos(0, functions::NANOSECOND);
   ExpectFromIntegerError(0, functions::DATE);
   ExpectFromIntegerError(0, functions::DATETIME);
   ExpectFromIntegerError(0, functions::TIME);

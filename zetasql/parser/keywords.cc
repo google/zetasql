@@ -133,6 +133,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"definer", KW_DEFINER},
     {"delete", KW_DELETE},
     {"deletion", KW_DELETION},
+    {"depth", KW_DEPTH},
     {"desc", KW_DESC, kReserved},
     {"describe", KW_DESCRIBE},
     {"descriptor", KW_DESCRIPTOR},

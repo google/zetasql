@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "gtest/gtest_prod.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -82,6 +83,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   // caller may log the error and proceed as if nothing happened, therefore
   // handling SQL syntax issues gracefully.
   explicit ExecuteQueryStatementPrompt(
+      const ExecuteQueryConfig& config,
       std::function<
           absl::StatusOr<std::optional<std::string>>(bool continuation)>
           read_next_func);
@@ -115,6 +117,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   FRIEND_TEST(ExecuteQueryStatementPrompt, LargeInput);
 
   size_t max_length_ = kMaxLength;
+  const ExecuteQueryConfig& config_;
   const std::function<absl::StatusOr<std::optional<std::string>>(bool)>
       read_next_func_;
   const std::function<absl::Status(absl::Status, absl::string_view)>
@@ -130,7 +133,8 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
 
 class ExecuteQuerySingleInput : public ExecuteQueryStatementPrompt {
  public:
-  explicit ExecuteQuerySingleInput(absl::string_view query);
+  ExecuteQuerySingleInput(absl::string_view query,
+                          const ExecuteQueryConfig& config);
   ExecuteQuerySingleInput(const ExecuteQuerySingleInput&) = delete;
   ExecuteQuerySingleInput& operator=(const ExecuteQuerySingleInput&) = delete;
 

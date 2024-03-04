@@ -37,7 +37,7 @@ import directive. Example:
 # if field.comment
 {{field.comment}}
  # endif
-  {{field.getter_return_type}} {{field.name}}() const {
+  {{field.getter_return_type}} {{field.name}}() const{%if field.override_virtual_getter%} override{%endif%} {
     # if is_from_builder
     ABSL_DCHECK({{inner_node_member_name}} != nullptr);
     # endif

@@ -3828,11 +3828,12 @@ QueryStmt
                 +-right_scan=
                 | +-WithRefScan(column_list=arg_table.[key#6, value#7], with_query_name="arg_table")
                 +-join_expr=
-                  +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
-                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                    | +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.key#4)
-                    | +-ColumnRef(type=INT64, column=arg_table.key#6)
-                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                      +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.value#5)
-                      +-ColumnRef(type=INT64, column=arg_table.value#7)
+                | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                |   | +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.key#4)
+                |   | +-ColumnRef(type=INT64, column=arg_table.key#6)
+                |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                |     +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.value#5)
+                |     +-ColumnRef(type=INT64, column=arg_table.value#7)
+                +-has_using=TRUE
 

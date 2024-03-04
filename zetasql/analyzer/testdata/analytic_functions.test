@@ -2476,3 +2476,210 @@ QueryStmt
               +-$analytic1#4 :=
                 +-AnalyticFunctionCall(ZetaSQL:ntile(INT64) -> INT64)
                   +-Literal(type=INT64, value=3)
+==
+
+# This previously triggered a bug saying it was not allowed to
+# parition by or order by a proto.
+select tv
+from TestExtraValueTable tv
+order by rank() over (partition by tv.int32_val1
+                      order by tv.int32_val2)
+--
+QueryStmt
++-output_column_list=
+| +-TestExtraValueTable.value#1 AS tv [PROTO<zetasql_test__.TestExtraPB>]
++-query=
+  +-OrderByScan
+    +-column_list=[TestExtraValueTable.value#1]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AnalyticScan
+    |   +-column_list=[TestExtraValueTable.value#1, $analytic.$analytic1#4]
+    |   +-input_scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[TestExtraValueTable.value#1, $partitionby.int32_val1#5, $orderby.int32_val2#6]
+    |   |   +-expr_list=
+    |   |   | +-int32_val1#5 :=
+    |   |   | | +-GetProtoField
+    |   |   | |   +-type=INT32
+    |   |   | |   +-expr=
+    |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |   | |   +-field_descriptor=int32_val1
+    |   |   | |   +-default_value=0
+    |   |   | +-int32_val2#6 :=
+    |   |   |   +-GetProtoField
+    |   |   |     +-type=INT32
+    |   |   |     +-expr=
+    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |   |     +-field_descriptor=int32_val2
+    |   |   |     +-default_value=0
+    |   |   +-input_scan=
+    |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="tv")
+    |   +-function_group_list=
+    |     +-AnalyticFunctionGroup
+    |       +-partition_by=
+    |       | +-WindowPartitioning
+    |       |   +-partition_by_list=
+    |       |     +-ColumnRef(type=INT32, column=$partitionby.int32_val1#5)
+    |       +-order_by=
+    |       | +-WindowOrdering
+    |       |   +-order_by_item_list=
+    |       |     +-OrderByItem
+    |       |       +-column_ref=
+    |       |         +-ColumnRef(type=INT32, column=$orderby.int32_val2#6)
+    |       +-analytic_function_list=
+    |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+==
+
+select tv
+from TestExtraValueTable tv
+order by count(*) over ({{order|partition}} by tv)
+--
+ALTERNATION GROUP: order
+--
+ERROR: Ordering by expressions of type PROTO is not allowed [at 3:34]
+order by count(*) over (order by tv)
+                                 ^
+--
+ALTERNATION GROUP: partition
+--
+ERROR: Partitioning by expressions of type PROTO is not allowed [at 3:38]
+order by count(*) over (partition by tv)
+                                     ^
+==
+
+select tv, tv
+from TestExtraValueTable tv
+order by count(*) over (partition by {{tv|tv.int32_val1}})
+--
+ALTERNATION GROUP: tv
+--
+ERROR: Column name tv is ambiguous [at 3:38]
+order by count(*) over (partition by tv)
+                                     ^
+--
+ALTERNATION GROUP: tv.int32_val1
+--
+ERROR: Column name tv is ambiguous [at 3:38]
+order by count(*) over (partition by tv.int32_val1)
+                                     ^
+==
+
+select count(*) cnt
+from TestExtraValueTable tv
+order by count(*) over (partition by cnt order by cnt)
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.cnt#4 AS cnt [INT64]
++-query=
+  +-OrderByScan
+    +-column_list=[$aggregate.cnt#4]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AnalyticScan
+    |   +-column_list=[$aggregate.cnt#4, $analytic.$analytic1#5]
+    |   +-input_scan=
+    |   | +-AggregateScan
+    |   |   +-column_list=[$aggregate.cnt#4]
+    |   |   +-input_scan=
+    |   |   | +-TableScan(table=TestExtraValueTable, alias="tv")
+    |   |   +-aggregate_list=
+    |   |     +-cnt#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |   +-function_group_list=
+    |     +-AnalyticFunctionGroup
+    |       +-partition_by=
+    |       | +-WindowPartitioning
+    |       |   +-partition_by_list=
+    |       |     +-ColumnRef(type=INT64, column=$aggregate.cnt#4)
+    |       +-order_by=
+    |       | +-WindowOrdering
+    |       |   +-order_by_item_list=
+    |       |     +-OrderByItem
+    |       |       +-column_ref=
+    |       |         +-ColumnRef(type=INT64, column=$aggregate.cnt#4)
+    |       +-analytic_function_list=
+    |         +-$analytic1#5 :=
+    |           +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |             +-window_frame=
+    |               +-WindowFrame(frame_unit=RANGE)
+    |                 +-start_expr=
+    |                 | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |                 +-end_expr=
+    |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
+==
+
+select count(*) cnt
+from TestExtraValueTable tv
+order by count(*) over ({{order|partition}} by sum(cnt))
+--
+ALTERNATION GROUP: order
+--
+ERROR: Aggregations of aggregations are not allowed [at 3:38]
+order by count(*) over (order by sum(cnt))
+                                     ^
+--
+ALTERNATION GROUP: partition
+--
+ERROR: Aggregations of aggregations are not allowed [at 3:42]
+order by count(*) over (partition by sum(cnt))
+                                         ^
+==
+
+select count(*) OVER () AS cnt
+from TestExtraValueTable tv
+order by count(*) over ({{order|partition}} by cnt)
+--
+ALTERNATION GROUP: order
+--
+ERROR: Column cnt contains an analytic function, which is not allowed in Window ORDER BY [at 3:34]
+order by count(*) over (order by cnt)
+                                 ^
+--
+ALTERNATION GROUP: partition
+--
+ERROR: Column cnt contains an analytic function, which is not allowed in PARTITION BY [at 3:38]
+order by count(*) over (partition by cnt)
+                                     ^
+==
+
+select count(*) OVER () AS cnt
+from TestExtraValueTable tv
+order by count(*) over ({{order|partition}} by sum(cnt))
+--
+ALTERNATION GROUP: order
+--
+ERROR: Analytic functions cannot be arguments to aggregate functions [at 3:38]
+order by count(*) over (order by sum(cnt))
+                                     ^
+--
+ALTERNATION GROUP: partition
+--
+ERROR: Analytic functions cannot be arguments to aggregate functions [at 3:42]
+order by count(*) over (partition by sum(cnt))
+                                         ^
+==
+
+select STRUCT(count(*) AS cnt) s_cnt
+from TestExtraValueTable tv
+order by count(*) over ({{order|partition}} by s_cnt.cnt, sum(s_cnt.cnt))
+--
+ALTERNATION GROUP: order
+--
+ERROR: Aggregations of aggregations are not allowed [at 3:49]
+order by count(*) over (order by s_cnt.cnt, sum(s_cnt.cnt))
+                                                ^
+--
+ALTERNATION GROUP: partition
+--
+ERROR: Aggregations of aggregations are not allowed [at 3:53]
+order by count(*) over (partition by s_cnt.cnt, sum(s_cnt.cnt))
+                                                    ^

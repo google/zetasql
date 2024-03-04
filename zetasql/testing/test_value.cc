@@ -20,12 +20,15 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status_macros.h"
+#include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 
@@ -90,6 +93,27 @@ Value Range(ValueConstructor start, ValueConstructor end) {
   return *range_value;
 }
 
+Value Map(
+    absl::Span<const std::pair<ValueConstructor, ValueConstructor>> elements,
+    TypeFactory* type_factory) {
+  ABSL_CHECK(!elements.empty());
+  std::vector<std::pair<Value, Value>> elements_list;
+  elements_list.reserve(elements.size());
+
+  const Type* key_type = elements[0].first.get().type();
+  const Type* value_type = elements[0].second.get().type();
+  for (const auto& [key, value] : elements) {
+    elements_list.push_back(std::make_pair(key.get(), value.get()));
+  }
+
+  auto map_type = MakeMapType(key_type, value_type, type_factory);
+  ZETASQL_CHECK_OK(map_type.status());
+
+  auto map = Value::MakeMap(*map_type, std::move(elements_list));
+  ZETASQL_CHECK_OK(map.status());
+  return *map;
+}
+
 const ArrayType* MakeArrayType(const Type* element_type,
                                TypeFactory* type_factory) {
   const ArrayType* array_type;
@@ -132,6 +156,13 @@ const RangeType* MakeRangeType(const Type* element_type,
   absl::Status status = type_factory->MakeRangeType(element_type, &range_type);
   ZETASQL_CHECK_OK(status);  // Crash ok
   return range_type;
+}
+
+absl::StatusOr<const Type*> MakeMapType(const Type* key_type,
+                                        const Type* value_type,
+                                        TypeFactory* type_factory) {
+  type_factory = type_factory != nullptr ? type_factory : static_type_factory();
+  return type_factory->MakeMapType(key_type, value_type);
 }
 
 bool AlmostEqualsValue(const Value& x, const Value& y, std::string* reason) {

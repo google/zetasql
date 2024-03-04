@@ -25,7 +25,6 @@
 #include <vector>
 
 
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/input_argument_type.h"
@@ -41,7 +40,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 
 // ZetaSQL's Catalog interface class allows an implementing query engine
 // to define the functions available in the engine.  The caller initially
@@ -86,6 +84,7 @@ namespace zetasql {
 class AnalyzerOptions;
 class Catalog;
 class CycleDetector;
+class EvaluationContext;
 class Function;
 class FunctionOptionsProto;
 class FunctionProto;
@@ -141,12 +140,20 @@ using NoMatchingSignatureCallback = std::function<std::string(
     const std::string& qualified_function_name,
     const std::vector<InputArgumentType>&, ProductMode)>;
 
+// TODO: remove.
 // This callback produces text containing supported function signatures. This
 // text is used in the user facing messages, i.e. in errors. Example of
 // text returned by such callback for LIKE operator:
 // "STRING LIKE STRING; BYTES LIKE BYTES"
 using SupportedSignaturesCallback =
     std::function<std::string(const LanguageOptions&, const Function&)>;
+
+// This callback produces text for the supplied signature. This text is
+// interleaved with mismatch reason in detailed no matching signature error
+// message.
+// When this is set, ignore SupportedSignaturesCallback, which will be removed.
+using SignatureTextCallback = std::function<std::string(
+    const LanguageOptions&, const Function&, const FunctionSignature&)>;
 
 // This callback produces a prefix for bad arguments.
 // An example of the standard prefix is "Argument 1 to FUNC".
@@ -167,6 +174,9 @@ using FunctionEvaluatorFactory =
 class AggregateFunctionEvaluator {
  public:
   virtual ~AggregateFunctionEvaluator() = default;
+
+  // Sets an evaluation context.
+  virtual void SetEvaluationContext(EvaluationContext* context) {};
 
   // Resets the accumulation. This method will be called before any value
   // accumulation and between groups, and should restore any state variables
@@ -218,7 +228,7 @@ struct FunctionOptions {
   static constexpr WindowOrderSupport ORDER_REQUIRED =
       FunctionEnums::ORDER_REQUIRED;
 
-  FunctionOptions() {}
+  FunctionOptions() = default;
 
   // Construct FunctionOptions with support for an OVER clause.
   FunctionOptions(WindowOrderSupport window_ordering_support_in,
@@ -300,6 +310,16 @@ struct FunctionOptions {
     return *this;
   }
 
+  FunctionOptions& set_hide_supported_signatures(bool value) {
+    hide_supported_signatures = value;
+    return *this;
+  }
+
+  FunctionOptions& set_signature_text_callback(SignatureTextCallback callback) {
+    signature_text_callback = std::move(callback);
+    return *this;
+  }
+
   FunctionOptions& set_bad_argument_error_prefix_callback(
       BadArgumentErrorPrefixCallback callback) {
     bad_argument_error_prefix_callback = std::move(callback);
@@ -377,6 +397,10 @@ struct FunctionOptions {
     uses_upper_case_sql_name = value;
     return *this;
   }
+  FunctionOptions& set_may_suppress_side_effects(bool value) {
+    may_suppress_side_effects = value;
+    return *this;
+  }
 
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
@@ -451,6 +475,10 @@ struct FunctionOptions {
   // If not nullptr, this callback is used to construct custom text containing
   // list of signatures supported by the function.
   SupportedSignaturesCallback supported_signatures_callback = nullptr;
+
+  // If not nullptr, this callback is used to construct per signature mismatch
+  // error message.
+  SignatureTextCallback signature_text_callback = nullptr;
 
   // If not nullptr, this callback is used to construct a custom prefix to the
   // argument error message when certain argument conditions are not met.
@@ -535,9 +563,46 @@ struct FunctionOptions {
   // the upper-case version of <sql_name>.
   bool uses_upper_case_sql_name = true;
 
+  // In "No matching signature" error message, when set, the list of supported
+  // signatures and potentially mismatch reasons for each signature are not
+  // printed.
+  bool hide_supported_signatures = false;
+
   // A set of LanguageFeatures that need to be enabled for the function to be
   // loaded in GetBuiltinFunctionsAndTypes.
   std::set<LanguageFeature> required_language_features;
+
+  // Indicates whether this function might suppress deferred side effects,
+  // usually due to short-circuiting of computations or effects of some of its
+  // arguments. For example:
+  //  1. IF(a, b(), c()) ensures that either b() or c() is evaluated, not both.
+  //  2. ISERROR(f(x)) absorbs computation errors from f(x).
+  //
+  // When FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is enabled, functions
+  // with this bit on handle deferred side effects and may suppress them.
+  // The resolver wraps each argument that has potentially suppressed side
+  // effects (e.g. an aggregation computed on a different scan) into an
+  // invocation of the internal $with_side_effects() function.
+  //
+  // For example, the SQL expression ISERROR(agg(x)) will be resolved like the
+  // following, and computed in a ResolvedProjectScan:
+  //    ISERROR($with_side_effects($col1, $err1))
+  //
+  // after the ResolvedAggregateScan computes the aggregate as:
+  //     $col1: = ResolvedDeferredComputedColumn
+  //                expr: agg(x),
+  //                side_effect_column: $err1 (payload representing any deferred
+  //                                           error)
+  //
+  // Note that if the FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION if off, or
+  // the computation does not need to be split across scans (i.e., does not get
+  // refactored out and referenced as a ColumnRef, such as when there are no
+  // aggregations involved), resolution proceeds normally without any side-
+  // effect payload columns or $with_side_effects() invocations.
+  //
+  // See ResolvedDeferredComputedColumn
+  // and (broken link) for more details.
+  bool may_suppress_side_effects = false;
 
   // Copyable.
 };
@@ -735,6 +800,8 @@ class Function {
 
   const NoMatchingSignatureCallback& GetNoMatchingSignatureCallback() const;
 
+  bool HideSupportedSignatures() const;
+
   // Returns a relevant (customizable) error message for the no matching
   // function signature error condition.
   //
@@ -750,12 +817,14 @@ class Function {
   // Returns a generic error message for the no matching function signature
   // error condition.
   static const std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
-      const std::string& qualified_function_name,
+      absl::string_view qualified_function_name,
       const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
       absl::Span<const absl::string_view> argument_names = {},
       bool argument_types_on_new_line = false);
 
   const SupportedSignaturesCallback& GetSupportedSignaturesCallback() const;
+  bool HasSignatureTextCallback() const;
+  const SignatureTextCallback& GetSignatureTextCallback() const;
 
   // Returns a relevant (customizable) user facing text (to be used in error
   // message) listing supported function signatures. For example:
@@ -834,6 +903,12 @@ class Function {
   // Returns true if CLAMPED BETWEEN is allowed in the function arguments.
   // Must only be true for differential privacy functions.
   bool SupportsClampedBetweenModifier() const;
+
+  // Returns true if this function may suppress deferred side effects.
+  // See the full comment on the field's definition.
+  bool MaySuppressSideEffects() const {
+    return function_options_.may_suppress_side_effects;
+  }
 
   bool IsDeprecated() const {
     return function_options_.is_deprecated;

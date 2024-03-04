@@ -25,8 +25,10 @@
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/status_payload_matchers.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/tools/execute_query/execute_query_prompt_testutils.h"
+#include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
@@ -86,7 +88,8 @@ struct StmtPromptInput final {
 // given return values or parser errors. All inputs, return values and parser
 // errors must be consumed.
 void TestStmtPrompt(absl::Span<const StmtPromptInput> inputs,
-                    absl::Span<const ::testing::Matcher<ReadResultType>> want) {
+                    absl::Span<const ::testing::Matcher<ReadResultType>> want,
+                    const ExecuteQueryConfig* config = nullptr) {
   std::unique_ptr<ExecuteQueryStatementPrompt> prompt;
 
   auto cur_input = inputs.cbegin();
@@ -101,7 +104,11 @@ void TestStmtPrompt(absl::Span<const StmtPromptInput> inputs,
     return (cur_input++)->ret;
   };
 
-  prompt = std::make_unique<ExecuteQueryStatementPrompt>(readfunc);
+  ExecuteQueryConfig default_config;
+  if (config == nullptr) {
+    config = &default_config;
+  }
+  prompt = std::make_unique<ExecuteQueryStatementPrompt>(*config, readfunc);
 
   for (const auto& matcher : want) {
     EXPECT_THAT(prompt->Read(), matcher);
@@ -125,6 +132,29 @@ TEST(ExecuteQueryStatementPrompt, EmptyInput) {
       {
           IsOkAndHolds(std::nullopt),
       });
+}
+
+TEST(ExecuteQueryStatementPrompt, UsesOptionsFromConfig) {
+  TestStmtPrompt(
+      {
+          {.ret = "$m;"},
+      },
+      {
+          StatusIs(absl::StatusCode::kInvalidArgument,
+                   HasSubstr("Unexpected macro")),
+      });
+
+  ExecuteQueryConfig config;
+  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_MACROS);
+  TestStmtPrompt(
+      {
+          {.ret = "$m;"},
+      },
+      {
+          IsOkAndHolds("$m;"),
+      },
+      &config);
 }
 
 TEST(ExecuteQueryStatementPrompt, SingleLine) {
@@ -440,10 +470,12 @@ TEST(ExecuteQueryStatementPrompt, LargeInput) {
   const std::string large(32, 'A');
   unsigned int count = 0;
 
-  ExecuteQueryStatementPrompt prompt{[&large, &count](bool continuation) {
-    EXPECT_EQ(continuation, ++count > 1);
-    return large;
-  }};
+  ExecuteQueryConfig config;
+  ExecuteQueryStatementPrompt prompt{config,
+                                     [&large, &count](bool continuation) {
+                                       EXPECT_EQ(continuation, ++count > 1);
+                                       return large;
+                                     }};
 
   EXPECT_EQ(prompt.max_length_, ExecuteQueryStatementPrompt::kMaxLength);
 
@@ -461,13 +493,15 @@ TEST(ExecuteQueryStatementPrompt, LargeInput) {
 }
 
 TEST(ExecuteQuerySingleInputTest, ReadEmptyString) {
-  ExecuteQuerySingleInput prompt{""};
+  ExecuteQueryConfig config;
+  ExecuteQuerySingleInput prompt{"", config};
 
   EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
 }
 
 TEST(ExecuteQuerySingleInputTest, ReadMultiLine) {
-  ExecuteQuerySingleInput prompt{"test\nline; SELECT 100;"};
+  ExecuteQueryConfig config;
+  ExecuteQuerySingleInput prompt{"test\nline; SELECT 100;", config};
 
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("test\nline;"));
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 100;"));
@@ -475,7 +509,8 @@ TEST(ExecuteQuerySingleInputTest, ReadMultiLine) {
 }
 
 TEST(ExecuteQuerySingleInputTest, UnexpectedEnd) {
-  ExecuteQuerySingleInput prompt{"SELECT 99;\nSELECT"};
+  ExecuteQueryConfig config;
+  ExecuteQuerySingleInput prompt{"SELECT 99;\nSELECT", config};
 
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 99;"));
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT"));

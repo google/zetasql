@@ -160,18 +160,45 @@ std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs) {
           : "",
       ")");
 }
+std::string SignatureTextForAnonCountStarFunction() {
+  return "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])";
+}
+
+std::string SignatureTextForAnonCountStarFunction(
+    const LanguageOptions& language_options, const Function& function,
+    const FunctionSignature& signature) {
+  return SignatureTextForAnonCountStarFunction();
+}
 
 std::string SupportedSignaturesForAnonCountStarFunction(
-    const std::string& unused_function_name,
     const LanguageOptions& language_options, const Function& function) {
-  return "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])";
+  return SignatureTextForAnonCountStarFunction();
+}
+
+std::string SignatureTextForAnonCountStarWithReportFunction(
+    const std::string& report_format) {
+  return absl::StrCat(
+      "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH "
+      "REPORT(FORMAT=",
+      report_format, "))");
+}
+
+std::string SignatureTextForAnonCountStarWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function, const FunctionSignature& signature) {
+  return SignatureTextForAnonCountStarWithReportFunction(report_format);
 }
 
 std::string SupportedSignaturesForAnonCountStarWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function) {
+  return SignatureTextForAnonCountStarWithReportFunction(report_format);
+}
+
+std::string SignatureTextForAnonQuantilesWithReportFunction(
+    const std::string& report_format) {
   return absl::StrCat(
-      "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH "
+      "ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH "
       "REPORT(FORMAT=",
       report_format, "))");
 }
@@ -179,10 +206,13 @@ std::string SupportedSignaturesForAnonCountStarWithReportFunction(
 std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function) {
-  return absl::StrCat(
-      "ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH "
-      "REPORT(FORMAT=",
-      report_format, "))");
+  return SignatureTextForAnonQuantilesWithReportFunction(report_format);
+}
+
+std::string SignatureTextForAnonQuantilesWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function, const FunctionSignature& signature) {
+  return SignatureTextForAnonQuantilesWithReportFunction(report_format);
 }
 
 std::string AnonSumWithReportJsonFunctionSQL(
@@ -310,11 +340,23 @@ std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
   return absl::StrCat(inputs[0], " LIKE ANY (", absl::StrJoin(like_list, ", "),
                       ")");
 }
+std::string NotLikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
+  ABSL_DCHECK_GT(inputs.size(), 1);
+  std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
+  return absl::StrCat(inputs[0], "NOT LIKE ALL (",
+                      absl::StrJoin(like_list, ", "), ")");
+}
 std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
   return absl::StrCat(inputs[0], " LIKE ALL (", absl::StrJoin(like_list, ", "),
                       ")");
+}
+std::string NotLikeAllFunctionSQL(const std::vector<std::string>& inputs) {
+  ABSL_DCHECK_GT(inputs.size(), 1);
+  std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
+  return absl::StrCat(inputs[0], "NOT LIKE ALL (",
+                      absl::StrJoin(like_list, ", "), ")");
 }
 std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_GE(inputs.size(), 2);
@@ -354,9 +396,17 @@ std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ANY UNNEST(", inputs[1], ")");
 }
+std::string NotLikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs) {
+  ABSL_DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], " NOT LIKE ANY UNNEST(", inputs[1], ")");
+}
 std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], " LIKE ALL UNNEST(", inputs[1], ")");
+}
+std::string NotLikeAllArrayFunctionSQL(const std::vector<std::string>& inputs) {
+  ABSL_DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], " NOT LIKE ALL UNNEST(", inputs[1], ")");
 }
 std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
   if (std::find_if(input.begin(), input.end(),
@@ -1299,11 +1349,6 @@ std::string NoMatchingSignatureForSubscript(
                     arguments[0].UserFacingName(product_mode));
   }
   return msg;
-}
-
-std::string EmptySupportedSignatures(const LanguageOptions& language_options,
-                                     const Function& function) {
-  return std::string();
 }
 
 absl::Status CheckArgumentsSupportEquality(

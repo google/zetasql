@@ -49,6 +49,7 @@ class ResolvedColumn {
   // Default constructor makes an uninitialized ResolvedColumn.
   ResolvedColumn() = default;
   ResolvedColumn(const ResolvedColumn&) = default;
+  ResolvedColumn& operator=(const ResolvedColumn&) = default;
 
   // Construct a ResolvedColumn with the given <column_id> and <type>.
   // <table_name> and <name> are for display only, have no defined meaning and

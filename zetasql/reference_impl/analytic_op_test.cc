@@ -235,7 +235,7 @@ std::ostream& operator<<(std::ostream& out,
 }
 
 std::vector<const TupleData*> GetTupleDataPtrs(
-    const std::vector<TupleData>& tuples) {
+    absl::Span<const TupleData> tuples) {
   std::vector<const TupleData*> ptrs;
   ptrs.reserve(tuples.size());
   for (const TupleData& tuple : tuples) {
@@ -1759,10 +1759,10 @@ class AnalyticWindowTest
 
   // Adjusts <window> by removing tuples with ids in <ids_to_remove>.
   // The tuple ids in <ids_to_remove> must be in the ascending order.
-  static AnalyticWindow RemoveFromWindow(const std::vector<int>& ids_to_remove,
+  static AnalyticWindow RemoveFromWindow(absl::Span<const int> ids_to_remove,
                                          const AnalyticWindow& window);
 
-  static std::string ToString(const std::vector<AnalyticWindow>& windows) {
+  static std::string ToString(absl::Span<const AnalyticWindow> windows) {
     std::string ret("{");
     for (const AnalyticWindow& window : windows) {
       absl::StrAppend(&ret, "[", window.start_tuple_id, ",", window.num_tuples,
@@ -1894,7 +1894,7 @@ Value AnalyticWindowTest::CreateNaNOrZero(TypeKind type_kind) {
 }
 
 AnalyticWindow AnalyticWindowTest::RemoveFromWindow(
-    const std::vector<int>& ids_to_remove, const AnalyticWindow& window) {
+    absl::Span<const int> ids_to_remove, const AnalyticWindow& window) {
   if (window.num_tuples == 0) {
     return window;
   }
@@ -3220,7 +3220,7 @@ INSTANTIATE_TEST_SUITE_P(AnalyticWindowInfinityOffsetTest,
 // Appends a new <var> column to <vars> and to the end of each tuple.
 // <column_values> provides the values of the new column, and
 // corresponds 1:1 with <tuples>.
-void AddColumn(const VariableId& var, const std::vector<Value>& column_values,
+void AddColumn(const VariableId& var, absl::Span<const Value> column_values,
                std::vector<VariableId>* vars, std::vector<TupleData>* tuples) {
   vars->push_back(var);
   ABSL_CHECK_EQ(tuples->size(), column_values.size());

@@ -30,6 +30,7 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -121,7 +122,7 @@ inline absl::StatusOr<std::vector<TupleData>> ReadFromTupleIterator(
 // Returns a TupleData corresponding to 'values' where all slots have trivial
 // SharedProtoStates, which are also added to 'shared_states' if it is non-NULL.
 inline TupleData CreateTestTupleData(
-    const std::vector<Value>& values,
+    absl::Span<const Value> values,
     std::vector<const TupleSlot::SharedProtoState*>* shared_states = nullptr) {
   TupleData data(values.size());
   if (shared_states != nullptr) {
@@ -140,7 +141,7 @@ inline TupleData CreateTestTupleData(
 // Returns a std::vector<TupleData> corresponding to 'values' where all slots
 // have empty maps, which are also added to 'shared_states' if it is non-NULL
 inline std::vector<TupleData> CreateTestTupleDatas(
-    const std::vector<std::vector<Value>>& values,
+    absl::Span<const std::vector<Value>> values,
     std::vector<std::vector<const TupleSlot::SharedProtoState*>>*
         shared_states = nullptr) {
   std::vector<TupleData> datas;

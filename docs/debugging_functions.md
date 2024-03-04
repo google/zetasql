@@ -67,9 +67,16 @@ ERROR(error_message)
 
 **Description**
 
-Returns an error. The `error_message` argument is a `STRING`.
+Returns an error.
 
-ZetaSQL treats `ERROR` in the same way as any expression that may
+**Definitions**
+
++   `error_message`: A `STRING` value that represents the error message to
+    produce.
+
+**Details**
+
+`ERROR` is treated like any other expression that may
 result in an error: there is no special guarantee of evaluation order.
 
 **Return Data Type**
@@ -367,6 +374,7 @@ SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 ```sql
 NULLIFERROR(try_expression)
 ```
+
 **Description**
 
 Evaluates `try_expression`.

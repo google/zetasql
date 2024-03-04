@@ -38,10 +38,12 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -433,6 +435,26 @@ absl::StatusOr<Value> GetValueSortKey(const Value& value,
   ZETASQL_RETURN_IF_ERROR(collator.GetSortKeyUtf8(value.string_value(), &sort_key));
   return values::Bytes(sort_key);
 }
+
+bool IsGroupingFunction(const AggregateFunctionCallExpr* func_expr) {
+  ABSL_DCHECK(func_expr != nullptr);
+  const BuiltinAggregateFunction* builtin_func =
+      dynamic_cast<const BuiltinAggregateFunction*>(func_expr->function());
+  if (builtin_func != nullptr) {
+    return builtin_func->kind() == FunctionKind::kGrouping;
+  }
+  return false;
+}
+
+// A struct holding the accumulator and other additional information about the
+// current aggregate arg.
+struct AggregateArgAccumulatorParam {
+  // The accumulator for the current aggregate_arg.
+  std::unique_ptr<AggregateArgAccumulator> accumulator;
+  bool stop_bit;
+  // Whether the current aggregate_arg is a grouping function call.
+  bool is_grouping_function;
+};
 
 }  // namespace
 
@@ -908,6 +930,55 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
   EvaluationContext* context_;
 };
 
+// An accumulator for GROUPING function.
+// Regular aggregate functions only consume the evaluated arguments, which is an
+// implementation of AggregateAccumulator. The argument of GROUPING function is
+// just a const key index, it also needs to consume the input rows to calculate
+// the final result 0 or 1, so it's an implementation of the interface
+// IntermediateAggregateAccumulator. The input_row of
+// GroupingAggregateArgAccumulator is a specially-built TupleData, where
+// input_row[i] represents the result of grouping call at index i.
+class GroupingAggregateArgAccumulator
+    : public IntermediateAggregateAccumulator {
+ public:
+  GroupingAggregateArgAccumulator() = default;
+
+  absl::Status Reset() override {
+    grouping_value_ = -1;
+    return absl::OkStatus();
+  }
+
+  bool Accumulate(const TupleData& input_row, const Value& value,
+                  bool* stop_accumulation, absl::Status* status) override {
+    // The argument of GROUPING function is the key index of the grouping key.
+    ABSL_DCHECK_EQ(value.type(), types::Int64Type());
+    int key_index = static_cast<int>(value.int64_value());
+    ABSL_DCHECK_LT(key_index, input_row.num_slots());
+    ABSL_DCHECK_GE(key_index, 0);
+
+    grouping_value_ = input_row.slot(key_index).value().int64_value();
+    // Sanity check. The output of grouping function can be either 0 or 1.
+    ABSL_DCHECK(grouping_value_ == 0 || grouping_value_ == 1);
+    // The output of GROUPING function has the same value within the same group,
+    // so we can skip the following accumulations.
+    *stop_accumulation = true;
+    return true;
+  }
+
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+    // Sanity check.
+    if (grouping_value_ == 0 || grouping_value_ == 1) {
+      return Value::Int64(grouping_value_);
+    }
+    return absl::InternalError(
+        absl::StrFormat("Unexpected grouping_value: %d", grouping_value_));
+  }
+
+ private:
+  // set an initial invalid value for the grouping result.
+  int64_t grouping_value_ = -1;
+};
+
 }  // namespace
 
 static absl::Status PopulateSlotsForKeysAndValues(
@@ -950,17 +1021,29 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   }
   ZETASQL_ASSIGN_OR_RETURN(CollatorList collator_list,
                    MakeCollatorList(collation_list()));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> underlying_accumulator,
-                   aggregate_function()->function()->CreateAccumulator(
-                       args, std::move(collator_list), context));
 
-  // Adapt the underlying AggregateAccumulator to the
-  // IntermediateAggregateAccumulator interface so that we can stack other
-  // intermediate accumulators on top of it.
-  std::unique_ptr<IntermediateAggregateAccumulator> accumulator =
-      std::make_unique<AggregateAccumulatorAdaptor>(
-          aggregate_function()->output_type(), error_mode_,
-          std::move(underlying_accumulator));
+  std::unique_ptr<IntermediateAggregateAccumulator> accumulator;
+
+  // Creates a special accumulator for GROUPING function aggregator. Other
+  // aggregators use the AggregateAccumulator as underlying accumulator which
+  // only accumulates the argument value. GROUPING function is different, its
+  // argument is just a key index, and the aggregated result will be calculated
+  // based on the both input rows and the key index. So we need create a special
+  // accumulator for it.
+  if (IsGroupingFunction(aggregate_function())) {
+    accumulator = std::make_unique<GroupingAggregateArgAccumulator>();
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<AggregateAccumulator> underlying_accumulator,
+        aggregate_function()->function()->CreateAccumulator(
+            args, std::move(collator_list), context));
+    // Adapt the underlying AggregateAccumulator to the
+    // IntermediateAggregateAccumulator interface so that we can stack other
+    // intermediate accumulators on top of it.
+    accumulator = std::make_unique<AggregateAccumulatorAdaptor>(
+        aggregate_function()->output_type(), error_mode_,
+        std::move(underlying_accumulator));
+  }
 
   const TupleSchema* agg_fn_input_schema = group_schema_.get();
   std::unique_ptr<const TupleSchema> group_rows_schema;
@@ -1244,12 +1327,13 @@ std::string AggregateOp::GetIteratorDebugString(
 absl::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
     std::vector<std::unique_ptr<KeyArg>> keys,
     std::vector<std::unique_ptr<AggregateArg>> aggregators,
-    std::unique_ptr<RelationalOp> input) {
+    std::unique_ptr<RelationalOp> input, std::vector<int64_t> grouping_sets) {
   for (auto& arg : keys) {
     ZETASQL_RETURN_IF_ERROR(ValidateTypeSupportsEqualityComparison(arg->type()));
   }
-  return absl::WrapUnique(new AggregateOp(
-      std::move(keys), std::move(aggregators), std::move(input)));
+  return absl::WrapUnique(
+      new AggregateOp(std::move(keys), std::move(aggregators), std::move(input),
+                      std::move(grouping_sets)));
 }
 
 absl::Status AggregateOp::SetSchemasForEvaluation(
@@ -1334,8 +1418,7 @@ class AggregateTupleIterator : public TupleIterator {
 
 // The bool is true if we should stop accumulation for the corresponding
 // accumulator.
-using AccumulatorList =
-    std::vector<std::pair<std::unique_ptr<AggregateArgAccumulator>, bool>>;
+using AccumulatorList = std::vector<AggregateArgAccumulatorParam>;
 
 // The data associated with a grouping key during aggregation.
 class GroupValue {
@@ -1488,6 +1571,23 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   UnorderedArrayCollisionTracker unordered_array_collision_tracker;
 
   absl::Status status;
+  std::vector<int64_t> grouping_sets = grouping_sets_;
+  bool has_grouping_sets = !grouping_sets.empty();
+  // The number of keys in AggregateOp.
+  int key_size = static_cast<int>(keys().size());
+  // The number of actual keys used for grouping. For grouping sets, we group by
+  // an extra key - grouping set offset.
+  int grouping_key_size = has_grouping_sets ? key_size + 1 : key_size;
+  // To simplify the code below, when it's a regular group by query without
+  // GROUPING SETS/CUBE/ROLLUP, we also convert the group-by keys to a grouping
+  // set id with value -1. Theoretically we can use (1 << n) - 1 to represent
+  // GROUP BY key1, key2, ..., keyn. However this will add a limitation to the
+  // regular group by query that it can have at most 63 keys. It's guaranteed a
+  // grouping set id from grouping set query will be always positive.
+  constexpr int64_t kNoGroupingSetId = -1;
+  if (grouping_sets.empty()) {
+    grouping_sets.push_back(kNoGroupingSetId);
+  }
   while (true) {
     const TupleData* next_input = input_iter->Next();
     if (next_input == nullptr) {
@@ -1495,96 +1595,142 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
       break;
     }
 
-    // Determine the key to 'group_to_accumulator_map'.
-    const std::vector<const TupleData*> params_and_input_tuple =
-        ConcatSpans(params, {next_input});
-    auto key_data = std::make_unique<TupleData>(keys().size());
-    // If collator is present for <key_data[i]>, <collated_key_data[i]> is
-    // collation_key for value of <key_data[i]>. Otherwise,
-    // <collated_key_data[i]> is the same as <key_data[i]>.
-    auto collated_key_data = std::make_unique<TupleData>(keys().size());
+    for (int offset = 0; offset < grouping_sets.size(); ++offset) {
+      int64_t grouping_set = grouping_sets[offset];
+      // This means the grouping set id is from a grouping sets/rollup/cube
+      // query, rather than a regular query.
+      bool is_grouping_set = grouping_set != kNoGroupingSetId;
+      // Determine the key to 'group_to_accumulator_map'.
+      const std::vector<const TupleData*> params_and_input_tuple =
+          ConcatSpans(params, {next_input});
+      // When it's a grouping set query,  We also need to group by an additional
+      // grouping set offset to allow duplicated grouping sets in the query. In
+      // this case, it's guaranteed the last key is always the offset.
+      auto key_data = std::make_unique<TupleData>(grouping_key_size);
+      // If collator is present for <key_data[i]>, <collated_key_data[i]> is
+      // collation_key for value of <key_data[i]>. Otherwise,
+      // <collated_key_data[i]> is the same as <key_data[i]>.
+      auto collated_key_data = std::make_unique<TupleData>(grouping_key_size);
+      // If GROUPING function call is present in the AggregateOp, it needs a
+      // special input data with only 0 or 1 when conducting aggregation, rather
+      // than the original input rows. grouping_value_data[i] is 0 if the key at
+      // index is in the current grouping set, otherwise its value is 1. The
+      // grouping accumulator will calculate the output of the GROUPING function
+      // with this input data and its argument key index. Basically the
+      // accumulator just returns grouping_value_data.slot(key_index).
+      auto grouping_value_data = std::make_unique<TupleData>(grouping_key_size);
 
-    for (int i = 0; i < keys().size(); ++i) {
-      TupleSlot* slot = key_data->mutable_slot(i);
-      const KeyArg* key = keys()[i];
-      absl::Status status;
-      if (!key->value_expr()->EvalSimple(params_and_input_tuple, context, slot,
-                                         &status)) {
-        return status;
+      for (int i = 0; i < key_size; ++i) {
+        TupleSlot* slot = key_data->mutable_slot(i);
+        const KeyArg* key = keys()[i];
+        absl::Status status;
+        if (!key->value_expr()->EvalSimple(params_and_input_tuple, context,
+                                           slot, &status)) {
+          return status;
+        }
+        // If the group by key is not in the current grouping set, then the
+        // value contributed to aggregation will be NULL, and the grouping call
+        // output is 1. The logic here assumes the key orders won't be changed.
+        if (is_grouping_set && (grouping_set & (1ull << i)) == 0) {
+          // The current grouping set doesn't contains keys[i].
+          slot->SetValue(Value::Null(key->type()));
+          grouping_value_data->mutable_slot(i)->SetValue(Value::Int64(1));
+        } else {
+          // The current grouping set contains keys[i] or it's a regular group
+          // by query.
+          grouping_value_data->mutable_slot(i)->SetValue(Value::Int64(0));
+        }
+
+        if (  // Once we know the query is known to be non-deterministic, we
+              // short-circuit to avoid any overhead from non-determinism
+              // detection.
+            context->IsDeterministicOutput() &&
+            unordered_array_collision_tracker
+                .CouldIndicateNondetermisticGrouping(i, slot->value()) &&
+            // On the first row we know it is not real non-determinism yet.
+            !group_map.empty()) {
+          context->SetNonDeterministicOutput();
+        }
+
+        Value* collated_slot_value =
+            collated_key_data->mutable_slot(i)->mutable_value();
+        if (collators[i] == nullptr) {
+          *collated_slot_value = slot->value();
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(*collated_slot_value,
+                           GetValueSortKey(slot->value(), *(collators[i])));
+        }
+      }
+      if (is_grouping_set) {
+        ZETASQL_RET_CHECK_EQ(grouping_key_size, key_size + 1);
+        // Add the offset to the group by key list.
+        key_data->mutable_slot(key_size)->SetValue(Value::Int32(offset));
+        collated_key_data->mutable_slot(key_size)->SetValue(
+            Value::Int32(offset));
       }
 
-      if (  // Once we know the query is known to be non-deterministic, we
-            // short-circuit to avoid any overhead from non-determinism
-            // detection.
-          context->IsDeterministicOutput() &&
-          unordered_array_collision_tracker.CouldIndicateNondetermisticGrouping(
-              i, slot->value()) &&
-          // On the first row we know it is not real non-determinism yet.
-          !group_map.empty()) {
-        context->SetNonDeterministicOutput();
-      }
+      // Look up the value in 'group_to_accumulator_map', initializing a new
+      // one if necessary.
+      AccumulatorList* accumulators = nullptr;
+      std::unique_ptr<GroupValue>* found_group_value =
+          zetasql_base::FindOrNull(group_map, TupleDataPtr(collated_key_data.get()));
+      if (found_group_value == nullptr) {
+        // Create the new GroupValue.
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<GroupValue> inserted_group_value,
+                         GroupValue::Create(std::move(key_data),
+                                            context->memory_accountant()));
 
-      Value* collated_slot_value =
-          collated_key_data->mutable_slot(i)->mutable_value();
-      if (collators[i] == nullptr) {
-        *collated_slot_value = slot->value();
+        // Initialize the accumulators.
+        accumulators = inserted_group_value->mutable_accumulator_list();
+        accumulators->reserve(aggregators().size());
+        for (const AggregateArg* aggregator : aggregators()) {
+          AggregateArgAccumulatorParam accumulator_param;
+          ZETASQL_ASSIGN_OR_RETURN(accumulator_param.accumulator,
+                           aggregator->CreateAccumulator(params, context));
+          accumulator_param.is_grouping_function =
+              IsGroupingFunction(aggregator->aggregate_function());
+          accumulator_param.stop_bit = false;
+          accumulators->push_back(std::move(accumulator_param));
+        }
+
+        // Insert the new GroupValue.
+        ZETASQL_RET_CHECK(group_map
+                      .emplace(TupleDataPtr(collated_key_data.get()),
+                               std::move(inserted_group_value))
+                      .second);
+        group_map_keys_memory.push_back(std::move(collated_key_data));
       } else {
-        ZETASQL_ASSIGN_OR_RETURN(*collated_slot_value,
-                         GetValueSortKey(slot->value(), *(collators[i])));
-      }
-    }
-
-    // Look up the value in 'group_to_accumulator_map', initializing a new one
-    // if necessary.
-    AccumulatorList* accumulators = nullptr;
-    std::unique_ptr<GroupValue>* found_group_value =
-        zetasql_base::FindOrNull(group_map, TupleDataPtr(collated_key_data.get()));
-    if (found_group_value == nullptr) {
-      // Create the new GroupValue.
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<GroupValue> inserted_group_value,
-                       GroupValue::Create(std::move(key_data),
-                                          context->memory_accountant()));
-
-      // Initialize the accumulators.
-      accumulators = inserted_group_value->mutable_accumulator_list();
-      accumulators->reserve(aggregators().size());
-      for (const AggregateArg* aggregator : aggregators()) {
-        std::pair<std::unique_ptr<AggregateArgAccumulator>, bool>
-            accumulator_and_stop_bit;
-        ZETASQL_ASSIGN_OR_RETURN(accumulator_and_stop_bit.first,
-                         aggregator->CreateAccumulator(params, context));
-        accumulators->push_back(std::move(accumulator_and_stop_bit));
+        accumulators = (*found_group_value)->mutable_accumulator_list();
+        key_data.reset();
+        collated_key_data.reset();
+        grouping_value_data.reset();
       }
 
-      // Insert the new GroupValue.
-      ZETASQL_RET_CHECK(group_map
-                    .emplace(TupleDataPtr(collated_key_data.get()),
-                             std::move(inserted_group_value))
-                    .second);
-      group_map_keys_memory.push_back(std::move(collated_key_data));
-    } else {
-      accumulators = (*found_group_value)->mutable_accumulator_list();
-      key_data.reset();
-      collated_key_data.reset();
-    }
-
-    // Accumulate.
-    ZETASQL_RET_CHECK_EQ(accumulators->size(), aggregators().size());
-    bool all_accumulators_stopped = true;
-    for (auto& accumulator_and_stop_bit : *accumulators) {
-      bool& stop_bit = accumulator_and_stop_bit.second;
-      if (stop_bit) continue;
-      if (!accumulator_and_stop_bit.first->Accumulate(*next_input, &stop_bit,
-                                                      &status)) {
-        return status;
+      // Accumulate.
+      ZETASQL_RET_CHECK_EQ(accumulators->size(), aggregators().size());
+      bool all_accumulators_stopped = true;
+      for (auto& accumulator_param : *accumulators) {
+        bool& stop_bit = accumulator_param.stop_bit;
+        if (stop_bit) continue;
+        // When GROUPING function call is present in the current AggregateOp, we
+        // need to replace the input rows to the special grouping_value_data
+        // which contains either 0 or 1 for each key index.
+        const TupleData* actual_next_input = next_input;
+        if (accumulator_param.is_grouping_function) {
+          actual_next_input = grouping_value_data.get();
+        }
+        if (!accumulator_param.accumulator->Accumulate(*actual_next_input,
+                                                       &stop_bit, &status)) {
+          return status;
+        }
+        if (!stop_bit) all_accumulators_stopped = false;
       }
-      if (!stop_bit) all_accumulators_stopped = false;
-    }
 
-    if (all_accumulators_stopped && keys().empty()) {
-      // We are doing full aggregation and all the accumulators have stopped, we
-      // can stop reading the input.
-      break;
+      if (all_accumulators_stopped && keys().empty()) {
+        // We are doing full aggregation and all the accumulators have stopped,
+        // we can stop reading the input.
+        break;
+      }
     }
   }
 
@@ -1600,10 +1746,10 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     tuple->AddSlots(accumulators.size() + num_extra_slots);
 
     for (int i = 0; i < accumulators.size(); ++i) {
-      AggregateArgAccumulator& accumulator = *accumulators[i].first;
+      AggregateArgAccumulator& accumulator = *accumulators[i].accumulator;
       ZETASQL_ASSIGN_OR_RETURN(Value value, accumulator.GetFinalResult(
                                         /*inputs_in_defined_order=*/false));
-      tuple->mutable_slot(keys().size() + i)->SetValue(value);
+      tuple->mutable_slot(grouping_key_size + i)->SetValue(value);
     }
     // This can free up considerable memory. E.g., for STRING_AGG.
     accumulators.clear();
@@ -1652,14 +1798,36 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   // (which are based on purely textual matching). It can also break some user
   // tests.
   std::vector<int> slots_for_keys;
-  slots_for_keys.reserve(keys().size());
-  for (int i = 0; i < keys().size(); ++i) {
+  slots_for_keys.reserve(key_size);
+  for (int i = 0; i < key_size; ++i) {
     slots_for_keys.push_back(i);
+  }
+  std::vector<int> extra_slots_for_keys;
+  // If the AggregateOp contains grouping sets, then also sort the tuple with
+  // the extra grouping set offset value. The slot index is key_size.
+  if (has_grouping_sets) {
+    extra_slots_for_keys.push_back(key_size);
   }
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleComparator> tuple_comparator,
-      TupleComparator::Create(keys(), slots_for_keys, params, context));
+      TupleComparator::Create(keys(), slots_for_keys, extra_slots_for_keys,
+                              params, context));
   tuples->Sort(*tuple_comparator, context->options().always_use_stable_sort);
+
+  // We need to remove the extra grouping key "offset" from the tuples. It's
+  // only used internally for grouping and sorting, won't expose to other
+  // operators.
+  if (has_grouping_sets) {
+    int64_t tuple_size = tuples->GetSize();
+    for (int64_t i = 0; i < tuple_size; ++i) {
+      std::unique_ptr<TupleData> tuple = tuples->PopFront();
+      // The extra grouping key is at index key_size.
+      tuple->RemoveSlotAt(key_size);
+      if (!tuples->PushBack(std::move(tuple), &status)) {
+        return status;
+      }
+    }
+  }
 
   auto input_schema =
       std::make_unique<TupleSchema>(input_iter->Schema().variables());
@@ -1689,18 +1857,33 @@ std::string AggregateOp::IteratorDebugString() const {
 
 std::string AggregateOp::DebugInternal(const std::string& indent,
                                        bool verbose) const {
-  return absl::StrCat("AggregateOp(",
-                      ArgDebugString({"keys", "aggregators", "input"},
-                                     {kN, kN, k1}, indent, verbose),
-                      ")");
+  bool has_grouping_sets = !grouping_sets_.empty();
+  std::string args_debug_string = ArgDebugString(
+      {"keys", "aggregators", "input"}, {kN, kN, k1}, indent, verbose,
+      /*more_children=*/has_grouping_sets);
+  // Only append grouping_sets debug string to AggregateOp when it's not empty.
+  std::string grouping_sets_debug_string = "";
+  if (has_grouping_sets) {
+    grouping_sets_debug_string = absl::StrCat(
+        indent, kIndentFork, "grouping_sets: [",
+        absl::StrJoin(grouping_sets_, ",",
+                      [](std::string* out, int64_t grouping_set) {
+                        absl::StrAppend(out, "0x", absl::Hex(grouping_set));
+                      }),
+        "]");
+  }
+  return absl::StrCat("AggregateOp(", args_debug_string,
+                      grouping_sets_debug_string, ")");
 }
 
 AggregateOp::AggregateOp(std::vector<std::unique_ptr<KeyArg>> keys,
                          std::vector<std::unique_ptr<AggregateArg>> aggregators,
-                         std::unique_ptr<RelationalOp> input) {
+                         std::unique_ptr<RelationalOp> input,
+                         std::vector<int64_t> grouping_sets) {
   SetArgs<KeyArg>(kKey, std::move(keys));
   SetArgs<AggregateArg>(kAggregator, std::move(aggregators));
   SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  grouping_sets_ = grouping_sets;
 }
 
 absl::Span<const KeyArg* const> AggregateOp::keys() const {
@@ -1725,6 +1908,10 @@ const RelationalOp* AggregateOp::input() const {
 
 RelationalOp* AggregateOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
+}
+
+absl::Span<const int64_t> AggregateOp::grouping_sets() const {
+  return absl::MakeSpan(grouping_sets_);
 }
 
 //  static

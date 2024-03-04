@@ -203,26 +203,29 @@ absl::StatusOr<std::string> StructType::TypeNameImpl(
   return ret;
 }
 
-std::string StructType::ShortTypeName(ProductMode mode) const {
+std::string StructType::ShortTypeName(ProductMode mode,
+                                      bool use_external_float32) const {
   // Limit the output to three struct fields to avoid long error messages.
   const int field_limit = 3;
   const auto field_debug_fn = [=](const zetasql::Type* type,
                                   int field_index) {
-    return type->ShortTypeName(mode);
+    return type->ShortTypeName(mode, use_external_float32);
   };
   return TypeNameImpl(field_limit, field_debug_fn).value();
 }
 
-std::string StructType::TypeName(ProductMode mode) const {
+std::string StructType::TypeName(ProductMode mode,
+                                 bool use_external_float32) const {
   const auto field_debug_fn = [=](const zetasql::Type* type,
                                   int field_index) {
-    return type->TypeName(mode);
+    return type->TypeName(mode, use_external_float32);
   };
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn).value();
 }
 
 absl::StatusOr<std::string> StructType::TypeNameWithModifiers(
-    const TypeModifiers& type_modifiers, ProductMode mode) const {
+    const TypeModifiers& type_modifiers, ProductMode mode,
+    bool use_external_float32) const {
   const TypeParameters& type_params = type_modifiers.type_parameters();
   if (!type_params.IsEmpty() && (type_params.num_children() != num_fields())) {
     return MakeSqlError()
@@ -241,7 +244,7 @@ absl::StatusOr<std::string> StructType::TypeNameWithModifiers(
             type_params.IsEmpty() ? TypeParameters()
                                   : type_params.child(field_index),
             collation.Empty() ? Collation() : collation.child(field_index)),
-        mode);
+        mode, use_external_float32);
   };
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
 }
@@ -249,7 +252,7 @@ absl::StatusOr<std::string> StructType::TypeNameWithModifiers(
 absl::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
-  return MakeSqlError() << ShortTypeName(mode)
+  return MakeSqlError() << ShortTypeName(mode, /*use_external_float32=*/false)
                         << " type cannot have type parameters by itself, it "
                            "can only have type parameters on its struct fields";
 }
@@ -539,7 +542,8 @@ std::string StructType::GetFormatPrefix(
       prefix.push_back('(');
       break;
     case Type::FormatValueContentOptions::Mode::kSQLExpression:
-      prefix.append(TypeName(options.product_mode));
+      prefix.append(
+          TypeName(options.product_mode, options.use_external_float32));
       prefix.push_back('(');
       break;
   }

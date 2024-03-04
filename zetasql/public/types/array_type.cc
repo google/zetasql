@@ -271,16 +271,21 @@ absl::Status ArrayType::SerializeToProtoAndDistinctFileDescriptorsImpl(
       file_descriptor_set_map);
 }
 
-std::string ArrayType::ShortTypeName(ProductMode mode) const {
-  return absl::StrCat("ARRAY<", element_type_->ShortTypeName(mode), ">");
+std::string ArrayType::ShortTypeName(ProductMode mode,
+                                     bool use_external_float32) const {
+  return absl::StrCat(
+      "ARRAY<", element_type_->ShortTypeName(mode, use_external_float32), ">");
 }
 
-std::string ArrayType::TypeName(ProductMode mode) const {
-  return absl::StrCat("ARRAY<", element_type_->TypeName(mode), ">");
+std::string ArrayType::TypeName(ProductMode mode,
+                                bool use_external_float32) const {
+  return absl::StrCat("ARRAY<",
+                      element_type_->TypeName(mode, use_external_float32), ">");
 }
 
 absl::StatusOr<std::string> ArrayType::TypeNameWithModifiers(
-    const TypeModifiers& type_modifiers, ProductMode mode) const {
+    const TypeModifiers& type_modifiers, ProductMode mode,
+    bool use_external_float32) const {
   const TypeParameters& type_params = type_modifiers.type_parameters();
   if (!type_params.IsEmpty() && type_params.num_children() != 1) {
     return MakeSqlError()
@@ -299,14 +304,14 @@ absl::StatusOr<std::string> ArrayType::TypeNameWithModifiers(
           TypeModifiers::MakeTypeModifiers(
               type_params.IsEmpty() ? TypeParameters() : type_params.child(0),
               collation.Empty() ? Collation() : collation.child(0)),
-          mode));
+          mode, use_external_float32));
   return absl::StrCat("ARRAY<", element_type_name, ">");
 }
 
 absl::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
-  return MakeSqlError() << ShortTypeName(mode)
+  return MakeSqlError() << ShortTypeName(mode, /*use_external_float32=*/false)
                         << " type cannot have type parameters by itself, it "
                            "can only have type parameters on its element type";
 }
@@ -555,7 +560,8 @@ std::string ArrayType::GetFormatPrefix(
       break;
     }
     case Type::FormatValueContentOptions::Mode::kSQLExpression: {
-      prefix.append(TypeName(options.product_mode));
+      prefix.append(
+          TypeName(options.product_mode, options.use_external_float32));
       prefix.push_back('[');
       break;
     }

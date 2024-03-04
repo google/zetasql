@@ -21,15 +21,23 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/templated_sql_tvf.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/testdata/sample_catalog.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
+using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
 TEST(ResolvedTVFArgTest, GetScan) {
@@ -70,6 +78,51 @@ TEST(GetAliasForExpression, OtherASTNodeTypes) {
   ZETASQL_ASSERT_OK(ParseExpression("(SELECT 1)", ParserOptions{LanguageOptions{}},
                             &parser_output));
   EXPECT_EQ(GetAliasForExpression(parser_output->expression()).ToString(), "");
+}
+
+class IsConstantTest : public ::testing::Test {
+ protected:
+  IsConstantTest() {
+    options_.mutable_language()->EnableMaximumLanguageFeaturesForDevelopment();
+  }
+
+  absl::Status Analyze(absl::string_view sql) {
+    return AnalyzeExpression(sql, options_, catalog_.catalog(), &type_factory_,
+                             &output_);
+  }
+
+  const ResolvedExpr* result() { return output_->resolved_expr(); }
+
+  std::unique_ptr<const AnalyzerOutput> output_;
+  TypeFactory type_factory_;
+  SampleCatalog catalog_;
+  AnalyzerOptions options_;
+};
+
+TEST_F(IsConstantTest, StackOCasts) {
+  ZETASQL_ASSERT_OK(Analyze(
+      "CAST(CAST(CAST(CAST(CAST('apples' AS BYTES) AS STRING) AS BYTES) AS "
+      "STRING) AS BYTES)"));
+  EXPECT_THAT(IsConstantExpression(result()), IsOkAndHolds(true));
+  EXPECT_THAT(IsConstantFunctionArg(result()), IsOkAndHolds(true));
+  EXPECT_THAT(IsNonAggregateFunctionArg(result()), IsOkAndHolds(true));
+}
+
+TEST_F(IsConstantTest, VolatileExpr) {
+  ZETASQL_ASSERT_OK(Analyze("IF(RAND() > 0.5, 'bananas', 'avocados')"));
+  EXPECT_THAT(IsConstantExpression(result()), IsOkAndHolds(false));
+  EXPECT_THAT(IsConstantFunctionArg(result()), IsOkAndHolds(false));
+  EXPECT_THAT(IsNonAggregateFunctionArg(result()), IsOkAndHolds(false));
+}
+
+TEST_F(IsConstantTest, CastWithFormat) {
+  ZETASQL_ASSERT_OK(
+      Analyze("CAST('apples' AS BYTES "
+              "FORMAT IF(RAND() > 0.5, 'bananas', 'avocados'))"));
+  // TODO: These results should be 'false'.
+  EXPECT_THAT(IsConstantExpression(result()), IsOkAndHolds(true));
+  EXPECT_THAT(IsConstantFunctionArg(result()), IsOkAndHolds(true));
+  EXPECT_THAT(IsNonAggregateFunctionArg(result()), IsOkAndHolds(true));
 }
 
 }  // namespace zetasql

@@ -39,9 +39,9 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls    (NextId: 302)
+  // 0002-0999 Non-standard function calls    (NextId: 310)
   // 1000-1099 String functions               (NextId: 1083)
-  // 1100-1199 Control flow functions         (NextId: 1107)
+  // 1100-1199 Control flow functions         (NextId: 1108)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
   // 1400-1499 Aggregate functions I          (Fully used)
@@ -50,14 +50,15 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2092)
+  // 2000-2199 Geography functions            (NextId: 2095)
   // 2200-2231 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric, more math & distances (NextId: 2355)
+  // 2300-2499 Numeric, more math & distances (NextId: 2381)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2622)
-  // 2700-2799 Aggregate functions II         (NextId: 2746)
+  // 2600-2699 More misc functions.           (NextId: 2627)
+  // 2700-2799 Aggregate functions II         (NextId: 2764)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2921)
+  // 3000-3100 Map functions                  (NextId: 3001)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -107,6 +108,14 @@ enum FunctionSignatureId {
   FN_BYTE_LIKE = 98;                       // $like
   FN_BYTE_LIKE_ANY = 297;                  // $like_any
   FN_BYTE_LIKE_ALL = 298;                  // $like_all
+  FN_STRING_NOT_LIKE_ANY = 302;            // $not_like_any
+  FN_BYTE_NOT_LIKE_ANY = 303;              // $not_like_any
+  FN_STRING_ARRAY_NOT_LIKE_ANY = 304;      // $not_like_any_array
+  FN_BYTE_ARRAY_NOT_LIKE_ANY = 305;        // $not_like_any_array
+  FN_STRING_NOT_LIKE_ALL = 306;            // $not_like_all
+  FN_BYTE_NOT_LIKE_ALL = 307;              // $not_like_all
+  FN_STRING_ARRAY_NOT_LIKE_ALL = 308;      // $not_like_all_array
+  FN_BYTE_ARRAY_NOT_LIKE_ALL = 309;        // $not_like_all_array
   FN_IN = 100;                             // $in
   FN_IN_ARRAY = 219;                       // $in_array
   FN_BETWEEN = 110;                        // $between
@@ -323,6 +332,19 @@ enum FunctionSignatureId {
   FN_IFERROR = 1104;      // iferror
   FN_NULLIFERROR = 1105;  // nulliferror
   FN_ISERROR = 1106;      // iserror
+
+  // Internal function, enabled only when
+  // FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is turned on.
+  //
+  // This is a special operator that accepts an expression and a BYTES value
+  // representing a deferred side-effect such as an error, or NULL if no such
+  // side effect was generated. The object is engine-defined. For example, it
+  // can be a serialized status. If there is such a pending side-effect, this
+  // operator exposes it immediately (e.g. the error is produced). Otherwise,
+  // the expression is returned. Calls to this operator are where deferred side
+  // effects generated in a ResolvedDeferredComputedColumn are finally consumed.
+  // See (broken link).
+  FN_WITH_SIDE_EFFECTS = 1107;  // $with_side_effects
 
   // Time functions
   FN_CURRENT_DATE = 1200;       // current_date
@@ -687,6 +709,27 @@ enum FunctionSignatureId {
   FN_VAR_SAMP_NUMERIC = 1477;        // var_samp
   FN_VAR_SAMP_BIGNUMERIC = 1485;     // var_samp
 
+  // Vector aggregate functions
+  FN_ELEMENTWISE_SUM_INT32 = 2746;       // elementwise_sum
+  FN_ELEMENTWISE_SUM_INT64 = 2747;       // elementwise_sum
+  FN_ELEMENTWISE_SUM_UINT32 = 2748;      // elementwise_sum
+  FN_ELEMENTWISE_SUM_UINT64 = 2749;      // elementwise_sum
+  FN_ELEMENTWISE_SUM_FLOAT = 2750;       // elementwise_sum
+  FN_ELEMENTWISE_SUM_DOUBLE = 2751;      // elementwise_sum
+  FN_ELEMENTWISE_SUM_NUMERIC = 2752;     // elementwise_sum
+  FN_ELEMENTWISE_SUM_BIGNUMERIC = 2753;  // elementwise_sum
+  FN_ELEMENTWISE_SUM_INTERVAL = 2754;    // elementwise_sum
+
+  FN_ELEMENTWISE_AVG_INT32 = 2755;       // elementwise_avg
+  FN_ELEMENTWISE_AVG_INT64 = 2756;       // elementwise_avg
+  FN_ELEMENTWISE_AVG_UINT32 = 2757;      // elementwise_avg
+  FN_ELEMENTWISE_AVG_UINT64 = 2758;      // elementwise_avg
+  FN_ELEMENTWISE_AVG_FLOAT = 2759;       // elementwise_avg
+  FN_ELEMENTWISE_AVG_DOUBLE = 2760;      // elementwise_avg
+  FN_ELEMENTWISE_AVG_NUMERIC = 2761;     // elementwise_avg
+  FN_ELEMENTWISE_AVG_BIGNUMERIC = 2762;  // elementwise_avg
+  FN_ELEMENTWISE_AVG_INTERVAL = 2763;    // elementwise_avg
+
   FN_COUNTIF = 1443;  // countif
 
   // Approximate quantiles functions that produce or consume intermediate
@@ -1007,6 +1050,7 @@ enum FunctionSignatureId {
   FN_ST_EXTERIORRING = 2078;
   FN_ST_INTERIORRINGS = 2079;
   FN_ST_LINE_SUBSTRING = 2091;
+  FN_ST_LINE_INTERPOLATE_POINT = 2092;
 
   // Predicates
   FN_ST_EQUALS = 2020;
@@ -1054,6 +1098,8 @@ enum FunctionSignatureId {
   FN_ST_GEOG_FROM_GEO_JSON_EXT = 2068;
   FN_ST_GEOG_FROM_WKB = 2056;
   FN_ST_GEOG_FROM_WKB_HEX = 2072;
+  FN_ST_GEOG_FROM_WKB_EXT = 2093;
+  FN_ST_GEOG_FROM_WKB_HEX_EXT = 2094;
   FN_ST_GEOG_FROM_STRING = 2073;
   FN_ST_GEOG_FROM_BYTES = 2074;
   FN_ST_AS_TEXT = 2053;
@@ -1324,6 +1370,15 @@ enum FunctionSignatureId {
   // DOUBLE>>) -> DOUBLE
   FN_COSINE_DISTANCE_SPARSE_STRING = 2347;
 
+  // approx_cosine_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_DOUBLE = 2355;
+  // approx_cosine_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_FLOAT = 2356;
+  // approx_cosine_distance(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_OPTIONS = 2357;
+  // approx_cosine_distance(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_OPTIONS = 2358;
+
   // euclidean_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
   FN_EUCLIDEAN_DISTANCE_DENSE_DOUBLE = 2348;
   // euclidean_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
@@ -1334,8 +1389,111 @@ enum FunctionSignatureId {
   // euclidean_distance(array<struct<STRING, DOUBLE>>, array<struct<STRING,
   // DOUBLE>>) -> DOUBLE
   FN_EUCLIDEAN_DISTANCE_SPARSE_STRING = 2350;
+
+  // approx_euclidean_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE = 2359;
+  // approx_euclidean_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT = 2360;
+  // approx_euclidean_distance(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_OPTIONS = 2361;
+  // approx_euclidean_distance(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_OPTIONS = 2362;
+
   // edit_distance(STRING, STRING[, INT64]) -> INT64
   FN_EDIT_DISTANCE = 2351;
   // edit_distance(BYTES, BYTES[, INT64]) -> INT64
   FN_EDIT_DISTANCE_BYTES = 2352;
+
+  // dot_product(array<INT64>, array<INT64>) -> DOUBLE
+  FN_DOT_PRODUCT_INT64 = 2363;
+  // dot_product(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_DOT_PRODUCT_FLOAT = 2364;
+  // dot_product(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_DOT_PRODUCT_DOUBLE = 2365;
+
+  // approx_dot_product(array<INT64>, array<INT64>) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_INT64 = 2366;
+  // approx_dot_product(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_FLOAT = 2367;
+  // approx_dot_product(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_DOUBLE = 2368;
+  // approx_dot_product(array<INT64>, array<INT64>, json) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_INT64_WITH_OPTIONS = 2369;
+  // approx_dot_product(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_FLOAT_WITH_OPTIONS = 2370;
+  // approx_dot_product(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_OPTIONS = 2371;
+
+  // manhattan_distance(array<INT64>, array<INT64>) -> DOUBLE
+  FN_MANHATTAN_DISTANCE_INT64 = 2372;
+  // manhattan_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
+  FN_MANHATTAN_DISTANCE_FLOAT = 2373;
+  // manhattan_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
+  FN_MANHATTAN_DISTANCE_DOUBLE = 2374;
+
+  // l1_norm(array<INT64>) -> DOUBLE
+  FN_L1_NORM_INT64 = 2375;
+  // l1_norm(array<FLOAT>) -> DOUBLE
+  FN_L1_NORM_FLOAT = 2376;
+  // l1_norm(array<DOUBLE>) -> DOUBLE
+  FN_L1_NORM_DOUBLE = 2377;
+
+  // l2_norm(array<INT64>) -> DOUBLE
+  FN_L2_NORM_INT64 = 2378;
+  // l2_norm(array<FLOAT>) -> DOUBLE
+  FN_L2_NORM_FLOAT = 2379;
+  // l2_norm(array<DOUBLE>) -> DOUBLE
+  FN_L2_NORM_DOUBLE = 2380;
+
+  // bool_array(JSON) -> array<BOOL>
+  FN_JSON_TO_BOOL_ARRAY = 2627;
+  // lax_bool_array(JSON) -> array<BOOL>
+  FN_JSON_LAX_TO_BOOL_ARRAY = 2628;
+  // float64_array(JSON) -> array<FLOAT64>
+  FN_JSON_TO_FLOAT64_ARRAY = 2629;
+  // lax_float64_array(JSON) -> array<FLOAT64>
+  FN_JSON_LAX_TO_FLOAT64_ARRAY = 2630;
+  // int64_array(JSON) -> array<INT64>
+  FN_JSON_TO_INT64_ARRAY = 2631;
+  // lax_int64_array(JSON) -> array<INT64>
+  FN_JSON_LAX_TO_INT64_ARRAY = 2632;
+  // string_array(JSON) -> array<STRING>
+  FN_JSON_TO_STRING_ARRAY = 2633;
+  // lax_string_array(JSON) -> array<STRING>
+  FN_JSON_LAX_TO_STRING_ARRAY = 2634;
+  // float32(JSON) -> FLOAT32
+  FN_JSON_TO_FLOAT32 = 2635;
+  // lax_float32(JSON) -> FLOAT32
+  FN_JSON_LAX_TO_FLOAT32 = 2636;
+  // float32_array(JSON) -> array<FLOAT32>
+  FN_JSON_TO_FLOAT32_ARRAY = 2637;
+  // lax_float32_array(JSON) -> array<FLOAT32>
+  FN_JSON_LAX_TO_FLOAT32_ARRAY = 2638;
+  // int32(JSON) -> INT32
+  FN_JSON_TO_INT32 = 2639;
+  // lax_int32(JSON) -> INT32
+  FN_JSON_LAX_TO_INT32 = 2640;
+  // int32_array(JSON) -> array<INT32>
+  FN_JSON_TO_INT32_ARRAY = 2641;
+  // lax_int32_array(JSON) -> array<INT32>
+  FN_JSON_LAX_TO_INT32_ARRAY = 2642;
+  // uint32(JSON) -> UINT32
+  FN_JSON_TO_UINT32 = 2643;
+  // lax_uint32(JSON) -> UINT32
+  FN_JSON_LAX_TO_UINT32 = 2644;
+  // uint32_array(JSON) -> array<UINT32>
+  FN_JSON_TO_UINT32_ARRAY = 2645;
+  // lax_uint32_array(JSON) -> array<UINT32>
+  FN_JSON_LAX_TO_UINT32_ARRAY = 2646;
+  // uint64(JSON) -> UINT64
+  FN_JSON_TO_UINT64 = 2647;
+  // lax_uint64(JSON) -> UINT64
+  FN_JSON_LAX_TO_UINT64 = 2648;
+  // uint64_array(JSON) -> array<UINT64>
+  FN_JSON_TO_UINT64_ARRAY = 2649;
+  // lax_uint64_array(JSON) -> array<UINT64>
+  FN_JSON_LAX_TO_UINT64_ARRAY = 2650;
+
+  // Map functions
+  FN_MAP_FROM_ARRAY = 3000;  // map_from_array(array<struct<K, V>>) -> map<K, V>
 }

@@ -5,7 +5,7 @@
 
 # CORRESPONDING BY Literal coercion LEFT mode
 [name=corresponding_by_literal_coercion_left]
-[default required_features=V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE,V_1_4_CORRESPONDING_BY]
+[default required_features=V_1_4_CORRESPONDING_FULL]
 SELECT 1 AS a
 LEFT UNION ALL CORRESPONDING BY (a)
 SELECT CAST(1 AS INT32) AS a, 1 AS b

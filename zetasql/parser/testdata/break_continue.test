@@ -6,16 +6,16 @@
 --
 ALTERNATION GROUP: BREAK
 --
-Script [0-7]
-  StatementList [0-7]
+Script [0-6]
+  StatementList [0-6]
     BreakStatement [0-5]
 --
 BREAK ;
 --
 ALTERNATION GROUP: LEAVE
 --
-Script [0-7]
-  StatementList [0-7]
+Script [0-6]
+  StatementList [0-6]
     BreakStatement [0-5]
 --
 LEAVE ;
@@ -25,16 +25,16 @@ LEAVE ;
 --
 ALTERNATION GROUP: CONTINUE
 --
-Script [0-10]
-  StatementList [0-10]
+Script [0-9]
+  StatementList [0-9]
     ContinueStatement [0-8]
 --
 CONTINUE ;
 --
 ALTERNATION GROUP: ITERATE
 --
-Script [0-9]
-  StatementList [0-9]
+Script [0-8]
+  StatementList [0-8]
     ContinueStatement [0-7]
 --
 ITERATE ;
@@ -46,10 +46,10 @@ END LOOP;
 --
 ALTERNATION GROUP: BREAK
 --
-Script [0-24]
-  StatementList [0-24]
+Script [0-23]
+  StatementList [0-23]
     WhileStatement [0-22]
-      StatementList [7-14]
+      StatementList [7-13]
         BreakStatement [7-12]
 --
 LOOP
@@ -58,10 +58,10 @@ END LOOP ;
 --
 ALTERNATION GROUP: LEAVE
 --
-Script [0-24]
-  StatementList [0-24]
+Script [0-23]
+  StatementList [0-23]
     WhileStatement [0-22]
-      StatementList [7-14]
+      StatementList [7-13]
         BreakStatement [7-12]
 --
 LOOP
@@ -75,10 +75,10 @@ END LOOP;
 --
 ALTERNATION GROUP: CONTINUE
 --
-Script [0-27]
-  StatementList [0-27]
+Script [0-26]
+  StatementList [0-26]
     WhileStatement [0-25]
-      StatementList [7-17]
+      StatementList [7-16]
         ContinueStatement [7-15]
 --
 LOOP
@@ -87,10 +87,10 @@ END LOOP ;
 --
 ALTERNATION GROUP: ITERATE
 --
-Script [0-26]
-  StatementList [0-26]
+Script [0-25]
+  StatementList [0-25]
     WhileStatement [0-24]
-      StatementList [7-16]
+      StatementList [7-15]
         ContinueStatement [7-14]
 --
 LOOP
@@ -104,11 +104,11 @@ END WHILE;
 --
 ALTERNATION GROUP: BREAK
 --
-Script [0-34]
-  StatementList [0-34]
+Script [0-33]
+  StatementList [0-33]
     WhileStatement [0-32]
       BooleanLiteral(TRUE) [6-10]
-      StatementList [16-23]
+      StatementList [16-22]
         BreakStatement [16-21]
 --
 WHILE TRUE DO
@@ -117,11 +117,11 @@ END WHILE ;
 --
 ALTERNATION GROUP: LEAVE
 --
-Script [0-34]
-  StatementList [0-34]
+Script [0-33]
+  StatementList [0-33]
     WhileStatement [0-32]
       BooleanLiteral(TRUE) [6-10]
-      StatementList [16-23]
+      StatementList [16-22]
         BreakStatement [16-21]
 --
 WHILE TRUE DO
@@ -135,11 +135,11 @@ END WHILE;
 --
 ALTERNATION GROUP: CONTINUE
 --
-Script [0-37]
-  StatementList [0-37]
+Script [0-36]
+  StatementList [0-36]
     WhileStatement [0-35]
       BooleanLiteral(TRUE) [6-10]
-      StatementList [16-26]
+      StatementList [16-25]
         ContinueStatement [16-24]
 --
 WHILE TRUE DO
@@ -148,11 +148,11 @@ END WHILE ;
 --
 ALTERNATION GROUP: ITERATE
 --
-Script [0-36]
-  StatementList [0-36]
+Script [0-35]
+  StatementList [0-35]
     WhileStatement [0-34]
       BooleanLiteral(TRUE) [6-10]
-      StatementList [16-25]
+      StatementList [16-24]
         ContinueStatement [16-23]
 --
 WHILE TRUE DO
@@ -165,10 +165,10 @@ LOOP
   BREAK;
 END LOOP;
 --
-Script [0-36]
-  StatementList [0-36]
+Script [0-35]
+  StatementList [0-35]
     WhileStatement [0-34]
-      StatementList [7-26]
+      StatementList [7-25]
         QueryStatement [7-15]
           Query [7-15]
             Select [7-15]
@@ -193,16 +193,16 @@ LOOP
   END IF;
 END LOOP;
 --
-Script [0-69]
-  StatementList [0-69]
+Script [0-68]
+  StatementList [0-68]
     WhileStatement [0-67]
-      StatementList [7-59]
+      StatementList [7-58]
         IfStatement [7-57]
           PathExpression [10-11]
             Identifier(x) [10-11]
-          StatementList [21-30]
+          StatementList [21-27]
             BreakStatement [21-26]
-          StatementList [39-51]
+          StatementList [39-48]
             ContinueStatement [39-47]
 --
 LOOP
@@ -224,20 +224,20 @@ LOOP
   END IF;
 END LOOP;
 --
-Script [0-97]
-  StatementList [0-97]
+Script [0-96]
+  StatementList [0-96]
     WhileStatement [0-95]
-      StatementList [7-87]
+      StatementList [7-86]
         IfStatement [7-85]
           PathExpression [10-11]
             Identifier(x) [10-11]
-          StatementList [21-58]
+          StatementList [21-55]
             IfStatement [21-54]
               PathExpression [24-25]
                 Identifier(y) [24-25]
-              StatementList [37-48]
+              StatementList [37-43]
                 BreakStatement [37-42]
-          StatementList [67-79]
+          StatementList [67-76]
             ContinueStatement [67-75]
 --
 LOOP
@@ -260,18 +260,18 @@ LOOP
   END WHILE;
 END LOOP;
 --
-Script [0-94]
-  StatementList [0-94]
+Script [0-93]
+  StatementList [0-93]
     WhileStatement [0-92]
-      StatementList [7-84]
+      StatementList [7-83]
         WhileStatement [7-82]
           PathExpression [13-14]
             Identifier(x) [13-14]
-          StatementList [22-73]
+          StatementList [22-70]
             IfStatement [22-55]
               PathExpression [25-26]
                 Identifier(y) [25-26]
-              StatementList [38-49]
+              StatementList [38-44]
                 BreakStatement [38-43]
             ContinueStatement [61-69]
 --
@@ -289,12 +289,12 @@ IF y THEN
   BREAK;
 END IF;
 --
-Script [0-27]
-  StatementList [0-27]
+Script [0-26]
+  StatementList [0-26]
     IfStatement [0-25]
       PathExpression [3-4]
         Identifier(y) [3-4]
-      StatementList [12-19]
+      StatementList [12-18]
         BreakStatement [12-17]
 --
 IF y THEN
@@ -308,12 +308,12 @@ END WHILE;
 --
 ALTERNATION GROUP: BREAK
 --
-Script [0-38]
-  StatementList [0-38]
+Script [0-37]
+  StatementList [0-37]
     WhileStatement [0-36]
       PathExpression [6-11]
         Identifier(BREAK) [6-11]
-      StatementList [17-27]
+      StatementList [17-26]
         ContinueStatement [17-25]
 --
 WHILE BREAK DO
@@ -322,12 +322,12 @@ END WHILE ;
 --
 ALTERNATION GROUP: LEAVE
 --
-Script [0-38]
-  StatementList [0-38]
+Script [0-37]
+  StatementList [0-37]
     WhileStatement [0-36]
       PathExpression [6-11]
         Identifier(LEAVE) [6-11]
-      StatementList [17-27]
+      StatementList [17-26]
         ContinueStatement [17-25]
 --
 WHILE LEAVE DO
@@ -336,12 +336,12 @@ END WHILE ;
 --
 ALTERNATION GROUP: CONTINUE
 --
-Script [0-41]
-  StatementList [0-41]
+Script [0-40]
+  StatementList [0-40]
     WhileStatement [0-39]
       PathExpression [6-14]
         Identifier(CONTINUE) [6-14]
-      StatementList [20-30]
+      StatementList [20-29]
         ContinueStatement [20-28]
 --
 WHILE CONTINUE DO
@@ -350,12 +350,12 @@ END WHILE ;
 --
 ALTERNATION GROUP: ITERATE
 --
-Script [0-40]
-  StatementList [0-40]
+Script [0-39]
+  StatementList [0-39]
     WhileStatement [0-38]
       PathExpression [6-13]
         Identifier(ITERATE) [6-13]
-      StatementList [19-29]
+      StatementList [19-28]
         ContinueStatement [19-27]
 --
 WHILE ITERATE DO

@@ -150,7 +150,7 @@ class RunParserTest : public ::testing::Test {
  private:
   // Adds the test outputs in 'test_outputs' to 'annotated_outputs', annotated
   // with 'annotation'.
-  void AddAnnotatedTestOutputs(const std::vector<std::string>& test_outputs,
+  void AddAnnotatedTestOutputs(absl::Span<const std::string> test_outputs,
                                absl::string_view annotation,
                                std::vector<std::string>* annotated_outputs) {
     for (const std::string& test_output : test_outputs) {
@@ -370,12 +370,12 @@ class RunParserTest : public ::testing::Test {
     // and just compare the shape of the tree for those. We also erase the
     // location information.
     static const RE2 cleanups[] = {
-        {R"((StringLiteral)\(('[^']*')\))"},
-        {R"((StringLiteral)\(("[^"]*")\))"},
-        {R"((StringLiteral)\((""".*""")\))"},
-        {R"((StringLiteral)\(('''.*''')\))"},
-        {R"((StringLiteral)\([^)]*\))"},
-        {R"((BytesLiteral)\([^)]*\))", RE2::Latin1},
+        {R"((StringLiteralComponent)\(('[^']*')\))"},
+        {R"((StringLiteralComponent)\(("[^"]*")\))"},
+        {R"((StringLiteralComponent)\((""".*""")\))"},
+        {R"((StringLiteralComponent)\(('''.*''')\))"},
+        {R"((StringLiteralComponent)\([^)]*\))"},
+        {R"((BytesLiteralComponent)\([^)]*\))", RE2::Latin1},
         {R"((FloatLiteral)\([^)]*\))"},
         {R"((IntLiteral)\([^)]*\))"},
         {R"((NumericLiteral)\([^)]*\))"},
@@ -595,7 +595,6 @@ class RunParserTest : public ::testing::Test {
     ZETASQL_ASSIGN_OR_RETURN(LanguageOptions::LanguageFeatureSet features,
                      GetRequiredLanguageFeatures(test_case_options_));
     language_options_->SetEnabledLanguageFeatures(features);
-    language_options_->EnableLanguageFeature(FEATURE_TEXTMAPPER_PARSER);
     language_options_->EnableLanguageFeature(FEATURE_SHADOW_PARSING);
 
     if (test_case_options_.GetBool(kQualifyReserved)) {

@@ -128,9 +128,18 @@ class EvaluationContext {
   EvaluationContext(const EvaluationContext&) = delete;
   EvaluationContext& operator=(const EvaluationContext&) = delete;
 
+  // Creates a local evaluator that inherits statement level properties
+  // from the parent evaluator. Useful for executing SQL defined
+  // function bodies which require their own scope but should share some
+  // global execution state.
+  // The local evaluator keeps a reference to the parent, and will
+  // propagate non-determinism if encountered
+  // The parent context must outlive any child contexts it creates.
+  std::unique_ptr<EvaluationContext> MakeChildContext() const;
+
   const EvaluationOptions& options() const { return options_; }
 
-  MemoryAccountant* memory_accountant() { return &memory_accountant_; }
+  MemoryAccountant* memory_accountant() { return memory_accountant_.get(); }
 
   // Returns the `value` associated with `arg_name` or an invalid Value.
   Value GetFunctionArgumentRef(std::string arg_name);
@@ -157,8 +166,9 @@ class EvaluationContext {
                                const LanguageOptions& language_options);
 
   // Indicates that the result of evaluation is non-deterministic.
-  void SetNonDeterministicOutput() { deterministic_output_ = false; }
-
+  // If this context has a non-null parent context, then we also set
+  // non-determinism on the parent context.
+  void SetNonDeterministicOutput();
   bool IsDeterministicOutput() const { return deterministic_output_; }
 
   void SetLanguageOptions(LanguageOptions options) {
@@ -181,10 +191,7 @@ class EvaluationContext {
   // If necessary, (lazily) initializes the default timezone. Lazy
   // initialization saves time for most evaluations, which don't require time
   // zone information.
-  absl::TimeZone GetDefaultTimeZone() {
-    LazilyInitializeDefaultTimeZone();
-    return default_timezone_.value();
-  }
+  absl::TimeZone GetDefaultTimeZone();
 
   // If necessary, (lazily) initializes the random number generator. Lazy
   // initialization saves time for most evaluations, which don't require random
@@ -374,6 +381,10 @@ class EvaluationContext {
       udf_argument_references_;
 
  private:
+  EvaluationContext(const EvaluationOptions& options,
+                    std::shared_ptr<MemoryAccountant> memory_accountant,
+                    EvaluationContext* parent_context);
+
   void LazilyInitializeDefaultTimeZone() {
     if (!default_timezone_.has_value()) {
       InitializeDefaultTimeZone();
@@ -391,7 +402,7 @@ class EvaluationContext {
   void InitializeCurrentTimestamp();
 
   const EvaluationOptions options_;
-  MemoryAccountant memory_accountant_;
+  std::shared_ptr<MemoryAccountant> memory_accountant_;
   // Tables added by AddTableAsArray().
   std::map<std::string, Value, std::less<>> tables_;
 
@@ -439,6 +450,10 @@ class EvaluationContext {
   // The current user, specified by the engine. Used to evaluate the
   // SESSION_USER function. Defaults to an empty string if not set.
   std::string session_user_ = "";
+
+  // A reference to the EvaluationContext that created this context by
+  // calling `MakeChildContext`. Always nullptr if not created this way.
+  EvaluationContext* parent_context_ = nullptr;
 };
 
 // Returns true if we should suppress 'error' (which must not be OK) in

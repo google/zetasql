@@ -468,3 +468,23 @@ FROM
   ) AS aggregatescan_8;
 ==
 
+# Repro for b/323439034: When SELECT clause does not contain aggregate column
+# and no grouping keys are chosen, it should produce AggregateScan with no
+# aggregate_list and no group_by_list.
+SELECT 'a' AS x
+FROM KeyValue
+GROUP BY ALL
+--
+[UNPARSED_SQL]
+SELECT
+  "a" AS x
+FROM
+  (
+    SELECT
+      NULL
+    FROM
+      KeyValue
+    GROUP BY ALL
+  ) AS aggregatescan_1;
+==
+

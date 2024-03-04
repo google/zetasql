@@ -104,7 +104,8 @@ QueryStatement [0-29] [select as struct 'abc' from T]
       SelectAs(as_mode=STRUCT) [7-16] [as struct]
       SelectList [17-22] ['abc']
         SelectColumn [17-22] ['abc']
-          StringLiteral('abc') [17-22] ['abc']
+          StringLiteral [17-22] ['abc']
+            StringLiteralComponent('abc') [17-22] ['abc']
       FromClause [23-29] [from T]
         TablePathExpression [28-29] [T]
           PathExpression [28-29] [T]
@@ -324,7 +325,7 @@ select as struct
 
 select struct
 --
-ERROR: Syntax error: Expected "(" or "<" but got end of statement [at 1:14]
+ERROR: Syntax error: Expected "(" or "<" or "{" but got end of statement [at 1:14]
 select struct
              ^
 ==

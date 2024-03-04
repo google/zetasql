@@ -20,6 +20,7 @@
 #define ZETASQL_RESOLVED_AST_RESOLVED_AST_H_
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -42,6 +43,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/base/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 {% macro ZeroArgCtor(node) %}
   {{node.name}}()
       : {{node.parent}}()
@@ -570,7 +572,7 @@ template <
   typename group_by_list_t
       = std::vector<std::unique_ptr<const ResolvedComputedColumn>>,
   typename aggregate_list_t
-      = std::vector<std::unique_ptr<const ResolvedComputedColumn>>,
+      = std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>,
   typename grouping_set_list_t
       = std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>,
   typename rollup_column_list_t
@@ -588,10 +590,10 @@ std::unique_ptr<ResolvedAggregateScan> MakeResolvedAggregateScan(
       "group_by_list must be a container of unique_ptr with elements of type "
       "ResolvedComputedColumn (or its descendants).");
   static_assert(std::is_base_of<
-      ResolvedComputedColumn,
+      ResolvedComputedColumnBase,
       typename std::decay<decltype(**(aggregate_list.begin()))>::type>::value,
       "aggregate_list must be a container of unique_ptr with elements of type "
-      "ResolvedComputedColumn (or its descendants).");
+      "ResolvedComputedColumnBase (or its descendants).");
   static_assert(std::is_base_of<
       ResolvedGroupingSetBase,
       typename std::decay<decltype(**(grouping_set_list.begin()))>::type>::value,

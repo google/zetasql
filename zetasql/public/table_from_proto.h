@@ -22,6 +22,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -49,7 +50,7 @@ struct TableFromProtoOptions {
 // a Catalog Table using TableFromProto.
 class TableFromProto : public SimpleTable {
  public:
-  explicit TableFromProto(const std::string& name);
+  explicit TableFromProto(absl::string_view name);
   TableFromProto(const TableFromProto&) = delete;
   TableFromProto& operator=(const TableFromProto&) = delete;
   ~TableFromProto() override;

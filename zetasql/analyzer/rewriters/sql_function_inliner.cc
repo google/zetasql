@@ -27,11 +27,11 @@
 
 #include "zetasql/base/varsetter.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/sql_function.h"
@@ -51,6 +51,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
@@ -357,7 +358,7 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
       auto arg_expr = ConsumeTopOfStack<ResolvedExpr>();
       ResolvedColumn arg_column = column_factory_->MakeCol(
           absl::StrCat("$inlined_", call->function()->Name()),
-          argument_names[i], arg_expr->type());
+          argument_names[i], arg_expr->annotated_type());
       args[argument_names[i]] = [type = arg_expr->type(),
                                  arg_column](bool is_correlated) {
         return MakeResolvedColumnRef(type, arg_column, is_correlated);
@@ -586,7 +587,7 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
       };
       ResolvedColumn arg_column = column_factory_->MakeCol(
           absl::StrCat("$inlined_", scan->tvf()->Name()), arg_name,
-          arg_expr->type());
+          arg_expr->annotated_type());
       scalar_arg_exprs.push_back(
           MakeResolvedComputedColumn(arg_column, std::move(arg_expr)));
       arg_columns.push_back(arg_column);
@@ -750,7 +751,8 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
                         AggregateFnDetails>
         calls_to_inline;
-    for (const auto& col : node->aggregate_list()) {
+    for (const auto& column : node->aggregate_list()) {
+      const auto* col = column->GetAs<ResolvedComputedColumnImpl>();
       ZETASQL_RET_CHECK(col->expr()->Is<ResolvedAggregateFunctionCall>());
       const ResolvedAggregateFunctionCall* aggr_function_call =
           col->expr()->GetAs<ResolvedAggregateFunctionCall>();
@@ -764,11 +766,12 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
       return node;
     }
     ResolvedAggregateScanBuilder aggr_builder = ToBuilder(std::move(node));
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>> old_aggregates =
-        aggr_builder.release_aggregate_list();
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+        old_aggregates = aggr_builder.release_aggregate_list();
 
     // The aggregations included in the aggregate scan post-rewrite.
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>> new_aggregates;
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
+        new_aggregates;
     // The column list produced by thew new aggregate scan post-rewrite.
     std::vector<ResolvedColumn> new_aggr_col_list;
 
@@ -790,13 +793,15 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
     // expressions for the post-aggregate project scan that will host the
     // expression from the SQL-defined aggregate that modifies or combines the
     // results of any aggregations called internally.
-    for (auto& aggr : old_aggregates) {
+    for (auto& aggr_column : old_aggregates) {
+      ZETASQL_RET_CHECK(aggr_column->Is<ResolvedComputedColumn>());
+      auto aggr = aggr_column->GetAs<ResolvedComputedColumn>();
       ZETASQL_RET_CHECK(aggr->expr()->Is<ResolvedAggregateFunctionCall>());
       const ResolvedAggregateFunctionCall* aggr_function_call =
           aggr->expr()->GetAs<ResolvedAggregateFunctionCall>();
 
       if (!calls_to_inline.contains(aggr_function_call)) {
-        new_aggregates.emplace_back(std::move(aggr));
+        new_aggregates.emplace_back(std::move(aggr_column));
         continue;
       }
       AggregateFnDetails& details = calls_to_inline.at(aggr_function_call);
@@ -804,9 +809,10 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
       columns_to_remove_from_aggr.insert(aggr->column());
       std::string function_name = aggr_function_call->function()->Name();
 
-      ResolvedComputedColumnBuilder aggr_builder = ToBuilder(std::move(aggr));
       ResolvedAggregateFunctionCallBuilder aggr_expr_builder = ToBuilder(
-          absl::WrapUnique(aggr_builder.release_expr()
+          absl::WrapUnique(const_cast<ResolvedComputedColumn*>(
+                               aggr->GetAs<ResolvedComputedColumn>())
+                               ->release_expr()
                                .release()
                                ->GetAs<ResolvedAggregateFunctionCall>()));
       auto aggr_args = aggr_expr_builder.release_argument_list();
@@ -821,7 +827,6 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
             signature.arguments()[i].options().is_not_aggregate();
         std::unique_ptr<const ResolvedExpr>& arg = aggr_args[i];
         if (is_non_aggregate_arg) {
-          ResolvedNodeKind expr_kind = arg->node_kind();
           // If we ever extend non-aggregate args beyond these types, the
           // rewriter will need to change to accommodate as-if-evaluated-once
           // semantics. The ResolvedAST is not expressive enough for that right
@@ -829,9 +834,16 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
           // aggregation which some query optimizers would not remove. The
           // expressive power that is needed is a lateral join with a single row
           // table on the LHS.
+          const ResolvedExpr* without_cast = arg.get();
+          // LINT.IfChange(non_aggregate_args_def)
+          while (without_cast->node_kind() == RESOLVED_CAST) {
+            without_cast = without_cast->GetAs<ResolvedCast>()->expr();
+          }
+          ResolvedNodeKind expr_kind = without_cast->node_kind();
           ZETASQL_RET_CHECK(expr_kind == RESOLVED_LITERAL ||
                     expr_kind == RESOLVED_PARAMETER ||
                     expr_kind == RESOLVED_ARGUMENT_REF);
+          // LINT.ThenChange(../expr_resolver_helper.cc:non_aggregate_args_def)
           auto arg_replacement_builder = [&arg, this](bool is_correlated) {
             // Making a copy like this is only safe because the expressions
             // that are allowed as non-aggregate args are immutable and
@@ -850,9 +862,9 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
           aggregate_args.emplace(details.arg_names[i], arg_replacement_builder);
         } else {
           // This is an aggregate arg.
-          ResolvedColumn new_arg_column =
-              column_factory_.MakeCol(absl::StrCat("$inlined_", function_name),
-                                      details.arg_names[i], arg->type());
+          ResolvedColumn new_arg_column = column_factory_.MakeCol(
+              absl::StrCat("$inlined_", function_name), details.arg_names[i],
+              arg->annotated_type());
           ZETASQL_ASSIGN_OR_RETURN(auto new_arg_computed_col,
                            ResolvedComputedColumnBuilder()
                                .set_column(new_arg_column)
@@ -944,7 +956,9 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
   PostVisitResolvedAggregationThresholdAggregateScan(
       std::unique_ptr<const ResolvedAggregationThresholdAggregateScan> node)
       override {
-    for (const auto& computed_col : node->aggregate_list()) {
+    for (const auto& computed_column : node->aggregate_list()) {
+      ZETASQL_RET_CHECK(computed_column->Is<ResolvedComputedColumnImpl>());
+      auto computed_col = computed_column->GetAs<ResolvedComputedColumnImpl>();
       if (computed_col->expr()->Is<ResolvedAggregateFunctionCall>() &&
           (computed_col->expr()
                ->GetAs<ResolvedAggregateFunctionCall>()
@@ -960,6 +974,28 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
                << "Aggregation threshold is not supported with user defined "
                   "aggregate function";
       }
+    }
+    return node;
+  }
+
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisitResolvedPivotScan(
+      std::unique_ptr<const ResolvedPivotScan> node) override {
+    absl::flat_hash_map<const ResolvedAggregateFunctionCall*,
+                        AggregateFnDetails>
+        calls_to_inline;
+    for (const auto& expr : node->pivot_expr_list()) {
+      ZETASQL_RET_CHECK(expr->Is<ResolvedAggregateFunctionCall>());
+      const auto* call = expr->GetAs<ResolvedAggregateFunctionCall>();
+      ZETASQL_ASSIGN_OR_RETURN(std::optional<AggregateFnDetails> details,
+                       IsInlineable(call));
+      if (details.has_value()) {
+        calls_to_inline.emplace(call, *details);
+      }
+    }
+    if (!calls_to_inline.empty()) {
+      return absl::InvalidArgumentError(
+          "SQL-defined aggregate functions are not supported in PIVOT");
     }
     return node;
   }

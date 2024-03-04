@@ -74,7 +74,10 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedColumnDefaultValue">ResolvedColumnDefaultValue</a>
     <a href="#ResolvedColumnDefinition">ResolvedColumnDefinition</a>
     <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>
-    <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>
+    <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>
+      <a href="#ResolvedComputedColumnImpl">ResolvedComputedColumnImpl</a>
+        <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>
+        <a href="#ResolvedDeferredComputedColumn">ResolvedDeferredComputedColumn</a>
     <a href="#ResolvedConnection">ResolvedConnection</a>
     <a href="#ResolvedConstraint">ResolvedConstraint</a>
       <a href="#ResolvedCheckConstraint">ResolvedCheckConstraint</a>
@@ -109,6 +112,7 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedOutputColumn">ResolvedOutputColumn</a>
     <a href="#ResolvedPivotColumn">ResolvedPivotColumn</a>
     <a href="#ResolvedPrivilege">ResolvedPrivilege</a>
+    <a href="#ResolvedRecursionDepthModifier">ResolvedRecursionDepthModifier</a>
     <a href="#ResolvedReplaceFieldItem">ResolvedReplaceFieldItem</a>
     <a href="#ResolvedReturningClause">ResolvedReturningClause</a>
     <a href="#ResolvedSequence">ResolvedSequence</a>
@@ -186,6 +190,7 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedAlterApproxViewStmt">ResolvedAlterApproxViewStmt</a>
       <a href="#ResolvedAlterDatabaseStmt">ResolvedAlterDatabaseStmt</a>
       <a href="#ResolvedAlterEntityStmt">ResolvedAlterEntityStmt</a>
+      <a href="#ResolvedAlterExternalSchemaStmt">ResolvedAlterExternalSchemaStmt</a>
       <a href="#ResolvedAlterMaterializedViewStmt">ResolvedAlterMaterializedViewStmt</a>
       <a href="#ResolvedAlterModelStmt">ResolvedAlterModelStmt</a>
       <a href="#ResolvedAlterPrivilegeRestrictionStmt">ResolvedAlterPrivilegeRestrictionStmt</a>
@@ -212,7 +217,9 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedCreateModelStmt">ResolvedCreateModelStmt</a>
       <a href="#ResolvedCreatePrivilegeRestrictionStmt">ResolvedCreatePrivilegeRestrictionStmt</a>
       <a href="#ResolvedCreateProcedureStmt">ResolvedCreateProcedureStmt</a>
-      <a href="#ResolvedCreateSchemaStmt">ResolvedCreateSchemaStmt</a>
+      <a href="#ResolvedCreateSchemaStmtBase">ResolvedCreateSchemaStmtBase</a>
+        <a href="#ResolvedCreateExternalSchemaStmt">ResolvedCreateExternalSchemaStmt</a>
+        <a href="#ResolvedCreateSchemaStmt">ResolvedCreateSchemaStmt</a>
       <a href="#ResolvedCreateSnapshotTableStmt">ResolvedCreateSnapshotTableStmt</a>
       <a href="#ResolvedCreateTableFunctionStmt">ResolvedCreateTableFunctionStmt</a>
       <a href="#ResolvedCreateTableStmtBase">ResolvedCreateTableStmtBase</a>
@@ -1440,9 +1447,8 @@ class ResolvedModel : public <a href="#ResolvedArgument">ResolvedArgument</a> {
 <a id="ResolvedConnection"></a>
 
 <p><pre><code class="lang-c++">
-<font color="brown">// Represents a connection object as a TVF argument.
-// &lt;connection&gt; is the connection object encapsulated metadata to connect to
-// an external data source.</font>
+<font color="brown">// Represents a connection object, which encapsulates engine-specific
+// metadata used to connect to an external data source.</font>
 class ResolvedConnection : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_CONNECTION;
 
@@ -1561,6 +1567,13 @@ class ResolvedJoinScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   const <a href="#ResolvedScan">ResolvedScan</a>* right_scan() const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* join_expr() const;
+
+<font color="brown">  // This indicates this join was generated from syntax with USING.
+  // The sql_builder will use this field only as a suggestion.
+  // JOIN USING(...) syntax will be used if and only if
+  // `has_using` is True and `join_expr` has the correct shape.
+  // Otherwise the sql_builder will generate JOIN ON.</font>
+  bool has_using() const;
 };
 </code></pre></p>
 
@@ -1816,9 +1829,9 @@ class ResolvedAggregateScanBase : public <a href="#ResolvedScan">ResolvedScan</a
   int collation_list_size() const;
   <a href="#ResolvedCollation">ResolvedCollation</a> collation_list(int i) const;
 
-  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; aggregate_list() const;
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>&gt;&gt;&amp; aggregate_list() const;
   int aggregate_list_size() const;
-  const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* aggregate_list(int i) const;
+  const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>* aggregate_list(int i) const;
 
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedGroupingSetBase">ResolvedGroupingSetBase</a>&gt;&gt;&amp; grouping_set_list() const;
   int grouping_set_list_size() const;
@@ -2104,8 +2117,11 @@ class ResolvedWithRefScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 // window ORDER BY.
 //
 // The output &lt;column_list&gt; contains all columns from &lt;input_scan&gt;,
-// one column per analytic function. It may also conain partitioning/ordering
-// expression columns if they reference to select columns.</font>
+// one column per analytic function. It may also contain partitioning/ordering
+// expression columns if they reference to select columns.
+//
+// Currently, the analyzer combines equivalent OVER clauses into the same
+// ResolvedAnalyticFunctionGroup only for OVER () or a named window.</font>
 class ResolvedAnalyticScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_ANALYTIC_SCAN;
 
@@ -2170,21 +2186,111 @@ class ResolvedSampleScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 };
 </code></pre></p>
 
-### ResolvedComputedColumn
-<a id="ResolvedComputedColumn"></a>
+### ResolvedComputedColumnBase
+<a id="ResolvedComputedColumnBase"></a>
 
 <p><pre><code class="lang-c++">
 <font color="brown">// This is used when an expression is computed and given a name (a new
 // ResolvedColumn) that can be referenced elsewhere.  The new ResolvedColumn
 // can appear in a column_list or in ResolvedColumnRefs in other expressions,
 // when appropriate.  This node is not an expression itself - it is a
-// container that holds an expression.</font>
-class ResolvedComputedColumn : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+// container that holds an expression.
+//
+// There are 2 concrete subclasses: ResolvedComputedColumn and
+// ResolvedDeferredComputedColumn.
+//
+// ResolvedDeferredComputedColumn has extra information about deferring
+// side effects like errors.  This can be used in cases like AggregateScans
+// before conditional expressions like IF(), where errors from the aggregate
+// function should only be exposed if the right IF branch is chosen.
+//
+// Nodes where deferred side effects are not possible (like GROUP BY
+// expressions) are declared as ResolvedComputedColumn directly.
+//
+// Nodes that might need to defer errors, such as AggregateScan&#39;s
+// aggregate_list(), are declared as ResolvedComputedColumnBase.
+// The runtime type will be either ResolvedComputedColumn or
+// ResolvedDeferredComputedColumn, depending on whether any side effects need
+// to be captured.
+//
+// If FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
+// type is always just ResolvedComputedColumn.
+//
+// See (broken link) for more details.</font>
+class ResolvedComputedColumnBase : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  // Virtual getter to avoid changing ResolvedComputedColumnProto
+  virtual const ResolvedColumn&amp; column() const = 0;
+
+  // Virtual getter to avoid changing ResolvedComputedColumnProto
+  virtual const ResolvedExpr* expr() const = 0;
+
+};
+</code></pre></p>
+
+### ResolvedComputedColumnImpl
+<a id="ResolvedComputedColumnImpl"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// An intermediate abstract superclass that holds common getters for
+// ResolvedComputedColumn and ResolvedDeferredComputedColumn. This class
+// exists to ensure that callers static_cast to the appropriate subclass,
+// rather than processing ResolvedComputedColumnBase directly.</font>
+class ResolvedComputedColumnImpl : public <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a> {
+};
+</code></pre></p>
+
+### ResolvedComputedColumn
+<a id="ResolvedComputedColumn"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This is the usual ResolvedComputedColumn without deferred side effects.
+// See comments on ResolvedComputedColumnBase.</font>
+class ResolvedComputedColumn : public <a href="#ResolvedComputedColumnImpl">ResolvedComputedColumnImpl</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_COMPUTED_COLUMN;
 
   const <a href="#ResolvedColumn">ResolvedColumn</a>&amp; column() const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* expr() const;
+};
+</code></pre></p>
+
+### ResolvedDeferredComputedColumn
+<a id="ResolvedDeferredComputedColumn"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This is a ResolvedColumnColumn variant that adds deferred side effect
+// capture.
+//
+// This is used for computations that get separated into multiple scans,
+// where side effects like errors in earlier scans need to be deferred
+// util conditional expressions in later scans are evalauted.
+// See (broken link) for details.
+// For example:
+//   SELECT IF(C, SUM(A/B), -1) FROM T
+// The division A/B could produce an error when B is 0, but errors should not
+// be exposed when C is false, due to IF&#39;s conditional evaluation semantics.
+//
+// `side_effect_column` is a new column (of type BYTES) created at the same
+// time as `column`, storing side effects like errors from the computation.
+// This column will store an implementation-specific representation of the
+// side effect (e.g. util::StatusProto) and will get a NULL value if there
+// are no captured side effects.
+//
+// Typically, this column will be passed to a call to the internal function
+// $with_side_effect() later to expose the side effects. The validator checks
+// that it is consumed downstream.</font>
+class ResolvedDeferredComputedColumn : public <a href="#ResolvedComputedColumnImpl">ResolvedComputedColumnImpl</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_DEFERRED_COMPUTED_COLUMN;
+
+  const <a href="#ResolvedColumn">ResolvedColumn</a>&amp; column() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* expr() const;
+
+<font color="brown">  // Creates the companion side effects columns for this
+  // computation, of type BYTES. Instead of immediately exposing the
+  // side effect (e.g. an error), the side effect is captured in the
+  // side_effects_column.</font>
+  const <a href="#ResolvedColumn">ResolvedColumn</a>&amp; side_effect_column() const;
 };
 </code></pre></p>
 
@@ -3051,6 +3157,27 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
 };
 </code></pre></p>
 
+### ResolvedCreateSchemaStmtBase
+<a id="ResolvedCreateSchemaStmtBase"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// A base for statements that create schemas, such as:
+//   CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] &lt;name&gt;
+//   [DEFAULT COLLATE &lt;collation&gt;]
+//   [OPTIONS (name=value, ...)]
+//
+//   CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
+//   [IF NOT EXISTS] &lt;name&gt; WITH CONNECTION &lt;connection&gt;
+//   OPTIONS (name=value, ...)
+//
+// &lt;option_list&gt; contains engine-specific options associated with the schema</font>
+class ResolvedCreateSchemaStmtBase : public <a href="#ResolvedCreateStatement">ResolvedCreateStatement</a> {
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
+  int option_list_size() const;
+  const <a href="#ResolvedOption">ResolvedOption</a>* option_list(int i) const;
+};
+</code></pre></p>
+
 ### ResolvedCreateSchemaStmt
 <a id="ResolvedCreateSchemaStmt"></a>
 
@@ -3059,8 +3186,6 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
 //   CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] &lt;name&gt;
 //   [DEFAULT COLLATE &lt;collation&gt;]
 //   [OPTIONS (name=value, ...)]
-//
-// &lt;option_list&gt; engine-specific options.
 // &lt;collation_name&gt; specifies the default collation specification for future
 //   tables created in the dataset. If a table is created in this dataset
 //   without specifying table-level default collation, it inherits the
@@ -3071,14 +3196,31 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
 //   Note: If a table being created in this schema does not specify table
 //   default collation, the engine should copy the dataset default collation
 //   to the table as the table default collation.</font>
-class ResolvedCreateSchemaStmt : public <a href="#ResolvedCreateStatement">ResolvedCreateStatement</a> {
+class ResolvedCreateSchemaStmt : public <a href="#ResolvedCreateSchemaStmtBase">ResolvedCreateSchemaStmtBase</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_CREATE_SCHEMA_STMT;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* collation_name() const;
+};
+</code></pre></p>
 
-  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
-  int option_list_size() const;
-  const <a href="#ResolvedOption">ResolvedOption</a>* option_list(int i) const;
+### ResolvedCreateExternalSchemaStmt
+<a id="ResolvedCreateExternalSchemaStmt"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This statement:
+// CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
+// [IF NOT EXISTS] &lt;name&gt; WITH CONNECTION &lt;connection&gt;
+// OPTIONS (name=value, ...)
+//
+// &lt;connection&gt; encapsulates engine-specific metadata used to connect
+// to an external data source
+//
+// Note: external schemas are pointers to schemas defined in an external
+// system. CREATE EXTERNAL SCHEMA does not actually build a new schema.</font>
+class ResolvedCreateExternalSchemaStmt : public <a href="#ResolvedCreateSchemaStmtBase">ResolvedCreateSchemaStmtBase</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_CREATE_EXTERNAL_SCHEMA_STMT;
+
+  const <a href="#ResolvedConnection">ResolvedConnection</a>* connection() const;
 };
 </code></pre></p>
 
@@ -3300,13 +3442,13 @@ class ResolvedCreateModelAliasedQuery : public <a href="#ResolvedArgument">Resol
 //   * Trained: &lt;has_query&gt;
 //   * External: !&lt;has_query&gt;
 // * Remote models &lt;is_remote&gt; = TRUE
-//   * Trained: &lt;has_query&gt; [Not supported yet]
+//   * Trained: &lt;has_query&gt;
 //   * External: !&lt;has_query&gt;
 //
 // &lt;option_list&gt; has engine-specific directives for how to train this model.
-// &lt;query&gt; is the AS SELECT statement. It can be only set when &lt;is_remote&gt; is
-//   false and all of &lt;input_column_definition_list&gt;,
-//   &lt;output_column_definition_list&gt; and &lt;aliased_query_list&gt; are empty.
+// &lt;query&gt; is the AS SELECT statement. It can be only set when all of
+//   &lt;input_column_definition_list&gt;, &lt;output_column_definition_list&gt; and
+//   &lt;aliased_query_list&gt; are empty.
 // TODO: consider rename to &lt;query_output_column_list&gt;.
 // &lt;output_column_list&gt; matches 1:1 with the &lt;query&gt;&#39;s column_list and
 //   identifies the names and types of the columns output from the select
@@ -3319,8 +3461,7 @@ class ResolvedCreateModelAliasedQuery : public <a href="#ResolvedArgument">Resol
 //   columns. Cannot be set if &lt;has_query&gt; is true. Might be absent when
 //   &lt;is_remote&gt; is true, meaning schema is read from the remote model
 //   itself.
-// &lt;is_remote&gt; is true if this is a remote model. Cannot be set when
-//   &lt;has_query&gt; is true.
+// &lt;is_remote&gt; is true if this is a remote model.
 // &lt;connection&gt; is the identifier path of the connection object. It can be
 //   only set when &lt;is_remote&gt; is true.
 // &lt;transform_list&gt; is the list of ResolvedComputedColumn in TRANSFORM
@@ -3953,6 +4094,42 @@ class ResolvedRecursiveRefScan : public <a href="#ResolvedScan">ResolvedScan</a>
 };
 </code></pre></p>
 
+### ResolvedRecursionDepthModifier
+<a id="ResolvedRecursionDepthModifier"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This represents a recursion depth modifier to recursive CTE:
+//     WITH DEPTH [ AS &lt;recursion_depth_column&gt; ]
+//                [ BETWEEN &lt;lower_bound&gt; AND &lt;upper_bound&gt; ]
+//
+// &lt;lower_bound&gt; and &lt;upper_bound&gt; represents the range of iterations (both
+// side included) whose results are part of CTE&#39;s final output.
+//
+// lower_bound and upper_bound are two integer literals or
+// query parameters. Query parameter values must be checked at run-time by
+// ZetaSQL compliant backend systems.
+// - both lower/upper_bound must be non-negative;
+// - lower_bound is by default zero if unspecified;
+// - upper_bound is by default infinity if unspecified;
+// - lower_bound must be smaller or equal than upper_bound;
+//
+// &lt;recursion_depth_column&gt; is the column that represents the
+// recursion depth semantics: the iteration number that outputs this row;
+// it is part of ResolvedRecursiveScan&#39;s column list when specified, but
+// there is no corresponding column in the inputs of Recursive CTE.
+//
+// See (broken link):explicit-recursion-depth for details.</font>
+class ResolvedRecursionDepthModifier : public <a href="#ResolvedArgument">ResolvedArgument</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_RECURSION_DEPTH_MODIFIER;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* lower_bound() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* upper_bound() const;
+
+  const <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>* recursion_depth_column() const;
+};
+</code></pre></p>
+
 ### ResolvedRecursiveScan
 <a id="ResolvedRecursiveScan"></a>
 
@@ -3974,19 +4151,29 @@ class ResolvedRecursiveRefScan : public <a href="#ResolvedScan">ResolvedScan</a>
 //
 // At runtime, a recursive scan is evaluated using an iterative process:
 //
-// Step 1: Evaluate the non-recursive term. If UNION DISTINCT
+// Step 1 (iteration 0): Evaluate the non-recursive term. If UNION DISTINCT
 //   is specified, discard duplicates.
 //
-// Step 2:
+// Step 2 (iteration k):
 //   Repeat until step 2 produces an empty result:
 //     Evaluate the recursive term, binding the recursive table to the
-//     new rows produced by previous step. If UNION DISTINCT is specified,
-//     discard duplicate rows, as well as any rows which match any
-//     previously-produced result.
+//     new rows produced by previous step (iteration k-1).
+//     If UNION DISTINCT is specified, discard duplicate rows, as well as any
+//     rows which match any previously-produced result.
 //
 // Step 3:
 //   The final content of the recursive table is the UNION ALL of all results
-//   produced (step 1, plus all iterations of step 2).
+//   produced [lower_bound, upper_bound] iterations specified in the
+//   recursion depth modifier. (which are already DISTINCT because of step 2,
+//   if the query had UNION DISTINCT). The final content is augmented by the
+//   column specified in the recursion depth modifier (if specified) which
+//   represents the iteration number that the row is output.
+//   If UNION DISTINCT is specified, the depth column represents the first
+//   iteration that produces a given row.
+//   The depth column will be part of the output column list.
+//
+// When recursion_depth_modifier is unspecified, the lower bound is
+// effectively zero, the upper bound is infinite.
 //
 // ResolvedRecursiveScan only supports a recursive WITH entry which
 //   directly references itself; ZetaSQL does not support mutual recursion
@@ -4005,6 +4192,8 @@ class ResolvedRecursiveScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   const <a href="#ResolvedSetOperationItem">ResolvedSetOperationItem</a>* non_recursive_term() const;
 
   const <a href="#ResolvedSetOperationItem">ResolvedSetOperationItem</a>* recursive_term() const;
+
+  const <a href="#ResolvedRecursionDepthModifier">ResolvedRecursionDepthModifier</a>* recursion_depth_modifier() const;
 };
 </code></pre></p>
 
@@ -5177,6 +5366,18 @@ class ResolvedAlterApproxViewStmt : public <a href="#ResolvedAlterObjectStmt">Re
 // ALTER SCHEMA [IF NOT EXISTS] &lt;name_path&gt; &lt;alter_action_list&gt;;</font>
 class ResolvedAlterSchemaStmt : public <a href="#ResolvedAlterObjectStmt">ResolvedAlterObjectStmt</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_ALTER_SCHEMA_STMT;
+
+};
+</code></pre></p>
+
+### ResolvedAlterExternalSchemaStmt
+<a id="ResolvedAlterExternalSchemaStmt"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This statement:
+// ALTER EXTERNAL SCHEMA [IF EXISTS] &lt;name_path&gt; &lt;alter_action_list&gt;;</font>
+class ResolvedAlterExternalSchemaStmt : public <a href="#ResolvedAlterObjectStmt">ResolvedAlterObjectStmt</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT;
 
 };
 </code></pre></p>
@@ -7341,7 +7542,8 @@ class ResolvedAuxLoadDataStmt : public <a href="#ResolvedStatement">ResolvedStat
 <p><pre><code class="lang-c++">
 <font color="brown">// This statement:
 //   UNDROP &lt;schema_object_kind&gt; [IF NOT EXISTS] &lt;name_path&gt;
-//   FOR SYSTEM_TIME AS OF [&lt;for_system_time_expr&gt;];
+//   FOR SYSTEM_TIME AS OF [&lt;for_system_time_expr&gt;]
+//   [OPTIONS (name=value, ...)];
 //
 // &lt;schema_object_kind&gt; is a string identifier for the entity to be
 // undroped. Currently, only &#39;SCHEMA&#39; object is supported.
@@ -7353,7 +7555,9 @@ class ResolvedAuxLoadDataStmt : public <a href="#ResolvedStatement">ResolvedStat
 // exists.
 //
 // &lt;for_system_time_expr&gt; specifies point in time from which entity is to
-// be undropped.</font>
+// be undropped.
+//
+// &lt;option_list&gt; contains engine-specific options associated with the schema.</font>
 class ResolvedUndropStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_UNDROP_STMT;
 
@@ -7366,6 +7570,10 @@ class ResolvedUndropStmt : public <a href="#ResolvedStatement">ResolvedStatement
   std::string name_path(int i) const;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* for_system_time_expr() const;
+
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
+  int option_list_size() const;
+  const <a href="#ResolvedOption">ResolvedOption</a>* option_list(int i) const;
 };
 </code></pre></p>
 

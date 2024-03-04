@@ -35,6 +35,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/error_helpers.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/multi_catalog.h"
@@ -242,6 +243,12 @@ void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
 
 absl::Status ReferenceDriver::AddSqlUdfs(
     absl::Span<const std::string> create_function_stmts) {
+  return AddSqlUdfs(create_function_stmts, FunctionOptions());
+}
+
+absl::Status ReferenceDriver::AddSqlUdfs(
+    absl::Span<const std::string> create_function_stmts,
+    FunctionOptions function_options) {
   // Ensure the language options used allow CREATE FUNCTION in schema setup
   LanguageOptions language = language_options_;
   language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
@@ -251,12 +258,14 @@ absl::Status ReferenceDriver::AddSqlUdfs(
   // Don't pre-rewrite function bodies.
   // TODO: In RQG mode, apply a random subset of rewriters.
   analyzer_options.set_enabled_rewrites({});
+  // TODO: b/277368430 - Remove this rewriter once the reference implementation
+  // for UDA is fixed.
+  analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_UDAS);
   for (const std::string& create_function : create_function_stmts) {
     sql_udf_artifacts_.emplace_back();
     ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
         create_function, analyzer_options, /*allow_persistent_function=*/false,
-        /*function_options=*/std::nullopt, sql_udf_artifacts_.back(),
-        *catalog_.catalog()));
+        function_options, sql_udf_artifacts_.back(), *catalog_.catalog()));
   }
   return absl::OkStatus();
 }

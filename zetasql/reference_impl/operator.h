@@ -38,21 +38,20 @@
 // - relational_op.cc (other relational operation code)
 // - value_expr.cc (code for ValueExprs)
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
@@ -62,11 +61,13 @@
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -74,9 +75,9 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -690,6 +691,8 @@ class AggregateArg final : public ExprArg {
                                 absl::Span<const TupleData* const> params,
                                 EvaluationContext* context) const;
 
+  const AggregateFunctionCallExpr* aggregate_function() const;
+
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
@@ -710,7 +713,6 @@ class AggregateArg final : public ExprArg {
 
   Distinctness distinct() const { return distinct_; }
 
-  const AggregateFunctionCallExpr* aggregate_function() const;
   AggregateFunctionCallExpr* mutable_aggregate_function();
 
   // Number of aggregate arguments to <aggregate_function>().
@@ -1312,6 +1314,74 @@ class EvaluatorTableScanOp final : public RelationalOp {
   std::unique_ptr<ValueExpr> read_time_;
 };
 
+// Produces a relation from a TVF.
+class TVFOp final : public RelationalOp {
+ public:
+  // Relational input of the TVF. Apart from RelationalOp, contains additional
+  // column schema information allowing TVF evaluator to find columns by name.
+  struct TvfInputRelation {
+    // Descriptor of each input column. Needed to preserve schema and column
+    // name to variable mapping.
+    struct TvfInputRelationColumn {
+      // The name of the column.
+      std::string name;
+      // The type of the column.
+      const Type* type;
+      // Variable associated with this column.
+      VariableId variable;
+    };
+    // Input relation.
+    std::unique_ptr<RelationalOp> relational_op;
+    // Schema of the input relation.
+    std::vector<TvfInputRelationColumn> columns;
+  };
+
+  // Argument for the TVFOp.
+  struct TVFOpArgument {
+    // If set, the argument is a value expression.
+    std::unique_ptr<ValueExpr> value;
+    // If set, the argument is a relation.
+    std::optional<TvfInputRelation> relation;
+    // If set, the argument is a model.
+    const Model* model;
+  };
+
+  static absl::StatusOr<std::unique_ptr<TVFOp>> Create(
+      const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+      std::vector<TVFSchemaColumn> output_columns,
+      std::vector<VariableId> variables,
+      std::shared_ptr<FunctionSignature> function_call_signature);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+  std::string IteratorDebugString() const override;
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  TVFOp(const TableValuedFunction* tvf, std::vector<TVFOpArgument> arguments,
+        std::vector<TVFSchemaColumn> output_columns,
+        std::vector<VariableId> variables,
+        std::shared_ptr<FunctionSignature> function_call_signature);
+
+  // The invoked table valued function.
+  const TableValuedFunction* tvf_;
+  // Arguments for the invocation.
+  const std::vector<TVFOpArgument> arguments_;
+  // Names and types of TVF output columns.
+  const std::vector<TVFSchemaColumn> output_columns_;
+  // Variables matching 'output_columns_' positionally.
+  const std::vector<VariableId> variables_;
+  // Signature of the invocation. Set only if invocation is ambiguous.
+  const std::shared_ptr<FunctionSignature> function_call_signature_;
+};
+
 // Evaluates some expressions and makes them available to 'body'. Each
 // expression is allowed to depend on the results of the previous expressions.
 class LetOp final : public RelationalOp {
@@ -1493,6 +1563,12 @@ class AggregateOp final : public RelationalOp {
   AggregateOp(const AggregateOp&) = delete;
   AggregateOp& operator=(const AggregateOp&) = delete;
 
+  // The maximum grouping sets allowed.
+  static constexpr int kMaxGroupingSets = 4096;
+  // The maximum number of columns allowed in grouping sets, equivalent to
+  // the maximum aggregation keys allowed in a grouping sets query.
+  static constexpr int kMaxColumnsInGroupingSet = 50;
+
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
@@ -1501,7 +1577,7 @@ class AggregateOp final : public RelationalOp {
   static absl::StatusOr<std::unique_ptr<AggregateOp>> Create(
       std::vector<std::unique_ptr<KeyArg>> keys,
       std::vector<std::unique_ptr<AggregateArg>> aggregators,
-      std::unique_ptr<RelationalOp> input);
+      std::unique_ptr<RelationalOp> input, std::vector<int64_t> grouping_sets);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -1524,7 +1600,8 @@ class AggregateOp final : public RelationalOp {
 
   AggregateOp(std::vector<std::unique_ptr<KeyArg>> keys,
               std::vector<std::unique_ptr<AggregateArg>> aggregators,
-              std::unique_ptr<RelationalOp> input);
+              std::unique_ptr<RelationalOp> input,
+              std::vector<int64_t> grouping_sets);
 
   absl::Span<const KeyArg* const> keys() const;
   absl::Span<KeyArg* const> mutable_keys();
@@ -1534,6 +1611,14 @@ class AggregateOp final : public RelationalOp {
 
   const RelationalOp* input() const;
   RelationalOp* mutable_input();
+
+  absl::Span<const int64_t> grouping_sets() const;
+
+  // Grouping sets stored using bit per "group by key", this also includes
+  // grouping sets expanded from rollup or cube.
+  // The least significant bit is for the first key, and so on. It means there
+  // is no grouping sets when the vector is empty.
+  std::vector<int64_t> grouping_sets_;
 };
 
 // Represents scan operator for returning all rows corresponding to the current
@@ -1750,14 +1835,17 @@ class SortOp final : public RelationalOp {
   const bool is_stable_sort_;
 };
 
-// Scans (or unnests) an 'array' as a relation. Each output tuple contains an
-// optional 'element' variable bound to an element of the array (if 'element' is
-// non-empty), and an optional 'position' variable (if 'position' is
-// non-empty). If the array has not fully specified order, output positions are
-// non-deterministic. Note that all tables have unspecified order of rows.
-// For an 'array' of structs, 'fields' may specify (variable, field_index)
+// Scans (or unnests) `arrays` as a relation. Each output tuple contains
+// optional `elements` variables each of which, is bound to an element of one of
+// the array, and an optional `position` variable (if 'position' is non-empty).
+//
+// If any of the arrays has undefined order, and there is at least one
+// additional column, the output positions are non-deterministic.
+// Note that all tables have unspecified order of rows.
+//
+// For an `array` of structs, `fields` may specify (variable, field_index)
 // pairs (which are useful for scanning a table represented as an array of
-// structs in the compliance test framework). field_index refers to the field
+// structs in the compliance test framework). `field_index` refers to the field
 // number in the struct type inside the array type.
 class ArrayScanOp final : public RelationalOp {
  public:
@@ -1783,10 +1871,19 @@ class ArrayScanOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view array_debug_string);
 
+  // Legacy factory method. We keep it to maintain the use case of `fields`, for
+  // backward compatibility.
   static absl::StatusOr<std::unique_ptr<ArrayScanOp>> Create(
       const VariableId& element, const VariableId& position,
       absl::Span<const std::pair<VariableId, int>> fields,
       std::unique_ptr<ValueExpr> array);
+
+  // Multiway UNNEST factory function. It's mutually exclusive with the usage of
+  // `fields`. `elements` and `arrays` are of the same length.
+  static absl::StatusOr<std::unique_ptr<ArrayScanOp>> Create(
+      absl::Span<const VariableId> elements, const VariableId& position,
+      std::vector<std::unique_ptr<ValueExpr>> arrays,
+      std::unique_ptr<ValueExpr> zip_mode_expr);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -1795,9 +1892,9 @@ class ArrayScanOp final : public RelationalOp {
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
-  // Returns the schema consisting of the fields, followed optionally by
-  // 'element' and 'position' (depending on whether those VariableIds are
-  // valid).
+  // Returns the schema consisting of the fields, followed optionally by a
+  // number of `elements` and `position` (depending on whether those VariableIds
+  // are valid).
   std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
 
   std::string IteratorDebugString() const override;
@@ -1806,20 +1903,32 @@ class ArrayScanOp final : public RelationalOp {
                             bool verbose) const override;
 
  private:
-  enum ArgKind { kElement, kPosition, kField, kArray };
+  enum ArgKind { kElement, kPosition, kField, kArray, kMode };
 
-  // 'fields' contains (variable, field_index) pairs given an 'array' of
+  // `fields` contains (variable, field_index) pairs given an `array` of
   // structs, and must be empty otherwise.
   ArrayScanOp(const VariableId& element, const VariableId& position,
               absl::Span<const std::pair<VariableId, int>> fields,
               std::unique_ptr<ValueExpr> array);
 
-  const VariableId& element() const;  // May be empty, i.e., unused.
+  // Multiway UNNEST constructor. If used, field_list() should be empty.
+  ArrayScanOp(std::vector<std::unique_ptr<ExprArg>> elements,
+              std::unique_ptr<ExprArg> position,
+              std::vector<std::unique_ptr<ExprArg>> arrays,
+              std::unique_ptr<ExprArg> zip_mode_expr);
+
+  // May be empty, i.e., unused.
+  absl::Span<const ExprArg* const> elements() const;
   const VariableId& position() const;  // May be empty, i.e., unused.
   absl::Span<const FieldArg* const> field_list() const;
 
-  const ValueExpr* array_expr() const;
-  ValueExpr* mutable_array_expr();
+  absl::Span<const ExprArg* const> array_expr_list() const;
+  absl::Span<ExprArg* const> mutable_array_expr_list();
+  int num_arrays() const;
+
+  // Array zipping mode using ARRAY_ZIP_MODE enum. The default is nullptr which
+  // will be interpreted as "PAD".
+  const ValueExpr* zip_mode_expr() const;
 };
 
 // Evaluates a set of keys for each row produced by an input iterator.
@@ -4017,7 +4126,7 @@ class DMLInsertValueExpr final : public DMLValueExpr {
   // mode properly for each corresponding row in "dml_returning_rows".
   absl::StatusOr<int64_t> InsertRows(
       const InsertColumnMap& insert_column_map,
-      const std::vector<std::vector<Value>>& rows_to_insert,
+      std::vector<std::vector<Value>>& rows_to_insert,
       std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context, PrimaryKeyRowMap* row_map) const;
 

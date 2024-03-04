@@ -40,8 +40,10 @@
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 
@@ -126,7 +128,8 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
     *output += "\n";
     for (const DebugStringField& field : fields) {
       const bool print_field_name = !field.name.empty();
-      const bool print_one_line = field.nodes.empty();
+      const bool value_has_newlines = absl::StrContains(field.value, "\n");
+      const bool print_one_line = field.nodes.empty() && !value_has_newlines;
       absl::string_view accessed_string =
           config.print_accessed ? field.accessed ? "{*}" : "{ }" : "";
 
@@ -143,6 +146,13 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
       }
 
       if (!print_one_line) {
+        if (value_has_newlines) {
+          absl::StrAppend(output, prefix1, "|   \"\"\"\n");
+          for (auto line : absl::StrSplit(field.value, '\n')) {
+            absl::StrAppend(output, prefix1, "|   ", line, "\n");
+          }
+          absl::StrAppend(output, prefix1, "|   \"\"\"\n");
+        }
         for (const ResolvedNode* node : field.nodes) {
           const std::string field_name_indent =
               print_field_name ? (&field != &fields.back() ? "| " : "  ") : "";
@@ -338,6 +348,18 @@ void ResolvedComputedColumn::CollectDebugStringFields(
 std::string ResolvedComputedColumn::GetNameForDebugString() const {
   return GetNameForDebugStringWithNameFormat(column_.ShortDebugString(),
                                              expr_.get());
+}
+
+void ResolvedDeferredComputedColumn::CollectDebugStringFields(
+    std::vector<DebugStringField>* fields) const {
+  SUPER::CollectDebugStringFields(fields);
+  CollectDebugStringFieldsWithNameFormat(expr_.get(), fields);
+}
+
+std::string ResolvedDeferredComputedColumn::GetNameForDebugString() const {
+  std::string name = column().ShortDebugString();
+  absl::StrAppend(&name, " [", side_effect_column_.ShortDebugString(), "]");
+  return GetNameForDebugStringWithNameFormat(name, expr());
 }
 
 // ResolvedOutputColumn gets formatted as

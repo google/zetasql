@@ -510,4 +510,16 @@ TEST(GetNextStatementPropertiesTest, BasicStatements) {
   }
 }
 
+// Tests the fix for the regression in b/266192857
+TEST(GetNextStatementKindTest, DefineMacroStmt) {
+  // We do not yet have ResolvedDefineMacroStatemment
+  ParseResumeLocation parse_resume_location =
+      ParseResumeLocation::FromString("DEFINE MACRO m 1");
+
+  LanguageOptions language_options;
+  StatementProperties statement_properties;
+  ZETASQL_EXPECT_OK(GetNextStatementProperties(parse_resume_location, language_options,
+                                       &statement_properties));
+}
+
 }  // namespace zetasql

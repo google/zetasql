@@ -1,4 +1,4 @@
-[default language_features=V_1_4_CORRESPONDING,V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE]
+[default language_features=V_1_4_CORRESPONDING_FULL]
 [default no_show_resolved_ast]
 
 [default show_unparsed]
@@ -109,9 +109,13 @@ QueryStmt
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=SimpleTypes.[int32#21, int64#22, int64#22]
+    |   |   +-column_list=SimpleTypes.[int64#22, int64#22, int32#21]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |     +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
+    |   |     +-ProjectScan
+    |   |       +-column_list=SimpleTypes.[int32#21, int64#22, int64#22]
+    |   |       +-input_scan=
+    |   |         +-TableScan(column_list=SimpleTypes.[int32#21, int64#22], table=SimpleTypes, column_index_list=[0, 1])
     |   +-output_column_list=SimpleTypes.[int64#22, int64#22, int32#21]
     +-column_match_mode=CORRESPONDING
 
@@ -234,13 +238,17 @@ QueryStmt
     | | +-output_column_list=SimpleTypes.[int64#2, int32#1, int32#1]
     | +-SetOperationItem
     |   +-scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=$distinct.[int64#37, int32#38]
+    |   | +-ProjectScan
+    |   |   +-column_list=$distinct.[int64#37, int32#38, int32#38]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=SimpleTypes.[int32#19, int64#20], table=SimpleTypes, column_index_list=[0, 1])
-    |   |   +-group_by_list=
-    |   |     +-int64#37 := ColumnRef(type=INT64, column=SimpleTypes.int64#20)
-    |   |     +-int32#38 := ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   |     +-AggregateScan
+    |   |       +-column_list=$distinct.[int64#37, int32#38]
+    |   |       +-input_scan=
+    |   |       | +-TableScan(column_list=SimpleTypes.[int32#19, int64#20], table=SimpleTypes, column_index_list=[0, 1])
+    |   |       +-group_by_list=
+    |   |         +-int64#37 := ColumnRef(type=INT64, column=SimpleTypes.int64#20)
+    |   |         +-int32#38 := ColumnRef(type=INT32, column=SimpleTypes.int32#19)
     |   +-output_column_list=$distinct.[int64#37, int32#38, int32#38]
     +-column_match_mode=CORRESPONDING
     +-column_propagation_mode=INNER
@@ -655,16 +663,20 @@ QueryStmt
     | +-SetOperationItem
     |   +-scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[SimpleTypes.double#27, $union_all2_cast.int32#40]
-    |   |   +-expr_list=
-    |   |   | +-int32#40 :=
-    |   |   |   +-Cast(INT32 -> INT64)
-    |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+    |   |   +-column_list=[$union_all2_cast.int32#40, SimpleTypes.double#27]
+    |   |   +-node_source="resolver_set_operation_corresponding"
     |   |   +-input_scan=
     |   |     +-ProjectScan
-    |   |       +-column_list=SimpleTypes.[double#27, int32#19]
+    |   |       +-column_list=[SimpleTypes.double#27, $union_all2_cast.int32#40]
+    |   |       +-expr_list=
+    |   |       | +-int32#40 :=
+    |   |       |   +-Cast(INT32 -> INT64)
+    |   |       |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#19)
     |   |       +-input_scan=
-    |   |         +-TableScan(column_list=SimpleTypes.[int32#19, double#27], table=SimpleTypes, column_index_list=[0, 8])
+    |   |         +-ProjectScan
+    |   |           +-column_list=SimpleTypes.[double#27, int32#19]
+    |   |           +-input_scan=
+    |   |             +-TableScan(column_list=SimpleTypes.[int32#19, double#27], table=SimpleTypes, column_index_list=[0, 8])
     |   +-output_column_list=[$union_all2_cast.int32#40, SimpleTypes.double#27]
     +-column_match_mode=CORRESPONDING
 

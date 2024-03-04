@@ -89,6 +89,10 @@ class ProtoType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
+  std::string TypeName(ProductMode mode_unused,
+                       bool use_external_float32_unused) const override {
+    return TypeName();
+  }
   // ProtoType does not support type parameters or collation, which is why
   // TypeName(mode) is used.
   absl::StatusOr<std::string> TypeNameWithModifiers(
@@ -99,8 +103,22 @@ class ProtoType : public Type {
     ZETASQL_RET_CHECK(collation.Empty());
     return TypeName(mode);
   }
-  std::string ShortTypeName(
-      ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode,
+      bool use_external_float32_unused) const override {
+    return TypeNameWithModifiers(type_modifiers, mode);
+  }
+
+  std::string ShortTypeName(ProductMode mode_unused) const override {
+    return ShortTypeName();
+  }
+
+  std::string ShortTypeName(ProductMode mode_unused,
+                            bool use_external_float32_unused) const override {
+    return ShortTypeName();
+  }
+
+  std::string ShortTypeName() const;
   std::string TypeName() const;  // Proto-specific version does not need mode.
 
   // Nested catalog names, that were passed to the constructor.
@@ -132,7 +150,7 @@ class ProtoType : public Type {
                                        const Type** type,
                                        std::string* name = nullptr) const;
   ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
-  absl::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
+  absl::Status GetFieldTypeByName(absl::string_view name, TypeFactory* factory,
                                   bool use_obsolete_timestamp,
                                   const Type** type,
                                   int* number = nullptr) const;
@@ -480,6 +498,7 @@ absl::Status ProtoType::ValidateTypeAnnotations(
           if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
               field_format != FieldFormat::NUMERIC &&
               field_format != FieldFormat::BIGNUMERIC &&
+              field_format != FieldFormat::TOKENLIST &&
               field_format != FieldFormat::RANGE_DATES_ENCODED &&
               field_format != FieldFormat::RANGE_DATETIMES_ENCODED &&
               field_format != FieldFormat::RANGE_TIMESTAMPS_ENCODED &&

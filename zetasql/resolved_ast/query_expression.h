@@ -68,30 +68,30 @@ class QueryExpression {
       bool recursive);
   bool TrySetSelectClause(
       const std::vector<std::pair<std::string, std::string>>& select_list,
-      const std::string& select_hints);
-  bool TrySetFromClause(const std::string& from);
-  bool TrySetWhereClause(const std::string& where);
+      absl::string_view select_hints);
+  bool TrySetFromClause(absl::string_view from);
+  bool TrySetWhereClause(absl::string_view where);
   bool TrySetSetOpScanList(
       std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
-      const std::string& set_op_type, const std::string& set_op_modifier,
-      const std::string& set_op_column_match_mode,
-      const std::string& set_op_column_propagation_mode,
-      const std::string& query_hints);
+      absl::string_view set_op_type, absl::string_view set_op_modifier,
+      absl::string_view set_op_column_match_mode,
+      absl::string_view set_op_column_propagation_mode,
+      absl::string_view query_hints);
   bool TrySetGroupByClause(
       const std::map<int, std::string>& group_by_list,
-      const std::string& group_by_hints,
+      absl::string_view group_by_hints,
       const std::vector<GroupingSetIds>& grouping_set_id_list,
       const std::vector<int>& rollup_column_id_list);
   absl::Status SetGroupByAllClause(
       const std::map<int, std::string>& group_by_list,
-      const std::string& group_by_hints);
+      absl::string_view group_by_hints);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
                            const std::string& order_by_hints);
-  bool TrySetLimitClause(const std::string& limit);
-  bool TrySetOffsetClause(const std::string& offset);
-  bool TrySetWithAnonymizationClause(const std::string& anonymization_options);
+  bool TrySetLimitClause(absl::string_view limit);
+  bool TrySetOffsetClause(absl::string_view offset);
+  bool TrySetWithAnonymizationClause(absl::string_view anonymization_options);
   bool TrySetPivotClause(const std::string& pivot);
-  bool TrySetUnpivotClause(const std::string& unpivot);
+  bool TrySetUnpivotClause(absl::string_view unpivot);
 
   // The below CanSet... methods return true if filling in the concerned clause
   // in the QueryExpression will succeed (without mutating it or wrapping it as
@@ -147,7 +147,7 @@ class QueryExpression {
       const absl::flat_hash_map<int, absl::string_view>& aliases);
 
   // Set the AS modifier for the SELECT.  e.g. "AS VALUE".
-  void SetSelectAsModifier(const std::string& modifier);
+  void SetSelectAsModifier(absl::string_view modifier);
 
   // Returns a mutable pointer to the group_by_list_ of QueryExpression. Used
   // mostly to update the sql text of the group_by columns to reflect the

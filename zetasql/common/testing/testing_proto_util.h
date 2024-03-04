@@ -24,7 +24,6 @@
 #include "google/protobuf/message.h"
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
-#include "absl/flags/flag.h"
 #include "absl/strings/cord.h"
 
 namespace zetasql {

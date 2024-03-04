@@ -1,0 +1,106 @@
+[default language_features=EXTERNAL_SCHEMA_DDL]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
+--
+CreateExternalSchemaStmt
++-name_path=foo
++-connection=
+  +-Connection(connection=connection1)
+==
+
+CREATE {{|OR REPLACE}} EXTERNAL SCHEMA {{|IF NOT EXISTS}} foo.bar.baz
+WITH CONNECTION connection1 OPTIONS (a=1, b="cde")
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalSchemaStmt
++-name_path=foo.bar.baz
++-option_list=
+| +-a := Literal(type=INT64, value=1)
+| +-b := Literal(type=STRING, value="cde")
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: IF NOT EXISTS
+--
+CreateExternalSchemaStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_IF_NOT_EXISTS
++-option_list=
+| +-a := Literal(type=INT64, value=1)
+| +-b := Literal(type=STRING, value="cde")
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: OR REPLACE,
+--
+CreateExternalSchemaStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_OR_REPLACE
++-option_list=
+| +-a := Literal(type=INT64, value=1)
+| +-b := Literal(type=STRING, value="cde")
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: OR REPLACE,IF NOT EXISTS
+--
+ERROR: CREATE EXTERNAL SCHEMA cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE EXTERNAL SCHEMA IF NOT EXISTS foo.bar.baz
+^
+==
+
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1
+--
+ERROR: Syntax error: Expected keyword OPTIONS but got end of statement [at 1:55]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1
+                                                      ^
+==
+
+CREATE EXTERNAL SCHEMA foo OPTIONS ()
+--
+ERROR: Syntax error: Expected "." or keyword WITH but got keyword OPTIONS [at 1:28]
+CREATE EXTERNAL SCHEMA foo OPTIONS ()
+                           ^
+==
+
+CREATE {{temp|temporary|public|private}} EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
+--
+
+ALTERNATION GROUPS:
+    temp
+    temporary
+--
+CreateExternalSchemaStmt
++-name_path=foo
++-create_scope=CREATE_TEMP
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: public
+--
+ERROR: CREATE EXTERNAL SCHEMA with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+CREATE public EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
+^
+--
+ALTERNATION GROUP: private
+--
+ERROR: CREATE EXTERNAL SCHEMA with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+CREATE private EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
+^
+==
+
+[disallow_duplicate_options]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1, x=5)
+--
+ERROR: Duplicate option specified for 'x' [at 1:69]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1, x=5)
+                                                                    ^
+==
+
+[language_features=]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1)
+--
+ERROR: CREATE EXTERNAL SCHEMA is not supported [at 1:1]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1)
+^
+==

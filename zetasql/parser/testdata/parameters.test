@@ -223,6 +223,93 @@ WHERE
   @@aId = @@bId
 ==
 
+# This test is here to document current behavior and notice regressions.
+select {{@|@@}} aId {{AS|FROM|3d}} t;
+--
+
+ALTERNATION GROUP: @,AS
+--
+QueryStatement [0-17] [select @ aId AS t]
+  Query [0-17] [select @ aId AS t]
+    Select [0-17] [select @ aId AS t]
+      SelectList [7-17] [@ aId AS t]
+        SelectColumn [7-17] [@ aId AS t]
+          ParameterExpr [7-12] [@ aId]
+            Identifier(aId) [9-12] [aId]
+          Alias [13-17] [AS t]
+            Identifier(t) [16-17] [t]
+--
+SELECT
+  @aId AS t
+--
+ALTERNATION GROUP: @,FROM
+--
+QueryStatement [0-19] [select @ aId FROM t]
+  Query [0-19] [select @ aId FROM t]
+    Select [0-19] [select @ aId FROM t]
+      SelectList [7-12] [@ aId]
+        SelectColumn [7-12] [@ aId]
+          ParameterExpr [7-12] [@ aId]
+            Identifier(aId) [9-12] [aId]
+      FromClause [13-19] [FROM t]
+        TablePathExpression [18-19] [t]
+          PathExpression [18-19] [t]
+            Identifier(t) [18-19] [t]
+--
+SELECT
+  @aId
+FROM
+  t
+--
+ALTERNATION GROUP: @,3d
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+select @ aId 3d t;
+              ^
+--
+ALTERNATION GROUP: @@,AS
+--
+QueryStatement [0-18] [select @@ aId AS t]
+  Query [0-18] [select @@ aId AS t]
+    Select [0-18] [select @@ aId AS t]
+      SelectList [7-18] [@@ aId AS t]
+        SelectColumn [7-18] [@@ aId AS t]
+          SystemVariableExpr [7-13] [@@ aId]
+            PathExpression [10-13] [aId]
+              Identifier(aId) [10-13] [aId]
+          Alias [14-18] [AS t]
+            Identifier(t) [17-18] [t]
+--
+SELECT
+  @@aId AS t
+--
+ALTERNATION GROUP: @@,FROM
+--
+QueryStatement [0-20] [select @@ aId FROM t]
+  Query [0-20] [select @@ aId FROM t]
+    Select [0-20] [select @@ aId FROM t]
+      SelectList [7-13] [@@ aId]
+        SelectColumn [7-13] [@@ aId]
+          SystemVariableExpr [7-13] [@@ aId]
+            PathExpression [10-13] [aId]
+              Identifier(aId) [10-13] [aId]
+      FromClause [14-20] [FROM t]
+        TablePathExpression [19-20] [t]
+          PathExpression [19-20] [t]
+            Identifier(t) [19-20] [t]
+--
+SELECT
+  @@aId
+FROM
+  t
+--
+ALTERNATION GROUP: @@,3d
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:16]
+select @@ aId 3d t;
+               ^
+==
+
 # This shows an error that is an unfortunate consequence of the allowed
 # whitespace separation following @ or @@
 select * from T where @{{|@}}

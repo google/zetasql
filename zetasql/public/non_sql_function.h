@@ -25,6 +25,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -79,7 +80,7 @@ class NonSqlFunction : public Function {
  private:
   // Constructor for valid functions.
   NonSqlFunction(
-      const std::string& name, Mode mode,
+      absl::string_view name, Mode mode,
       const std::vector<FunctionSignature>& function_signatures,
       const FunctionOptions& function_options,
       const ResolvedCreateFunctionStmt* resolved_create_function_statement,

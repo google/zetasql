@@ -65,10 +65,12 @@ CreateSchemaStatement [0-38] [CREATE SCHEMA...'a',y='b')]
   OptionsList [25-38] [(x='a',y='b')]
     OptionsEntry [26-31] [x='a']
       Identifier(x) [26-27] [x]
-      StringLiteral('a') [28-31] ['a']
+      StringLiteral [28-31] ['a']
+        StringLiteralComponent('a') [28-31] ['a']
     OptionsEntry [32-37] [y='b']
       Identifier(y) [32-33] [y]
-      StringLiteral('b') [34-37] ['b']
+      StringLiteral [34-37] ['b']
+        StringLiteralComponent('b') [34-37] ['b']
 --
 CREATE SCHEMA foo
 OPTIONS(x = 'a', y = 'b')
@@ -84,7 +86,8 @@ CreateSchemaStatement [0-62] [CREATE  SCHEMA...options()]
     Identifier(foo) [16-19] [foo]
     Identifier(bar) [20-23] [bar]
   Collate [32-52] [COLLATE 'unicode:ci']
-    StringLiteral('unicode:ci') [40-52] ['unicode:ci']
+    StringLiteral [40-52] ['unicode:ci']
+      StringLiteralComponent('unicode:ci') [40-52] ['unicode:ci']
   OptionsList [60-62] [()]
 --
 CREATE SCHEMA foo.bar DEFAULT COLLATE 'unicode:ci'
@@ -97,7 +100,8 @@ CreateSchemaStatement(is_if_not_exists) [0-75] [CREATE  SCHEMA...options()]
     Identifier(foo) [29-32] [foo]
     Identifier(bar) [33-36] [bar]
   Collate [45-65] [COLLATE 'unicode:ci']
-    StringLiteral('unicode:ci') [53-65] ['unicode:ci']
+    StringLiteral [53-65] ['unicode:ci']
+      StringLiteralComponent('unicode:ci') [53-65] ['unicode:ci']
   OptionsList [73-75] [()]
 --
 CREATE SCHEMA IF NOT EXISTS foo.bar DEFAULT COLLATE 'unicode:ci'
@@ -110,7 +114,8 @@ CreateSchemaStatement(is_or_replace) [0-72] [CREATE or...options()]
     Identifier(foo) [26-29] [foo]
     Identifier(bar) [30-33] [bar]
   Collate [42-62] [COLLATE 'unicode:ci']
-    StringLiteral('unicode:ci') [50-62] ['unicode:ci']
+    StringLiteral [50-62] ['unicode:ci']
+      StringLiteralComponent('unicode:ci') [50-62] ['unicode:ci']
   OptionsList [70-72] [()]
 --
 CREATE OR REPLACE SCHEMA foo.bar DEFAULT COLLATE 'unicode:ci'
@@ -123,7 +128,8 @@ CreateSchemaStatement(is_or_replace, is_if_not_exists) [0-85] [CREATE or...optio
     Identifier(foo) [39-42] [foo]
     Identifier(bar) [43-46] [bar]
   Collate [55-75] [COLLATE 'unicode:ci']
-    StringLiteral('unicode:ci') [63-75] ['unicode:ci']
+    StringLiteral [63-75] ['unicode:ci']
+      StringLiteralComponent('unicode:ci') [63-75] ['unicode:ci']
   OptionsList [83-85] [()]
 --
 CREATE OR REPLACE SCHEMA IF NOT EXISTS foo.bar DEFAULT COLLATE 'unicode:ci'
@@ -137,14 +143,17 @@ CreateSchemaStatement [0-67] [CREATE SCHEMA...'a',y='b')]
   PathExpression [14-17] [foo]
     Identifier(foo) [14-17] [foo]
   Collate [26-46] [COLLATE 'unicode:ci']
-    StringLiteral('unicode:ci') [34-46] ['unicode:ci']
+    StringLiteral [34-46] ['unicode:ci']
+      StringLiteralComponent('unicode:ci') [34-46] ['unicode:ci']
   OptionsList [54-67] [(x='a',y='b')]
     OptionsEntry [55-60] [x='a']
       Identifier(x) [55-56] [x]
-      StringLiteral('a') [57-60] ['a']
+      StringLiteral [57-60] ['a']
+        StringLiteralComponent('a') [57-60] ['a']
     OptionsEntry [61-66] [y='b']
       Identifier(y) [61-62] [y]
-      StringLiteral('b') [63-66] ['b']
+      StringLiteral [63-66] ['b']
+        StringLiteralComponent('b') [63-66] ['b']
 --
 CREATE SCHEMA foo DEFAULT COLLATE 'unicode:ci'
 OPTIONS(x = 'a', y = 'b')
@@ -177,10 +186,12 @@ CreateSchemaStatement [0-57] [CREATE SCHEMA...'a',y='b')]
   OptionsList [44-57] [(x='a',y='b')]
     OptionsEntry [45-50] [x='a']
       Identifier(x) [45-46] [x]
-      StringLiteral('a') [47-50] ['a']
+      StringLiteral [47-50] ['a']
+        StringLiteralComponent('a') [47-50] ['a']
     OptionsEntry [51-56] [y='b']
       Identifier(y) [51-52] [y]
-      StringLiteral('b') [53-56] ['b']
+      StringLiteral [53-56] ['b']
+        StringLiteralComponent('b') [53-56] ['b']
 --
 CREATE SCHEMA foo DEFAULT COLLATE @a
 OPTIONS(x = 'a', y = 'b')
@@ -197,10 +208,12 @@ CreateSchemaStatement [0-58] [CREATE SCHEMA...'a',y='b')]
   OptionsList [45-58] [(x='a',y='b')]
     OptionsEntry [46-51] [x='a']
       Identifier(x) [46-47] [x]
-      StringLiteral('a') [48-51] ['a']
+      StringLiteral [48-51] ['a']
+        StringLiteralComponent('a') [48-51] ['a']
     OptionsEntry [52-57] [y='b']
       Identifier(y) [52-53] [y]
-      StringLiteral('b') [54-57] ['b']
+      StringLiteral [54-57] ['b']
+        StringLiteralComponent('b') [54-57] ['b']
 --
 CREATE SCHEMA foo DEFAULT COLLATE @@a
 OPTIONS(x = 'a', y = 'b')
@@ -216,10 +229,12 @@ CreateSchemaStatement [0-56] [CREATE SCHEMA...'a',y='b')]
   OptionsList [43-56] [(x='a',y='b')]
     OptionsEntry [44-49] [x='a']
       Identifier(x) [44-45] [x]
-      StringLiteral('a') [46-49] ['a']
+      StringLiteral [46-49] ['a']
+        StringLiteralComponent('a') [46-49] ['a']
     OptionsEntry [50-55] [y='b']
       Identifier(y) [50-51] [y]
-      StringLiteral('b') [52-55] ['b']
+      StringLiteral [52-55] ['b']
+        StringLiteralComponent('b') [52-55] ['b']
 --
 CREATE SCHEMA foo DEFAULT COLLATE ?
 OPTIONS(x = 'a', y = 'b')
@@ -237,4 +252,3 @@ CREATE SCHEMA foo OPTIONS(a="b", c="d") DEFAULT COLLATE 'unicode:ci';
 ERROR: Syntax error: Expected end of input but got keyword DEFAULT [at 1:41]
 CREATE SCHEMA foo OPTIONS(a="b", c="d") DEFAULT COLLATE 'unicode:ci';
                                         ^
-==

@@ -41,6 +41,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -61,10 +62,10 @@ const FormatDateTimestampOptions kExpandQandJ =
 // the canonical form '2015-01-31 12:34:56.999999+0').  If <expected_string>
 // is empty then an error is expected and we validate that parsing the string
 // fails.  This is a helper for TestParseSecondsSinceEpoch().
-static void TestParseStringToTimestamp(const std::string& format,
-                                       const std::string& timestamp_string,
-                                       const std::string& default_time_zone,
-                                       const std::string& expected_result) {
+static void TestParseStringToTimestamp(absl::string_view format,
+                                       absl::string_view timestamp_string,
+                                       absl::string_view default_time_zone,
+                                       absl::string_view expected_result) {
   int64_t timestamp = std::numeric_limits<int64_t>::max();
   if (expected_result.empty()) {
     // An error is expected.
@@ -302,7 +303,7 @@ static void TestParseTime(const FunctionTestCall& testcase) {
     };
   };
   auto ParseTimeResultValidator = [](const Value& expected_result,
-                                     const std::string& actual_string) {
+                                     absl::string_view actual_string) {
     return expected_result.type_kind() == TYPE_TIME &&
            expected_result.DebugString() == actual_string;
   };
@@ -335,7 +336,7 @@ static void TestParseDatetime(const FunctionTestCall& testcase) {
     };
   };
   auto ParseDatetimeResultValidator = [](const Value& expected_result,
-                                         const std::string& actual_string) {
+                                         absl::string_view actual_string) {
     return expected_result.type_kind() == TYPE_DATETIME &&
            expected_result.DebugString() == actual_string;
   };
@@ -1041,9 +1042,11 @@ struct ParseDatetimeTest {
   ParseDatetimeTest(const std::string& format_in,
                     const std::string& input_string_in,
                     const absl::CivilDay result_date_in,
-                    const std::string& expected_dow_in)
-      : format(format_in), input_string(input_string_in),
-        result_date(result_date_in), expected_dow(expected_dow_in) {}
+                    absl::string_view expected_dow_in)
+      : format(format_in),
+        input_string(input_string_in),
+        result_date(result_date_in),
+        expected_dow(expected_dow_in) {}
 
   // Constructor for tests that only apply to DATETIME and TIMESTAMP types
   // (when including format elements that specify hour/minute/second/etc.).
@@ -1058,10 +1061,12 @@ struct ParseDatetimeTest {
   // hour/minute/second elements).
   ParseDatetimeTest(const std::string& format_in,
                     const std::string& input_string_in,
-                    const std::string& error_substr_in,
+                    absl::string_view error_substr_in,
                     bool excludes_date_in = false)
-      : format(format_in), input_string(input_string_in),
-            error_substr(error_substr_in), excludes_date(excludes_date_in) {}
+      : format(format_in),
+        input_string(input_string_in),
+        error_substr(error_substr_in),
+        excludes_date(excludes_date_in) {}
 
   std::string DebugString() const {
     return absl::StrCat(
@@ -1096,7 +1101,7 @@ void CheckParseTimestampResultImpl(const ParseDatetimeTest& test,
                                    const absl::Status& parse_status,
                                    std::optional<int32_t> parsed_date,
                                    std::optional<DatetimeValue> parsed_datetime,
-                                   const std::string& test_type) {
+                                   absl::string_view test_type) {
   if (test.result_date.has_value()) {
     ZETASQL_EXPECT_OK(parse_status) << " test: " << test.DebugString();
 
@@ -1175,7 +1180,7 @@ void CheckParseTimestampResult(const ParseDatetimeTest& test,
 void CheckParseTimestampResult(const ParseDatetimeTest& test,
                                const absl::Status& parse_status,
                                std::optional<DatetimeValue> parsed_datetime,
-                               const std::string& test_type) {
+                               absl::string_view test_type) {
   CheckParseTimestampResultImpl(test, parse_status, std::nullopt,
                                 parsed_datetime, test_type);
 }

@@ -25,7 +25,6 @@
 #include <limits>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
 #include "openssl/bn.h"

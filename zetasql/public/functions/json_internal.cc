@@ -27,9 +27,11 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/case.h"  
 #include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
 
@@ -65,16 +67,31 @@ static LazyRE2 kEscKeyRegexStandard = {
 static LazyRE2 kUnSupportedLexer = {"(\\*|\\.\\.|@)"};
 static LazyRE2 kBeginRegex = {"\\$"};
 
+// This is a regex that supports lax notation. It matches keywords
+// {lax, recursive} case agnostically. The keywords are specified before the
+// `kBeginRegex`.
+static LazyRE2 kLaxOptionsKeywordRegex = {
+    R"regexp((?i)(lax|recursive)\s+)regexp"};
+constexpr absl::string_view kLaxKeyword = "lax";
+constexpr absl::string_view kRecursiveKeyword = "recursive";
+
 constexpr char kStandardEscapeChar = '"';
 constexpr char kLegacyEscapeChar = '\'';
 constexpr absl::string_view kBeginToken = "";
+
+// We have separate error messages because engines currently validate against
+// this message. Engines should not be verifying ZetaSQL internals but that is
+// the current state.
+constexpr absl::string_view kPrefixErrorMsg = "JSONPath must start with '$'";
+constexpr absl::string_view kLaxPrefixErrorMsg =
+    "JSONPath must start with zero or more unique modifiers followed by '$'";
 
 }  // namespace
 
 // Checks if the given JSON path is supported and valid.
 absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode) {
   if (!RE2::Consume(&text, *kBeginRegex)) {
-    return absl::OutOfRangeError("JSONPath must start with '$'");
+    return absl::OutOfRangeError(kPrefixErrorMsg);
   }
 
   const RE2* esc_key_regex = kEscKeyRegex.get();
@@ -103,11 +120,15 @@ absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode) {
   return absl::OkStatus();
 }
 
-absl::Status IsValidJSONPathStrict(absl::string_view text) {
-  if (!RE2::Consume(&text, *kBeginRegex)) {
-    return absl::OutOfRangeError("JSONPath must start with '$'");
-  }
+static absl::string_view GetPrefixErrorMessage(bool enable_lax_mode) {
+  return enable_lax_mode ? kLaxPrefixErrorMsg : kPrefixErrorMsg;
+}
 
+static absl::Status ValidateAndConsumeStrictPathAfterKeywords(
+    absl::string_view& text, bool enable_lax_mode) {
+  if (!RE2::Consume(&text, *kBeginRegex)) {
+    return absl::OutOfRangeError(GetPrefixErrorMessage(enable_lax_mode));
+  }
   while (!text.empty()) {
     if (!RE2::Consume(&text, *kKeyRegex) &&
         !RE2::Consume(&text, *kEscKeyRegexStandard)) {
@@ -124,6 +145,62 @@ absl::Status IsValidJSONPathStrict(absl::string_view text) {
     }
   }
   return absl::OkStatus();
+}
+
+// Validates and consumes the lax keywords(specified before the `kBeginRegex`)
+// and returns the specified options.
+// Returns an error if there are invalid keyword combinations.
+static absl::StatusOr<StrictJSONPathIterator::JsonPathOptions>
+GetOptionsAndConsumeKeywords(absl::string_view& text) {
+  StrictJSONPathIterator::JsonPathOptions lax_options;
+
+  // The valid combinations are {'lax recursive', 'recursive lax', 'lax'} case
+  // agnostic.
+  absl::string_view matched_keyword;
+  while (RE2::Consume(&text, *kLaxOptionsKeywordRegex, &matched_keyword)) {
+    // Verify keywords are not repeated.
+    if (!lax_options.lax &&
+        zetasql_base::CaseEqual(matched_keyword, kLaxKeyword)) {
+      lax_options.lax = true;
+    } else if (!lax_options.recursive &&
+               zetasql_base::CaseEqual(matched_keyword, kRecursiveKeyword)) {
+      lax_options.recursive = true;
+    } else {
+      return absl::OutOfRangeError(kLaxPrefixErrorMsg);
+    }
+  }
+
+  // 'recursive' without keyword 'lax' is invalid.
+  if (lax_options.recursive && !lax_options.lax) {
+    return absl::OutOfRangeError(
+        "JSONPath has an invalid combination of modifiers. The 'lax' modifier "
+        "must be included if 'recursive' is specified.");
+  }
+  return lax_options;
+}
+
+absl::Status IsValidJSONPathStrict(absl::string_view text,
+                                   bool enable_lax_mode) {
+  if (enable_lax_mode) {
+    // For validity checks we can ignore the returned JsonPathOptions.
+    ZETASQL_RETURN_IF_ERROR(GetOptionsAndConsumeKeywords(text).status());
+  }
+  return ValidateAndConsumeStrictPathAfterKeywords(text, enable_lax_mode);
+}
+
+absl::StatusOr<bool> IsValidAndLaxJSONPath(absl::string_view text) {
+  ZETASQL_ASSIGN_OR_RETURN(StrictJSONPathIterator::JsonPathOptions options,
+                   GetOptionsAndConsumeKeywords(text));
+  if (options.lax) {
+    ZETASQL_RETURN_IF_ERROR(ValidateAndConsumeStrictPathAfterKeywords(
+        text, /*enable_lax_mode=*/true));
+    return true;
+  }
+  // This is a non-lax path. Therefore, doesn't need to have strict path
+  // semantics.
+  ZETASQL_RETURN_IF_ERROR(IsValidJSONPath(text, /*sql_standard_mode=*/true));
+  // This is a valid JSONPath but does not follow lax mode.
+  return false;
 }
 
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {
@@ -149,7 +226,7 @@ void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {
 absl::StatusOr<std::vector<std::string>> ValidateAndInitializePathTokens(
     absl::string_view path, bool sql_standard_mode) {
   if (!RE2::Consume(&path, *kBeginRegex)) {
-    return absl::OutOfRangeError("JSONPath must start with '$'");
+    return absl::OutOfRangeError(kPrefixErrorMsg);
   }
   std::vector<std::string> tokens;
   tokens.push_back(std::string(kBeginToken));
@@ -201,12 +278,16 @@ ValidJSONPathIterator::Create(absl::string_view js_path,
 // Validates and initializes a json path. During parsing, initializes all tokens
 // that can be re-used by `StrictJSONPathIterator`. This avoids duplicate
 // intensive regex matching.
-absl::StatusOr<std::vector<StrictJSONPathToken>>
-ValidateAndInitializeStrictPathTokens(absl::string_view path) {
-  std::vector<StrictJSONPathToken> tokens;
-  if (!RE2::Consume(&path, *kBeginRegex)) {
-    return absl::OutOfRangeError("JSONPath must start with '$'");
+absl::StatusOr<std::unique_ptr<StrictJSONPathIterator>>
+StrictJSONPathIterator::Create(absl::string_view path, bool enable_lax_mode) {
+  JsonPathOptions path_options;
+  if (enable_lax_mode) {
+    ZETASQL_ASSIGN_OR_RETURN(path_options, GetOptionsAndConsumeKeywords(path));
   }
+  if (!RE2::Consume(&path, *kBeginRegex)) {
+    return absl::OutOfRangeError(GetPrefixErrorMessage(enable_lax_mode));
+  }
+  std::vector<StrictJSONPathToken> tokens;
   tokens.push_back(StrictJSONPathToken(std::monostate()));
   while (!path.empty()) {
     std::string parsed_string;
@@ -228,14 +309,8 @@ ValidateAndInitializeStrictPathTokens(absl::string_view path) {
           absl::StrCat("Invalid token in JSONPath at: ", path));
     }
   }
-  return tokens;
-}
-
-absl::StatusOr<std::unique_ptr<StrictJSONPathIterator>>
-StrictJSONPathIterator::Create(absl::string_view path) {
-  ZETASQL_ASSIGN_OR_RETURN(std::vector<StrictJSONPathToken> tokens,
-                   ValidateAndInitializeStrictPathTokens(path));
-  return absl::WrapUnique(new StrictJSONPathIterator(std::move(tokens)));
+  return absl::WrapUnique(
+      new StrictJSONPathIterator(std::move(tokens), path_options));
 }
 
 }  // namespace json_internal

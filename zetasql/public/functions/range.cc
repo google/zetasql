@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/range.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -23,6 +25,8 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/types/range_type.h"
+#include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -46,6 +50,53 @@ std::optional<absl::string_view> UnboundedOrValue(
     return std::nullopt;
   }
   return {boundary_value};
+}
+
+static Value RangeBoundaryAsDate(std::optional<int32_t> boundary) {
+  return boundary ? Value::Date(*boundary) : Value::NullDate();
+}
+
+static Value RangeBoundaryAsDatetimeFromPacked64Micros(
+    std::optional<int64_t> boundary) {
+  return boundary.has_value() ? Value::DatetimeFromPacked64Micros(*boundary)
+                              : Value::NullDatetime();
+}
+
+static Value RangeBoundaryAsTimestampFromUnixMicros(
+    std::optional<int64_t> boundary) {
+  return boundary.has_value() ? Value::TimestampFromUnixMicros(*boundary)
+                              : Value::NullTimestamp();
+}
+
+// Creates a Value object of type 'range_type' from given 'boundaries'.
+static absl::StatusOr<Value> MakeRange(const RangeType* range_type,
+                                       RangeBoundaries<int32_t> boundaries) {
+  if (!(range_type->element_type()->kind() == TypeKind::TYPE_DATE)) {
+    return MakeEvalError() << "MakeRange is not implemented for "
+                           << range_type->element_type()->kind();
+  }
+  return Value::MakeRange(RangeBoundaryAsDate(boundaries.start),
+                          RangeBoundaryAsDate(boundaries.end));
+}
+
+// Creates a Value object of type 'range_type' from given 'boundaries'.
+absl::StatusOr<Value> MakeRange(const RangeType* range_type,
+                                RangeBoundaries<int64_t> boundaries) {
+  switch (range_type->element_type()->kind()) {
+    case TypeKind::TYPE_DATETIME: {
+      return Value::MakeRange(
+          RangeBoundaryAsDatetimeFromPacked64Micros(boundaries.start),
+          RangeBoundaryAsDatetimeFromPacked64Micros(boundaries.end));
+    }
+    case TypeKind::TYPE_TIMESTAMP: {
+      return Value::MakeRange(
+          RangeBoundaryAsTimestampFromUnixMicros(boundaries.start),
+          RangeBoundaryAsTimestampFromUnixMicros(boundaries.end));
+    }
+    default:
+      return MakeEvalError() << "MakeRange is not implemented for "
+                             << range_type->element_type()->kind();
+  }
 }
 
 }  // namespace
@@ -103,6 +154,31 @@ absl::StatusOr<StringRangeBoundaries> ParseRangeBoundaries(
 
   return StringRangeBoundaries{.start = UnboundedOrValue(start),
                                .end = UnboundedOrValue(end)};
+}
+
+absl::StatusOr<Value> DeserializeRangeValueFromBytes(
+    const RangeType* range_type, absl::string_view bytes, size_t* bytes_read) {
+  switch (range_type->element_type()->kind()) {
+    case TypeKind::TYPE_DATE: {
+      ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int32_t> boundaries,
+                       DeserializeRangeFromBytes<int32_t>(bytes, bytes_read));
+      return MakeRange(range_type, boundaries);
+    }
+    case TypeKind::TYPE_DATETIME: {
+      ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int64_t> boundaries,
+                       DeserializeRangeFromBytes<int64_t>(bytes, bytes_read));
+      return MakeRange(range_type, boundaries);
+    }
+    case TypeKind::TYPE_TIMESTAMP: {
+      ZETASQL_ASSIGN_OR_RETURN(RangeBoundaries<int64_t> boundaries,
+                       DeserializeRangeFromBytes<int64_t>(bytes, bytes_read));
+      return MakeRange(range_type, boundaries);
+    }
+    default:
+      return MakeEvalError()
+             << "DeserializeRangeFromBytes is not implemented for "
+             << range_type->element_type()->kind();
+  }
 }
 
 namespace functions {

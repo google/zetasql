@@ -4,40 +4,121 @@
 
 # Variables
 
-ZetaSQL supports variables.
+ZetaSQL supports three types of variables:
 
-## Variable types
++   System variables: Defined by a client or an engine to expose configuration.
++   Query parameters: Defined by a user to bind typed values into a query.
++   Runtime variables: Defined by a user to track state in a script.
 
-There are three primary variable types: runtime variables, query parameters, and
-system variables. Each can be set and unset with the `SET` and `UNSET` commands.
-Additionally, query parameters are prefixed with a single @ symbol and system
-variables are prefixed with @@.
+The implementation that you use determines which variable types are supported
+and the way you set the variables.
 
-The variable names must be valid sql [identifiers][link-to-sql-identifiers].
+## System variables
 
-## `SET`
+System variables are defined by a client or an engine to expose some state or
+configuration. System variables are prefixed with a double `@@` symbol, and must
+be one or more SQL [identifiers][sql-identifiers] separated by periods.
 
-Sets a variable.
+Because system variables are defined by each implementation and not by the
+ZetaSQL language, see the documentation for your implementation to
+determine the names, types, and behavior of available system variables.
 
+**Syntax**
+
+```sql
+SET @@system_variable = expression;
 ```
-SET runtime_variable = constant_value;
-SET @query_parameter = constant_value;
-SET @@system_variable = constant_value;
+
+**Examples**
+
+```sql
+-- Set the system variable `@@system_var_a` to have the literal STRING value
+-- `"TEST"`.
+SET @@system_var_a = "TEST";
+
+-- Set the system variable `@@Request.system_var_b` to have the value of the
+-- expression `1+2+3`.
+SET @@Request.system_var_b = 1+2+3;
+
+-- Reference the system variable `@@system_var_c` from a query. Whether system
+-- variables can be read in this way depends on the implementation you use.
+SELECT @@system_var_c;
 ```
 
-## `UNSET`
+## Query parameters
 
-Unsets a variable.
+Query parameters are defined by a user as part of a query or request, and are
+used to bind typed values into a query. Query parameters are prefixed with a
+single `@` symbol.
 
+**Syntax**
+
+```sql
+SET @query_parameter = expression;
 ```
-UNSET runtime_variable;
-UNSET @query_parameter;
-UNSET @@system_variable;
+
+**Examples**
+
+```sql
+-- Set the query parameter `@query_parameter_a` to have the value of the
+-- expression `1`.
+SET @query_parameter_a = 1;
+
+-- Set the query parameter `@query_parameter_b` to have the value of an array
+-- result from a scalar subquery.
+SET @query_parameter_b = (SELECT ARRAY_AGG(country) FROM countries_t_able);
+
+-- Reference the query parameters in a subsequent query.
+SELECT *
+FROM my_table
+WHERE
+  total_count > @query_parameter_a
+  AND country IN UNNEST(@query_parameter_b)
+```
+
+## Runtime variables
+
+Runtime variables are defined and set by a user to track state in a
+ZetaSQL [procedural language][procedural-language] script. You must
+first declare a runtime variable using a [`DECLARE`][declare] statement before
+you can set the variable.
+
+**Syntax**
+
+```sql
+DECLARE runtime_variable [variable_type] [DEFAULT expression];
+SET runtime_variable = expression;
+SET (variable1, variable2, ...) = struct_expression;
+```
+
+**Examples**
+
+```sql
+-- Declare two runtime variables: `target_word` and `corpus_count`.
+DECLARE target_word STRING DEFAULT 'methinks';
+DECLARE corpus_count, word_count INT64;
+
+-- Set the variables by assigning the results of a `SELECT AS STRUCT` query to
+-- the two variables.
+SET (corpus_count, word_count) = (
+  SELECT AS STRUCT COUNT(DISTINCT corpus), SUM(word_count)
+  FROM shakespeare
+  WHERE LOWER(word) = target_word
+);
+
+-- Reference the runtime variables in a subsequent query.
+SELECT
+  FORMAT('Found %d occurrences of "%s" across %d Shakespeare works',
+         word_count, target_word, corpus_count) AS result;
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[link-to-sql-identifiers]: https://github.com/google/zetasql/blob/master/docs/lexical.md#identifiers
+[sql-identifiers]: https://github.com/google/zetasql/blob/master/docs/lexical.md#identifiers
+
+[procedural-language]: https://github.com/google/zetasql/blob/master/docs/procedural-language.md
+
+[declare]: https://github.com/google/zetasql/blob/master/docs/procedural-language.md#declare
 
 <!-- mdlint on -->
 

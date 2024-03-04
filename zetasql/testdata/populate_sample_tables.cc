@@ -31,10 +31,15 @@ using zetasql_test__::KitchenSinkPB;
 
 using zetasql::test_values::Struct;
 
+using zetasql::values::Bytes;
+using zetasql::values::Date;
 using zetasql::values::Int32;
 using zetasql::values::Int64;
 using zetasql::values::Proto;
 using zetasql::values::String;
+using zetasql::values::TimestampFromUnixMicros;
+using zetasql::values::Uint32;
+using zetasql::values::Uint64;
 
 absl::Status PopulateSampleTables(TypeFactory* type_factory,
                                   SampleCatalog* catalog) {

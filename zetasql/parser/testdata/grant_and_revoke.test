@@ -10,7 +10,8 @@ GrantStatement [0-54] [grant select...google.com']
   PathExpression [30-33] [foo]
     Identifier(foo) [30-33] [foo]
   GranteeList [37-54] ['user@google.com']
-    StringLiteral('user@google.com') [37-54] ['user@google.com']
+    StringLiteral [37-54] ['user@google.com']
+      StringLiteralComponent('user@google.com') [37-54] ['user@google.com']
 --
 GRANT `select`, `update` ON table foo TO 'user@google.com'
 ==
@@ -28,8 +29,10 @@ GrantStatement [0-83] [grant all...mdbuser/bar2']
     SystemVariableExpr [44-51] [@@user2]
       PathExpression [46-51] [user2]
         Identifier(user2) [46-51] [user2]
-    StringLiteral('mdbuser/bar1') [53-67] ['mdbuser/bar1']
-    StringLiteral('mdbuser/bar2') [69-83] ['mdbuser/bar2']
+    StringLiteral [53-67] ['mdbuser/bar1']
+      StringLiteralComponent('mdbuser/bar1') [53-67] ['mdbuser/bar1']
+    StringLiteral [69-83] ['mdbuser/bar2']
+      StringLiteralComponent('mdbuser/bar2') [69-83] ['mdbuser/bar2']
 
 --
 GRANT ALL PRIVILEGES ON view foo TO @user1, @@user2, 'mdbuser/bar1', 'mdbuser/bar2'
@@ -46,7 +49,8 @@ GrantStatement [0-58] [grant select...google.com']
   PathExpression [34-37] [foo]
     Identifier(foo) [34-37] [foo]
   GranteeList [41-58] ['user@google.com']
-    StringLiteral('user@google.com') [41-58] ['user@google.com']
+    StringLiteral [41-58] ['user@google.com']
+      StringLiteralComponent('user@google.com') [41-58] ['user@google.com']
 --
 GRANT `select` ON materialized view foo TO 'user@google.com'
 ==
@@ -62,7 +66,8 @@ RevokeStatement [0-61] [revoke select...google.com']
   PathExpression [35-38] [foo]
     Identifier(foo) [35-38] [foo]
   GranteeList [44-61] ['user@google.com']
-    StringLiteral('user@google.com') [44-61] ['user@google.com']
+    StringLiteral [44-61] ['user@google.com']
+      StringLiteralComponent('user@google.com') [44-61] ['user@google.com']
 --
 REVOKE `select` ON materialized view foo FROM 'user@google.com'
 ==
@@ -75,7 +80,8 @@ GrantStatement [0-35] [grant all...foo to 'bar']
     Identifier(datascape) [13-22] [datascape]
     Identifier(foo) [23-26] [foo]
   GranteeList [30-35] ['bar']
-    StringLiteral('bar') [30-35] ['bar']
+    StringLiteral [30-35] ['bar']
+      StringLiteralComponent('bar') [30-35] ['bar']
 --
 GRANT ALL PRIVILEGES ON datascape.foo TO 'bar'
 ==
@@ -103,7 +109,8 @@ GrantStatement [0-77] [grant select...mdbgroup/bar']
   PathExpression [56-59] [foo]
     Identifier(foo) [56-59] [foo]
   GranteeList [63-77] ['mdbgroup/bar']
-    StringLiteral('mdbgroup/bar') [63-77] ['mdbgroup/bar']
+    StringLiteral [63-77] ['mdbgroup/bar']
+      StringLiteralComponent('mdbgroup/bar') [63-77] ['mdbgroup/bar']
 --
 GRANT `select`, insert(col1, col2, col3), `update`(col2) ON foo TO 'mdbgroup/bar'
 ==
@@ -119,7 +126,8 @@ GrantStatement [0-66] [grant execute...google.com']
     Identifier(datascape) [24-33] [datascape]
     Identifier(script_foo) [34-44] [script_foo]
   GranteeList [48-66] ['group@google.com']
-    StringLiteral('group@google.com') [48-66] ['group@google.com']
+    StringLiteral [48-66] ['group@google.com']
+      StringLiteralComponent('group@google.com') [48-66] ['group@google.com']
 --
 GRANT execute ON script datascape.script_foo TO 'group@google.com'
 ==
@@ -180,7 +188,8 @@ RevokeStatement [0-28] [revoke all on foo from 'bar']
   PathExpression [14-17] [foo]
     Identifier(foo) [14-17] [foo]
   GranteeList [23-28] ['bar']
-    StringLiteral('bar') [23-28] ['bar']
+    StringLiteral [23-28] ['bar']
+      StringLiteralComponent('bar') [23-28] ['bar']
 --
 REVOKE ALL PRIVILEGES ON foo FROM 'bar'
 ==
@@ -195,7 +204,8 @@ RevokeStatement [0-45] [revoke delete...mdbuser/bar']
   PathExpression [23-26] [foo]
     Identifier(foo) [23-26] [foo]
   GranteeList [32-45] ['mdbuser/bar']
-    StringLiteral('mdbuser/bar') [32-45] ['mdbuser/bar']
+    StringLiteral [32-45] ['mdbuser/bar']
+      StringLiteralComponent('mdbuser/bar') [32-45] ['mdbuser/bar']
 --
 REVOKE delete ON table foo FROM 'mdbuser/bar'
 ==
@@ -208,10 +218,12 @@ RevokeStatement [0-71] [revoke all...', @@user4]
   PathExpression [20-25] [table]
     Identifier(table) [20-25] [table]
   GranteeList [31-71] ['mdbuser/user...', @@user4]
-    StringLiteral('mdbuser/user') [31-45] ['mdbuser/user']
+    StringLiteral [31-45] ['mdbuser/user']
+      StringLiteralComponent('mdbuser/user') [31-45] ['mdbuser/user']
     ParameterExpr [47-53] [@user2]
       Identifier(user2) [48-53] [user2]
-    StringLiteral('user3') [55-62] ['user3']
+    StringLiteral [55-62] ['user3']
+      StringLiteralComponent('user3') [55-62] ['user3']
     SystemVariableExpr [64-71] [@@user4]
       PathExpression [66-71] [user4]
         Identifier(user4) [66-71] [user4]
@@ -234,7 +246,8 @@ RevokeStatement [0-58] [revoke delete...mdbgroup/bar']
   PathExpression [35-38] [foo]
     Identifier(foo) [35-38] [foo]
   GranteeList [44-58] ['mdbgroup/bar']
-    StringLiteral('mdbgroup/bar') [44-58] ['mdbgroup/bar']
+    StringLiteral [44-58] ['mdbgroup/bar']
+      StringLiteralComponent('mdbgroup/bar') [44-58] ['mdbgroup/bar']
 --
 REVOKE delete, `update`(col2) ON view foo FROM 'mdbgroup/bar'
 ==

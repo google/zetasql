@@ -21,11 +21,11 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
@@ -37,6 +37,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -309,10 +310,17 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
 
   std::vector<ResolvedColumn> output_column_list = input_scan->column_list();
   output_column_list.push_back(unnest_column);
+  std::vector<std::unique_ptr<const ResolvedExpr>> array_expr_list;
+  array_expr_list.push_back(std::move(resolved_function_call));
+  std::vector<ResolvedColumn> element_column_list;
+  element_column_list.push_back(unnest_column);
   return MakeResolvedArrayScan(output_column_list, std::move(input_scan),
-                               std::move(resolved_function_call), unnest_column,
+                               std::move(array_expr_list),
+                               std::move(element_column_list),
                                /*array_offset_column=*/nullptr,
-                               /*join_expr=*/nullptr, /*is_outer=*/false);
+                               /*join_expr=*/nullptr,
+                               /*is_outer=*/false,
+                               /*array_zip_mode=*/nullptr);
 }
 
 }  // namespace

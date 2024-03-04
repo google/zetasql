@@ -33,6 +33,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -142,7 +143,7 @@ class ValidFieldInfoMap {
   // size in `name_at`.
   static bool FindLongestMatchingPathIfAny(
       const ValidNamePathList& name_path_list,
-      const std::vector<IdString>& path_names, ResolvedColumn* resolved_column,
+      absl::Span<const IdString> path_names, ResolvedColumn* resolved_column,
       int* name_at);
 
   const ResolvedColumnToValidNamePathsMap& map() const {
@@ -182,7 +183,7 @@ class NamedColumn {
   NamedColumn(const NamedColumn& other) = default;
   NamedColumn& operator=(const NamedColumn& other) = default;
 
-  std::string DebugString(absl::string_view prefix = "") const;
+  std::string DebugString() const;
 
   IdString name() const { return name_; }
   const ResolvedColumn& column() const { return column_; }
@@ -323,7 +324,7 @@ class NameTarget {
   // If non-empty, 'access_error_message' indicates the error message
   // associated with this NameTarget.
   void SetAccessError(Kind original_kind,
-                      const std::string& access_error_message = "");
+                      absl::string_view access_error_message = "");
 
   Kind kind() const { return kind_; }
 
@@ -627,7 +628,9 @@ class NameScope {
   // are range variables.
   bool HasLocalRangeVariables() const;
 
-  std::string DebugString(absl::string_view indent = "") const;
+  std::string DebugString(
+      absl::string_view indent = "",
+      const IdStringSetCase* name_list_columns = nullptr) const;
 
   const NameScope* previous_scope() const { return previous_scope_; }
 
@@ -952,7 +955,21 @@ class NameList {
   struct MergeOptions {
     // If non-NULL, names in this list will be excluded.
     // Range variables with matching names are also excluded.
+    // For value tables, this name gets added to their excluded_field_names,
+    // so that field cannot be read implicitly.
     const IdStringSetCase* excluded_field_names = nullptr;
+
+    // If non-NULL, names in this map will be replaced with the new
+    // ResolvedColumn.  All matching names in the NameList will be replaced
+    // with the new column.  All existing names in the scope (including
+    // columns, pseudo-columns, range variables, ambiguous names, etc)
+    // will be removed, and replaced by one new entry pointing at the column.
+    // This also acts like `excluded_field_names` for other occurrences of
+    // replaced name.  `excluded_field_names` cannot be set at the same time.
+    typedef absl::flat_hash_map<IdString, ResolvedColumn, IdStringCaseHash,
+                                IdStringCaseEqualFunc>
+        ColumnsToReplaceMap;
+    ColumnsToReplaceMap* columns_to_replace = nullptr;
 
     // If true, the copied names are converted to be just a flat table.
     // Range variables are dropped, and value tables are converted to

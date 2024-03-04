@@ -32,6 +32,7 @@ cc_library(
     deps = [
         ":hash",
         ":json",
+        ":map",
         ":range",
         ":string_with_collation",
         ":uuid",
@@ -59,6 +60,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/common:errors",
         "//zetasql/public:json_value",
+        "//zetasql/public:language_options",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:json",
@@ -76,11 +78,39 @@ cc_library(
     srcs = ["string_with_collation.cc"],
     hdrs = ["string_with_collation.h"],
     deps = [
+        ":like",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
         "//zetasql/public:collator",
         "//zetasql/public:value",
         "//zetasql/public/functions:string_with_collation",
+        "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "like",
+    srcs = ["like.cc"],
+    hdrs = ["like.h"],
+    deps = [
+        "//zetasql/base:check",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:collator",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:like",
+        "//zetasql/public/functions:string_with_collation",
+        "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -112,6 +142,23 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "map",
+    srcs = ["map.cc"],
+    hdrs = ["map.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
     ],
 )

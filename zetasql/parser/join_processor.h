@@ -19,7 +19,10 @@
 
 #include <string>
 
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/bison_parser.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/parse_location.h"
 
 namespace zetasql {
 namespace parser {
@@ -384,17 +387,16 @@ namespace parser {
 //   error.
 
 struct ErrorInfo {
-  zetasql_bison_parser::location location;
+  ParseLocationRange location;
   std::string message;
 };
 
 // The action to run when the join/from_clause_contents rule is matched.
 // On success, returns the ASTNode that should be assigned to $$. Returns
 // nullptr on failure, and 'error_info' will contain the error information.
-ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
-                        const zetasql_bison_parser::location& end_location,
-                        ASTNode* lhs, bool opt_natural,
-                        ASTJoin::JoinType join_type,
+ASTNode* JoinRuleAction(const ParseLocationRange& start_location,
+                        const ParseLocationRange& end_location, ASTNode* lhs,
+                        bool opt_natural, ASTJoin::JoinType join_type,
                         ASTJoin::JoinHint join_hint, ASTNode* opt_hint,
                         ASTNode* table_primary,
                         ASTNode* opt_on_or_using_clause_list,
@@ -406,17 +408,17 @@ ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
 // is matched.
 // Returns the ASTNode that should be assigned to $$ on success. Returns
 // nullptr on failure, and 'error_info' will contain the error information.
-ASTNode* CommaJoinRuleAction(
-    const zetasql_bison_parser::location& start_location,
-    const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    ASTNode* table_primary, ASTLocation* comma_location, BisonParser* parser,
-    ErrorInfo* error_info);
+ASTNode* CommaJoinRuleAction(const ParseLocationRange& start_location,
+                             const ParseLocationRange& end_location,
+                             ASTNode* lhs, ASTNode* table_primary,
+                             ASTLocation* comma_location, BisonParser* parser,
+                             ErrorInfo* error_info);
 
 // Performs the transformation algorithm on the expression 'node'.
 // On success, returns the created ASTNode. Returns nullptr on failure,
 // and 'error_info' will contain the error information.
-ASTNode* TransformJoinExpression(ASTNode* node,
-                                 BisonParser* parser, ErrorInfo* error_info);
+ASTNode* TransformJoinExpression(ASTNode* node, BisonParser* parser,
+                                 ErrorInfo* error_info);
 
 }  // namespace parser
 }  // namespace zetasql

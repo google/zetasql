@@ -179,6 +179,7 @@ cc_library(
     testonly = 1,
     data = glob(["testdata/*.test"]) + [
         "//zetasql/public/functions:array_find_mode_proto",
+        "//zetasql/public/functions:array_zip_mode_proto",
         "//zetasql/public/functions:rounding_mode_proto",
         "//zetasql/testdata:test_proto3_proto",
         "//zetasql/testdata:test_schema_proto",
@@ -370,6 +371,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
         "//zetasql/base:status",
     ],
 )
@@ -414,7 +416,6 @@ cc_library(
     deps = [
         ":matchers",
         "//zetasql/base:status",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -503,6 +504,7 @@ cc_library(
         "//zetasql/public:json_value",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:token_list_util",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",

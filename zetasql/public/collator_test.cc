@@ -36,7 +36,7 @@ enum class CompareType { kSortKey, kCompare };
 
 class CollatorTest : public ::testing::TestWithParam<CompareType> {
  protected:
-  void TestEquals(absl::string_view s1, const std::string& s2,
+  void TestEquals(absl::string_view s1, absl::string_view s2,
                   const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {
@@ -57,7 +57,7 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
     }
   }
 
-  void TestLessThan(absl::string_view s1, const std::string& s2,
+  void TestLessThan(absl::string_view s1, absl::string_view s2,
                     const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {

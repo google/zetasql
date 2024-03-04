@@ -55,10 +55,10 @@ absl::Status ExecuteQueryLoopPrintErrorHandler(absl::Status status) {
     std::cerr << zetasql::FormatErrorLocation(
                      location, context.text(),
                      ERROR_MESSAGE_MULTI_LINE_WITH_CARET)
-              << std::endl;
+              << '\n';
   } else {
     // We can produce a nice error message at least...
-    std::cerr << FormatErrorLocation(location) << std::endl;
+    std::cerr << FormatErrorLocation(location) << '\n';
   }
   return status;
 }

@@ -726,83 +726,67 @@ TEST_F(ZetaSqlLocalServiceImplTest, Parse) {
   ParseResponse expectedResponse;
   google::protobuf::TextFormat::ParseFromString(
       R"pb(parsed_statement {
-            ast_query_statement_node {
-              parent {
-                parent {
-                  parse_location_range {
-                    filename: ""
-                    start: 0
-                    end: 8
-                  }
-                }
-              }
-              query {
-                parent {
-                  parent {
-                    parse_location_range {
-                      filename: ""
-                      start: 0
-                      end: 8
-                    }
-                  }
-                  parenthesized: false
-                }
-                query_expr {
-                  ast_select_node {
-                    parent {
-                      parent {
-                        parse_location_range {
-                          filename: ""
-                          start: 0
-                          end: 8
-                        }
-                      }
-                      parenthesized: false
-                    }
-                    distinct: false
-                    select_list {
-                      parent {
-                        parse_location_range {
-                          filename: ""
-                          start: 7
-                          end: 8
-                        }
-                      }
-                      columns {
-                        parent {
-                          parse_location_range {
-                            filename: ""
-                            start: 7
-                            end: 8
-                          }
-                        }
-                        expression {
-                          ast_leaf_node {
-                            ast_int_literal_node {
-                              parent {
-                                parent {
-                                  parent {
-                                    parse_location_range {
-                                      filename: ""
-                                      start: 7
-                                      end: 8
-                                    }
-                                  }
-                                  parenthesized: false
-                                }
-                                image: "9"
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                is_nested: false
-                is_pivot_input: false
-              }
-            }
+             ast_query_statement_node {
+               parent {
+                 parent {
+                   parse_location_range { filename: "" start: 0 end: 8 }
+                 }
+               }
+               query {
+                 parent {
+                   parent {
+                     parse_location_range { filename: "" start: 0 end: 8 }
+                   }
+                   parenthesized: false
+                 }
+                 query_expr {
+                   ast_select_node {
+                     parent {
+                       parent {
+                         parse_location_range { filename: "" start: 0 end: 8 }
+                       }
+                       parenthesized: false
+                     }
+                     distinct: false
+                     select_list {
+                       parent {
+                         parse_location_range { filename: "" start: 7 end: 8 }
+                       }
+                       columns {
+                         parent {
+                           parse_location_range { filename: "" start: 7 end: 8 }
+                         }
+                         expression {
+                           ast_leaf_node {
+                             ast_printable_leaf_node {
+                               ast_int_literal_node {
+                                 parent {
+                                   parent {
+                                     parent {
+                                       parent {
+                                         parse_location_range {
+                                           filename: ""
+                                           start: 7
+                                           end: 8
+                                         }
+                                       }
+                                       parenthesized: false
+                                     }
+                                   }
+                                   image: "9"
+                                 }
+                               }
+                             }
+                           }
+                         }
+                       }
+                     }
+                   }
+                 }
+                 is_nested: false
+                 is_pivot_input: false
+               }
+             }
            })pb",
       &expectedResponse);
   EXPECT_THAT(response, EqualsProto(expectedResponse));
@@ -843,9 +827,9 @@ TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
   ParseResponse expectedResponse;
   google::protobuf::TextFormat::ParseFromString(
       R"pb(parsed_script {
-             parent { parse_location_range { filename: "" start: 5 end: 53 } }
+             parent { parse_location_range { filename: "" start: 5 end: 50 } }
              statement_list_node {
-               parent { parse_location_range { filename: "" start: 5 end: 53 } }
+               parent { parse_location_range { filename: "" start: 5 end: 50 } }
                statement_list {
                  ast_script_statement_node {
                    ast_variable_declaration_node {
@@ -950,19 +934,23 @@ TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
                      }
                      expression {
                        ast_leaf_node {
-                         ast_int_literal_node {
-                           parent {
+                         ast_printable_leaf_node {
+                           ast_int_literal_node {
                              parent {
                                parent {
-                                 parse_location_range {
-                                   filename: ""
-                                   start: 48
-                                   end: 49
+                                 parent {
+                                   parent {
+                                     parse_location_range {
+                                       filename: ""
+                                       start: 48
+                                       end: 49
+                                     }
+                                   }
+                                   parenthesized: false
                                  }
                                }
-                               parenthesized: false
+                               image: "1"
                              }
-                             image: "1"
                            }
                          }
                        }
@@ -2435,6 +2423,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
         supports_safe_error_mode: false
         supports_having_modifier: true
         uses_upper_case_sql_name: true
+        may_suppress_side_effects: false
       })",
                                       &function1);
   google::protobuf::TextFormat::ParseFromString(R"(
@@ -2485,6 +2474,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
         supports_safe_error_mode: true
         supports_having_modifier: true
         uses_upper_case_sql_name: true
+        may_suppress_side_effects: false
       })",
                                       &function2);
   function1.mutable_options()->set_supports_clamped_between_modifier(false);
@@ -2588,6 +2578,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctionsReturnsTypes) {
         supports_having_modifier: true
         uses_upper_case_sql_name: true
         supports_clamped_between_modifier: false
+        may_suppress_side_effects: false
       })",
                                       &expected_round_function);
 

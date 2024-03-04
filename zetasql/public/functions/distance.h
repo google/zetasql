@@ -17,7 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_DISTANCE_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_DISTANCE_H_
 
-// This code contains implementations for the *_DISTANCE functions.
+// This code contains implementations for distance functions.
 
 #include <optional>
 
@@ -45,21 +45,45 @@ absl::StatusOr<Value> CosineDistanceSparseStringKey(Value vector1,
                                                     Value vector2);
 
 // Implementation of:
-// * COSINE_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
-// * COSINE_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
+// * EUCLIDEAN_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+// * EUCLIDEAN_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
 absl::StatusOr<Value> EuclideanDistanceDense(Value vector1, Value vector2);
 
 // Implementation of:
-// COSINE_DISTANCE(ARRAY<STRUCT<INT64, DOUBLE>>, ARRAY<STRUCT<INT64,
+// EUCLIDEAN_DISTANCE(ARRAY<STRUCT<INT64, DOUBLE>>, ARRAY<STRUCT<INT64,
 // DOUBLE>>) -> DOUBLE
 absl::StatusOr<Value> EuclideanDistanceSparseInt64Key(Value vector1,
                                                       Value vector2);
 
 // Implementation of:
-// COSINE_DISTANCE(ARRAY<STRUCT<STRING, DOUBLE>>, ARRAY<STRUCT<STRING,
+// EUCLIDEAN_DISTANCE(ARRAY<STRUCT<STRING, DOUBLE>>, ARRAY<STRUCT<STRING,
 // DOUBLE>>) -> DOUBLE
 absl::StatusOr<Value> EuclideanDistanceSparseStringKey(Value vector1,
                                                        Value vector2);
+
+// Implementation of:
+// * DOT_PRODUCT(ARRAY<INT64>, ARRAY<INT64>) -> DOUBLE
+// * DOT_PRODUCT(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
+// * DOT_PRODUCT(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+absl::StatusOr<Value> DotProduct(Value vector1, Value vector2);
+
+// Implementation of:
+// * MANHATTAN_DISTANCE(ARRAY<INT64>, ARRAY<INT64>) -> DOUBLE
+// * MANHATTAN_DISTANCE(ARRAY<FLOAT>, ARRAY<FLOAT>) -> DOUBLE
+// * MANHATTAN_DISTANCE(ARRAY<DOUBLE>, ARRAY<DOUBLE>) -> DOUBLE
+absl::StatusOr<Value> ManhattanDistance(Value vector1, Value vector2);
+
+// Implementation of:
+// * L1_NORM(ARRAY<INT64>) -> DOUBLE
+// * L1_NORM(ARRAY<FLOAT>) -> DOUBLE
+// * L1_NORM(ARRAY<DOUBLE>) -> DOUBLE
+absl::StatusOr<Value> L1Norm(Value vector);
+
+// Implementation of:
+// * L2_NORM(ARRAY<INT64>) -> DOUBLE
+// * L2_NORM(ARRAY<FLOAT>) -> DOUBLE
+// * L2_NORM(ARRAY<DOUBLE>) -> DOUBLE
+absl::StatusOr<Value> L2Norm(Value vector);
 
 // Implementation of:
 // EDIT_DISTANCE(STRING, STRING) -> INT64

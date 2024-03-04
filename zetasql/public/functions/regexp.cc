@@ -37,6 +37,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -371,7 +372,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
 }
 
 bool RegExp::Rewrite(absl::string_view rewrite,
-                     const std::vector<absl::string_view>& groups,
+                     absl::Span<const absl::string_view> groups,
                      int32_t max_out_size, std::string* out,
                      absl::Status* error) const {
   for (const char* s = rewrite.data(); s < rewrite.end(); ++s) {

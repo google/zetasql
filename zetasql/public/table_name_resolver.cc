@@ -331,6 +331,15 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_EXTERNAL_SCHEMA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_EXTERNAL_SCHEMA_STMT) &&
+          analyzer_options_->language().LanguageFeatureEnabled(
+              FEATURE_EXTERNAL_SCHEMA_DDL)) {
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_SNAPSHOT_TABLE_STMT)) {
@@ -816,6 +825,14 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
     case AST_ALTER_SCHEMA_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ALTER_SCHEMA_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
+    case AST_ALTER_EXTERNAL_SCHEMA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_EXTERNAL_SCHEMA_STMT) &&
+          analyzer_options_->language().LanguageFeatureEnabled(
+              FEATURE_EXTERNAL_SCHEMA_DDL)) {
         return absl::OkStatus();
       }
       break;

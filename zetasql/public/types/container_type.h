@@ -87,18 +87,6 @@ class ContainerType : public Type {
     const Type* type;
   };
 
-  std::string FormatValueContentContainerElement(
-      const internal::ValueContentContainerElement element, const Type* type,
-      const FormatValueContentOptions& options) const {
-    if (element.is_null()) {
-      return options.as_literal()
-                 ? "NULL"
-                 : absl::StrCat("CAST(NULL AS ",
-                                type->TypeName(options.product_mode), ")");
-    }
-    return type->FormatValueContent(element.value_content(), options);
-  }
-
   std::optional<bool> ValueContentContainerElementLess(
       const internal::ValueContentContainerElement& x,
       const internal::ValueContentContainerElement& y, const Type* x_type,

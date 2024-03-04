@@ -50,19 +50,23 @@ ast_query_statement_node {
             }
             expression {
               ast_leaf_node {
-                ast_int_literal_node {
-                  parent {
+                ast_printable_leaf_node {
+                  ast_int_literal_node {
                     parent {
                       parent {
-                        parse_location_range {
-                          filename: ""
-                          start: 7
-                          end: 10
+                        parent {
+                          parent {
+                            parse_location_range {
+                              filename: ""
+                              start: 7
+                              end: 10
+                            }
+                          }
+                          parenthesized: false
                         }
                       }
-                      parenthesized: false
+                      image: "123"
                     }
-                    image: "123"
                   }
                 }
               }

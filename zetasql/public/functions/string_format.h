@@ -119,7 +119,8 @@ struct FormatGsqlNumeric {
 class StringFormatEvaluator {
  public:
   explicit StringFormatEvaluator(ProductMode product_mode,
-                                 bool canonicalize_zero = false);
+                                 bool canonicalize_zero = false,
+                                 bool use_external_float32 = false);
   StringFormatEvaluator(const StringFormatEvaluator&) = delete;
   StringFormatEvaluator& operator=(const StringFormatEvaluator&) = delete;
 
@@ -141,6 +142,7 @@ class StringFormatEvaluator {
 
  private:
   const ProductMode product_mode_;
+  const bool use_external_float32_;
   google::protobuf::DynamicMessageFactory* type_resolver_ = nullptr;
 
   std::string pattern_;
@@ -200,8 +202,8 @@ class StringFormatEvaluator {
   int64_t provided_arg_count() { return arg_types_.size(); }
 
   // Bulk of the work.
-  absl::Status FormatString(const std::vector<absl::string_view>& raw_parts,
-                            const std::vector<FormatPart>& format_parts,
+  absl::Status FormatString(absl::Span<const absl::string_view> raw_parts,
+                            absl::Span<const FormatPart> format_parts,
                             absl::Cord* out, bool* set_null);
 
   absl::Status TypeError(int64_t index, absl::string_view expected,
@@ -325,10 +327,15 @@ class StringFormatEvaluator {
 
 // Shorthand for doing FORMAT in one call.  `format_string` and STRING type
 // values are checked for invalid UTF-8 sequences and will result in an error.
+// Setting the optional parameter `use_external_float32` to true will return
+// FLOAT32 as the type name for TYPE_FLOAT.
+// TODO: Remove `use_external_float32` once all engines are
+// updated.
 absl::Status StringFormatUtf8(absl::string_view format_string,
                               absl::Span<const Value> values,
                               ProductMode product_mode, std::string* output,
-                              bool* is_null, bool canonicalize_zero = false);
+                              bool* is_null, bool canonicalize_zero = false,
+                              bool use_external_float32 = false);
 
 absl::Status CheckStringFormatUtf8ArgumentTypes(absl::string_view format_string,
                                                 std::vector<const Type*> types,

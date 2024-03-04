@@ -39,6 +39,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -80,6 +81,7 @@ absl::Status FunctionOptions::Deserialize(
   options->set_supports_clamped_between_modifier(
       proto.supports_clamped_between_modifier());
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
+  options->set_may_suppress_side_effects(proto.may_suppress_side_effects());
 
   *result = std::move(options);
   return absl::OkStatus();
@@ -108,6 +110,7 @@ void FunctionOptions::Serialize(FunctionOptionsProto* proto) const {
   }
   proto->set_supports_limit(supports_limit);
   proto->set_supports_null_handling_modifier(supports_null_handling_modifier);
+  proto->set_may_suppress_side_effects(may_suppress_side_effects);
 }
 
 FunctionOptions& FunctionOptions::set_evaluator(
@@ -527,7 +530,7 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
 
 // static
 const std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
-    const std::string& qualified_function_name,
+    absl::string_view qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
     absl::Span<const absl::string_view> argument_names,
     bool argument_types_on_new_line) {
@@ -563,6 +566,9 @@ std::string Function::GetSupportedSignaturesUserFacingText(
     bool print_template_details) const {
   // Make a good guess
   *num_signatures = NumSignatures();
+  if (HideSupportedSignatures()) {
+    return "";
+  }
   if (GetSupportedSignaturesCallback() != nullptr) {
     return GetSupportedSignaturesCallback()(language_options, *this);
   }
@@ -577,11 +583,17 @@ std::string Function::GetSupportedSignaturesUserFacingText(
     if (!supported_signatures.empty()) {
       absl::StrAppend(&supported_signatures, "; ");
     }
-    std::vector<std::string> argument_texts =
-        signature.GetArgumentsUserFacingTextWithCardinality(
-            language_options, print_style, print_template_details);
-    (*num_signatures)++;
-    absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
+    if (HasSignatureTextCallback()) {
+      absl::StrAppend(
+          &supported_signatures,
+          GetSignatureTextCallback()(language_options, *this, signature));
+    } else {
+      std::vector<std::string> argument_texts =
+          signature.GetArgumentsUserFacingTextWithCardinality(
+              language_options, print_style, print_template_details);
+      (*num_signatures)++;
+      absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
+    }
   }
   return supported_signatures;
 }
@@ -612,6 +624,18 @@ const NoMatchingSignatureCallback& Function::GetNoMatchingSignatureCallback()
 const SupportedSignaturesCallback& Function::GetSupportedSignaturesCallback()
     const {
   return function_options_.supported_signatures_callback;
+}
+
+bool Function::HideSupportedSignatures() const {
+  return function_options_.hide_supported_signatures;
+}
+
+bool Function::HasSignatureTextCallback() const {
+  return GetSignatureTextCallback() != nullptr;
+}
+
+const SignatureTextCallback& Function::GetSignatureTextCallback() const {
+  return function_options_.signature_text_callback;
 }
 
 const BadArgumentErrorPrefixCallback&

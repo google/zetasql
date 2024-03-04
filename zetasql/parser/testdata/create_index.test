@@ -1235,7 +1235,8 @@ CreateIndexStatement(SEARCH) [0-55] [CREATE SEARCH...OPTIONS()]
     Identifier(t1) [26-28] [t1]
   IndexItemList [29-45] [('ALL', COLUMNS)]
     OrderingExpression(ASC) [30-35] ['ALL']
-      StringLiteral('ALL') [30-35] ['ALL']
+      StringLiteral [30-35] ['ALL']
+        StringLiteralComponent('ALL') [30-35] ['ALL']
     OrderingExpression(ASC) [37-44] [COLUMNS]
       PathExpression [37-44] [COLUMNS]
         Identifier(COLUMNS) [37-44] [COLUMNS]
@@ -1313,4 +1314,3 @@ ALTERNATION GROUP: or replace
 ERROR: Syntax error: Expected keyword INDEX but got keyword SEARCH [at 1:26]
 create or replace vector search index on i1 on t1(a);
                          ^
-==

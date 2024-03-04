@@ -80,7 +80,7 @@ absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter,
 
   out << ToPrettyOutputStyle(result,
                              /*is_value_table=*/false, column_names)
-      << std::endl;
+      << '\n';
 
   return absl::OkStatus();
 }
@@ -89,13 +89,13 @@ ExecuteQueryStreamWriter::ExecuteQueryStreamWriter(std::ostream& out)
     : stream_{out} {}
 
 absl::Status ExecuteQueryStreamWriter::resolved(const ResolvedNode& ast) {
-  stream_ << ast.DebugString() << std::endl;
+  stream_ << ast.DebugString() << '\n';
   return absl::OkStatus();
 }
 
 absl::Status ExecuteQueryStreamWriter::explained(const ResolvedNode& ast,
                                                  absl::string_view explain) {
-  stream_ << explain << std::endl;
+  stream_ << explain << '\n';
   return absl::OkStatus();
 }
 

@@ -50,6 +50,7 @@ def zetasql_compliance_test(
         args = [],
         include_gtest_main = True,
         driver_exec_properties = None,
+        tags = [],
         **extra_args):
     """Invoke the ZetaSQL compliance test suite against a SQL engine."""
 
@@ -65,6 +66,7 @@ def zetasql_compliance_test(
         args = args + [
             "--zetasql_reference_impl_validate_timestamp_precision",
         ],
+        tags = tags,
         **extra_args
     )
 

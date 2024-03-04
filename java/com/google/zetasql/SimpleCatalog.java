@@ -722,6 +722,11 @@ public class SimpleCatalog extends Catalog {
   }
 
   @Override
+  public SimpleCatalog getCatalog(String name) {
+    return getCatalog(name, new FindOptions());
+  }
+
+  @Override
   protected Function getFunction(String name, FindOptions options) {
     return customFunctions.get(Ascii.toLowerCase(name));
   }

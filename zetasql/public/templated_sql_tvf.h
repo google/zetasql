@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/base/macros.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 // This file includes interfaces and classes related to templated SQL
 // TVFs.  It includes classes to represent TemplatedSQLTVFs and their
@@ -138,7 +139,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
   // Returns a new error reporting a failed expectation of the sql_body_
   // (for example, if it is a CREATE TABLE instead of a SELECT statement).
   // If 'message' is not empty, appends it to the end of the error string.
-  absl::Status MakeTVFQueryAnalysisError(const std::string& message = "") const;
+  absl::Status MakeTVFQueryAnalysisError(absl::string_view message = "") const;
 
   // If non-NULL, this Catalog is used when the Resolve() method is called
   // to resolve the TVF expression for given arguments.

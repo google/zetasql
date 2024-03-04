@@ -36,8 +36,10 @@
 #include "absl/functional/bind_front.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -55,7 +57,7 @@ using cast_date_time_internal::GetDateTimeFormatElements;
 
 static void ExecuteDateTimeFormatElementParsingTest(
     absl::string_view format_str,
-    const std::vector<DateTimeFormatElement>& expected_format_elements,
+    absl::Span<const DateTimeFormatElement> expected_format_elements,
     std::string error_message) {
   std::string upper_format_str_temp = absl::AsciiStrToUpper(format_str);
 
@@ -680,7 +682,7 @@ static void TestCastStringToDatetime(const FunctionTestCall& test) {
     };
   };
   auto CastStringToDatetimeResultValidator =
-      [](const Value& expected_result, const std::string& actual_string) {
+      [](const Value& expected_result, absl::string_view actual_string) {
         return expected_result.type_kind() == TYPE_DATETIME &&
                expected_result.DebugString() == actual_string;
       };

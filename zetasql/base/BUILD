@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 licenses(["notice"])
 
@@ -299,6 +298,70 @@ cc_test(
 )
 
 cc_library(
+    name = "map_view",
+    hdrs = [
+        "map_view.h",
+    ],
+    deps = [
+        ":associative_view_internal",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_test(
+    name = "map_view_test",
+    srcs = ["map_view_test.cc"],
+    deps = [
+        ":map_view",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+cc_library(
+    name = "associative_view_internal",
+    hdrs = [
+        "associative_view_internal.h",
+    ],
+    deps = [
+        ":requires",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+cc_test(
+    name = "associative_view_internal_test",
+    srcs = ["associative_view_internal_test.cc"],
+    deps = [
+        ":associative_view_internal",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_library(
+    name = "requires",
+    hdrs = [
+        "requires.h",
+    ],
+)
+
+cc_test(
+    name = "requires_test",
+    srcs = ["requires_test.cc"],
+    deps = [
+        ":requires",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_library(
     name = "stl_util",
     hdrs = [
         "stl_util.h",
@@ -386,7 +449,6 @@ cc_test(
         ":mathlimits",
         ":mathutil",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -495,7 +557,6 @@ cc_library(
     srcs = ["time_proto_util.cc"],
     hdrs = ["time_proto_util.h"],
     deps = [
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -511,7 +572,6 @@ cc_test(
         ":time_proto_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
     ],
@@ -522,8 +582,8 @@ cc_library(
     srcs = ["string_numbers.cc"],
     hdrs = ["string_numbers.h"],
     deps = [
+        ":check",
         ":logging",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -703,7 +763,6 @@ cc_test(
         ":exactfloat",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/base",
-        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -752,6 +811,41 @@ cc_test(
     deps = [
         ":edit_distance",
         ":logging",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_library(
+    name = "castops",
+    hdrs = ["castops.h"],
+)
+
+cc_test(
+    name = "castops_test",
+    srcs = [
+        "castops_test.cc",
+    ],
+    deps = [
+        ":castops",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/numeric:int128",
+    ],
+)
+
+cc_library(
+    name = "lossless_convert",
+    hdrs = ["lossless_convert.h"],
+    deps = [
+        ":castops",
+    ],
+)
+
+cc_test(
+    name = "lossless_convert_test",
+    size = "small",
+    srcs = ["lossless_convert_test.cc"],
+    deps = [
+        ":lossless_convert",
         "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )

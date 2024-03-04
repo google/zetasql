@@ -23,9 +23,18 @@
 
 #include "zetasql/public/collator.h"
 #include "zetasql/public/functions/string_with_collation.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/functions/like.h"
+#include "zetasql/reference_impl/tuple.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/cord.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -63,22 +72,6 @@ class CollationKeyFunction : public SimpleBuiltinScalarFunction {
 };
 
 class LikeWithCollationFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class LikeAllWithCollationFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class LikeAnyWithCollationFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
@@ -225,79 +218,14 @@ absl::StatusOr<Value> CollationKeyFunction::Eval(
 absl::StatusOr<Value> LikeWithCollationFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 3);
-  if (HasNulls(args)) {
-    return Value::NullBool();
-  }
-
-  absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator_or_status =
-      MakeSqlCollator(args[0].string_value());
-  if (!collator_or_status.ok()) {
-    return collator_or_status.status();
-  }
-  ZETASQL_ASSIGN_OR_RETURN(bool result,
-                   functions::LikeUtf8WithCollation(
-                       args[1].string_value(), args[2].string_value(),
-                       *(collator_or_status.value())));
-  return Value::Bool(result);
-}
-
-absl::StatusOr<Value> LikeAllWithCollationFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_GE(args.size(), 3);
-  if (args[1].is_null()) {
-    return Value::NullBool();
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
-                   MakeSqlCollator(args[0].string_value()));
-
-  bool is_rhs_element_null = false;
-  auto& lhs = args[1].string_value();
-  for (int rhs_idx = 2; rhs_idx < args.size(); rhs_idx++) {
-    if (args[rhs_idx].is_null()) {
-      is_rhs_element_null = true;
-      continue;
-    }
-    ZETASQL_ASSIGN_OR_RETURN(bool result,
-                     functions::LikeUtf8WithCollation(
-                         lhs, args[rhs_idx].string_value(), *collator));
-    if (!result) {
-      return Value::Bool(false);
-    }
-  }
-
-  return is_rhs_element_null ? Value::NullBool() : Value::Bool(true);
-}
-
-absl::StatusOr<Value> LikeAnyWithCollationFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_GE(args.size(), 3);
-  if (args[1].is_null()) {
-    return Value::NullBool();
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
-                   MakeSqlCollator(args[0].string_value()));
-
-  bool is_rhs_element_null = false;
-  auto& lhs = args[1].string_value();
-  for (int rhs_idx = 2; rhs_idx < args.size(); rhs_idx++) {
-    if (args[rhs_idx].is_null()) {
-      is_rhs_element_null = true;
-      continue;
-    }
-    ZETASQL_ASSIGN_OR_RETURN(bool result,
-                     functions::LikeUtf8WithCollation(
-                         lhs, args[rhs_idx].string_value(), *collator));
-    if (result) {
-      return Value::Bool(true);
-    }
-  }
-
-  return is_rhs_element_null ? Value::NullBool() : Value::Bool(false);
+  ZETASQL_RET_CHECK_GE(args.size(), 3) << "LIKE with collation has 3 or more arguments";
+  QuantifiedLikeEvaluationParams quantified_like_eval_params(
+      /*search_value=*/args[1],
+      /*pattern_elements=*/args.subspan(2),
+      /*operation_type=*/QuantifiedLikeEvaluationParams::kLike,
+      /*is_not=*/false,
+      /*collation_str=*/args[0].string_value());
+  return EvaluateQuantifiedLike(quantified_like_eval_params);
 }
 
 }  // namespace
@@ -321,21 +249,6 @@ void RegisterBuiltinStringWithCollationFunctions() {
       {FunctionKind::kCollationKey},
       [](FunctionKind kind, const Type* output_type) {
         return new CollationKeyFunction(kind, output_type);
-      });
-  BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kLikeWithCollation},
-      [](FunctionKind kind, const Type* output_type) {
-        return new LikeWithCollationFunction(kind, output_type);
-      });
-  BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kLikeAllWithCollation},
-      [](FunctionKind kind, const Type* output_type) {
-        return new LikeAllWithCollationFunction(kind, output_type);
-      });
-  BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kLikeAnyWithCollation},
-      [](FunctionKind kind, const Type* output_type) {
-        return new LikeAnyWithCollationFunction(kind, output_type);
       });
 }
 

@@ -3221,9 +3221,10 @@ QueryStmt
         |   +-right_scan=
         |   | +-TableScan(column_list=[ComplexTypes.TestStruct#11], table=ComplexTypes, column_index_list=[4], alias="ct2")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, STRUCT<c INT32, d STRUCT<a INT32, b STRING>>) -> BOOL)
-        |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
-        |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#11)
+        |   | +-FunctionCall(ZetaSQL:$equal(STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, STRUCT<c INT32, d STRUCT<a INT32, b STRING>>) -> BOOL)
+        |   |   +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+        |   |   +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#11)
+        |   +-has_using=TRUE
         +-group_by_list=
           +-d#14 :=
             +-GetStructField

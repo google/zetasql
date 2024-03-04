@@ -44,6 +44,13 @@ class TupleComparator {
       absl::Span<const int> slots_for_keys,
       absl::Span<const TupleData* const> params, EvaluationContext* context);
 
+  // Same with above, with an additional extra_sort_key_slots parameters.
+  static absl::StatusOr<std::unique_ptr<TupleComparator>> Create(
+      absl::Span<const KeyArg* const> keys,
+      absl::Span<const int> slots_for_keys,
+      absl::Span<const int> extra_sort_key_slots,
+      absl::Span<const TupleData* const> params, EvaluationContext* context);
+
   // Returns true if t1 is less than t2.
   bool operator()(const TupleData& t1, const TupleData& t2) const;
 
@@ -78,13 +85,22 @@ class TupleComparator {
  private:
   TupleComparator(absl::Span<const KeyArg* const> keys,
                   absl::Span<const int> slots_for_keys,
+                  absl::Span<const int> extra_sort_key_slots,
                   std::shared_ptr<const CollatorList> collators)
       : keys_(keys.begin(), keys.end()),
         slots_for_keys_(slots_for_keys.begin(), slots_for_keys.end()),
+        extra_sort_key_slots_(extra_sort_key_slots.begin(),
+                              extra_sort_key_slots.end()),
         collators_(collators) {}
 
   const std::vector<const KeyArg*> keys_;
   const std::vector<int> slots_for_keys_;
+
+  // This indicates the extra keys being used during sorting, usually it doesn't
+  // have a key expression but just have a slot number. The sort specification
+  // for extra sort-keys is ASC, and null-first by default. The tuples will be
+  // sorted by regular keys at first, then extra keys.
+  const std::vector<int> extra_sort_key_slots_;
   // <collators_> indicates the COLLATE specific rules to compare strings for
   // each sort key in <keys_>. This corresponds 1-1 with keys_.
   // NOTE: If any element of <collators_> is nullptr, then the strings are

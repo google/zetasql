@@ -86,6 +86,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(
       new StatusRegexMatcher(absl::StatusCode::kUnimplemented,
                              "as (?:a )?PIVOT expression is not supported"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "SQL-defined aggregate functions are not supported in PIVOT"));
 
   // TODO: RQG should not generate proto expressions for protos in
   // zetasql.functions.* as they are often "special" (e.g. only allowed as

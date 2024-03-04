@@ -36,6 +36,7 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -48,8 +49,10 @@ MATCHER_P(StringValueMatches, matcher, "") {
   return ExplainMatchResult(matcher, arg.string_value(), result_listener);
 }
 
+using testing::HasSubstr;
 using testing::StrCaseEq;
 using zetasql_base::testing::IsOkAndHolds;
+using zetasql_base::testing::StatusIs;
 
 static TypeFactory* type_factory = new TypeFactory();
 
@@ -374,5 +377,8 @@ INSTANTIATE_TEST_SUITE_P(CastString, CastTemplateTest,
 INSTANTIATE_TEST_SUITE_P(
     CastNumericString, CastTemplateTest,
     testing::ValuesIn(GetFunctionTestsCastNumericString()));
+
+INSTANTIATE_TEST_SUITE_P(CastTokenList, CastTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCastTokenList()));
 
 }  // namespace zetasql

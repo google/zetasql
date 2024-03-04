@@ -304,43 +304,43 @@ from ArrayTypes.ProtoArray
 --
 QueryStmt
 +-output_column_list=
-| +-$query.int32_val1#19 AS int32_val1 [INT32]
-| +-$query.int32_val2#20 AS int32_val2 [INT32]
-| +-$query.str_value#21 AS str_value [ARRAY<STRING>]
+| +-$query.int32_val1#22 AS int32_val1 [INT32]
+| +-$query.int32_val2#23 AS int32_val2 [INT32]
+| +-$query.str_value#24 AS str_value [ARRAY<STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[int32_val1#19, int32_val2#20, str_value#21]
+    +-column_list=$query.[int32_val1#22, int32_val2#23, str_value#24]
     +-expr_list=
-    | +-int32_val1#19 :=
+    | +-int32_val1#22 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#18)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#21)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
-    | +-int32_val2#20 :=
+    | +-int32_val2#23 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#18)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#21)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
-    | +-str_value#21 :=
+    | +-str_value#24 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#18)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$array.ProtoArray#21)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.ProtoArray#18]
+        +-column_list=[$array.ProtoArray#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
         +-array_expr_list=
         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        +-element_column_list=[$array.ProtoArray#18]
+        +-element_column_list=[$array.ProtoArray#21]
 ==
 
 # Path expression pattern: table.array.json_field
@@ -349,13 +349,13 @@ from ArrayTypes.JsonArray.json_field
 --
 QueryStmt
 +-output_column_list=
-| +-$array.json_field#18 AS json_field [JSON]
+| +-$array.json_field#21 AS json_field [JSON]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.json_field#18]
+    +-column_list=[$array.json_field#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.json_field#18]
+        +-column_list=[$array.json_field#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.JsonArray#17], table=ArrayTypes, column_index_list=[16])
@@ -370,7 +370,7 @@ QueryStmt
         |       +-expr=
         |       | +-FlattenedArg(type=JSON)
         |       +-field_name="json_field"
-        +-element_column_list=[$array.json_field#18]
+        +-element_column_list=[$array.json_field#21]
 ==
 
 # Path expression pattern:
@@ -383,13 +383,13 @@ ALTERNATION GROUP: has_int32_val1
 --
 QueryStmt
 +-output_column_list=
-| +-$array.has_int32_val1#18 AS has_int32_val1 [BOOL]
+| +-$array.has_int32_val1#21 AS has_int32_val1 [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.has_int32_val1#18]
+    +-column_list=[$array.has_int32_val1#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.has_int32_val1#18]
+        +-column_list=[$array.has_int32_val1#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
@@ -405,19 +405,19 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-get_has_bit=TRUE
-        +-element_column_list=[$array.has_int32_val1#18]
+        +-element_column_list=[$array.has_int32_val1#21]
 --
 ALTERNATION GROUP: int32_val1
 --
 QueryStmt
 +-output_column_list=
-| +-$array.int32_val1#18 AS int32_val1 [INT32]
+| +-$array.int32_val1#21 AS int32_val1 [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.int32_val1#18]
+    +-column_list=[$array.int32_val1#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.int32_val1#18]
+        +-column_list=[$array.int32_val1#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
@@ -433,7 +433,7 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column_list=[$array.int32_val1#18]
+        +-element_column_list=[$array.int32_val1#21]
 ==
 
 # Name scoping against array scan's output value table column that has an
@@ -681,13 +681,13 @@ SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR i
 --
 QueryStmt
 +-output_column_list=
-| +-$array.Value#18 AS Value [INT32]
+| +-$array.Value#21 AS Value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.Value#18]
+    +-column_list=[$array.Value#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.Value#18]
+        +-column_list=[$array.Value#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="ArrayTypes")
@@ -703,39 +703,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column_list=[$array.Value#18]
+        +-element_column_list=[$array.Value#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.Value#18 AS Value [INT32]
+| +-$array.Value#21 AS Value [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.Value#18]
+    +-column_list=[$array.Value#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$array.Value#18]
+        +-column_list=[$array.Value#21]
         +-expr_list=
-        | +-Value#18 := ColumnRef(type=INT32, column=$flatten.injected#20)
+        | +-Value#21 := ColumnRef(type=INT32, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="ArrayTypes")
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
@@ -744,13 +744,13 @@ SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
 --
 QueryStmt
 +-output_column_list=
-| +-$array.int32_val1#18 AS int32_val1 [INT32]
+| +-$array.int32_val1#21 AS int32_val1 [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.int32_val1#18]
+    +-column_list=[$array.int32_val1#21]
     +-input_scan=
       +-ArrayScan
-        +-column_list=[$array.int32_val1#18]
+        +-column_list=[$array.int32_val1#21]
         +-node_source="single_table_array_name_path"
         +-input_scan=
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
@@ -766,39 +766,39 @@ QueryStmt
         |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
-        +-element_column_list=[$array.int32_val1#18]
+        +-element_column_list=[$array.int32_val1#21]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$array.int32_val1#18 AS int32_val1 [INT32]
+| +-$array.int32_val1#21 AS int32_val1 [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$array.int32_val1#18]
+    +-column_list=[$array.int32_val1#21]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$array.int32_val1#18]
+        +-column_list=[$array.int32_val1#21]
         +-expr_list=
-        | +-int32_val1#18 := ColumnRef(type=INT32, column=$flatten.injected#20)
+        | +-int32_val1#21 := ColumnRef(type=INT32, column=$flatten.injected#23)
         +-input_scan=
           +-ProjectScan
-            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19, $flatten.injected#20]
+            +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22, $flatten.injected#23]
             +-expr_list=
-            | +-injected#20 :=
+            | +-injected#23 :=
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#22)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
               +-ArrayScan
-                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
+                +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#22]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14])
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-                +-element_column_list=[$flatten.injected#19]
+                +-element_column_list=[$flatten.injected#22]
 ==
 
 [language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,TABLESAMPLE]

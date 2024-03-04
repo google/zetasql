@@ -17,9 +17,9 @@
 #include "zetasql/tools/formatter/internal/fusible_tokens.h"
 
 #include <array>
-#include <iterator>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "zetasql/tools/formatter/internal/token.h"

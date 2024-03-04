@@ -121,7 +121,7 @@ absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
 // payload to set the <filename> and returns an updated Status with the
 // updated ErrorLocation.  Otherwise, just returns <status>.
 absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
-    const absl::Status& status, const std::string& filename);
+    const absl::Status& status, absl::string_view filename);
 
 // If <status> is OK or if it does not have a InternalErrorLocation payload,
 // returns <status>. Otherwise, replaces the InternalErrorLocation payload by an

@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <ostream>
@@ -26,6 +27,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/options.pb.h"
@@ -212,8 +214,7 @@ void TestDeserializeRangeTooFewBytes(
   if (test_case.serialized_size == 1) return;
 
   RangeBoundaries<T> range_boundaries = {test_case.start, test_case.end};
-  std::string serialized_range;
-  SerializeRangeAndAppendToBytes(range_boundaries, &serialized_range);
+  std::string serialized_range = SerializeRange(range_boundaries);
   std::string serialized_range_header = serialized_range.substr(0, 1);
   EXPECT_THAT(DeserializeRangeFromBytes<T>(serialized_range_header),
               zetasql_base::testing::StatusIs(
@@ -677,6 +678,156 @@ TEST(DatetimeRangeArrayGeneratorGenerateTest, EmitterReturnsError) {
   // Verify that returning an error from the emitter immediately terminated
   // the process.
   EXPECT_EQ(num_emitter_calls, 1);
+}
+
+template <typename T>
+void TestRangeCreation(RangeBoundaries<T> range_boundaries,
+                       size_t serialized_size, const RangeType* range_type,
+                       std::function<Value(std::optional<T>)> boundary_ctor) {
+  std::string buffer = SerializeRange(range_boundaries);
+  size_t bytes_read;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value range, DeserializeRangeValueFromBytes(
+                                        range_type, buffer, &bytes_read));
+  ASSERT_EQ(bytes_read, serialized_size);
+  Value start = boundary_ctor(range_boundaries.start);
+  Value end = boundary_ctor(range_boundaries.end);
+  EXPECT_EQ(start, range.start());
+  EXPECT_EQ(end, range.end());
+}
+
+template <typename T>
+struct RangeCreationTestCase {
+  RangeBoundaries<T> range_boundaries;
+  size_t serialized_size;
+};
+
+std::vector<RangeCreationTestCase<int32_t>> GetDateRangeCreationTestCases() {
+  int32_t start = 1;
+  int32_t end = 2;
+  return {
+      {
+          .range_boundaries = RangeBoundaries<int32_t>{{start}, {end}},
+          .serialized_size = 9,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int32_t>{{start}, {}},
+          .serialized_size = 5,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int32_t>{{}, {end}},
+          .serialized_size = 5,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int32_t>{{}, {}},
+          .serialized_size = 1,
+      },
+  };
+}
+
+class DateRangeCreationTest
+    : public ::testing::TestWithParam<RangeCreationTestCase<int32_t>> {};
+
+INSTANTIATE_TEST_SUITE_P(DateRangeCreationTest, DateRangeCreationTest,
+                         ::testing::ValuesIn(GetDateRangeCreationTestCases()));
+
+TEST_P(DateRangeCreationTest, SerializeDeserializeSucceeds) {
+  TestRangeCreation<int32_t>(GetParam().range_boundaries,
+                             GetParam().serialized_size, types::DateRangeType(),
+                             [](std::optional<int32_t> v) {
+                               if (v.has_value()) {
+                                 return zetasql::values::Date(v.value());
+                               } else {
+                                 return zetasql::values::NullDate();
+                               }
+                             });
+}
+
+std::vector<RangeCreationTestCase<int64_t>>
+GetDatetimeRangeCreationTestCases() {
+  int64_t start = DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)
+                      .Packed64DatetimeMicros();
+  int64_t end = DatetimeValue::FromYMDHMSAndNanos(2, 2, 3, 4, 5, 6, 7)
+                    .Packed64DatetimeMicros();
+  return {
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{start}, {end}},
+          .serialized_size = 17,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{start}, {}},
+          .serialized_size = 9,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{}, {end}},
+          .serialized_size = 9,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{}, {}},
+          .serialized_size = 1,
+      },
+  };
+}
+
+class DatetimeRangeCreationTest
+    : public ::testing::TestWithParam<RangeCreationTestCase<int64_t>> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    DatetimeRangeCreationTest, DatetimeRangeCreationTest,
+    ::testing::ValuesIn(GetDatetimeRangeCreationTestCases()));
+
+TEST_P(DatetimeRangeCreationTest, SerializeDeserializeSucceeds) {
+  TestRangeCreation<int64_t>(
+      GetParam().range_boundaries, GetParam().serialized_size,
+      types::DatetimeRangeType(), [](std::optional<int64_t> v) {
+        if (v.has_value()) {
+          return Value::DatetimeFromPacked64Micros(v.value());
+        } else {
+          return zetasql::values::NullDatetime();
+        }
+      });
+}
+
+std::vector<RangeCreationTestCase<int64_t>>
+GetTimestampRangeCreationTestCases() {
+  int64_t start = 1;
+  int64_t end = 2;
+  return {
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{start}, {end}},
+          .serialized_size = 17,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{start}, {}},
+          .serialized_size = 9,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{}, {end}},
+          .serialized_size = 9,
+      },
+      {
+          .range_boundaries = RangeBoundaries<int64_t>{{}, {}},
+          .serialized_size = 1,
+      },
+  };
+}
+
+class TimestampRangeCreationTest
+    : public ::testing::TestWithParam<RangeCreationTestCase<int64_t>> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    TimestampRangeCreationTest, TimestampRangeCreationTest,
+    ::testing::ValuesIn(GetTimestampRangeCreationTestCases()));
+
+TEST_P(TimestampRangeCreationTest, SerializeDeserializeSucceeds) {
+  TestRangeCreation<int64_t>(
+      GetParam().range_boundaries, GetParam().serialized_size,
+      types::TimestampRangeType(), [](std::optional<int64_t> v) {
+        if (v.has_value()) {
+          return Value::TimestampFromUnixMicros(v.value());
+        } else {
+          return zetasql::values::NullTimestamp();
+        }
+      });
 }
 
 }  // namespace

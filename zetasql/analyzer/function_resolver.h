@@ -129,7 +129,7 @@ class FunctionResolver {
   absl::Status ResolveTemplatedSQLFunctionCall(
       const ASTNode* ast_location, const TemplatedSQLFunction& function,
       const AnalyzerOptions& analyzer_options,
-      const std::vector<InputArgumentType>& actual_arguments,
+      absl::Span<const InputArgumentType> actual_arguments,
       std::shared_ptr<ResolvedFunctionCallInfo>* function_call_info_out);
 
   // This is a helper method when parsing or analyzing the function's SQL
@@ -344,7 +344,7 @@ class FunctionResolver {
       absl::string_view function_name, const FunctionSignature& signature,
       absl::Span<const ArgIndexEntry> index_mapping,
       const ASTNode* ast_location,
-      const std::vector<InputArgumentType>& input_argument_types,
+      absl::Span<const InputArgumentType> input_argument_types,
       std::vector<const ASTNode*>* arg_locations,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
       std::vector<ResolvedTVFArg>* resolved_tvf_args);
@@ -400,7 +400,7 @@ class FunctionResolver {
   //   <indented_line_1_of_multiple_line_reason>
   //   <indented_line_2_of_multiple_line_reason>.
   absl::StatusOr<std::string> GetSupportedSignaturesWithMessage(
-      const Function* function, const std::vector<std::string>& mismatch_errors,
+      const Function* function, absl::Span<const std::string> mismatch_errors,
       FunctionArgumentType::NamePrintingStyle print_style,
       int* num_signatures) const;
 

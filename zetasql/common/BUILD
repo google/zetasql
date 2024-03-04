@@ -118,23 +118,6 @@ cc_test(
 )
 
 cc_library(
-    name = "int_ops_util",
-    hdrs = ["int_ops_util.h"],
-    deps = [
-    ],
-)
-
-cc_test(
-    name = "int_ops_util_test",
-    size = "small",
-    srcs = ["int_ops_util_test.cc"],
-    deps = [
-        ":int_ops_util",
-        "//zetasql/base/testing:zetasql_gtest_main",
-    ],
-)
-
-cc_library(
     name = "string_util",
     hdrs = ["string_util.h"],
     deps = [
@@ -400,10 +383,14 @@ cc_test(
 cc_library(
     name = "builtin_function_internal",
     srcs = [
+        "builtin_enum_type.cc",
         "builtin_function_array.cc",
+        "builtin_function_differential_privacy.cc",
+        "builtin_function_distance.cc",
         "builtin_function_internal_1.cc",
         "builtin_function_internal_2.cc",
         "builtin_function_internal_3.cc",
+        "builtin_function_map.cc",
         "builtin_function_range.cc",
     ],
     hdrs = ["builtin_function_internal.h"],
@@ -416,6 +403,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/proto:anon_output_with_report_cc_proto",
         "//zetasql/proto:options_cc_proto",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:anon_function",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:builtin_function_options",

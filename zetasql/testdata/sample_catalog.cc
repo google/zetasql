@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,17 +26,17 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -46,13 +47,13 @@
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
-#include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
@@ -63,17 +64,28 @@
 #include "zetasql/testdata/referenced_schema.pb.h"
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/test_proto3.pb.h"
+#include "absl/container/btree_map.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
+#include "zetasql/base/source_location.h"
+#include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
+#include "google/protobuf/message.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -250,7 +262,7 @@ const EnumType* SampleCatalog::GetEnumType(
 static absl::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
@@ -278,7 +290,7 @@ static absl::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfType(
 static absl::StatusOr<const Type*> ComputeResultTypeFromStringArgumentValue(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
   const LanguageOptions& language_options = analyzer_options.language();
@@ -342,7 +354,7 @@ static absl::StatusOr<const Type*>
 ComputeResultTypeCallbackToStructUseArgumentAliases(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   const StructType* struct_type;
   std::vector<StructType::StructField> struct_fields;
@@ -598,6 +610,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
+  LoadTableValuedFunctionsWithEvaluators();
   LoadTVFWithExtraColumns();
   LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
@@ -651,8 +664,7 @@ void SampleCatalog::LoadTypes() {
       {{"a", types_->get_int32()}, {"b", types_->get_string()}},
       &struct_type_));
   ZETASQL_CHECK_OK(types_->MakeStructType(
-      {{"c", types_->get_int32()}, {"d", struct_type_}},
-      &nested_struct_type_));
+      {{"c", types_->get_int32()}, {"d", struct_type_}}, &nested_struct_type_));
   ZETASQL_CHECK_OK(types_->MakeStructType(
       {{"e", types_->get_int32()}, {"f", nested_struct_type_}},
       &doubly_nested_struct_type_));
@@ -672,10 +684,16 @@ void SampleCatalog::LoadTypes() {
   ZETASQL_CHECK_OK(types_->MakeArrayType(proto_TestExtraPB_, &proto_array_type_));
   ZETASQL_CHECK_OK(types_->MakeArrayType(struct_type_, &struct_array_type_));
   ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_json(), &json_array_type_));
+  ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_numeric(), &numeric_array_type_));
+  ZETASQL_CHECK_OK(
+      types_->MakeArrayType(types_->get_bignumeric(), &bignumeric_array_type_));
+  ZETASQL_CHECK_OK(
+      types_->MakeArrayType(types_->get_interval(), &interval_array_type_));
 
-  ZETASQL_CHECK_OK(types_->MakeStructType(
-      {{"x", types_->get_int64()}, {"y", struct_type_},
-       {"z", struct_array_type_}}, &struct_with_array_field_type_));
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"x", types_->get_int64()},
+                                   {"y", struct_type_},
+                                   {"z", struct_array_type_}},
+                                  &struct_with_array_field_type_));
 
   ZETASQL_CHECK_OK(types_->MakeStructType({{"x", types_->get_int64()}},
                                   &struct_with_one_field_type_));
@@ -796,9 +814,11 @@ void SampleCatalog::LoadTables() {
   SimpleTable* key_value_table = new SimpleTable(
       "KeyValue",
       {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
+  key_value_table->SetContents({{Value::Int64(1), Value::String("a")},
+                                {Value::Int64(2), Value::String("b")}});
+
   AddOwnedTable(key_value_table);
   key_value_table_ = key_value_table;
-
 
   SimpleTable* multiple_columns_table =
       new SimpleTable("MultipleColumns", {{"int_a", types_->get_int64()},
@@ -824,12 +844,10 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(update_to_default_table);
 
   SimpleTable* ab_table = new SimpleTable(
-      "abTable",
-      {{"a", types_->get_int64()}, {"b", types_->get_string()}});
+      "abTable", {{"a", types_->get_int64()}, {"b", types_->get_string()}});
   AddOwnedTable(ab_table);
   SimpleTable* bc_table = new SimpleTable(
-      "bcTable",
-      {{"b", types_->get_int64()}, {"c", types_->get_string()}});
+      "bcTable", {{"b", types_->get_int64()}, {"c", types_->get_string()}});
   AddOwnedTable(bc_table);
 
   SimpleTable* key_value_table_read_time_ignored =
@@ -1611,11 +1629,9 @@ void SampleCatalog::LoadProtoTables() {
   catalog_->AddOwnedTable(
       new SimpleTable("TestExtraPBValueTable", proto_TestExtraPB_));
 
-  catalog_->AddOwnedTable(
-      new SimpleTable("TestAbPBValueTable", proto_abPB_));
+  catalog_->AddOwnedTable(new SimpleTable("TestAbPBValueTable", proto_abPB_));
 
-  catalog_->AddOwnedTable(
-      new SimpleTable("TestBcPBValueTable", proto_bcPB_));
+  catalog_->AddOwnedTable(new SimpleTable("TestBcPBValueTable", proto_bcPB_));
 
   catalog_->AddOwnedTable(new SimpleTable("TestBcPBValueProtoTable",
                                           {{"value", proto_bcPB_},
@@ -1682,7 +1698,10 @@ void SampleCatalog::LoadProtoTables() {
        {"TimestampArray", timestamp_array_type_},
        {"ProtoArray", proto_array_type_},
        {"StructArray", struct_array_type_},
-       {"JsonArray", json_array_type_}}));
+       {"JsonArray", json_array_type_},
+       {"NumericArray", numeric_array_type_},
+       {"BigNumericArray", bignumeric_array_type_},
+       {"IntervalArray", interval_array_type_}}));
 
   const EnumType* enum_TestEnum =
       GetEnumType(zetasql_test__::TestEnum_descriptor());
@@ -1813,9 +1832,8 @@ void SampleCatalog::LoadNestedCatalogs() {
       {types_->get_int64(), {types_->get_int64()}, /*context_id=*/-1});
   std::vector<std::string> function_name_path = {"nested_catalog",
                                                  "nested_function"};
-  Function* function =
-      new Function(function_name_path, "sample_functions",
-                   Function::SCALAR, {signature});
+  Function* function = new Function(function_name_path, "sample_functions",
+                                    Function::SCALAR, {signature});
   nested_catalog->AddOwnedFunction(function);
 
   // A scalar function with argument alias support in the nested catalog.
@@ -1841,8 +1859,8 @@ void SampleCatalog::LoadNestedCatalogs() {
   //   nested_catalog.nested_nested_catalog.nested_function(<int64_t>) -> <int64_t>
   SimpleCatalog* nested_nested_catalog =
       nested_catalog->MakeOwnedSimpleCatalog("nested_nested_catalog");
-  function_name_path =
-      {"nested_catalog", "nested_nested_catalog", "nested_function"};
+  function_name_path = {"nested_catalog", "nested_nested_catalog",
+                        "nested_function"};
   function = new Function(function_name_path, "sample_functions",
                           Function::SCALAR, {signature});
   nested_nested_catalog->AddOwnedFunction(function);
@@ -1918,17 +1936,17 @@ void SampleCatalog::LoadNestedCatalogs() {
   SimpleCatalog* name_conflict_catalog =
       catalog_->MakeOwnedSimpleCatalog("name_conflict_table");
   std::unique_ptr<SimpleConstant> constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      {"name_conflict_table", "name_conflict_field"}, Value::Bool(false),
-      &constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create({"name_conflict_table", "name_conflict_field"},
+                             Value::Bool(false), &constant));
   name_conflict_catalog->AddOwnedConstant(constant.release());
 
   // Add <nested_catalog_with_constant> for testing named constants in catalogs.
   SimpleCatalog* nested_catalog_with_constant =
       catalog_->MakeOwnedSimpleCatalog("nested_catalog_with_constant");
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      {"nested_catalog_with_constant", "KnownConstant"}, Value::Bool(false),
-      &constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create({"nested_catalog_with_constant", "KnownConstant"},
+                             Value::Bool(false), &constant));
   nested_catalog_with_constant->AddOwnedConstant(constant.release());
 
   // Add <nested_catalog_with_catalog> for testing conflicts with named
@@ -1939,9 +1957,8 @@ void SampleCatalog::LoadNestedCatalogs() {
       {"nested_catalog_with_catalog", "TestConstantBool"}, Value::Bool(false),
       &constant));
   nested_catalog_with_catalog->AddOwnedConstant(constant.release());
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      {"nested_catalog_with_catalog", "c"}, Value::Double(-9999.999),
-      &constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create({"nested_catalog_with_catalog", "c"},
+                                  Value::Double(-9999.999), &constant));
   nested_catalog_with_catalog->AddOwnedConstant(constant.release());
   SimpleCatalog* nested_catalog_catalog =
       nested_catalog_with_catalog->MakeOwnedSimpleCatalog(
@@ -1956,15 +1973,13 @@ void SampleCatalog::LoadNestedCatalogs() {
   nested_catalog_catalog->AddOwnedConstant(constant.release());
 
   // Add a constant to <nested_catalog>.
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      {"nested_catalog", "TestConstantBool"}, Value::Bool(false),
-      &constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create({"nested_catalog", "TestConstantBool"},
+                                  Value::Bool(false), &constant));
   nested_catalog->AddOwnedConstant(constant.release());
 
   // Add another constant to <nested_catalog> that conflicts with a procedure.
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      {"nested_catalog", "nested_procedure"}, Value::Int64(2345),
-      &constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create({"nested_catalog", "nested_procedure"},
+                                  Value::Int64(2345), &constant));
   nested_catalog->AddOwnedConstant(constant.release());
 
   // Add a constant to <nested_catalog> which requires backticks.
@@ -2098,44 +2113,44 @@ const Function* SampleCatalog::AddFunction(
 
 void SampleCatalog::LoadFunctions() {
   // Add a function to illustrate how repeated/optional arguments are resolved.
-  Function* function = new Function("test_function", "sample_functions",
-                          Function::SCALAR);
+  Function* function =
+      new Function("test_function", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_int64(),
-        {{types_->get_int64(), FunctionArgumentType::REQUIRED},
-           {types_->get_int64(), FunctionArgumentType::REPEATED},
-           {types_->get_int64(), FunctionArgumentType::REPEATED},
-           {types_->get_int64(), FunctionArgumentType::REQUIRED},
-           {types_->get_int64(), FunctionArgumentType::OPTIONAL}},
-         /*context_id=*/-1});
+       {{types_->get_int64(), FunctionArgumentType::REQUIRED},
+        {types_->get_int64(), FunctionArgumentType::REPEATED},
+        {types_->get_int64(), FunctionArgumentType::REPEATED},
+        {types_->get_int64(), FunctionArgumentType::REQUIRED},
+        {types_->get_int64(), FunctionArgumentType::OPTIONAL}},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-  function = new Function(
-      "volatile_function", "sample_functions", Function::SCALAR,
-      {{types_->get_int64(),
-        {{types_->get_int64(), FunctionArgumentType::REQUIRED}},
-         /*context_id=*/-1}},
-      FunctionOptions().set_volatility(FunctionEnums::VOLATILE));
+  function =
+      new Function("volatile_function", "sample_functions", Function::SCALAR,
+                   {{types_->get_int64(),
+                     {{types_->get_int64(), FunctionArgumentType::REQUIRED}},
+                     /*context_id=*/-1}},
+                   FunctionOptions().set_volatility(FunctionEnums::VOLATILE));
   catalog_->AddOwnedFunction(function);
 
-  function = new Function(
-      "stable_function", "sample_functions", Function::SCALAR,
-      {{types_->get_int64(),
-        {{types_->get_int64(), FunctionArgumentType::REQUIRED}},
-         /*context_id=*/-1}},
-      FunctionOptions().set_volatility(FunctionEnums::STABLE));
+  function =
+      new Function("stable_function", "sample_functions", Function::SCALAR,
+                   {{types_->get_int64(),
+                     {{types_->get_int64(), FunctionArgumentType::REQUIRED}},
+                     /*context_id=*/-1}},
+                   FunctionOptions().set_volatility(FunctionEnums::STABLE));
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes a specific proto as an argument.
-  function = new Function("fn_on_KitchenSinkPB", "sample_functions",
-                          Function::SCALAR);
+  function =
+      new Function("fn_on_KitchenSinkPB", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_bool(), {proto_KitchenSinkPB_}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes a specific enum as an argument.
-  function = new Function("fn_on_TestEnum", "sample_functions",
-                          Function::SCALAR);
+  function =
+      new Function("fn_on_TestEnum", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_bool(), {enum_TestEnum_}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
@@ -2161,22 +2176,22 @@ void SampleCatalog::LoadFunctions() {
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes any type enum.
-  function = new Function("fn_on_any_enum", "sample_functions",
-                          Function::SCALAR);
+  function =
+      new Function("fn_on_any_enum", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_bool(), {ARG_ENUM_ANY}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes any type proto.
-  function = new Function("fn_on_any_proto", "sample_functions",
-                          Function::SCALAR);
+  function =
+      new Function("fn_on_any_proto", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_bool(), {ARG_PROTO_ANY}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes any type struct.
-  function = new Function("fn_on_any_struct", "sample_functions",
-                          Function::SCALAR);
+  function =
+      new Function("fn_on_any_struct", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {types_->get_bool(), {ARG_STRUCT_ANY}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
@@ -2394,10 +2409,9 @@ void SampleCatalog::LoadFunctions() {
                    .Build()});
 
   // Adds an aggregate function that takes no argument but supports order by.
-  function = new Function(
-      "sort_count", "sample_functions", Function::AGGREGATE,
-      {{types_->get_int64(), {}, /*context_id=*/-1}},
-      FunctionOptions().set_supports_order_by(true));
+  function = new Function("sort_count", "sample_functions", Function::AGGREGATE,
+                          {{types_->get_int64(), {}, /*context_id=*/-1}},
+                          FunctionOptions().set_supports_order_by(true));
   catalog_->AddOwnedFunction(function);
 
   // Adds an aggregate function that takes multiple arguments and supports
@@ -2471,27 +2485,25 @@ void SampleCatalog::LoadFunctions2() {
                       /*window_framing_support_in=*/false));
   catalog_->AddOwnedFunction(function);
 
-  function = new Function(
-      "afn_no_order_no_frame", "sample_functions", Function::ANALYTIC,
-      function_signatures,
-      FunctionOptions(FunctionOptions::ORDER_UNSUPPORTED,
-                      /*window_framing_support_in=*/false));
+  function = new Function("afn_no_order_no_frame", "sample_functions",
+                          Function::ANALYTIC, function_signatures,
+                          FunctionOptions(FunctionOptions::ORDER_UNSUPPORTED,
+                                          /*window_framing_support_in=*/false));
   catalog_->AddOwnedFunction(function);
 
-  function = new Function(
-      "afn_agg", "sample_functions", Function::AGGREGATE, function_signatures,
-      FunctionOptions(FunctionOptions::ORDER_OPTIONAL,
-                      /*window_framing_support_in=*/true));
+  function = new Function("afn_agg", "sample_functions", Function::AGGREGATE,
+                          function_signatures,
+                          FunctionOptions(FunctionOptions::ORDER_OPTIONAL,
+                                          /*window_framing_support_in=*/true));
   catalog_->AddOwnedFunction(function);
 
-  function = new Function(
-      "afn_null_handling", "sample_functions", Function::AGGREGATE,
-      function_signatures,
-      FunctionOptions(FunctionOptions::ORDER_OPTIONAL,
-                      /*window_framing_support_in=*/false)
-                          .set_supports_order_by(true)
-                          .set_supports_limit(true)
-                          .set_supports_null_handling_modifier(true));
+  function = new Function("afn_null_handling", "sample_functions",
+                          Function::AGGREGATE, function_signatures,
+                          FunctionOptions(FunctionOptions::ORDER_OPTIONAL,
+                                          /*window_framing_support_in=*/false)
+                              .set_supports_order_by(true)
+                              .set_supports_limit(true)
+                              .set_supports_null_handling_modifier(true));
   catalog_->AddOwnedFunction(function);
 
   // NULL_OF_TYPE(string) -> (a NULL of type matching the named simple type).
@@ -2691,20 +2703,20 @@ void SampleCatalog::LoadFunctions2() {
   // specified positionally.
   function = new Function("fn_named_args_error_if_positional_first_arg",
                           "sample_functions", mode);
-  function->AddSignature({types_->get_bool(),
-                          {named_required_format_arg_error_if_positional,
-                           named_required_date_arg},
-                          /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(),
+       {named_required_format_arg_error_if_positional, named_required_date_arg},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add a function with two named arguments where the second may not be
   // specified positionally.
   function = new Function("fn_named_args_error_if_positional_second_arg",
                           "sample_functions", mode);
-  function->AddSignature({types_->get_bool(),
-                          {named_required_format_arg,
-                           named_required_date_arg_error_if_positional},
-                          /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(),
+       {named_required_format_arg, named_required_date_arg_error_if_positional},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add a function with two named arguments, one required and one optional,
@@ -2742,8 +2754,8 @@ void SampleCatalog::LoadFunctions2() {
 
   // Add a function with two signatures, one using regular arguments and one
   // using named arguments that cannot be specified positionally.
-  function = new Function("fn_regular_and_named_signatures",
-                          "sample_functions", mode);
+  function =
+      new Function("fn_regular_and_named_signatures", "sample_functions", mode);
   function->AddSignature(
       {types_->get_bool(),
        {{types_->get_string(), FunctionArgumentType::REQUIRED},
@@ -2768,12 +2780,11 @@ void SampleCatalog::LoadFunctions2() {
        /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-
   // A FunctionSignatureArgumentConstraintsCallback that checks for NULL
   // arguments.
   auto sanity_check_nonnull_arg_constraints =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments) -> std::string {
+         absl::Span<const InputArgumentType> arguments) -> std::string {
     ABSL_CHECK(signature.IsConcrete());
     ABSL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
     for (int i = 0; i < arguments.size(); ++i) {
@@ -2796,25 +2807,24 @@ void SampleCatalog::LoadFunctions2() {
   // INT64 arguments to be nonnegative if they are literals.
   auto post_resolution_arg_constraints =
       [](const FunctionSignature& signature,
-         const std::vector<InputArgumentType>& arguments,
+         absl::Span<const InputArgumentType> arguments,
          const LanguageOptions& language_options) -> absl::Status {
-        for (int i = 0; i < arguments.size(); ++i) {
-          ABSL_CHECK(
-              arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
-          if (!arguments[i].type()->IsInt64() || !arguments[i].is_literal()) {
-            continue;
-          }
-          if (arguments[i].literal_value()->int64_value() < 0) {
-            return MakeSqlError()
-                   << "Argument "
-                   << (signature.ConcreteArgument(i).has_argument_name()
-                           ? signature.ConcreteArgument(i).argument_name()
-                           : std::to_string(i+1))
-                   << " must not be negative";
-          }
-        }
-        return absl::OkStatus();
-      };
+    for (int i = 0; i < arguments.size(); ++i) {
+      ABSL_CHECK(arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
+      if (!arguments[i].type()->IsInt64() || !arguments[i].is_literal()) {
+        continue;
+      }
+      if (arguments[i].literal_value()->int64_value() < 0) {
+        return MakeSqlError()
+               << "Argument "
+               << (signature.ConcreteArgument(i).has_argument_name()
+                       ? signature.ConcreteArgument(i).argument_name()
+                       : std::to_string(i + 1))
+               << " must not be negative";
+      }
+    }
+    return absl::OkStatus();
+  };
 
   // Add a function with an argument constraint that verifies the concrete
   // arguments in signature matches the input argument list, and rejects
@@ -2859,10 +2869,9 @@ void SampleCatalog::LoadFunctions2() {
   catalog_->AddOwnedFunction(function);
 
   // Adds a templated function that generates its result type via the callback.
-  function = new Function(
-      "fn_result_type_from_arg", "sample_functions", mode,
-      FunctionOptions().set_compute_result_type_callback(
-          &ComputeResultTypeFromStringArgumentValue));
+  function = new Function("fn_result_type_from_arg", "sample_functions", mode,
+                          FunctionOptions().set_compute_result_type_callback(
+                              &ComputeResultTypeFromStringArgumentValue));
   function->AddSignature(
       {{types_->get_string()},
        {{types_->get_string(),
@@ -3532,11 +3541,11 @@ void SampleCatalog::LoadFunctionsWithDefaultArguments() {
            /*arguments=*/
            {
                {types_->get_string(),
-                FunctionArgumentTypeOptions()
-                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+                FunctionArgumentTypeOptions().set_cardinality(
+                    FunctionArgumentType::REQUIRED)},
                {types_->get_string(),
-                FunctionArgumentTypeOptions()
-                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+                FunctionArgumentTypeOptions().set_cardinality(
+                    FunctionArgumentType::OPTIONAL)},
                {types_->get_string(),
                 FunctionArgumentTypeOptions()
                     .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -3678,15 +3687,14 @@ void SampleCatalog::LoadFunctionsWithDefaultArguments() {
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
-              {ARG_TYPE_RELATION,
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {ARG_TYPE_RELATION, FunctionArgumentTypeOptions().set_cardinality(
+                                      FunctionArgumentType::REQUIRED)},
               {types_->get_bool(),
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+               FunctionArgumentTypeOptions().set_cardinality(
+                   FunctionArgumentType::REQUIRED)},
               {types_->get_string(),
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               FunctionArgumentTypeOptions().set_cardinality(
+                   FunctionArgumentType::OPTIONAL)},
               {types_->get_float(),
                FunctionArgumentTypeOptions()
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -3704,15 +3712,13 @@ void SampleCatalog::LoadFunctionsWithDefaultArguments() {
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
-              {ARG_TYPE_RELATION,
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {ARG_TYPE_RELATION, FunctionArgumentTypeOptions().set_cardinality(
+                                      FunctionArgumentType::REQUIRED)},
               {types_->get_bool(),
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::REQUIRED)},
-              {ARG_TYPE_ANY_1,
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               FunctionArgumentTypeOptions().set_cardinality(
+                   FunctionArgumentType::REQUIRED)},
+              {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_cardinality(
+                                   FunctionArgumentType::OPTIONAL)},
               {ARG_TYPE_ANY_2,
                FunctionArgumentTypeOptions()
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -4100,6 +4106,45 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"x"},
       ParseResumeLocation::FromString("999999999999999")));
 
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"udf_any_and_string_args_return_string_arg"},
+      FunctionSignature(FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                             FunctionArgumentType::REQUIRED),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED),
+                         FunctionArgumentType(types::StringType(),
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString("x")));
+
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"udf_any_and_double_args_return_any"},
+      FunctionSignature(FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                             FunctionArgumentType::REQUIRED),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED),
+                         FunctionArgumentType(types::DoubleType(),
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString("IF(x < 0, 'a', 'b')")));
+
+  const ArrayType* double_array_type = nullptr;
+  ZETASQL_CHECK_OK(
+      type_factory()->MakeArrayType(types::DoubleType(), &double_array_type));
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"udf_any_and_double_array_args_return_any"},
+      FunctionSignature(FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                             FunctionArgumentType::REQUIRED),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED),
+                         FunctionArgumentType(double_array_type,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString("IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')")));
+
   // Add a SQL UDA with a valid templated SQL body that refers to an aggregate
   // argument only.
   FunctionArgumentType int64_aggregate_arg_type(types::Int64Type());
@@ -4156,6 +4201,51 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       FunctionSignature(result_type, {int64_aggregate_arg_type}, context_id++),
       /*argument_names=*/{"x"},
       ParseResumeLocation::FromString("sum(x order by x)"),
+      Function::AGGREGATE));
+
+  FunctionArgumentTypeOptions required_non_agg_options =
+      FunctionArgumentTypeOptions(FunctionArgumentType::REQUIRED)
+          .set_is_not_aggregate(true);
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"uda_any_and_string_args_return_string"},
+      FunctionSignature(
+          FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                               FunctionArgumentType::REQUIRED),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::REQUIRED),
+           FunctionArgumentType(types::StringType(), required_non_agg_options)},
+          context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString("IF(LOGICAL_OR(a), x, x || '_suffix')"),
+      Function::AGGREGATE));
+
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"uda_any_and_double_args_return_any"},
+      FunctionSignature(
+          FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                               FunctionArgumentType::REQUIRED),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY, required_non_agg_options),
+           FunctionArgumentType(types::DoubleType(),
+                                FunctionArgumentType::REQUIRED)},
+          context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString("STRING_AGG(IF(x < 0, 'a', 'b'))"),
+      Function::AGGREGATE));
+
+  ZETASQL_CHECK_OK(
+      type_factory()->MakeArrayType(types::DoubleType(), &double_array_type));
+  catalog_->AddOwnedFunction(std::make_unique<TemplatedSQLFunction>(
+      std::vector<std::string>{"uda_any_and_double_array_args_return_any"},
+      FunctionSignature(
+          FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                               FunctionArgumentType::REQUIRED),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::REQUIRED),
+           FunctionArgumentType(double_array_type, required_non_agg_options)},
+          context_id++),
+      /*argument_names=*/std::vector<std::string>{"a", "x"},
+      ParseResumeLocation::FromString(
+          "IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))"),
       Function::AGGREGATE));
 
   // This function template cannot be invoked because the UDA does not have
@@ -4331,8 +4421,7 @@ static std::vector<OutputColumn> GetOutputColumnsForAllTypes(
           {kTypeUInt64, kColumnNameUInt64, types->get_uint64()}};
 }
 
-static std::vector<TVFArgument> GetTVFArgumentsForAllTypes(
-    TypeFactory* types) {
+static std::vector<TVFArgument> GetTVFArgumentsForAllTypes(TypeFactory* types) {
   return {{kTypeBool, types->get_bool()},
           {kTypeBytes, types->get_bytes()},
           {kTypeDate, types->get_date()},
@@ -4847,8 +4936,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
               TVFRelation({TVFRelation::Column(
                   kMyEnum,
                   GetEnumType(zetasql_test__::TestEnum_descriptor()))}),
-              /*extra_relation_input_columns_allowed=*/true
-              )},
+              /*extra_relation_input_columns_allowed=*/true)},
           context_id++),
       output_schema_two_types));
 
@@ -5146,6 +5234,518 @@ void SampleCatalog::LoadTableValuedFunctions2() {
   }
 }  // NOLINT(readability/fn_size)
 
+// Tests handling of optional relation arguments.
+// If the relation is present, it doubles the value of each row.
+// If the input relation is absent, returns a single zero.
+//
+// It has one optional value table argument with a single int64_t column.
+// The output schema is also an int64_t value table.
+class TvfOptionalRelation : public FixedOutputSchemaTVF {
+  class TvfOptionalRelationIterator : public EvaluatorTableIterator {
+   public:
+    explicit TvfOptionalRelationIterator(
+        std::unique_ptr<EvaluatorTableIterator> input)
+        : input_(std::move(input)) {}
+
+    bool NextRow() override {
+      if (!input_) {
+        if (rows_returned_ > 0) {
+          return false;
+        }
+        value_ = values::Int64(0);
+        ++rows_returned_;
+        return true;
+      }
+
+      if (!input_->NextRow()) {
+        return false;
+      }
+
+      value_ = values::Int64(input_->GetValue(0).int64_value() * 2);
+      ++rows_returned_;
+      return true;
+    }
+
+    int NumColumns() const override { return 1; }
+    std::string GetColumnName(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return "";
+    }
+    const Type* GetColumnType(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return types::Int64Type();
+    }
+    const Value& GetValue(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return value_;
+    }
+    absl::Status Status() const override {
+      return input_ ? input_->Status() : absl::OkStatus();
+    }
+    absl::Status Cancel() override { return input_->Cancel(); }
+
+   private:
+    int64_t rows_returned_ = 0;
+    std::unique_ptr<EvaluatorTableIterator> input_;
+    Value value_;
+  };
+
+ public:
+  explicit TvfOptionalRelation()
+      : FixedOutputSchemaTVF(
+            {R"(tvf_optional_relation)"},
+            FunctionSignature(
+                FunctionArgumentType::RelationWithSchema(
+                    TVFRelation::ValueTable(types::Int64Type()),
+                    /*extra_relation_input_columns_allowed=*/false),
+                {FunctionArgumentType(
+                    ARG_TYPE_RELATION,
+                    FunctionArgumentTypeOptions(
+                        TVFRelation::ValueTable(types::Int64Type()),
+                        /*extra_relation_input_columns_allowed=*/true)
+                        .set_cardinality(FunctionArgumentType::OPTIONAL))},
+                /*context_id=*/-1),
+            TVFRelation::ValueTable(types::Int64Type())) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      std::vector<TvfEvaluatorArg> input_arguments,
+      const std::vector<TVFSchemaColumn>& output_columns,
+      const FunctionSignature* function_call_signature) const override {
+    ZETASQL_RET_CHECK_LE(input_arguments.size(), 1);
+
+    std::unique_ptr<EvaluatorTableIterator> input;
+    if (input_arguments.size() == 1) {
+      ZETASQL_RET_CHECK(input_arguments[0].relation);
+      input = std::move(input_arguments[0].relation);
+      ZETASQL_RET_CHECK_EQ(input->NumColumns(), 1);
+      ZETASQL_RET_CHECK_EQ(input->GetColumnType(0), types::Int64Type());
+    }
+
+    ZETASQL_RET_CHECK_EQ(output_columns.size(), 1);
+    return std::make_unique<TvfOptionalRelationIterator>(std::move(input));
+  }
+};
+
+// Tests handling of optional scalar and named arguments.
+//
+// Calculates and emits the value of y=xa+b, `steps` numbers of times
+// incrementing x by `dx` each time.
+class TvfOptionalArguments : public FixedOutputSchemaTVF {
+  class Evaluator : public EvaluatorTableIterator {
+   public:
+    Evaluator(double x, int64_t a, int64_t b, double dx, int64_t steps)
+        : x_(x), a_(a), b_(b), dx_(dx), steps_(steps) {}
+
+    bool NextRow() override {
+      if (current_step_ >= steps_) {
+        return false;
+      }
+
+      value_ = values::Double(x_ * a_ + b_);
+
+      ++current_step_;
+      x_ += dx_;
+      return true;
+    }
+    int NumColumns() const override { return 1; }
+    std::string GetColumnName(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return "y";
+    }
+    const Type* GetColumnType(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return types::DoubleType();
+    }
+    const Value& GetValue(int i) const override {
+      ABSL_DCHECK_EQ(i, 0);
+      return value_;
+    }
+    absl::Status Status() const override { return absl::OkStatus(); }
+    absl::Status Cancel() override { return absl::OkStatus(); }
+
+   private:
+    double x_;
+    int64_t a_;
+    int64_t b_;
+    double dx_;
+    int64_t steps_;
+    int64_t current_step_ = 0;
+    Value value_;
+  };
+
+ public:
+  explicit TvfOptionalArguments()
+      : FixedOutputSchemaTVF(
+            {R"(tvf_optional_arguments)"},
+            FunctionSignature(
+                FunctionArgumentType::RelationWithSchema(
+                    TVFRelation({{"value", types::Int64Type()}}),
+                    /*extra_relation_input_columns_allowed=*/false),
+                {
+                    // Starting x value.
+                    FunctionArgumentType(types::DoubleType(),
+                                         FunctionArgumentType::OPTIONAL),
+                    // A constant.
+                    FunctionArgumentType(
+                        types::Int64Type(),
+                        FunctionArgumentTypeOptions().set_cardinality(
+                            FunctionArgumentType::OPTIONAL)),
+                    // B constant.
+                    FunctionArgumentType(
+                        types::Int64Type(),
+                        FunctionArgumentTypeOptions().set_cardinality(
+                            FunctionArgumentType::OPTIONAL)),
+                    // X increment.
+                    FunctionArgumentType(
+                        types::DoubleType(),
+                        FunctionArgumentTypeOptions()
+                            .set_argument_name(
+                                "dx", FunctionEnums::POSITIONAL_OR_NAMED)
+                            .set_cardinality(FunctionArgumentType::OPTIONAL)),
+                    // Number of steps.
+                    FunctionArgumentType(
+                        types::Int64Type(),
+                        FunctionArgumentTypeOptions()
+                            .set_argument_name(
+                                "steps", FunctionEnums::POSITIONAL_OR_NAMED)
+                            .set_cardinality(FunctionArgumentType::OPTIONAL)),
+                },
+                /*context_id=*/-1),
+            TVFRelation(TVFRelation({{"y", types::DoubleType()}}))) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      std::vector<TvfEvaluatorArg> input_arguments,
+      const std::vector<TVFSchemaColumn>& output_columns,
+      const FunctionSignature* function_call_signature) const override {
+    ZETASQL_RET_CHECK_LE(input_arguments.size(), 5);
+
+    double x = 1;
+    if (input_arguments.size() >= 1) {
+      ZETASQL_RET_CHECK(input_arguments[0].value);
+      ZETASQL_RET_CHECK(input_arguments[0].value->type()->IsDouble());
+      if (!input_arguments[0].value->is_null()) {
+        x = input_arguments[0].value->double_value();
+      }
+    }
+
+    int64_t a = 2;
+    if (input_arguments.size() >= 2) {
+      ZETASQL_RET_CHECK(input_arguments[1].value);
+      ZETASQL_RET_CHECK(input_arguments[1].value->type()->IsInt64());
+      if (!input_arguments[1].value->is_null()) {
+        a = input_arguments[1].value->int64_value();
+      }
+    }
+
+    int64_t b = 3;
+    if (input_arguments.size() >= 3) {
+      ZETASQL_RET_CHECK(input_arguments[2].value);
+      ZETASQL_RET_CHECK(input_arguments[2].value->type()->IsInt64());
+      if (!input_arguments[2].value->is_null()) {
+        b = input_arguments[2].value->int64_value();
+      }
+    }
+
+    double dx = 1;
+    if (input_arguments.size() >= 4) {
+      ZETASQL_RET_CHECK(input_arguments[3].value);
+      ZETASQL_RET_CHECK(input_arguments[3].value->type()->IsDouble());
+      if (!input_arguments[3].value->is_null()) {
+        dx = input_arguments[3].value->double_value();
+      }
+    }
+
+    int64_t steps = 1;
+    if (input_arguments.size() >= 5) {
+      ZETASQL_RET_CHECK(input_arguments[4].value);
+      ZETASQL_RET_CHECK(input_arguments[4].value->type()->IsInt64());
+      if (!input_arguments[4].value->is_null()) {
+        steps = input_arguments[4].value->int64_value();
+      }
+    }
+
+    return std::make_unique<TvfOptionalArguments::Evaluator>(x, a, b, dx,
+                                                             steps);
+  }
+};
+
+// Tests handling of repeated arguments.
+// Takes pairs of string and int arguments and produces a table with a row for
+// each pair.
+class TvfRepeatedArguments : public FixedOutputSchemaTVF {
+  class TvfRepeatedArgumentsIterator : public EvaluatorTableIterator {
+   public:
+    explicit TvfRepeatedArgumentsIterator(std::vector<TvfEvaluatorArg> args)
+        : args_(std::move(args)) {}
+
+    bool NextRow() override {
+      if (current_ + 1 >= args_.size()) {
+        return false;
+      }
+
+      if (!args_[current_].value ||
+          !args_[current_].value->type()->IsString()) {
+        status_ = absl::InternalError("Bad key");
+        return false;
+      }
+
+      if (!args_[current_ + 1].value ||
+          !args_[current_ + 1].value->type()->IsInt64()) {
+        status_ = absl::InternalError("Bad value");
+        return false;
+      }
+
+      key_ = *args_[current_].value;
+      value_ = *args_[current_ + 1].value;
+      current_ += 2;
+      return true;
+    }
+
+    int NumColumns() const override { return 2; }
+    std::string GetColumnName(int i) const override {
+      ABSL_DCHECK_GE(i, 0);
+      ABSL_DCHECK_LT(i, NumColumns());
+      return i == 0 ? "key" : "value";
+    }
+    const Type* GetColumnType(int i) const override {
+      ABSL_DCHECK_GE(i, 0);
+      ABSL_DCHECK_LT(i, NumColumns());
+      return i == 0 ? types::StringType() : types::Int64Type();
+    }
+    const Value& GetValue(int i) const override {
+      ABSL_DCHECK_GE(i, 0);
+      ABSL_DCHECK_LT(i, NumColumns());
+      return i == 0 ? key_ : value_;
+    }
+    absl::Status Status() const override { return status_; }
+    absl::Status Cancel() override { return absl::OkStatus(); }
+
+   private:
+    std::vector<TvfEvaluatorArg> args_;
+    int64_t current_ = 0;
+    Value key_;
+    Value value_;
+    absl::Status status_;
+  };
+
+ public:
+  explicit TvfRepeatedArguments()
+      : FixedOutputSchemaTVF(
+            {R"(tvf_repeated_arguments)"},
+            FunctionSignature(
+                FunctionArgumentType::RelationWithSchema(
+                    TVFRelation({{"key", types::StringType()},
+                                 {"value", types::Int64Type()}}),
+                    /*extra_relation_input_columns_allowed=*/false),
+                {
+                    FunctionArgumentType(types::StringType(),
+                                         FunctionArgumentType::REPEATED),
+                    FunctionArgumentType(types::Int64Type(),
+                                         FunctionArgumentType::REPEATED),
+                },
+                /*context_id=*/-1),
+            TVFRelation({{"key", types::StringType()},
+                         {"value", types::Int64Type()}})) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      std::vector<TvfEvaluatorArg> input_arguments,
+      const std::vector<TVFSchemaColumn>& output_columns,
+      const FunctionSignature* function_call_signature) const override {
+    ZETASQL_RET_CHECK(input_arguments.size() % 2 == 0);
+    return std::make_unique<TvfRepeatedArgumentsIterator>(
+        std::move(input_arguments));
+  }
+};
+
+// Tests forwarding input schema in a TVF.
+//
+// This function will pass through values from input columns to matching output
+// columns. For INT64 columns it will additionally add the value of the integer
+// argument.
+//
+// It has one relation argument and one integer argument. The output
+// schema is set to be the same as the input schema of the relation argument.
+class TvfIncrementBy : public ForwardInputSchemaToOutputSchemaTVF {
+  class TvfIncrementByIterator : public EvaluatorTableIterator {
+   public:
+    explicit TvfIncrementByIterator(
+        std::unique_ptr<EvaluatorTableIterator> input, int64_t value_arg,
+        std::vector<TVFSchemaColumn> output_columns)
+        : input_(std::move(input)),
+          value_arg_(value_arg),
+          output_columns_(std::move(output_columns)),
+          values_(output_columns_.size()) {}
+
+    bool NextRow() override {
+      if (!input_->NextRow()) {
+        status_ = input_->Status();
+        return false;
+      }
+
+      for (int o = 0; o < output_columns_.size(); ++o) {
+        std::string output_column_name = GetColumnName(o);
+        const Value* value = nullptr;
+        for (int i = 0; i < input_->NumColumns(); ++i) {
+          if (input_->GetColumnName(i) == output_column_name) {
+            value = &input_->GetValue(i);
+            break;
+          }
+        }
+
+        if (value == nullptr) {
+          status_ = ::zetasql_base::InternalErrorBuilder()
+                    << "Could not find input column for " << output_column_name;
+          return false;
+        }
+
+        values_[o] = value->type()->IsInt64()
+                         ? values::Int64(value->ToInt64() + value_arg_)
+                         : *value;
+      }
+
+      return true;
+    }
+
+    int NumColumns() const override {
+      return static_cast<int>(output_columns_.size());
+    }
+    std::string GetColumnName(int i) const override {
+      ABSL_DCHECK_LT(i, output_columns_.size());
+      return output_columns_[i].name;
+    }
+    const Type* GetColumnType(int i) const override {
+      ABSL_DCHECK_LT(i, output_columns_.size());
+      return output_columns_[i].type;
+    }
+    const Value& GetValue(int i) const override {
+      ABSL_DCHECK_LT(i, values_.size());
+      return values_[i];
+    }
+    absl::Status Status() const override { return status_; }
+    absl::Status Cancel() override { return input_->Cancel(); }
+
+   private:
+    std::unique_ptr<EvaluatorTableIterator> input_;
+    int64_t value_arg_;
+    absl::Status status_;
+    std::vector<TVFSchemaColumn> output_columns_;
+    std::vector<Value> values_;
+  };
+
+ public:
+  explicit TvfIncrementBy()
+      : ForwardInputSchemaToOutputSchemaTVF(
+            {R"(tvf_increment_by)"},
+            FunctionSignature(
+                ARG_TYPE_RELATION,
+                {FunctionArgumentType::AnyRelation(),
+                 FunctionArgumentType(
+                     types::Int64Type(),
+                     FunctionArgumentTypeOptions()
+                         .set_cardinality(FunctionArgumentType::OPTIONAL)
+                         .set_default(values::Int64(1)))},
+                /*context_id=*/-1)) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      std::vector<TvfEvaluatorArg> input_arguments,
+      const std::vector<TVFSchemaColumn>& output_columns,
+      const FunctionSignature* function_call_signature) const override {
+    ZETASQL_RET_CHECK_EQ(input_arguments.size(), 2);
+    ZETASQL_RET_CHECK(input_arguments[0].relation);
+    ZETASQL_RET_CHECK(input_arguments[1].value);
+    ZETASQL_RET_CHECK_EQ(input_arguments[1].value->type_kind(), TypeKind::TYPE_INT64);
+    return std::make_unique<TvfIncrementByIterator>(
+        std::move(input_arguments[0].relation),
+        input_arguments[1].value->ToInt64(), output_columns);
+  }
+};
+
+// This function takes two integer values and provides both sum and difference.
+//
+// Has a fixed input and output schema.
+class TvfSumAndDiff : public FixedOutputSchemaTVF {
+  class TvfSumAndDiffIterator : public EvaluatorTableIterator {
+   public:
+    explicit TvfSumAndDiffIterator(
+        std::unique_ptr<EvaluatorTableIterator> input)
+        : input_(std::move(input)) {
+      output_columns_["sum"] = values::Int64(0);
+      output_columns_["diff"] = values::Int64(0);
+    }
+
+    bool NextRow() override {
+      if (!input_->NextRow()) {
+        return false;
+      }
+      int64_t a = input_->GetValue(0).int64_value();
+      int64_t b = input_->GetValue(1).int64_value();
+      output_columns_["sum"] = values::Int64(a + b);
+      output_columns_["diff"] = values::Int64(a - b);
+      return true;
+    }
+
+    int NumColumns() const override {
+      return static_cast<int>(output_columns_.size());
+    }
+    std::string GetColumnName(int i) const override {
+      ABSL_DCHECK_LT(i, output_columns_.size());
+      auto iter = output_columns_.cbegin();
+      std::advance(iter, i);
+      return iter->first;
+    }
+    const Type* GetColumnType(int i) const override {
+      return GetValue(i).type();
+    }
+    const Value& GetValue(int i) const override {
+      ABSL_DCHECK_LT(i, output_columns_.size());
+      auto iter = output_columns_.cbegin();
+      std::advance(iter, i);
+      return iter->second;
+    }
+    absl::Status Status() const override { return input_->Status(); }
+    absl::Status Cancel() override { return input_->Cancel(); }
+
+   private:
+    std::unique_ptr<EvaluatorTableIterator> input_;
+    absl::btree_map<std::string, Value> output_columns_;
+  };
+
+ public:
+  TvfSumAndDiff()
+      : FixedOutputSchemaTVF(
+            {R"(tvf_sum_diff)"},
+            FunctionSignature(
+                FunctionArgumentType::RelationWithSchema(
+                    TVFRelation({{"sum", types::Int64Type()},
+                                 {"diff", types::Int64Type()}}),
+                    /*extra_relation_input_columns_allowed=*/false),
+                {FunctionArgumentType::RelationWithSchema(
+                    TVFRelation(
+                        {{"a", types::Int64Type()}, {"b", types::Int64Type()}}),
+                    /*extra_relation_input_columns_allowed=*/false)},
+                /*context_id=*/-1),
+            TVFRelation(
+                {{"sum", types::Int64Type()}, {"diff", types::Int64Type()}})) {}
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
+      std::vector<TvfEvaluatorArg> input_arguments,
+      const std::vector<TVFSchemaColumn>& output_columns,
+      const FunctionSignature* function_call_signature) const override {
+    ZETASQL_RET_CHECK_EQ(input_arguments.size(), 1);
+    ZETASQL_RET_CHECK(input_arguments[0].relation);
+    return std::make_unique<TvfSumAndDiffIterator>(
+        std::move(input_arguments[0].relation));
+  }
+};
+
+void SampleCatalog::LoadTableValuedFunctionsWithEvaluators() {
+  catalog_->AddOwnedTableValuedFunction(new TvfOptionalRelation());
+  catalog_->AddOwnedTableValuedFunction(new TvfOptionalArguments());
+  catalog_->AddOwnedTableValuedFunction(new TvfRepeatedArguments());
+  catalog_->AddOwnedTableValuedFunction(new TvfIncrementBy());
+  catalog_->AddOwnedTableValuedFunction(new TvfSumAndDiff());
+}
+
 void SampleCatalog::LoadFunctionsWithStructArgs() {
   const std::vector<OutputColumn> kOutputColumnsAllTypes =
       GetOutputColumnsForAllTypes(types_);
@@ -5156,9 +5756,9 @@ void SampleCatalog::LoadFunctionsWithStructArgs() {
   ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_string(), &array_string_type));
 
   const Type* struct_type1 = nullptr;
-  ZETASQL_CHECK_OK(types_->MakeStructType({{"field1", array_string_type},
-                                   {"field2", array_string_type}},
-                                  &struct_type1));
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"field1", array_string_type}, {"field2", array_string_type}},
+      &struct_type1));
   const Type* struct_type2 = nullptr;
   ZETASQL_CHECK_OK(types_->MakeStructType({{"field1", array_string_type},
                                    {"field2", array_string_type},
@@ -6490,8 +7090,8 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
 
   // b/259000660: Add a templated SQL TVF whose code has a braced proto
   // constructor.
-  auto templated_braced_ctor_tvf = std::make_unique<TemplatedSQLTVF>(
-      std::vector<std::string>{"templated_braced_ctor_tvf"},
+  auto templated_proto_braced_ctor_tvf = std::make_unique<TemplatedSQLTVF>(
+      std::vector<std::string>{"templated_proto_braced_ctor_tvf"},
       FunctionSignature(ARG_TYPE_RELATION,
                         {FunctionArgumentType(ARG_TYPE_RELATION)},
                         context_id++),
@@ -6499,7 +7099,19 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
       ParseResumeLocation::FromString(R"sql(
   SELECT NEW zetasql_test__.TestExtraPB {int32_val1 : v} AS dice_roll
   FROM T)sql"));
-  catalog_->AddOwnedTableValuedFunction(std::move(templated_braced_ctor_tvf));
+  catalog_->AddOwnedTableValuedFunction(
+      std::move(templated_proto_braced_ctor_tvf));
+  auto templated_struct_braced_ctor_tvf = std::make_unique<TemplatedSQLTVF>(
+      std::vector<std::string>{"templated_struct_braced_ctor_tvf"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_RELATION)},
+                        context_id++),
+      /*arg_name_list=*/std::vector<std::string>{"T"},
+      ParseResumeLocation::FromString(R"sql(
+  SELECT STRUCT<int32_val1 INT32> {int32_val1 : v} AS dice_roll
+  FROM T)sql"));
+  catalog_->AddOwnedTableValuedFunction(
+      std::move(templated_struct_braced_ctor_tvf));
 }
 
 void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
@@ -6615,28 +7227,28 @@ void SampleCatalog::LoadProcedures() {
   // Add a procedure that takes a specific enum as an argument.
   const EnumType* enum_TestEnum =
       GetEnumType(zetasql_test__::TestEnum_descriptor());
-  procedure = new Procedure(
-      {"proc_on_TestEnum"},
-      {types_->get_bool(), {enum_TestEnum}, /*context_id=*/-1});
+  procedure =
+      new Procedure({"proc_on_TestEnum"},
+                    {types_->get_bool(), {enum_TestEnum}, /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
   // Add a procedure to illustrate how repeated/optional arguments are resolved.
-  procedure = new Procedure(
-      {"proc_on_req_opt_rep"},
-      {types_->get_int64(),
-          {{types_->get_int64(), FunctionArgumentType::REQUIRED},
-           {types_->get_int64(), FunctionArgumentType::REPEATED},
-           {types_->get_int64(), FunctionArgumentType::REPEATED},
-           {types_->get_int64(), FunctionArgumentType::REQUIRED},
-           {types_->get_int64(), FunctionArgumentType::OPTIONAL}},
-           /*context_id=*/-1});
+  procedure =
+      new Procedure({"proc_on_req_opt_rep"},
+                    {types_->get_int64(),
+                     {{types_->get_int64(), FunctionArgumentType::REQUIRED},
+                      {types_->get_int64(), FunctionArgumentType::REPEATED},
+                      {types_->get_int64(), FunctionArgumentType::REPEATED},
+                      {types_->get_int64(), FunctionArgumentType::REQUIRED},
+                      {types_->get_int64(), FunctionArgumentType::OPTIONAL}},
+                     /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
   // Add a procedure with templated arguments.
-  procedure = new Procedure(
-      {"proc_on_any_any"},
-      {types_->get_int64(),
-          {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, /*context_id=*/-1});
+  procedure =
+      new Procedure({"proc_on_any_any"}, {types_->get_int64(),
+                                          {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+                                          /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
   // Add a procedure with templated arguments of arbitrary type.
@@ -6648,18 +7260,16 @@ void SampleCatalog::LoadProcedures() {
 
   // Add a procedure with one repeated argument.
   procedure = new Procedure(
-      {"proc_on_rep"},
-      {types_->get_int64(),
-          {{types_->get_int64(), FunctionArgumentType::REPEATED}},
-          /*context_id=*/-1});
+      {"proc_on_rep"}, {types_->get_int64(),
+                        {{types_->get_int64(), FunctionArgumentType::REPEATED}},
+                        /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
   // Add a procedure with one optional argument.
   procedure = new Procedure(
-      {"proc_on_opt"},
-      {types_->get_int64(),
-          {{types_->get_int64(), FunctionArgumentType::OPTIONAL}},
-          /*context_id=*/-1});
+      {"proc_on_opt"}, {types_->get_int64(),
+                        {{types_->get_int64(), FunctionArgumentType::OPTIONAL}},
+                        /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
   // These sample procedures are named 'proc_on_<typename>' with one argument of
@@ -6780,8 +7390,8 @@ void SampleCatalog::LoadConstants() {
   // Load a constant that conflicts with a zero-argument procedure.
   // The multi-argument case is handled in the nested catalog.
   std::unique_ptr<SimpleConstant> constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create({"proc_no_args"}, Value::Bool(true),
-                                  &constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create({"proc_no_args"}, Value::Bool(true), &constant));
   catalog_->AddOwnedConstant(constant.release());
 
   // Load a constant that conflicts with a catalog.
@@ -7357,6 +7967,15 @@ void SampleCatalog::LoadAggregateSqlFunctions(
         agg_arg INT64
       ) AS (
         SUM(agg_arg + agg_arg)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION ExprOutsideSumExpressionOfAggregateArgs(
+        agg_arg INT64
+      ) AS (
+        1 + SUM(agg_arg + agg_arg)
       );)sql",
       language_options);
 

@@ -58,9 +58,19 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_NULLIFZERO_ZEROIFNULL);
       features.insert(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
       features.insert(FEATURE_V_1_4_PI_FUNCTIONS);
-      features.insert(FEATURE_V_1_4_SET_OPERATION_COLUMN_PROPAGATION_MODE);
-      features.insert(FEATURE_V_1_4_CORRESPONDING_BY);
+      features.insert(FEATURE_V_1_4_CORRESPONDING_FULL);
       features.insert(FEATURE_V_1_4_GROUP_BY_ALL);
+      features.insert(FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+      features.insert(FEATURE_V_1_4_REMOTE_MODEL);
+      features.insert(FEATURE_V_1_4_LITERAL_CONCATENATION);
+      features.insert(FEATURE_V_1_4_ENABLE_FLOAT_DISTANCE_FUNCTIONS);
+      features.insert(FEATURE_V_1_4_DOT_PRODUCT);
+      features.insert(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+      features.insert(FEATURE_V_1_4_L1_NORM);
+      features.insert(FEATURE_V_1_4_L2_NORM);
+      features.insert(FEATURE_V_1_4_ARRAY_ZIP);
+      features.insert(FEATURE_V_1_4_GROUPING_SETS);
+      features.insert(FEATURE_V_1_4_GROUPING_BUILTIN);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

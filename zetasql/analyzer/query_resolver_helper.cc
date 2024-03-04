@@ -149,10 +149,11 @@ absl::Status ReleaseLegacyRollupColumnList(
 void QueryGroupByAndAggregateInfo::Reset() {
   has_group_by = false;
   has_aggregation = false;
+  is_group_by_all = false;
   aggregate_expr_map.clear();
   group_by_columns_to_compute.clear();
   group_by_expr_map.clear();
-  grouping_list.clear();
+  grouping_call_list.clear();
   grouping_output_columns.clear();
   grouping_set_list.clear();
   aggregate_columns_to_compute.clear();
@@ -206,12 +207,12 @@ std::string SelectColumnState::DebugString(absl::string_view indent) const {
 }
 
 void SelectColumnStateList::AddSelectColumn(
-    const ASTExpression* ast_expr, IdString alias, bool is_explicit,
+    const ASTSelectColumn* ast_select_column, IdString alias, bool is_explicit,
     bool has_aggregation, bool has_analytic, bool has_volatile,
     std::unique_ptr<const ResolvedExpr> resolved_expr) {
   AddSelectColumn(std::make_unique<SelectColumnState>(
-      ast_expr, alias, is_explicit, has_aggregation, has_analytic, has_volatile,
-      std::move(resolved_expr)));
+      ast_select_column, alias, is_explicit, has_aggregation, has_analytic,
+      has_volatile, std::move(resolved_expr)));
 }
 
 void SelectColumnStateList::AddSelectColumn(
@@ -379,7 +380,7 @@ void QueryResolutionInfo::AddGroupingSet(const GroupingSetInfo& grouping_set) {
 
 void QueryResolutionInfo::AddGroupingColumn(
     std::unique_ptr<const ResolvedGroupingCall> column) {
-  group_by_info_.grouping_list.push_back(std::move(column));
+  group_by_info_.grouping_call_list.push_back(std::move(column));
 }
 
 // Add the grouping column to the expr map, but since at this point it's an
@@ -524,6 +525,14 @@ bool QueryResolutionInfo::HasAnalytic() const {
   return analytic_resolver_->HasAnalytic();
 }
 
+bool QueryResolutionInfo::HasAggregation() const {
+  return group_by_info_.has_aggregation;
+}
+
+void QueryResolutionInfo::SetHasAggregation(bool value) {
+  group_by_info_.has_aggregation = value;
+}
+
 bool QueryResolutionInfo::SelectFormAllowsSelectStar() const {
   switch (select_form_) {
     case SelectForm::kClassic:
@@ -565,10 +574,7 @@ void QueryResolutionInfo::ResetAnalyticResolver(Resolver* resolver) {
       resolver, analytic_resolver_->ReleaseNamedWindowInfoMap());
 }
 
-absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() {
-  // grouping columns to compute are not used for any computation, so can clear
-  // when expecting lists to be empty.
-  group_by_info_.grouping_output_columns.clear();
+absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
   ZETASQL_RET_CHECK(select_list_columns_to_compute_before_aggregation_.empty());
   ZETASQL_RET_CHECK(select_list_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(group_by_info_.group_by_columns_to_compute.empty());
@@ -595,6 +601,8 @@ std::string QueryResolutionInfo::DebugString() const {
                   "\n");
   absl::StrAppend(&debug_string,
                   "has_aggregation: ", group_by_info_.has_aggregation, "\n");
+  absl::StrAppend(&debug_string,
+                  "is_group_by_all: ", group_by_info_.is_group_by_all, "\n");
 
   const absl::string_view select_with_mode_str = [&] {
     switch (select_with_mode_) {
@@ -618,6 +626,16 @@ std::string QueryResolutionInfo::DebugString() const {
   absl::StrAppend(&debug_string, "aggregate_columns(size ",
                   group_by_info_.aggregate_columns_to_compute.size(), "):\n");
   for (const auto& column : group_by_info_.aggregate_columns_to_compute) {
+    absl::StrAppend(&debug_string, "  ", column->DebugString(), "\n");
+  }
+  absl::StrAppend(&debug_string, "grouping_call_list(size ",
+                  group_by_info_.grouping_call_list.size(), "):\n");
+  for (const auto& grouping_call : group_by_info_.grouping_call_list) {
+    absl::StrAppend(&debug_string, "  ", grouping_call->DebugString(), "\n");
+  }
+  absl::StrAppend(&debug_string, "grouping_output_columns(size ",
+                  group_by_info_.grouping_output_columns.size(), "):\n");
+  for (const auto& column : group_by_info_.grouping_output_columns) {
     absl::StrAppend(&debug_string, "  ", column->DebugString(), "\n");
   }
   absl::StrAppend(&debug_string, "aggregate_expr_map size: ",

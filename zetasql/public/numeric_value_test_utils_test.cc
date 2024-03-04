@@ -16,6 +16,7 @@
 
 #include "zetasql/public/numeric_value_test_utils.h"
 
+#include <cstddef>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -23,6 +24,7 @@
 #include "gtest/gtest.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -85,7 +87,7 @@ void TestMakeRandomCoverage(T (*generator)(absl::BitGen*),
                                         (T::kMaxIntegerDigits + 1) *
                                         (T::kMaxFractionalDigits + 1) -
                                     1;
-  // Should cover at least 90% of the possile combinations.
+  // Should cover at least 90% of the possible combinations.
   // In an experiment with 200 runs, the minimum coverage is 99.9% for
   // BigNumericValue and 100% for NumericValue.
   EXPECT_GE(num_covered, 9 * kNumPossibleCombinations / 10);
@@ -109,27 +111,31 @@ TEST(BigNumericTest, MakeRandomNumericValue_Coverage) {
 }
 
 TEST(NumericTest, MakeRandomNonZeroNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomNonZeroNumericValue<NumericValue>,
-                         /* expect_zero_values = */ false,
-                         /* expect_negative_values = */ true);
+  TestMakeRandomCoverage(
+      &MakeRandomNonZeroNumericValue<NumericValue, absl::BitGen>,
+      /* expect_zero_values = */ false,
+      /* expect_negative_values = */ true);
 }
 
 TEST(BigNumericTest, MakeRandomNonZeroNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomNonZeroNumericValue<BigNumericValue>,
-                         /* expect_zero_values = */ false,
-                         /* expect_negative_values = */ true);
+  TestMakeRandomCoverage(
+      &MakeRandomNonZeroNumericValue<BigNumericValue, absl::BitGen>,
+      /* expect_zero_values = */ false,
+      /* expect_negative_values = */ true);
 }
 
 TEST(NumericTest, MakeRandomPositiveNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomPositiveNumericValue<NumericValue>,
-                         /* expect_zero_values = */ false,
-                         /* expect_negative_values = */ false);
+  TestMakeRandomCoverage(
+      &MakeRandomPositiveNumericValue<NumericValue, absl::BitGen>,
+      /* expect_zero_values = */ false,
+      /* expect_negative_values = */ false);
 }
 
 TEST(BigNumericTest, MakeRandomPositiveNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomPositiveNumericValue<BigNumericValue>,
-                         /* expect_zero_values = */ false,
-                         /* expect_negative_values = */ false);
+  TestMakeRandomCoverage(
+      &MakeRandomPositiveNumericValue<BigNumericValue, absl::BitGen>,
+      /* expect_zero_values = */ false,
+      /* expect_negative_values = */ false);
 }
 
 template <typename T>

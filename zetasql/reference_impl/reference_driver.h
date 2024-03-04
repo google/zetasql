@@ -28,6 +28,7 @@
 #include "zetasql/compliance/test_database_catalog.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
@@ -43,6 +44,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -126,6 +128,12 @@ class ReferenceDriver : public TestDriver {
   // is a collection of "CREATE TEMP FUNCTION" statements.
   absl::Status AddSqlUdfs(
       absl::Span<const std::string> create_function_stmts) override;
+  // A reference-driver specific overload of AddSqlUdfs that also takes a
+  // FunctionOptions. Even though most function options cannot be controlled
+  // through a CREATE FUNCTION statement, this driver is used for the query
+  // generator. We supply FunctionOptions to affect the RQG behavior.
+  absl::Status AddSqlUdfs(absl::Span<const std::string> create_function_stmts,
+                          FunctionOptions function_options);
 
   // Adds some viewss to the catalog owned by this test driver. The argument
   // is a collection of "CREATE TEMP VIEW" statements.

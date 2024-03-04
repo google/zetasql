@@ -30,11 +30,15 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -263,6 +267,11 @@ Value StructArray(absl::Span<const std::string> names,
 // Creates a range with values 'start' and 'end'.
 Value Range(ValueConstructor start, ValueConstructor end);
 
+// Creates a map with key/value pairs from 'elements'.
+Value Map(
+    absl::Span<const std::pair<ValueConstructor, ValueConstructor>> elements,
+    TypeFactory* type_factory = nullptr);
+
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())
 const ArrayType* MakeArrayType(const Type* element_type,
@@ -288,6 +297,12 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
 // factory (see: static_type_factory())
 const RangeType* MakeRangeType(const Type* element_type,
                                TypeFactory* type_factory = nullptr);
+
+// If type_factory is not provided the function will use the default static type
+// factory (see: static_type_factory())
+absl::StatusOr<const Type*> MakeMapType(const Type* key_type,
+                                        const Type* value_type,
+                                        TypeFactory* type_factory = nullptr);
 
 // Matches x against y respecting array orderedness and using the default
 // floating point error margin. If the reason parameter is nullptr then no

@@ -92,7 +92,7 @@ absl::StatusOr<std::unique_ptr<zetasql::ParserOutput>> ParseTokenizedStmt(
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
   ParserOptions parser_options;
-  parser_options.set_language_options(&language_options);
+  parser_options.set_language_options(language_options);
   ZETASQL_RETURN_IF_ERROR(ParseNextScriptStatement(&location, parser_options,
                                            &parser_output, &unused));
 
@@ -131,8 +131,11 @@ absl::Status UnparsedRegion::Accept(ParsedFileVisitor* visitor) const {
 }
 
 TokenizedStmt::TokenizedStmt(absl::string_view sql, int start_offset,
-                             int end_offset, std::vector<Token> tokens)
-    : FilePart(sql, start_offset, end_offset), tokens_(std::move(tokens)) {
+                             int end_offset, std::vector<Token> tokens,
+                             const FormatterOptions& options)
+    : FilePart(sql, start_offset, end_offset),
+      tokens_(std::move(tokens)),
+      block_factory_(options.IndentationSpaces()) {
   tokens_view_ = TokensView::FromTokens(&tokens_);
 }
 
@@ -146,7 +149,7 @@ absl::StatusOr<std::unique_ptr<TokenizedStmt>> TokenizedStmt::ParseFrom(
       TokenizeNextStatement(parse_location, options.IsAllowedInvalidTokens()));
   auto parsed_sql = std::make_unique<TokenizedStmt>(
       parse_location->input(), start_offset, parse_location->byte_position(),
-      std::move(tokens));
+      std::move(tokens), options);
   ZETASQL_RETURN_IF_ERROR(
       parsed_sql->BuildChunksAndBlocks(location_translator, options));
   return parsed_sql;
@@ -171,9 +174,7 @@ absl::Status TokenizedStmt::Accept(ParsedFileVisitor* visitor) const {
   return visitor->VisitTokenizedStmt(*this);
 }
 
-bool TokenizedStmt::ShouldFormat() const {
-  return true;
-}
+bool TokenizedStmt::ShouldFormat() const { return true; }
 
 std::string ParsedStmt::DebugString() const {
   return parser_output_->statement()->DebugString();

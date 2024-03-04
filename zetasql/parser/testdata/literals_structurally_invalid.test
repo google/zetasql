@@ -44,7 +44,8 @@ QueryStatement [0-13]
     Select [0-13]
       SelectList [7-13]
         SelectColumn [7-13]
-          BytesLiteral(b'|Â|') [7-13]
+          BytesLiteral [7-13]
+            BytesLiteralComponent(b'|Â|') [7-13]
 --
 SELECT
   b'|Â|'

@@ -21,6 +21,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 
 #ifndef ZETASQL_REFERENCE_IMPL_TYPE_HELPERS_H_
 #define ZETASQL_REFERENCE_IMPL_TYPE_HELPERS_H_
@@ -51,7 +52,7 @@ extern const char* kDMLOutputReturningColumnName;
 // table_columns.
 absl::StatusOr<const StructType*> CreatePrimaryKeyType(
     const ResolvedColumnList& table_columns,
-    const std::vector<int>& key_column_indexes, TypeFactory* type_factory);
+    absl::Span<const int> key_column_indexes, TypeFactory* type_factory);
 
 // Creates the DML output struct type corresponding to a DML statement on a
 // table whose corresponding array type is 'table_array_type'.

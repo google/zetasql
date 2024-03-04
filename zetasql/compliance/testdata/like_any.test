@@ -370,7 +370,20 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_with_null_elements]
+# Test "NOT LIKE ANY" for NULL elements on either LHS or RHS list.
+SELECT
+  NULL NOT LIKE ANY (NULL, 'abc'),
+  'abc' NOT LIKE ANY (NULL, NULL),
+  'abc' NOT LIKE ANY ('abc', '%z%'),
+  'abc' NOT LIKE ANY ('abc', '%b%'),
+  'abc' NOT LIKE ANY ('x', '%y%'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
 [name=not_like_any_with_collation_ci_test_with_null_elements]
 # Test "NOT LIKE ANY" with collation for NULL elements on either LHS or RHS list.
 SELECT
@@ -379,9 +392,12 @@ SELECT
   collate(NULL, 'und:ci') NOT LIKE ANY ('abc', 'abc'),
   collate('abc', 'und:ci') NOT LIKE ANY (NULL, NULL),
   collate('abc', 'und:ci') NOT LIKE ANY (NULL, 'ABC'),
+  collate('abc', 'und:ci') NOT LIKE ANY (NULL, 'xyz')
 --
 # Note: Collation will be applied to LHS and all elements in RHS.
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, false}]
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, NULL, NULL, NULL, NULL, true}
+]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
@@ -398,19 +414,20 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
 [name=not_like_any_with_collation_ci_on_lhs_element]
 # Test "NOT LIKE ANY" with LHS wrapped in collation.
 SELECT
   collate('GooGle', 'und:ci') NOT LIKE ANY ('goo%', 'xxx'),
   collate('GooGle', 'und:ci') NOT LIKE ANY ('%yyy%', 'GOOGLE'),
   collate('GooGle', 'und:ci') NOT LIKE ANY ('%goO%', collate('XXX', 'und:ci')),
-  collate('GooGle', 'und:ci') NOT LIKE ANY ('%xxx%', collate('%OO%', 'und:ci')),
+  collate('GooGle', 'und:ci') NOT LIKE ANY ('%le%', collate('%OO%', 'und:ci')),
   collate('GooGle', 'und:ci') NOT LIKE ANY ('%ppp%', collate('%aa%', 'und:ci')),
+  collate('GooGle', 'und:ci') NOT LIKE ANY ('%G%', '%E%'),
 --
 # Note: Collation will be applied to LHS and all elements in RHS.
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[
-  {false, false, false, false, true}
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, false, true, false}
 ]
 ==
 
@@ -428,7 +445,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, true}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
 [name=not_like_any_with_collation_ci_on_one_of_the_rhs_element]
 # Test "NOT LIKE ANY" with one of the elements in RHS wrapped in collation.
 SELECT
@@ -439,7 +456,7 @@ SELECT
   collate('GooGle', '') NOT LIKE ANY ('%ooGs%', collate('x%go%x', 'und:ci')),
 --
 # Note: Collation will be applied to LHS and all elements in RHS.
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{false, false, false, true, true}]
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, false, true, true}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
@@ -455,7 +472,7 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, false}]
 ==
 
-[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
 [name=not_like_any_with_collation_ci_with_ignorable_character]
 # Test "NOT LIKE ANY" with an ignorable character in the pattern.
 # \u070F is an ignorable character
@@ -463,9 +480,10 @@ SELECT
   collate('defA\u070FbCdef', 'und:ci') NOT LIKE ANY ('%abc%', '%xyz%'),
   'defA\u070FbCdef' NOT LIKE ANY (collate('%ABC%', 'und:ci'), '%xyz%'),
   'defA\u070FbCdef' NOT LIKE ANY (collate('x%ABC%x', 'und:ci'), '%xyz%'),
+  collate('defA\u070FbCdef', 'und:ci') NOT LIKE ANY ('%abc%', '%def%'),
 --
 # Note: Collation will be applied to LHS and all elements in RHS.
-ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false}]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
@@ -551,3 +569,310 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
   {"Value1", true, true, true, true},
   {"Value2", true, true, NULL, false}
 ]
+
+==
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_string_constant_patterns_in_subquery_as_array_elements]
+SELECT
+  NULL NOT LIKE ANY UNNEST(['abc', NULL]),
+  'abc' NOT LIKE ANY UNNEST(['abc', NULL]),
+  'abc' NOT LIKE ANY UNNEST(['abc', '%z%']),
+  'abc' NOT LIKE ANY UNNEST(['abc', '%b%']),
+  'abc' NOT LIKE ANY UNNEST(['x', '%y%']),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_collation_with_null_values]
+# Test "LIKE ANY ARRAY" with collation with NULL values in LHS or RHS list.
+SELECT
+  collate(NULL, 'und:ci') LIKE ANY UNNEST(CAST(NULL AS ARRAY<STRING>)),
+  collate(NULL, 'und:ci') LIKE ANY UNNEST(ARRAY<STRING>[NULL]),
+  collate('goog', 'und:ci') LIKE ANY UNNEST(CAST(NULL AS ARRAY<STRING>)),
+  collate('goog', 'und:ci') LIKE ANY UNNEST(ARRAY<STRING>[NULL]),
+  collate(NULL, 'und:ci') LIKE ANY UNNEST(['google', 'GOOGLE']),
+  collate(NULL, 'und:ci') LIKE ANY UNNEST(['goog']),
+  collate('GOOGLE', 'und:ci') LIKE ANY UNNEST(['google', NULL]),
+  'GOOGLE' LIKE ANY UNNEST([collate('google', 'und:ci'), NULL]),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, NULL, false, NULL, NULL, NULL, true, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=not_like_any_array_with_collation_with_null_values]
+# Test "NOT LIKE ANY ARRAY" with collation with NULL values in LHS or RHS list.
+SELECT
+  collate(NULL, 'und:ci') NOT LIKE ANY UNNEST(CAST(NULL AS ARRAY<STRING>)),
+  collate(NULL, 'und:ci') NOT LIKE ANY UNNEST(ARRAY<STRING>[NULL]),
+  collate('goog', 'und:ci') NOT LIKE ANY UNNEST(CAST(NULL AS ARRAY<STRING>)),
+  collate('goog', 'und:ci') NOT LIKE ANY UNNEST(ARRAY<STRING>[NULL]),
+  collate(NULL, 'und:ci') NOT LIKE ANY UNNEST(['google', 'GOOGLE']),
+  collate(NULL, 'und:ci') NOT LIKE ANY UNNEST(['goog']),
+  collate('GOOGLE', 'und:ci') NOT LIKE ANY UNNEST(['google', NULL]),
+  'GOOGLE' NOT LIKE ANY UNNEST([collate('google', 'und:ci'), NULL]),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, NULL, true, NULL, NULL, NULL, false, false}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_collation]
+# Test "LIKE ANY ARRAY" with collation in LHS or RHS list.
+SELECT
+  collate('google', 'und:ci') LIKE ANY UNNEST([NULL, 'GOOGLE']),
+  'google' LIKE ANY UNNEST([NULL, collate('GOOGLE', 'und:ci')]),
+  collate('GooGle', 'und:ci') LIKE ANY UNNEST(['goo%', 'xxx']),
+  'GooGle' LIKE ANY UNNEST([collate('goo%', 'und:ci'), 'xxx']),
+  collate('GooGle', 'und:ci') LIKE ANY UNNEST(['%yyy%', 'GOOGLE']),
+  'GooGle' LIKE ANY UNNEST([collate('%yyy%', 'und:ci'), 'GOOGLE']),
+  collate('GooG', 'und:ci') LIKE ANY UNNEST(['%oO%', collate('XXX', 'und:ci')]),
+  collate('GooG', 'und:ci') LIKE ANY UNNEST(['%x%', collate('GOOG', 'und:ci')]),
+  collate('GooG', 'und:ci') LIKE ANY UNNEST(['%p%', collate('x%a%', 'und:ci')]),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, true, true, true, true, false}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=not_like_any_array_with_collation]
+# Test "NOT LIKE ANY ARRAY" with collation in LHS or RHS list.
+SELECT
+  collate('google', 'und:ci') NOT LIKE ANY UNNEST([NULL, 'GOOGLE']),
+  'google' NOT LIKE ANY UNNEST([NULL, collate('GOOGLE', 'und:ci')]),
+  collate('GooGle', 'und:ci') NOT LIKE ANY UNNEST(['goo%', 'xxx']),
+  'GooGle' NOT LIKE ANY UNNEST([collate('goo%', 'und:ci'), 'xxx']),
+  collate('GooGle', 'und:ci') NOT LIKE ANY UNNEST(['%yyy%', 'GOOGLE']),
+  'GooGle' NOT LIKE ANY UNNEST([collate('%yyy%', 'und:ci'), 'GOOGLE']),
+  collate('GooG', 'und:ci') NOT LIKE ANY UNNEST(['%oO%', collate('XXX', 'und:ci')]),
+  collate('GooG', 'und:ci') NOT LIKE ANY UNNEST(['%x%', collate('GOOG', 'und:ci')]),
+  collate('GooG', 'und:ci') NOT LIKE ANY UNNEST(['%p%', collate('x%a%', 'und:ci')]),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, false, false, false, false, false, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_arrayconact_function]
+# Test "LIKE ANY ARRAY" with ARRAY_CONCAT function.
+SELECT
+  NULL LIKE ANY UNNEST(ARRAY_CONCAT(['abc'], ['xyz', NULL])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['abc', NULL], [])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['xyz'], ARRAY<STRING>[NULL])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['xyz', '%z%'], ['%b%'])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['ABC'], ['%B%'], ['%a%'])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], ['%z%'], ['%x%'])),
+  'abc' LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], ['%c%'], ['%x%'])),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, true, NULL, true, true, false, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_array_with_arrayconact_function]
+# Test "NOT LIKE ANY ARRAY" with ARRAY_CONCAT function.
+SELECT
+  NULL NOT LIKE ANY UNNEST(ARRAY_CONCAT(['abc'], ['xyz', NULL])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['abc', NULL], [])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['xyz'], ARRAY<STRING>[NULL])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['xyz', '%z%'], ['%b%'])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['abc'], ['%b%'], ['%a%'])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['%a%', '%b%'], ['%b%'], ['%c%'])),
+  'abc' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], ['%c%'], ['%x%'])),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, NULL, true, true, false, false, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_arrayconact_function_with_collation]
+# Test "LIKE ANY ARRAY" with ARRAY_CONCAT function with collation enabled.
+SELECT
+  NULL LIKE ANY UNNEST(ARRAY_CONCAT([collate('abc', 'und:ci')], ['xyz', NULL])),
+  collate('abc', 'und:ci') LIKE ANY UNNEST(ARRAY_CONCAT(['AbC', NULL], [])),
+  collate('abc', 'und:ci') LIKE ANY UNNEST(ARRAY_CONCAT(['xyz'], ARRAY<STRING>[NULL])),
+  'ABC' LIKE ANY UNNEST(ARRAY_CONCAT([collate('xyz', 'und:ci'), '%z%'], ['%b%'])),
+  collate('abc', 'und:ci') LIKE ANY UNNEST(ARRAY_CONCAT(['ABC'], ['%B%'], ['%a%'])),
+  'ABC' LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], [collate('%z%', 'und:ci')], ['%x%'])),
+  'ABC' LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], [collate('%c%', 'und:ci')], ['%x%'])),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, true, NULL, true, true, false, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_array_with_arrayconact_function_with_collation]
+# Test "NOT LIKE ANY ARRAY" with ARRAY_CONCAT function with collation enabled.
+SELECT
+  NULL NOT LIKE ANY UNNEST(ARRAY_CONCAT([collate('abc', 'und:ci')], ['xyz', NULL])),
+  collate('abc', 'und:ci') NOT  LIKE ANY UNNEST(ARRAY_CONCAT(['AbC', NULL], [])),
+  collate('abc', 'und:ci') NOT LIKE ANY UNNEST(ARRAY_CONCAT(['xyz'], ARRAY<STRING>[NULL])),
+  'ABC' NOT LIKE ANY UNNEST(ARRAY_CONCAT([collate('xyz', 'und:ci'), '%z%'], ['%b%'])),
+  collate('abc', 'und:ci') NOT LIKE ANY UNNEST(ARRAY_CONCAT(['ABC'], ['%B%'], ['%a%'])),
+  'ABC' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], [collate('%z%', 'und:ci')], ['%x%'])),
+  'ABC' NOT LIKE ANY UNNEST(ARRAY_CONCAT(['x', '%y%'], [collate('%c%', 'und:ci')], ['%x%'])),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, NULL, true, true, false, true, true}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=not_like_any_array_with_scalar_subquery]
+SELECT
+  Value,
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), 'Value2']),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), NULL]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), (SELECT 'Value2')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%1'), (SELECT 'V%lue1')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%2'), (SELECT 'V%lue2')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, false, false, false, false, true},
+  {"Value2", true, false, NULL, false, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_any_with_patterns_in_non_paranthesized_scalar_subquery]
+# TODO: Like any/all subquery is current not using the new
+# implementation of 'not like any/all' operator which needs to be fixed
+# when subquery feature will be fully implemented. As of now, the subquery
+# variant of like any/all is not completely ready.
+SELECT
+  Value,
+  Value NOT LIKE ANY (SELECT 'Value1'),
+  Value NOT LIKE ANY (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, false},
+  {"Value2", true, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_scalar_subquery_with_collation]
+SELECT
+  Value,
+  Value LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci'))]),
+  Value LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')),
+                         collate('vALue2', 'und:ci')]),
+  Value LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')), NULL]),
+  Value LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')),
+                         (SELECT collate('%LUE2%', 'und:ci'))]),
+  collate(Value, 'und:ci') LIKE ANY UNNEST ([(SELECT 'valu%1'),
+                                            (SELECT 'v%lue1')]),
+  collate(Value, 'und:ci') LIKE ANY UNNEST ([(SELECT 'VaLU%2'),
+                                            (SELECT 'V%LUE2')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", true, true, true, true, true, false},
+  {"Value2", false, true, NULL, true, false, true}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_array_with_scalar_subquery_with_collation]
+SELECT
+  Value,
+  Value NOT LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci'))]),
+  Value NOT LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')),
+                              collate('vALue2', 'und:ci')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')), NULL]),
+  Value NOT LIKE ANY UNNEST ([(SELECT collate('vALue1', 'und:ci')),
+                              (SELECT collate('%LUE2%', 'und:ci'))]),
+  collate(Value, 'und:ci') NOT LIKE ANY UNNEST ([(SELECT 'valu%1'),
+                                                 (SELECT 'v%lue1')]),
+  collate(Value, 'und:ci') NOT LIKE ANY UNNEST ([(SELECT 'VaLU%2'),
+                                                 (SELECT 'V%LUE2')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, true, NULL, true, false, true},
+  {"Value2", true, true, true, true, true, false}
+]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=not_like_any_array_with_array_agg_function]
+SELECT
+  'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
+  'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),
+  'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', 'b']) x)),
+  'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', 'b']) x)),
+  'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['%a%', 'z']) x)),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, false, true}]
+==
+
+[required_features=V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=like_any_array_with_array_agg_function]
+SELECT
+  'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
+  'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),
+  'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', 'b']) x)),
+  'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', 'b']) x)),
+  'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['%a%', 'z']) x)),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, NULL, true, true, true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY]
+[name=like_any_array_with_array_agg_function_with_collation]
+SELECT
+  'a' LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('b', 'und:ci'), NULL]) x)),
+  'a' LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('A', 'und:ci'), NULL]) x)),
+  'A' LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['a', collate('b', 'und:ci')]) x)),
+  'A' LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('b', 'und:ci'), '%A%']) x)),
+  collate('A', 'und:ci') LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['%a%', 'z']) x)),
+  collate('A', 'und:ci') LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['%b%', 'z']) x)),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {NULL, true, true, true, true, false}
+]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL,V_1_4_LIKE_ANY_SOME_ALL_ARRAY,V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL]
+[name=not_like_any_array_with_array_agg_function_with_collation]
+SELECT
+  'a' NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('b', 'und:ci'), NULL]) x)),
+  'a' NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('A', 'und:ci'), NULL]) x)),
+  'A' NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['a', collate('b', 'und:ci')]) x)),
+  'A' NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('b', 'und:ci'), '%A%']) x)),
+  'A' NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST([collate('a', 'und:ci'), '%A%']) x)),
+  collate('A', 'und:ci') NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['%a%', 'z']) x)),
+  collate('A', 'und:ci') NOT LIKE ANY UNNEST(
+    (SELECT ARRAY_AGG(x) FROM UNNEST(['%a%', 'a']) x)),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, NULL, true, true, false, true, false}
+]
+==

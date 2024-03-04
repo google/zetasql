@@ -16,8 +16,8 @@
 
 #include "zetasql/analyzer/rewriters/like_any_all_rewriter.h"
 
-#include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,8 +28,8 @@
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/rewriter_interface.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
-#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -72,6 +72,31 @@ constexpr absl::string_view kLikeAnyTemplate = R"(
 FROM UNNEST(patterns) as pattern)
 )";
 
+// Template for rewriting NOT LIKE ANY
+// This template is used for a newer implementation of LIKE ANY with NOT
+// operator. Details in (broken link)
+// Arguments:
+//   input - STRING or BYTES
+//   patterns - ARRAY<STRING> or ARRAY<BYTES>
+// Returns: BOOL
+// Semantic Rules:
+//   If patterns is empty or NULL, return FALSE
+//   If input is NULL, return NULL
+//   If LOGICAL_OR(input NOT LIKE pattern) is TRUE, return TRUE
+//   If patterns contains any NULL values, return NULL
+//   Otherwise, return FALSE
+constexpr absl::string_view kNotLikeAnyTemplate = R"(
+(SELECT
+  CASE
+    WHEN patterns IS NULL OR ARRAY_LENGTH(patterns) = 0 THEN FALSE
+    WHEN input IS NULL THEN NULL
+    WHEN LOGICAL_OR(input NOT LIKE pattern) THEN TRUE
+    WHEN LOGICAL_OR(pattern IS NULL) THEN NULL
+    ELSE FALSE
+  END
+FROM UNNEST(patterns) as pattern)
+)";
+
 // Template for rewriting LIKE ALL with null handling for cases:
 //   SELECT <input> LIKE ALL UNNEST([]) -> TRUE
 //   SELECT NULL LIKE ALL {{UNNEST(<patterns>)|(<patterns>)}} -> NULL
@@ -98,6 +123,31 @@ constexpr absl::string_view kLikeAllTemplate = R"(
   FROM UNNEST(patterns) as pattern)
 )";
 
+// Template for rewriting NOT LIKE ALL
+// This template is used for a newer implementation of LIKE ALL with NOT
+// operator. Details in (broken link)
+// Arguments:
+//   input - STRING or BYTES
+//   patterns - ARRAY<STRING> or ARRAY<BYTES>
+// Returns: BOOL
+// Semantic Rules:
+//   If patterns is empty or NULL, return TRUE
+//   If input is NULL, return NULL
+//   If input not like pattern is FALSE, return FALSE
+//   If patterns contains any NULL values, return NULL
+//   Otherwise, return TRUE
+constexpr absl::string_view kNotLikeAllTemplate = R"(
+(SELECT
+  CASE
+    WHEN patterns IS NULL OR ARRAY_LENGTH(patterns) = 0 THEN TRUE
+    WHEN input IS NULL THEN NULL
+    WHEN NOT LOGICAL_AND(input NOT LIKE pattern) THEN FALSE
+    WHEN LOGICAL_OR(pattern IS NULL) THEN NULL
+    ELSE TRUE
+  END
+  FROM UNNEST(patterns) as pattern)
+)";
+
 class LikeAnyAllRewriteVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   LikeAnyAllRewriteVisitor(const AnalyzerOptions* analyzer_options,
@@ -112,14 +162,16 @@ class LikeAnyAllRewriteVisitor : public ResolvedASTDeepCopyVisitor {
       const ResolvedFunctionCall* node) override;
 
   // Rewrites a function of the form:
-  //   input LIKE {{ANY|ALL}} (pattern1, [...])
+  //   input [NOT] LIKE {{ANY|ALL}} (pattern1, [...])
   // to use the LOGICAL_OR aggregation function with the LIKE operator
-  absl::Status RewriteLikeAnyAll(const ResolvedFunctionCall* node);
+  absl::Status RewriteLikeAnyAll(const ResolvedFunctionCall* node,
+                                 absl::string_view rewrite_template);
 
   // Rewrites a function of the form:
-  //   input LIKE {{ANY|ALL}} UNNEST(<array-expression>)
+  //   input [NOT] LIKE {{ANY|ALL}} UNNEST(<array-expression>)
   // to use the LOGICAL_OR aggregation function with the LIKE operator
-  absl::Status RewriteLikeAnyAllArray(const ResolvedFunctionCall* node);
+  absl::Status RewriteLikeAnyAllArray(const ResolvedFunctionCall* node,
+                                      absl::string_view rewrite_template);
 
   absl::Status RewriteLikeAnyAllArrayWithAggregate(
       std::unique_ptr<const ResolvedExpr> input_expr,
@@ -132,24 +184,105 @@ class LikeAnyAllRewriteVisitor : public ResolvedASTDeepCopyVisitor {
   TypeFactory* type_factory_;
 };
 
+struct LikeAnyAllRewriterConfig {
+  enum RewriterVariant { kLikeAnyAll, kLikeAnyAllArray };
+
+  RewriterVariant rewriter_variant;
+  const absl::string_view rewrite_template;
+};
+
+static bool IsLikeAnyFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ANY) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ANY);
+}
+
+static bool IsNotLikeAnyFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_NOT_LIKE_ANY) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_NOT_LIKE_ANY);
+}
+
+static bool IsLikeAllFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ALL) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ALL);
+}
+
+static bool IsNotLikeAllFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_NOT_LIKE_ALL) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_NOT_LIKE_ALL);
+}
+
+static bool IsLikeAnyArrayFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_LIKE_ANY) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_LIKE_ANY);
+}
+
+static bool IsNotLikeAnyArrayFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_NOT_LIKE_ANY) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_NOT_LIKE_ANY);
+}
+
+static bool IsLikeAllArrayFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_LIKE_ALL) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_LIKE_ALL);
+}
+
+static bool IsNotLikeAllArrayFunctionNode(const ResolvedFunctionCall* node) {
+  return IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_NOT_LIKE_ALL) ||
+         IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_NOT_LIKE_ALL);
+}
+
+static std::optional<LikeAnyAllRewriterConfig> GetRewriterConfig(
+    const ResolvedFunctionCall* node) {
+  if (IsLikeAnyFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAll,
+                                    kLikeAnyTemplate};
+  } else if (IsNotLikeAnyFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAll,
+                                    kNotLikeAnyTemplate};
+  } else if (IsLikeAllFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAll,
+                                    kLikeAllTemplate};
+  } else if (IsNotLikeAllFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAll,
+                                    kNotLikeAllTemplate};
+  } else if (IsLikeAnyArrayFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAllArray,
+                                    kLikeAnyTemplate};
+  } else if (IsNotLikeAnyArrayFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAllArray,
+                                    kNotLikeAnyTemplate};
+  } else if (IsLikeAllArrayFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAllArray,
+                                    kLikeAllTemplate};
+  } else if (IsNotLikeAllArrayFunctionNode(node)) {
+    return LikeAnyAllRewriterConfig{LikeAnyAllRewriterConfig::kLikeAnyAllArray,
+                                    kNotLikeAllTemplate};
+  }
+  return std::nullopt;
+}
+
 absl::Status LikeAnyAllRewriteVisitor::VisitResolvedFunctionCall(
     const ResolvedFunctionCall* node) {
-  if (IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ANY) ||
-      IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ANY) ||
-      IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ALL) ||
-      IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ALL)) {
-    return RewriteLikeAnyAll(node);
-  } else if (IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_LIKE_ANY) ||
-             IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_LIKE_ANY) ||
-             IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_LIKE_ALL) ||
-             IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_LIKE_ALL)) {
-    return RewriteLikeAnyAllArray(node);
+  std::optional<LikeAnyAllRewriterConfig> optional_rewriter_info =
+      GetRewriterConfig(node);
+  if (!optional_rewriter_info.has_value()) {
+    return CopyVisitResolvedFunctionCall(node);
   }
-  return CopyVisitResolvedFunctionCall(node);
+
+  LikeAnyAllRewriterConfig& rewriter_info = optional_rewriter_info.value();
+  switch (rewriter_info.rewriter_variant) {
+    case LikeAnyAllRewriterConfig::kLikeAnyAll:
+      return RewriteLikeAnyAll(node, rewriter_info.rewrite_template);
+    case LikeAnyAllRewriterConfig::kLikeAnyAllArray:
+      return RewriteLikeAnyAllArray(node, rewriter_info.rewrite_template);
+    default:
+      ZETASQL_RET_CHECK_FAIL()
+          << "All enum value are covered above, should never reach here.";
+  }
 }
 
 absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAll(
-    const ResolvedFunctionCall* node) {
+    const ResolvedFunctionCall* node, absl::string_view rewrite_template) {
   ZETASQL_RET_CHECK_GE(node->argument_list_size(), 2)
       << "LIKE ANY should have at least 2 arguments. Got: "
       << node->DebugString();
@@ -174,19 +307,13 @@ absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAll(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> patterns_array_expr,
                    fn_builder_.MakeArray(input_type, pattern_elements_list));
 
-  if (IsBuiltInFunctionIdEq(node, FN_STRING_LIKE_ANY) ||
-      IsBuiltInFunctionIdEq(node, FN_BYTE_LIKE_ANY)) {
-    return RewriteLikeAnyAllArrayWithAggregate(std::move(rewritten_input_expr),
-                                               std::move(patterns_array_expr),
-                                               kLikeAnyTemplate);
-  }
   return RewriteLikeAnyAllArrayWithAggregate(std::move(rewritten_input_expr),
                                              std::move(patterns_array_expr),
-                                             kLikeAllTemplate);
+                                             rewrite_template);
 }
 
 absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAllArray(
-    const ResolvedFunctionCall* node) {
+    const ResolvedFunctionCall* node, absl::string_view rewrite_template) {
   // Extract LIKE ANY arguments when given an array of patterns
   ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 2)
       << "LIKE ANY with UNNEST has exactly 2 arguments. Got: "
@@ -201,16 +328,9 @@ absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAllArray(
                    ProcessNode(input_expr));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> rewritten_patterns_array_expr,
                    ProcessNode(patterns_array_expr));
-
-  if (IsBuiltInFunctionIdEq(node, FN_STRING_ARRAY_LIKE_ANY) ||
-      IsBuiltInFunctionIdEq(node, FN_BYTE_ARRAY_LIKE_ANY)) {
-    return RewriteLikeAnyAllArrayWithAggregate(
-        std::move(rewritten_input_expr),
-        std::move(rewritten_patterns_array_expr), kLikeAnyTemplate);
-  }
   return RewriteLikeAnyAllArrayWithAggregate(
       std::move(rewritten_input_expr), std::move(rewritten_patterns_array_expr),
-      kLikeAllTemplate);
+      rewrite_template);
 }
 
 absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAllArrayWithAggregate(

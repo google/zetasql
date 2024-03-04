@@ -52,6 +52,7 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "unicode/uchar.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/general_trie.h"
@@ -1228,8 +1229,8 @@ absl::Status ConductBasicFormatStringChecks(absl::string_view format_string) {
 // Validates the elements in <format_elements> with specific rules, and also
 // makes sure they are not of any category in <invalid_categories>.
 absl::Status ValidateDateTimeFormatElements(
-    const std::vector<DateTimeFormatElement>& format_elements,
-    const std::vector<FormatElementCategory>& invalid_categories,
+    absl::Span<const DateTimeFormatElement> format_elements,
+    absl::Span<const FormatElementCategory> invalid_categories,
     absl::string_view output_type_name) {
   CategoryToElementsMap category_to_elements_map;
   TypeToElementMap type_to_element_map;
@@ -1329,12 +1330,12 @@ absl::Status ParseTimeWithFormatElements(
 }
 
 absl::Status ValidateDateTimeFormatElementsForTimestampType(
-    const std::vector<DateTimeFormatElement>& format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements) {
   return ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP");
 }
 
 absl::Status ValidateDateTimeFormatElementsForDateType(
-    const std::vector<DateTimeFormatElement>& format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements) {
   return ValidateDateTimeFormatElements(
       format_elements,
       {FormatElementCategory::kHour, FormatElementCategory::kMinute,
@@ -1356,7 +1357,7 @@ absl::Status ValidateDateTimeFormatElementsForTimeType(
 }
 
 absl::Status ValidateDateTimeFormatElementsForDatetimeType(
-    const std::vector<DateTimeFormatElement>& format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements) {
   return ValidateDateTimeFormatElements(
       format_elements, {FormatElementCategory::kTimeZone}, "DATETIME");
 }

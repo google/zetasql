@@ -25,7 +25,7 @@ option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLType";
 
-// NEXT_ID: 31
+// NEXT_ID: 32
 enum TypeKind {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -74,10 +74,16 @@ enum TypeKind {
   // INTERVAL type is controlled by FEATURE_INTERVAL_TYPE
   TYPE_INTERVAL = 27;
 
+  // TOKENLIST type is controlled by FEATURE_TOKENIZED_SEARCH
+  TYPE_TOKENLIST = 28;
+
   // RANGE type is controlled by FEATURE_RANGE_TYPE
   TYPE_RANGE = 29;
-}
 
+  // MAP type is controlled by FEATURE_MAP_TYPE
+  TYPE_MAP = 31;
+}
+//
 // This represents the serialized form of the zetasql::Type.
 message TypeProto {
   optional TypeKind type_kind = 1;
@@ -89,6 +95,7 @@ message TypeProto {
   optional ProtoTypeProto proto_type = 4;
   optional EnumTypeProto enum_type = 5;
   optional RangeTypeProto range_type = 8;
+  optional MapTypeProto map_type = 10;
 
   // These <file_descriptor_set>s may (optionally) be populated only for
   // the 'outermost' TypeProto when serializing a ZetaSQL Type,
@@ -127,6 +134,11 @@ message StructFieldProto {
 
 message StructTypeProto {
   repeated StructFieldProto field = 1;
+}
+
+message MapTypeProto {
+  optional TypeProto key_type = 1;
+  optional TypeProto value_type = 2;
 }
 
 message ProtoTypeProto {

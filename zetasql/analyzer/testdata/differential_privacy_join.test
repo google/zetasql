@@ -345,9 +345,10 @@ QueryStmt
         |   +-right_scan=
         |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |   |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |   +-has_using=TRUE
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -374,9 +375,10 @@ QueryStmt
         |   |   +-right_scan=
         |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |   |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
-        |   |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |   |   |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |   |   +-has_using=TRUE
         |   +-group_by_list=
         |   | +-$uid#28 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |   +-aggregate_list=
@@ -2403,9 +2405,10 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-TableScan(parse_location=84-112, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |       +-ColumnRef(type=STRING, column=$join_left.string_val#3)
-        |       +-ColumnRef(type=STRING, column=$join_right.string_val#4)
+        |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   +-ColumnRef(type=STRING, column=$join_left.string_val#3)
+        |   |   +-ColumnRef(type=STRING, column=$join_right.string_val#4)
+        |   +-has_using=TRUE
         +-aggregate_list=
           +-$agg1#5 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2472,9 +2475,10 @@ QueryStmt
         |   |   |       +-input_scan=
         |   |   |         +-TableScan(parse_location=84-112, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |   |       +-ColumnRef(type=STRING, column=$join_left.string_val#3)
-        |   |       +-ColumnRef(type=STRING, column=$join_right.string_val#4)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   |   +-ColumnRef(type=STRING, column=$join_left.string_val#3)
+        |   |   |   +-ColumnRef(type=STRING, column=$join_right.string_val#4)
+        |   |   +-has_using=TRUE
         |   +-group_by_list=
         |   | +-$uid#10 := ColumnRef(type=STRING, column=$join_left.string_val#3)
         |   +-aggregate_list=
@@ -2547,9 +2551,10 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-TableScan(parse_location=84-112, column_list=[KitchenSinkWithUidValueTable.value#2], table=KitchenSinkWithUidValueTable, column_index_list=[0], alias="t2")
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=$join_left.int64_val#3)
-        |       +-ColumnRef(type=INT64, column=$join_right.int64_val#4)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=$join_left.int64_val#3)
+        |   |   +-ColumnRef(type=INT64, column=$join_right.int64_val#4)
+        |   +-has_using=TRUE
         +-aggregate_list=
           +-$agg1#5 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2636,9 +2641,10 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-TableScan(parse_location=177-205, column_list=[KitchenSinkWithUidValueTable.value#4], table=KitchenSinkWithUidValueTable, column_index_list=[0])
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |       +-ColumnRef(type=STRING, column=t1.x#2)
-        |       +-ColumnRef(type=STRING, column=t2.x#5)
+        |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   +-ColumnRef(type=STRING, column=t1.x#2)
+        |   |   +-ColumnRef(type=STRING, column=t2.x#5)
+        |   +-has_using=TRUE
         +-aggregate_list=
           +-$agg1#7 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2723,9 +2729,10 @@ QueryStmt
         |   |   |       +-input_scan=
         |   |   |         +-TableScan(parse_location=177-205, column_list=[KitchenSinkWithUidValueTable.value#4], table=KitchenSinkWithUidValueTable, column_index_list=[0])
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |   |       +-ColumnRef(type=STRING, column=t1.x#2)
-        |   |       +-ColumnRef(type=STRING, column=t2.x#5)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   |   +-ColumnRef(type=STRING, column=t1.x#2)
+        |   |   |   +-ColumnRef(type=STRING, column=t2.x#5)
+        |   |   +-has_using=TRUE
         |   +-group_by_list=
         |   | +-$uid#12 := ColumnRef(type=STRING, column=t1.x#2)
         |   +-aggregate_list=
@@ -2814,9 +2821,10 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-TableScan(parse_location=177-205, column_list=[KitchenSinkWithUidValueTable.value#4], table=KitchenSinkWithUidValueTable, column_index_list=[0])
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-        |       +-ColumnRef(type=STRING, column=t1.y#3)
-        |       +-ColumnRef(type=STRING, column=t2.y#6)
+        |   | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   |   +-ColumnRef(type=STRING, column=t1.y#3)
+        |   |   +-ColumnRef(type=STRING, column=t2.y#6)
+        |   +-has_using=TRUE
         +-aggregate_list=
           +-$agg1#7 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)

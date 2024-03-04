@@ -17,19 +17,54 @@
 #ifndef ZETASQL_PARSER_DEIDENTIFY_H_
 #define ZETASQL_PARSER_DEIDENTIFY_H_
 
+#include <set>
 #include <string>
 
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/public/language_options.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace parser {
 
+// Result from deidentification mapping.  Includes the deidentified SQL along
+// with a map of anonymized identifiers and literals that can be used to rebuild
+// an equivalent SQL statement to the input.
+struct DeidentificationResult {
+  absl::flat_hash_map<std::string, std::string> remappings;
+  std::string deidentified_sql;
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const DeidentificationResult& res) {
+    sink.Append(absl::StrFormat(
+        "SQL: %s\n%s\n", res.deidentified_sql,
+        absl::StrJoin(res.remappings.begin(), res.remappings.end(), "\n",
+                      absl::PairFormatter(absl::AlphaNumFormatter(), ": ",
+                                          absl::StreamFormatter()))));
+  }
+};
+
 // Return cleaned SQL with comments stripped, all identifiers relabelled
 // consistently starting from A and then literals replaced by ? like parameters.
 absl::StatusOr<std::string> DeidentifySQLIdentifiersAndLiterals(
     absl::string_view input,
+    const zetasql::LanguageOptions& language_options =
+        zetasql::LanguageOptions::MaximumFeatures());
+
+// Return cleaned SQL with comments stripped, identifiers and literals
+// relabelled based on the provided set of kinds.  Updated nodes are labeled
+// consistently starting from A, avoiding any keywords.
+// The deidentified_kinds parameter changes any matching node to a zero,
+// redacted or '?' value like parameters.  The remapped_kinds will replace each
+// matching identifier or literal node with a label and return the mapping in
+// the result.
+absl::StatusOr<DeidentificationResult> DeidentifySQLWithMapping(
+    absl::string_view input, std::set<ASTNodeKind> deidentified_kinds,
+    std::set<ASTNodeKind> remapped_kinds,
     const zetasql::LanguageOptions& language_options =
         zetasql::LanguageOptions::MaximumFeatures());
 }  // namespace parser

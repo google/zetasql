@@ -806,6 +806,10 @@ absl::Status Resolver::ResolveInsertStatementImpl(
         resolved_columns_to_catalog_columns_for_target_scan,
         &out_topologically_sorted_generated_column_ids,
         &out_generated_column_expr_list));
+    // Rewrite the insert... values to insert
+    if (!row_list.empty()) {
+      analyzer_output_properties_.MarkRelevant(REWRITE_INSERT_DML_VALUES);
+    }
   }
 
   *output = MakeResolvedInsertStmt(

@@ -288,6 +288,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Get the current product mode of the test driver.
   ProductMode product_mode() const;
 
+  // Returns true if the test driver wants FLOAT32 as the name for TYPE_FLOAT
+  // in the external mode.
+  // TODO: Remove once all engines are updated to use FLOAT32 in
+  // the external mode.
+  bool use_external_float32() const;
+
   //
   // MakeScopedLabel()
   //
@@ -756,6 +762,13 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // are used to create a test database.
   TestDatabase test_db_;
 
+  // The container for CREATE FUNCTION statements that were executed during
+  // a [prepare_database] step.
+  std::vector<std::string> udf_stmt_cache_;
+  // The container for CREATE VIEW statements that were executed during
+  // a [prepare_database] step.
+  std::vector<std::string> view_stmt_cache_;
+
   // Code-based label set. Use a vector since labels might be added multiple
   // times.
   std::vector<std::string> code_based_labels_;
@@ -822,6 +835,24 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Create the prepared database. This includes the protos and enums, as well
   // as all the tables.
   virtual absl::Status CreateDatabase();
+
+  // Helper to add views from CREATE VIEW statements to the reference and
+  // test drivers.
+  //
+  // If `cache_stmts` is true, cache the statements in `view_stmt_cache_`
+  // if both the reference and test drivers are able to successfully execute
+  // them.
+  absl::Status AddViews(absl::Span<const std::string> create_view_stmts,
+                        bool cache_stmts = false);
+
+  // Helper to add functions from CREATE FUNCTION statements to the reference
+  // and test drivers.
+  //
+  // If `cache_stmts` is true, cache the statements in `udf_stmt_cache_`
+  // if both the reference and test drivers are able to successfully execute
+  // them.
+  absl::Status AddFunctions(absl::Span<const std::string> create_function_stmts,
+                            bool cache_stmts = false);
 
   // Add and remove labels to the code-based label set. Duplicated labels are
   // allowed. Labels will be added in the specified order, and be removed in

@@ -4052,9 +4052,10 @@ QueryStmt
         |   |   +-right_scan=
         |   |   | +-WithRefScan(column_list=[w2.key#6], with_query_name="w2")
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |   |       +-ColumnRef(type=INT64, column=w1.key#5)
-        |   |       +-ColumnRef(type=INT64, column=w2.key#6)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   +-ColumnRef(type=INT64, column=w1.key#5)
+        |   |   |   +-ColumnRef(type=INT64, column=w2.key#6)
+        |   |   +-has_using=TRUE
         |   +-order_by_item_list=
         |     +-OrderByItem
         |       +-column_ref=

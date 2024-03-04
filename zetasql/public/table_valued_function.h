@@ -17,7 +17,6 @@
 #ifndef ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_
 #define ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_
 
-#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -27,11 +26,10 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/deprecation_warning.pb.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/input_argument_type.h"
@@ -39,16 +37,20 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "absl/base/attributes.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
@@ -58,6 +60,7 @@ class SignatureMatchResult;
 class TVFInputArgumentType;
 class TVFRelationColumnProto;
 class TVFRelationProto;
+class TVFSchemaColumn;
 class TVFSignature;
 class TableValuedFunctionProto;
 class TableValuedFunctionOptionsProto;
@@ -210,10 +213,11 @@ class TableValuedFunction {
   // FunctionResolver::SignatureMatches and 'language_options' should contain
   // the language options for the query.
   std::string GetTVFSignatureErrorMessage(
-      const std::string& tvf_name_string,
+      absl::string_view tvf_name_string,
       const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
       const SignatureMatchResult& signature_match_result,
-      const LanguageOptions& language_options) const;
+      const LanguageOptions& language_options,
+      bool show_function_signature_mismatch_details) const;
 
   // Serializes this table-valued function to a protocol buffer. Subclasses may
   // override this to add more information as needed.
@@ -313,7 +317,7 @@ class TableValuedFunction {
   // arguments).  If the arguments are incompatible then this method returns
   // a descriptive error message indicating the nature of the failure.
   //
-  // Otherwise, this method fills 'output_tvf_call' to indicate the result
+  // Otherwise, this method fills 'output_tvf_signature' to indicate the result
   // schema of the table returned by this TVF call.
   //
   // This method accepts a Catalog and TypeFactory for possible use when
@@ -328,12 +332,55 @@ class TableValuedFunction {
       TypeFactory* type_factory,
       std::shared_ptr<TVFSignature>* output_tvf_signature) const = 0;
 
-  const TableValuedFunctionOptions& tvf_options() const {
-    return tvf_options_;
-  }
+  const TableValuedFunctionOptions& tvf_options() const { return tvf_options_; }
 
   void set_sql_security(ResolvedCreateStatementEnums::SqlSecurity security) {
     sql_security_ = security;
+  }
+
+  // Argument for TVF evaluator table iterator. Only one field will be set.
+  struct TvfEvaluatorArg {
+    // If set, this argument is a Value.
+    std::optional<Value> value;
+    // If set, this argument is a relation.
+    std::unique_ptr<EvaluatorTableIterator> relation;
+    // If set, this argument is a model.
+    const Model* model;
+  };
+
+  // The CreateEvaluatorTableIterator method allows a subclass to provide TVF
+  // evaluation logic for reference implementation. Implementation should return
+  // an iterator representing a table containing the results of the TVF call.
+  //
+  // 'input_arguments' is a list of input arguments passed to the TVF.
+  // Relational inputs are represented as table iterators. The implementation
+  // takes ownership of these iterators and can iterate in any order necessary.
+  //
+  // 'output_columns' is a list of output columns selected by the resolved
+  // TVF scan, which is subset of output columns returned by Resolve method.
+  // This parameter allows implementation to prune unused columns and provides
+  // column names and types for TVFs with dynamic schemas.
+  //
+  // 'function_call_signature' contains signature that matched the invocation,
+  // including concrete arguments. Set only if the invocation is ambiguous and
+  // contains omitted arguments.
+  //
+  // The output iterator must provide column names, types and values for all
+  // output_columns. If the TVF schema is fixed and pruning is not necessary,
+  // the iterator can ignore output_columns parameter and provide columns for
+  // all output columns of the result schema. The order of columns is not
+  // relevant.
+  //
+  // Not used for zetasql analysis.
+  // Used only for evaluating queries on this table with the reference
+  // implementation, using the interfaces in evaluator.h.
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluator(std::vector<TvfEvaluatorArg> input_arguments,
+                  const std::vector<TVFSchemaColumn>& output_columns,
+                  const FunctionSignature* function_call_signature) const {
+    return zetasql_base::UnimplementedErrorBuilder()
+           << "TVF " << FullName()
+           << " does not support the API in evaluator.h";
   }
 
  protected:
@@ -547,7 +594,7 @@ class TVFRelation {
   bool is_value_table_;
 };
 
-bool operator == (const TVFRelation& a, const TVFRelation& b);
+bool operator==(const TVFRelation& a, const TVFRelation& b);
 
 inline std::ostream& operator<<(std::ostream& out,
                                 const TVFRelation& relation) {
@@ -987,8 +1034,7 @@ class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
   //   tvf.
   //   d. if extra column is pseudo column, which is invalid usage for this tvf.
   absl::Status IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
-      bool isTemplated,
-      const std::vector<TVFSchemaColumn>& extra_columns) const;
+      bool isTemplated, absl::Span<const TVFSchemaColumn> extra_columns) const;
 
  private:
   const std::vector<TVFSchemaColumn> extra_columns_;

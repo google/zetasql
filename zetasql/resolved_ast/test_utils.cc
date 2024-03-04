@@ -104,7 +104,7 @@ std::unique_ptr<ResolvedFunctionCall> WrapInFunctionCall(
 absl::StatusOr<std::vector<std::unique_ptr<const ResolvedExpr>>>
 BuildResolvedLiteralsWithCollationForTest(
     std::vector<std::pair<std::string, std::string>> literals,
-    AnalyzerOptions& analyzer_options, Catalog& catlog,
+    AnalyzerOptions& analyzer_options, Catalog& catalog,
     TypeFactory& type_factory) {
   std::vector<std::unique_ptr<const ResolvedExpr>> result;
 
@@ -115,7 +115,7 @@ BuildResolvedLiteralsWithCollationForTest(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> expr,
         MakeCollateCallForTest(std::move(arg), collation_str, analyzer_options,
-                               catlog, type_factory));
+                               catalog, type_factory));
     result.push_back(std::move(expr));
   }
   return result;

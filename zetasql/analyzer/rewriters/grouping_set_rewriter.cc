@@ -36,6 +36,7 @@
 #include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
@@ -56,59 +57,55 @@ namespace {
 // OOO issues.
 absl::StatusOr<bool> ShouldRewrite(const ResolvedAggregateScanBase* node,
                                    const GroupingSetRewriteOptions& options) {
+  // If the aggregate scan has an empty grouping_set_list, it's a regular group
+  // by query and won't be rewritten, skip all following checks.
+  if (node->grouping_set_list().empty()) {
+    return false;
+  }
+
+  // This is a grouping sets/rollup/cube query.
   if (node->grouping_set_list_size() > options.max_grouping_sets()) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "At most %d grouping sets are allowed, but %d were provided",
         options.max_grouping_sets(), node->grouping_set_list_size()));
   }
+  if (node->group_by_list_size() > options.max_columns_in_grouping_set()) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "At most %d distinct columns are allowed in grouping "
+        "sets, but %d were provided",
+        options.max_columns_in_grouping_set(), node->group_by_list_size()));
+  }
 
   bool should_rewrite = false;
   int64_t grouping_set_count = 0;
-  absl::flat_hash_set<ResolvedColumn> distinct_grouping_set_columns;
   for (const std::unique_ptr<const ResolvedGroupingSetBase>& grouping_set_base :
        node->grouping_set_list()) {
     ZETASQL_RET_CHECK(grouping_set_base->Is<ResolvedGroupingSet>() ||
               grouping_set_base->Is<ResolvedRollup>() ||
               grouping_set_base->Is<ResolvedCube>());
     if (grouping_set_base->Is<ResolvedGroupingSet>()) {
-      const ResolvedGroupingSet* grouping_set =
-          grouping_set_base->GetAs<ResolvedGroupingSet>();
-      for (const auto& column_ref : grouping_set->group_by_column_list()) {
-        zetasql_base::InsertIfNotPresent(&distinct_grouping_set_columns,
-                                column_ref->column());
-      }
       grouping_set_count++;
     } else if (grouping_set_base->Is<ResolvedRollup>()) {
       const ResolvedRollup* rollup = grouping_set_base->GetAs<ResolvedRollup>();
-      for (const auto& multi_column : rollup->rollup_column_list()) {
-        for (const auto& column_ref : multi_column->column_list()) {
-          distinct_grouping_set_columns.insert(column_ref->column());
-        }
-      }
       grouping_set_count += rollup->rollup_column_list_size() + 1;
       should_rewrite = true;
     } else {
       const ResolvedCube* cube = grouping_set_base->GetAs<ResolvedCube>();
-      for (const auto& multi_column : cube->cube_column_list()) {
-        for (const auto& column_ref : multi_column->column_list()) {
-          distinct_grouping_set_columns.insert(column_ref->column());
-        }
+      // This is a hard limit of the number of columns in cube, to avoid the
+      // following computation overflow. The same check will be applied in the
+      // CUBE expansion method too.
+      int cube_size = cube->cube_column_list_size();
+      if (cube_size > 31) {
+        return absl::InvalidArgumentError(
+            "Cube can not have more than 31 elements");
       }
-      grouping_set_count += 1ull << cube->cube_column_list_size();
+      grouping_set_count += 1ull << cube_size;
       should_rewrite = true;
     }
     if (grouping_set_count > options.max_grouping_sets()) {
       return absl::InvalidArgumentError(absl::StrFormat(
           "At most %d grouping sets are allowed, but %d were provided",
           options.max_grouping_sets(), grouping_set_count));
-    }
-    if (distinct_grouping_set_columns.size() >
-        options.max_columns_in_grouping_set()) {
-      return absl::InvalidArgumentError(
-          absl::StrFormat("At most %d distinct columns are allowed in grouping "
-                          "sets, but %d were provided",
-                          options.max_columns_in_grouping_set(),
-                          distinct_grouping_set_columns.size()));
     }
   }
   return should_rewrite;

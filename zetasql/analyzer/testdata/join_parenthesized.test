@@ -133,9 +133,10 @@ QueryStmt
         |   |   +-right_scan=
         |   |   | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="kv2")
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   |   +-has_using=TRUE
         |   +-right_scan=
         |   | +-JoinScan
         |   |   +-column_list=KeyValue.[Key#5, Value#6, Key#7, Value#8]
@@ -145,13 +146,15 @@ QueryStmt
         |   |   +-right_scan=
         |   |   | +-TableScan(column_list=KeyValue.[Key#7, Value#8], table=KeyValue, column_index_list=[0, 1], alias="kv4")
         |   |   +-join_expr=
-        |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#5)
-        |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+        |   |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+        |   |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+        |   |   +-has_using=TRUE
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+        |   +-has_using=TRUE
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -188,15 +191,17 @@ QueryStmt
         |   +-right_scan=
         |   | +-TableScan(column_list=KeyValue2.[Key#3, Value2#4], table=KeyValue2, column_index_list=[0, 1])
         |   +-join_expr=
-        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-        |       +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+        |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |   +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+        |   +-has_using=TRUE
         +-right_scan=
         | +-TableScan(column_list=KeyValue.[Key#5, Value#6], table=KeyValue, column_index_list=[0, 1], alias="kv3")
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-            +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#5)
+        +-has_using=TRUE
 ==
 
 select 1
@@ -343,9 +348,10 @@ QueryStmt
         +-right_scan=
         | +-TableScan(column_list=[KeyValue.Value#7], table=KeyValue, column_index_list=[1], alias="C")
         +-join_expr=
-          +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-            +-ColumnRef(type=STRING, column=KeyValue.Value#5)
-            +-ColumnRef(type=STRING, column=KeyValue.Value#7)
+        | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   +-ColumnRef(type=STRING, column=KeyValue.Value#5)
+        |   +-ColumnRef(type=STRING, column=KeyValue.Value#7)
+        +-has_using=TRUE
 ==
 
 # Fix the previous query using parentheses.
@@ -374,6 +380,7 @@ QueryStmt
             +-right_scan=
             | +-TableScan(column_list=[KeyValue.Key#6], table=KeyValue, column_index_list=[0], alias="C")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                +-ColumnRef(type=INT64, column=KeyValue.Key#4)
-                +-ColumnRef(type=INT64, column=KeyValue.Key#6)
+            | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   +-ColumnRef(type=INT64, column=KeyValue.Key#4)
+            |   +-ColumnRef(type=INT64, column=KeyValue.Key#6)
+            +-has_using=TRUE

@@ -66,7 +66,8 @@ show TABLES like 'KitchenSync%';
 --
 ShowStatement [0-31] [show TABLES...KitchenSync%']
   Identifier(TABLES) [5-11] [TABLES]
-  StringLiteral('KitchenSync%') [17-31] ['KitchenSync%']
+  StringLiteral [17-31] ['KitchenSync%']
+    StringLiteralComponent('KitchenSync%') [17-31] ['KitchenSync%']
 --
 SHOW TABLES LIKE 'KitchenSync%'
 ==
@@ -104,7 +105,8 @@ show VARIABLES like 'server_name';
 --
 ShowStatement [0-33] [show VARIABLES...server_name']
   Identifier(VARIABLES) [5-14] [VARIABLES]
-  StringLiteral('server_name') [20-33] ['server_name']
+  StringLiteral [20-33] ['server_name']
+    StringLiteralComponent('server_name') [20-33] ['server_name']
 --
 SHOW VARIABLES LIKE 'server_name'
 ==
@@ -130,7 +132,8 @@ ShowStatement [0-52] [show TABLES...KitchenSync%']
   PathExpression [17-32] [catalog.adwords]
     Identifier(catalog) [17-24] [catalog]
     Identifier(adwords) [25-32] [adwords]
-  StringLiteral('KitchenSync%') [38-52] ['KitchenSync%']
+  StringLiteral [38-52] ['KitchenSync%']
+    StringLiteralComponent('KitchenSync%') [38-52] ['KitchenSync%']
 --
 SHOW TABLES FROM catalog.adwords LIKE 'KitchenSync%'
 ==
@@ -155,7 +158,8 @@ SHOW MATERIALIZED VIEWS like 'KitchenSync%';
 --
 ShowStatement [0-43] [SHOW MATERIALIZED...chenSync%']
   Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
-  StringLiteral('KitchenSync%') [29-43] ['KitchenSync%']
+  StringLiteral [29-43] ['KitchenSync%']
+    StringLiteralComponent('KitchenSync%') [29-43] ['KitchenSync%']
 --
 SHOW `MATERIALIZED VIEWS` LIKE 'KitchenSync%'
 ==
@@ -176,7 +180,8 @@ ShowStatement [0-53] [SHOW MATERIALIZED...ke '%foo%']
   Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
   PathExpression [29-40] [KitchenSync]
     Identifier(KitchenSync) [29-40] [KitchenSync]
-  StringLiteral('%foo%') [46-53] ['%foo%']
+  StringLiteral [46-53] ['%foo%']
+    StringLiteralComponent('%foo%') [46-53] ['%foo%']
 --
 SHOW `MATERIALIZED VIEWS` FROM KitchenSync LIKE '%foo%'
 ==

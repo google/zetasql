@@ -38,6 +38,7 @@
 #include "absl/flags/flag.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
@@ -233,7 +234,7 @@ class ValidateVariableDeclarationsVisitor
   }
 
   absl::Status MakeVariableDeclarationError(
-      const ASTNode* node, const std::string& error_message,
+      const ASTNode* node, absl::string_view error_message,
       absl::string_view source_message,
       const ParseLocationPoint& source_location) {
     std::string script_text(parsed_script_->script_text());
@@ -247,7 +248,7 @@ class ValidateVariableDeclarationsVisitor
   }
 
   absl::Status MakeVariableDeclarationErrorSkipSourceLocation(
-      const ASTNode* node, const std::string& error_message,
+      const ASTNode* node, absl::string_view error_message,
       absl::string_view source_message) {
     std::string script_text(parsed_script_->script_text());
     const InternalErrorLocation location = SetErrorSourcesFromStatus(

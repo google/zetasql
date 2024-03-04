@@ -35,7 +35,8 @@ QueryStatement [0-17] [select (1, 'abc')]
         SelectColumn [7-17] [(1, 'abc')]
           StructConstructorWithParens [7-17] [(1, 'abc')]
             IntLiteral(1) [8-9] [1]
-            StringLiteral('abc') [11-16] ['abc']
+            StringLiteral [11-16] ['abc']
+              StringLiteralComponent('abc') [11-16] ['abc']
 --
 SELECT
   (1, 'abc')
@@ -113,10 +114,12 @@ QueryStatement [0-92] [select key...key, value))]
           InList [55-91] [(1, 'abc')...key, value)]
             StructConstructorWithParens [55-65] [(1, 'abc')]
               IntLiteral(1) [56-57] [1]
-              StringLiteral('abc') [59-64] ['abc']
+              StringLiteral [59-64] ['abc']
+                StringLiteralComponent('abc') [59-64] ['abc']
             StructConstructorWithParens [67-77] [(2, 'abc')]
               IntLiteral(2) [68-69] [2]
-              StringLiteral('abc') [71-76] ['abc']
+              StringLiteral [71-76] ['abc']
+                StringLiteralComponent('abc') [71-76] ['abc']
             StructConstructorWithParens [79-91] [(key, value)]
               PathExpression [80-83] [key]
                 Identifier(key) [80-83] [key]
@@ -144,8 +147,10 @@ QueryStatement [0-31] [select ((1...', 'def'))]
               IntLiteral(1) [9-10] [1]
               IntLiteral(2) [12-13] [2]
             StructConstructorWithParens [16-30] [('abc', 'def')]
-              StringLiteral('abc') [17-22] ['abc']
-              StringLiteral('def') [24-29] ['def']
+              StringLiteral [17-22] ['abc']
+                StringLiteralComponent('abc') [17-22] ['abc']
+              StringLiteral [24-29] ['def']
+                StringLiteralComponent('def') [24-29] ['def']
 
 --
 SELECT
@@ -515,7 +520,7 @@ SELECT
 
 select struct<>
 --
-ERROR: Syntax error: Expected "(" but got end of statement [at 1:16]
+ERROR: Syntax error: Expected "(" or "{" but got end of statement [at 1:16]
 select struct<>
                ^
 ==

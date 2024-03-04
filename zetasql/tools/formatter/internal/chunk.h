@@ -27,7 +27,6 @@
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/tools/formatter/internal/token.h"
-#include "absl/log/die_if_null.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
@@ -110,7 +109,7 @@ class Chunk {
   // (see table in parse_token.h).
   absl::string_view NonCommentKeyword(int i) const;
 
-  // Syntatic sugar to fetch i'th keyword or token from a chunk. See above.
+  // Syntactic sugar to fetch i'th keyword or token from a chunk. See above.
   absl::string_view FirstKeyword() const;
   absl::string_view SecondKeyword() const;
   absl::string_view LastKeyword() const;
@@ -298,7 +297,7 @@ class Chunk {
   // Returns true if the space is needed between two tokens. Can be used to
   // decide whether a space is needed for tokens within the same chunk, or
   // between two chunks. In the latter case, the function should be called on a
-  // previous chunk with <token_before> pointing to it's last token and
+  // previous chunk with <token_before> pointing to its last token and
   // <token_after> pointing to the first token of the next chunk.
   //
   // If the layout element is not a newline then the number of spaces we need to
@@ -354,13 +353,14 @@ class Chunk {
 // Generates and owns chunk block objects (see ChunkBlock class description).
 class ChunkBlockFactory {
  public:
-  ChunkBlockFactory();
+  explicit ChunkBlockFactory(int indentation_spaces);
 
   // Factory functions to create new blocks. The returned block must be added
   // manually to any other block's children otherwise it will be lost in the
-  // output.
+  // output. If offset is provided, it overwrites the default indentation
+  // relative to the parent block.
   ChunkBlock* NewChunkBlock();
-  ChunkBlock* NewChunkBlock(ChunkBlock* parent);
+  ChunkBlock* NewChunkBlock(ChunkBlock* parent, int offset = 0);
   ChunkBlock* NewChunkBlock(ChunkBlock* parent, Chunk* chunk);
 
   // Returns the top of the ChunkBlock tree created so far.
@@ -371,7 +371,12 @@ class ChunkBlockFactory {
   // tree. Used in testing.
   void Reset();
 
+  // Returns the default number of spaces to indent a block relative to its
+  // parent.
+  int IndentationSpaces() const { return indentation_spaces_; }
+
  private:
+  const int indentation_spaces_;
   std::vector<std::unique_ptr<ChunkBlock>> blocks_;
 };
 
@@ -430,13 +435,10 @@ class ChunkBlock {
   // the line that starts with this block.
   bool BreakCloseToLineLength() const { return break_close_to_line_length_; }
 
-  // Returns the level of this block. For leaf blocks, this is equal to the
-  // indentation the Chunk would have, if all possible newlines were used.
-  //
-  // For practical purposes, this is not equal to the height of the tree formed
-  // by the chunk blocks, because the root starts at -1 and we subtract the
-  // leaf, since neither of the two add indentation.
-  int Level() const { return IsLeaf() ? level_ - 1 : level_; }
+  // Returns the indentation level of this block. For leaf blocks, this is equal
+  // to the number of indentation spaces the Chunk would have, if all possible
+  // newlines were used.
+  int Level() const { return level_; }
 
   // Adds a new leaf chunk block for <chunk> that is at the same level as this
   // chunk block. Effectively, this means that the parent of this block will add
@@ -478,7 +480,7 @@ class ChunkBlock {
   // +--new block
   //    |
   //    +--new leaf block for <chunk>
-  void AddIndentedChunk(class Chunk* chunk);
+  void AddIndentedChunk(class Chunk* chunk, int offset = 0);
 
   // Adds a new leaf chunk block for <chunk> that is at the same level as this
   // block and is immediately before this block. This is used to add comments
@@ -565,10 +567,10 @@ class ChunkBlock {
     explicit Children(ChildrenT* children) : children_ptr_(children) {}
 
     // Returns true if the block doesn't contain any child blocks.
-    const bool empty() const { return children_ptr_->empty(); }
+    bool empty() const { return children_ptr_->empty(); }
 
     // Returns the number of child blocks this block contains.
-    const std::size_t size() const { return children_ptr_->size(); }
+    std::size_t size() const { return children_ptr_->size(); }
 
     iterator begin() { return children_ptr_->begin(); }
     iterator end() { return children_ptr_->end(); }
@@ -622,34 +624,23 @@ class ChunkBlock {
  private:
   // Creates a root chunk block. Level is -1 because the root is before anything
   // else.
-  explicit ChunkBlock(ChunkBlockFactory* block_factory)
-      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
-        parent_(nullptr),
-        chunk_(nullptr) {}
+  explicit ChunkBlock(ChunkBlockFactory* block_factory);
 
   // Creates an intermediate (not top or leaf) chunk block with the given
-  // <parent>.
-  explicit ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent)
-      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
-        parent_(ABSL_DIE_IF_NULL(parent)),
-        chunk_(nullptr) {
-    level_ = parent->Level() + 1;
-  }
+  // <parent>. Optional `offset` overrides the default indentation level
+  // relative to the parent block.
+  explicit ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
+                      int offset = 0);
 
   // Creates a leaf chunk block with the given <parent> and <chunk>.
+  // Leaf blocks always have the same level as their parent.
   ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
-             class Chunk* chunk)
-      : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
-        parent_(ABSL_DIE_IF_NULL(parent)),
-        chunk_(ABSL_DIE_IF_NULL(chunk)) {
-    level_ = parent->Level() + 1;
-    chunk->SetChunkBlock(this);
-  }
+             class Chunk* chunk);
 
   // Adds a new chunk block that is a direct child of this chunk block, and then
   // adds a new grandchild block that is a leaf block for <chunk> right under
   // the newly created block.
-  void AddChildBlockWithGrandchildChunk(class Chunk* chunk);
+  void AddChildBlockWithGrandchildChunk(class Chunk* chunk, int offset = 0);
 
   // Inserts a child leaf block for <chunk> right before the given <block>.
   //

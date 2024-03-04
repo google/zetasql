@@ -898,6 +898,15 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+[name=array_concat_agg_simple_with_expression_limit]
+SELECT ARRAY_CONCAT_AGG(x LIMIT MOD(1, 2))
+FROM (SELECT [1] x) foo;
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
+
+NOTE: Reference implementation reports non-determinism.
+==
 [name=array_concat_agg_empty_non_empty]
 SELECT ARRAY_CONCAT_AGG(x)
 FROM (SELECT [] x UNION ALL SELECT [2, 3] x) foo;

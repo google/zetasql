@@ -27,6 +27,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
@@ -110,7 +111,7 @@ struct AggregateFunctionTemplate {
 };
 
 static std::vector<AggregateFunctionTemplate> ConcatTemplates(
-    const std::vector<std::vector<AggregateFunctionTemplate>>&
+    absl::Span<const std::vector<AggregateFunctionTemplate>>
         aggregate_vectors) {
   std::vector<AggregateFunctionTemplate> result;
   for (const auto& v : aggregate_vectors) {
@@ -594,7 +595,8 @@ TEST(OrderPreservationTest, GroupByAggregate) {
                                                     {Int64(1), Int64(10)},
                                                     {Int64(1), Int64(10)},
                                                     {Int64(1), NullInt64()}}),
-                              /*preserves_order=*/true))));
+                              /*preserves_order=*/true)),
+                          /*grouping_sets=*/{}));
 
   EXPECT_EQ(
       "AggregateOp(\n"
@@ -719,7 +721,8 @@ TEST(CreateIteratorTest, AggregateAll) {
                                                      {Int64(1), NullInt64()},
                                                      {Int64(5), NullInt64()},
                                                      {Int64(1), Int64(2)}}),
-                               /*preserves_order=*/true))));
+                               /*preserves_order=*/true)),
+                           /*grouping_sets=*/{}));
   EXPECT_EQ(aggregate_op->IteratorDebugString(),
             "AggregationTupleIterator(TestTupleIterator)");
   EXPECT_EQ(
@@ -995,7 +998,8 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
                                     {Int64(1), Int64(10), String("b")},
                                     {Int64(1), NullInt64(), String("a")},
                                     {Int64(1), NullInt64(), NullString()}}),
-              /*preserves_order=*/true))));
+              /*preserves_order=*/true)),
+          /*grouping_sets=*/{}));
   EXPECT_EQ(
       "AggregateOp(\n"
       "+-keys: {\n"
@@ -1276,7 +1280,8 @@ TEST(CreateIteratorTest, AggregateLimit) {
                                     {Int64(1), Int64(10), String("b")},
                                     {Int64(1), NullInt64(), String("a")},
                                     {Int64(1), NullInt64(), NullString()}}),
-              /*preserves_order=*/true))));
+              /*preserves_order=*/true)),
+          /*grouping_sets=*/{}));
 
   EXPECT_EQ(
       "AggregateOp(\n"
@@ -1438,7 +1443,8 @@ TEST(CreateIteratorTest, AggregateHaving) {
                                     {Int64(1), Int64(10), String("b")},
                                     {Int64(1), NullInt64(), String("a")},
                                     {Int64(1), NullInt64(), NullString()}}),
-              /*preserves_order=*/true))));
+              /*preserves_order=*/true)),
+          /*grouping_sets=*/{}));
 
   EXPECT_EQ(
       "AggregateOp(\n"
@@ -1549,7 +1555,8 @@ TEST(EvalAggTest, ArrayAggWithLimitNonDeterministic) {
                                                     {Int64(0), Int64(-2)},
                                                     {Int64(0), Int64(1)},
                                                     {Int64(0), Int64(2)}}),
-                              /*preserves_order=*/true))));
+                              /*preserves_order=*/true)),
+                          /*grouping_sets=*/{}));
 
   EXPECT_EQ(
       "AggregateOp(\n"
@@ -1651,7 +1658,8 @@ TEST(EvalAggTest, ArrayAggWithLimitDeterministic) {
                                                     {Int64(0), Int64(-2)},
                                                     {Int64(0), Int64(1)},
                                                     {Int64(0), Int64(2)}}),
-                              /*preserves_order=*/true))));
+                              /*preserves_order=*/true)),
+                          /*grouping_sets=*/{}));
 
   EXPECT_EQ(
       "AggregateOp(\n"
@@ -1701,6 +1709,260 @@ TEST(EvalAggTest, ArrayAggWithLimitDeterministic) {
       StructArray({"key", "val"}, {{Int64(0), Array({Int64(-2), Int64(-2)})}});
   EXPECT_THAT(expected, EqualsValue(reference));
   EXPECT_TRUE(context.IsDeterministicOutput());
+}
+
+TEST(EvalAggTest, GroupingSetTest) {
+  TypeFactory type_factory;
+
+  // The following code builds an AggregateOp for the query
+  // "SELECT key, value, COUNT(*) FROM KeyValue GROUP BY GROUPING SETS(key,
+  // value)"
+  // Build group-by keys
+  VariableId col_key("col_key"), col_value("col_value"), key("key"),
+      value("value"), agg_count("count");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_col_key,
+                       DerefExpr::Create(col_key, types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_col_value,
+                       DerefExpr::Create(col_value, types::StringType()));
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(std::make_unique<KeyArg>(key, std::move(deref_col_key)));
+  keys.push_back(std::make_unique<KeyArg>(value, std::move(deref_col_value)));
+
+  // Build aggregator count(*)
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg,
+      AggregateArg::Create(agg_count,
+                           std::make_unique<BuiltinAggregateFunction>(
+                               FunctionKind::kCount, Int64Type(),
+                               /*num_input_fields=*/0, EmptyStructType(),
+                               /*ignores_null=*/true),
+                           {}));
+  std::vector<std::unique_ptr<AggregateArg>> aggregators;
+  aggregators.push_back(std::move(agg));
+
+  // Build the AggregateOp.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto aggregate_op,
+      AggregateOp::Create(std::move(keys), std::move(aggregators),
+                          absl::WrapUnique(new TestRelationalOp(
+                              {col_key, col_value},
+                              CreateTestTupleDatas({{Int64(1), String("a")},
+                                                    {Int64(2), String("b")},
+                                                    {Int64(1), String("a")},
+                                                    {Int64(2), NullString()}}),
+                              /*preserves_order=*/true)),
+                          /*grouping_sets=*/{1, 2}));
+
+  // Valid the AggregateOp debug string.
+  EXPECT_EQ(
+      "AggregateOp(\n"
+      "+-keys: {\n"
+      "| +-$key := $col_key,\n"
+      "| +-$value := $col_value},\n"
+      "+-aggregators: {\n"
+      "| +-$count := Count()},\n"
+      "+-input: TestRelationalOp\n"
+      "+-grouping_sets: [0x1,0x2])",
+      aggregate_op->DebugString());
+
+  // TODO: Abstract the following execution code to a method and
+  // remove redundancy in all tests.
+  // Build the output schema
+  std::unique_ptr<TupleSchema> output_schema =
+      aggregate_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(key, value, agg_count));
+
+  EvaluationContext context((EvaluationOptions()));
+
+  // Return result as array of structs.
+  auto struct_type = MakeStructType(
+      {{"key", Int64Type()}, {"value", StringType()}, {"count", Int64Type()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_key, DerefExpr::Create(key, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_value,
+                       DerefExpr::Create(value, StringType()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_count,
+                       DerefExpr::Create(agg_count, Int64Type()));
+
+  // Build the result struct expression
+  std::vector<std::unique_ptr<ExprArg>> args_for_struct;
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_key)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_value)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_count)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_expr,
+      NewStructExpr::Create(struct_type, std::move(args_for_struct)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto nest_op,
+      ArrayNestExpr::Create(MakeArrayType(struct_type), std::move(struct_expr),
+                            std::move(aggregate_op),
+                            /*is_with_table=*/false));
+  ZETASQL_ASSERT_OK(nest_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  // Use the reference implementation to evaluate the result.
+  TupleSlot slot;
+  absl::Status status;
+  ASSERT_TRUE(nest_op->EvalSimple(EmptyParams(), &context, &slot, &status))
+      << status;
+  const Value& reference = slot.value();
+
+  auto expected = StructArray({"key", "value", "count"},
+                              {
+                                  {NullInt64(), NullString(), Int64(1)},
+                                  {NullInt64(), String("a"), Int64(2)},
+                                  {NullInt64(), String("b"), Int64(1)},
+                                  {Int64(1), NullString(), Int64(2)},
+                                  {Int64(2), NullString(), Int64(2)},
+                              });
+  EXPECT_THAT(reference, EqualsValue(expected));
+}
+
+TEST(EvalAggTest, GroupingFunctionTest) {
+  TypeFactory type_factory;
+
+  // The following code builds an AggregateOp for the query
+  // "SELECT key, value, COUNT(*), GROUPING(key), GROUPING(value)
+  // FROM KeyValue GROUP BY GROUPING SETS(key, value)"
+  // Build group-by keys
+  VariableId col_key("col_key"), col_value("col_value"), key("key"),
+      value("value"), agg_count("count"), agg_grouping_key("grouping_key"),
+      agg_grouping_value("grouping_value");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_col_key,
+                       DerefExpr::Create(col_key, types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_col_value,
+                       DerefExpr::Create(col_value, types::StringType()));
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(std::make_unique<KeyArg>(key, std::move(deref_col_key)));
+  keys.push_back(std::make_unique<KeyArg>(value, std::move(deref_col_value)));
+
+  // Build aggregator count(*)
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg1,
+      AggregateArg::Create(agg_count,
+                           std::make_unique<BuiltinAggregateFunction>(
+                               FunctionKind::kCount, Int64Type(),
+                               /*num_input_fields=*/0, EmptyStructType()),
+                           {}));
+
+  // Build aggregator grouping(key)
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValueExpr> grouping_key_arg,
+                       ConstExpr::Create(Value::Int64(0)));
+  std::vector<std::unique_ptr<ValueExpr>> grouping_key_args;
+  grouping_key_args.push_back(std::move(grouping_key_arg));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg2,
+      AggregateArg::Create(agg_grouping_key,
+                           std::make_unique<BuiltinAggregateFunction>(
+                               FunctionKind::kGrouping, Int64Type(),
+                               /*num_input_fields=*/1, Int64Type()),
+                           std::move(grouping_key_args)));
+
+  // Build aggregator grouping(value)
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValueExpr> grouping_value_arg,
+                       ConstExpr::Create(Value::Int64(1)));
+  std::vector<std::unique_ptr<ValueExpr>> grouping_value_args;
+  grouping_value_args.push_back(std::move(grouping_value_arg));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg3,
+      AggregateArg::Create(agg_grouping_value,
+                           std::make_unique<BuiltinAggregateFunction>(
+                               FunctionKind::kGrouping, Int64Type(),
+                               /*num_input_fields=*/1, Int64Type()),
+                           std::move(grouping_value_args)));
+  std::vector<std::unique_ptr<AggregateArg>> aggregators;
+  aggregators.push_back(std::move(agg1));
+  aggregators.push_back(std::move(agg2));
+  aggregators.push_back(std::move(agg3));
+
+  // Build the AggregateOp.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto aggregate_op,
+      AggregateOp::Create(std::move(keys), std::move(aggregators),
+                          absl::WrapUnique(new TestRelationalOp(
+                              {col_key, col_value},
+                              CreateTestTupleDatas({{Int64(1), String("a")},
+                                                    {Int64(2), String("b")},
+                                                    {Int64(1), String("a")},
+                                                    {Int64(2), NullString()}}),
+                              /*preserves_order=*/true)),
+                          /*grouping_sets=*/{1, 2}));
+
+  // Valid the AggregateOp debug string.
+  EXPECT_EQ(
+      "AggregateOp(\n"
+      "+-keys: {\n"
+      "| +-$key := $col_key,\n"
+      "| +-$value := $col_value},\n"
+      "+-aggregators: {\n"
+      "| +-$count := Count(),\n"
+      "| +-$grouping_key := Grouping(ConstExpr(0)),\n"
+      "| +-$grouping_value := Grouping(ConstExpr(1))},\n"
+      "+-input: TestRelationalOp\n"
+      "+-grouping_sets: [0x1,0x2])",
+      aggregate_op->DebugString());
+
+  // TODO: Abstract the following execution code to a method and
+  // remove redundancy in all tests.
+  // Build the output schema
+  std::unique_ptr<TupleSchema> output_schema =
+      aggregate_op->CreateOutputSchema();
+  EXPECT_THAT(
+      output_schema->variables(),
+      ElementsAre(key, value, agg_count, agg_grouping_key, agg_grouping_value));
+
+  EvaluationContext context((EvaluationOptions()));
+
+  // Return result as array of structs.
+  auto struct_type = MakeStructType({{"key", Int64Type()},
+                                     {"value", StringType()},
+                                     {"count", Int64Type()},
+                                     {"grouping_key", Int64Type()},
+                                     {"grouping_value", Int64Type()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_key, DerefExpr::Create(key, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_value,
+                       DerefExpr::Create(value, StringType()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_count,
+                       DerefExpr::Create(agg_count, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_grouping_key,
+                       DerefExpr::Create(agg_grouping_key, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_grouping_value,
+                       DerefExpr::Create(agg_grouping_value, Int64Type()));
+
+  // Build the result struct expression
+  std::vector<std::unique_ptr<ExprArg>> args_for_struct;
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_key)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_value)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_count)));
+  args_for_struct.push_back(
+      std::make_unique<ExprArg>(std::move(deref_grouping_key)));
+  args_for_struct.push_back(
+      std::make_unique<ExprArg>(std::move(deref_grouping_value)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_expr,
+      NewStructExpr::Create(struct_type, std::move(args_for_struct)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto nest_op,
+      ArrayNestExpr::Create(MakeArrayType(struct_type), std::move(struct_expr),
+                            std::move(aggregate_op),
+                            /*is_with_table=*/false));
+  ZETASQL_ASSERT_OK(nest_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  // Use the reference implementation to evaluate the result.
+  TupleSlot slot;
+  absl::Status status;
+  ASSERT_TRUE(nest_op->EvalSimple(EmptyParams(), &context, &slot, &status))
+      << status;
+  const Value& reference = slot.value();
+
+  auto expected =
+      StructArray({"key", "value", "count", "grouping_key", "grouping_value"},
+                  {
+                      {NullInt64(), NullString(), Int64(1), Int64(1), Int64(0)},
+                      {NullInt64(), String("a"), Int64(2), Int64(1), Int64(0)},
+                      {NullInt64(), String("b"), Int64(1), Int64(1), Int64(0)},
+                      {Int64(1), NullString(), Int64(2), Int64(0), Int64(1)},
+                      {Int64(2), NullString(), Int64(2), Int64(0), Int64(1)},
+                  });
+  EXPECT_THAT(reference, EqualsValue(expected));
 }
 
 }  // namespace

@@ -24,9 +24,12 @@
 #include <cfloat>  // for DBL_DIG and FLT_DIG
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
+#include <string>
 
-#include <cstdint>
+#include "zetasql/base/check.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/string_view.h"

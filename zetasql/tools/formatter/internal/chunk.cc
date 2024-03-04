@@ -24,10 +24,12 @@
 #include <ostream>
 #include <queue>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
@@ -35,13 +37,16 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/tools/formatter/internal/fusible_tokens.h"
 #include "zetasql/tools/formatter/internal/token.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
+#include "absl/log/die_if_null.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
@@ -1059,15 +1064,18 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
     return true;
   }
 
-  // For module declaration statements, we basically ignore the line
-  // length limit, so everything between an "MODULE" and ";" is a single chunk.
-  if (chunk.IsModuleDeclaration() && previous != ";") {
-    return true;
-  }
-
-  // For import statements, we basically ignore the line length limit, so
-  // everything between an "IMPORT" and ";" is a single chunk.
-  if (chunk.IsImport() && previous != ";") {
+  // For module declaration statements and imports, we basically ignore the line
+  // length limit, so everything between before the ";" is a single chunk.
+  if (chunk.IsModuleDeclaration() || chunk.IsImport()) {
+    if (previous == ";") {
+      return false;
+    }
+    // If a user has a missing semicolon, try to detect that the next token
+    // is a beginning of a new statement.
+    if (SpaceBetweenTokensInInput(*previous_token, *current_token) &&
+        IsTopLevelClauseKeyword(*current_token)) {
+      return false;
+    }
     return true;
   }
 
@@ -1204,7 +1212,7 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   // AS is another multi-purpose keyword. It can be used to rename, change type
   // or define a function.
   if (previous == "AS") {
-    return current != "SELECT" && current != "WITH";
+    return !IsTopLevelClauseKeyword(*current_token);
   }
 
   if (IsDateOrTimeLiteral(previous, *current_token)) {
@@ -2499,6 +2507,31 @@ absl::StatusOr<std::vector<Chunk>> ChunksFromTokens(
   return chunks;
 }
 
+ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory)
+    : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
+      parent_(nullptr),
+      chunk_(nullptr) {}
+
+ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
+                       int offset)
+    : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
+      parent_(ABSL_DIE_IF_NULL(parent)),
+      chunk_(nullptr) {
+  if (offset == 0) {
+    offset = block_factory_->IndentationSpaces();
+  }
+  level_ = parent->IsTopLevel() ? 0 : parent->Level() + offset;
+}
+
+ChunkBlock::ChunkBlock(ChunkBlockFactory* block_factory, ChunkBlock* parent,
+                       class Chunk* chunk)
+    : block_factory_(ABSL_DIE_IF_NULL(block_factory)),
+      parent_(ABSL_DIE_IF_NULL(parent)),
+      chunk_(ABSL_DIE_IF_NULL(chunk)) {
+  level_ = parent->IsTopLevel() ? 0 : parent->Level();
+  chunk->SetChunkBlock(this);
+}
+
 class Chunk* ChunkBlock::FirstChunkUnder() const {
   if (IsLeaf()) {
     return Chunk();
@@ -2551,14 +2584,14 @@ void ChunkBlock::AddSameLevelCousinChunk(class Chunk* chunk) {
   }
 }
 
-void ChunkBlock::AddIndentedChunk(class Chunk* chunk) {
+void ChunkBlock::AddIndentedChunk(class Chunk* chunk, int offset) {
   if (IsTopLevel()) {
     // Top is a bit special, because it never contains chunks directly and
     // doesn't have a parent. The operation is the same, but we don't perform it
     // on the parent, but rather the node itself.
-    AddChildBlockWithGrandchildChunk(chunk);
+    AddChildBlockWithGrandchildChunk(chunk, offset);
   } else {
-    parent_->AddChildBlockWithGrandchildChunk(chunk);
+    parent_->AddChildBlockWithGrandchildChunk(chunk, offset);
   }
 }
 
@@ -2589,8 +2622,9 @@ void ChunkBlock::AddChildChunk(class Chunk* chunk) {
   }
 }
 
-void ChunkBlock::AddChildBlockWithGrandchildChunk(class Chunk* chunk) {
-  ChunkBlock* new_block = block_factory_->NewChunkBlock(this);
+void ChunkBlock::AddChildBlockWithGrandchildChunk(class Chunk* chunk,
+                                                  int offset) {
+  ChunkBlock* new_block = block_factory_->NewChunkBlock(this, offset);
   children_.push_back(new_block);
   new_block->AddChildChunk(chunk);
 }
@@ -2631,16 +2665,22 @@ void ChunkBlock::AdoptChildBlock(ChunkBlock* block) {
   block->parent_ = this;
 
   // Fix the levels of all children. Avoid recursion for stack protection.
-  std::queue<ChunkBlock*> blocks;
-  blocks.push(block);
+  int level_offset = Level() - block->Level();
+  if (!block->IsLeaf()) {
+    level_offset += block_factory_->IndentationSpaces();
+  }
+  if (level_offset != 0) {
+    std::queue<ChunkBlock*> blocks;
+    blocks.push(block);
 
-  while (!blocks.empty()) {
-    ChunkBlock* b = blocks.front();
-    blocks.pop();
+    while (!blocks.empty()) {
+      ChunkBlock* b = blocks.front();
+      blocks.pop();
 
-    b->level_ = b->Parent()->Level() + 1;
-    for (auto it = b->children().begin(); it != b->children().end(); it++) {
-      blocks.push(*it);
+      b->level_ = b->level_ + level_offset;
+      for (auto it = b->children().begin(); it != b->children().end(); it++) {
+        blocks.push(*it);
+      }
     }
   }
 
@@ -2650,7 +2690,7 @@ void ChunkBlock::AdoptChildBlock(ChunkBlock* block) {
 ChunkBlock* ChunkBlock::GroupAndIndentChildrenUnderNewBlock(
     const Children::reverse_iterator& start,
     const Children::reverse_iterator& end) {
-  ChunkBlock* new_block = block_factory_->NewChunkBlock();
+  ChunkBlock* new_block = block_factory_->NewChunkBlock(this);
 
   // We have to use .base() here and go from end to start to preserve the order
   // of the nodes.
@@ -2658,11 +2698,9 @@ ChunkBlock* ChunkBlock::GroupAndIndentChildrenUnderNewBlock(
        i != children_.end() && i != start.base(); ++i) {
     new_block->AdoptChildBlock(*i);
   }
-
   children_.erase(end.base(), start.base());
 
-  this->AdoptChildBlock(new_block);
-
+  children_.push_back(new_block);
   return new_block;
 }
 
@@ -2741,7 +2779,8 @@ std::ostream& operator<<(std::ostream& os, const ChunkBlock* const block) {
   return os << block->DebugString();
 }
 
-ChunkBlockFactory::ChunkBlockFactory() {
+ChunkBlockFactory::ChunkBlockFactory(int indentation_spaces)
+    : indentation_spaces_(indentation_spaces) {
   // Constructor creates a root block to guarantee it is always available.
   NewChunkBlock();
 }
@@ -2752,9 +2791,9 @@ ChunkBlock* ChunkBlockFactory::NewChunkBlock() {
   return blocks_.back().get();
 }
 
-ChunkBlock* ChunkBlockFactory::NewChunkBlock(ChunkBlock* parent) {
+ChunkBlock* ChunkBlockFactory::NewChunkBlock(ChunkBlock* parent, int offset) {
   // Using `new` to access a non-public constructor.
-  blocks_.emplace_back(absl::WrapUnique(new ChunkBlock(this, parent)));
+  blocks_.emplace_back(absl::WrapUnique(new ChunkBlock(this, parent, offset)));
   return blocks_.back().get();
 }
 

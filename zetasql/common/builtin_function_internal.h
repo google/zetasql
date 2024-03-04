@@ -165,13 +165,24 @@ std::string CountStarFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs);
 
+std::string SignatureTextForAnonCountStarFunction(
+    const LanguageOptions& language_options, const Function& function,
+    const FunctionSignature& signature);
+
 std::string SupportedSignaturesForAnonCountStarFunction(
-    const std::string& unused_function_name,
     const LanguageOptions& language_options, const Function& function);
+
+std::string SignatureTextForAnonCountStarWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function, const FunctionSignature& signature);
 
 std::string SupportedSignaturesForAnonCountStarWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function);
+
+std::string SignatureTextForAnonQuantilesWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function, const FunctionSignature& signature);
 
 std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
@@ -213,7 +224,11 @@ std::string InListFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs);
 
+std::string NotLikeAnyFunctionSQL(const std::vector<std::string>& inputs);
+
 std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string NotLikeAllFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs);
 
@@ -223,7 +238,11 @@ std::string InArrayFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs);
 
+std::string NotLikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs);
+
 std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string NotLikeAllArrayFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs);
 
@@ -383,9 +402,6 @@ std::string NoMatchingSignatureForGenerateDateOrTimestampArrayFunction(
 std::string NoMatchingSignatureForSubscript(
     absl::string_view offset_or_ordinal, absl::string_view operator_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
-
-std::string EmptySupportedSignatures(const LanguageOptions& language_options,
-                                     const Function& function);
 
 absl::Status CheckArgumentsSupportEquality(
     const std::string& comparison_name,
@@ -722,6 +738,10 @@ absl::Status GetArrayZipFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types);
 
+absl::Status GetStandaloneBuiltinEnumTypes(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToTypeMap* types);
+
 void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions);
@@ -791,6 +811,14 @@ void GetFilterFieldsFunction(TypeFactory* type_factory,
 void GetRangeFunctions(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions);
+
+void GetElementWiseAggregationFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions);
+
+void GetMapCoreFunctions(TypeFactory* type_factory,
+                         const ZetaSQLBuiltinFunctionOptions& options,
+                         NameToFunctionMap* functions);
 
 }  // namespace zetasql
 

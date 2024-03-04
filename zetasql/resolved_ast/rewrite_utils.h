@@ -25,15 +25,18 @@
 #include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/coercer.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -205,7 +208,7 @@ absl::StatusOr<std::unique_ptr<ResolvedScan>> ReplaceScanColumns(
 // Useful when replacing columns for a ResolvedExecuteAsRole node.
 std::vector<ResolvedColumn> CreateReplacementColumns(
     ColumnFactory& column_factory,
-    const std::vector<ResolvedColumn>& column_list);
+    absl::Span<const ResolvedColumn> column_list);
 
 // Helper for rewriters to check whether a needed built-in function is part
 // of the catalog. This is useful to generate good error messages when a
@@ -224,6 +227,9 @@ absl::Status CheckCatalogSupportsSafeMode(
     absl::string_view function_name, const AnalyzerOptions& analyzer_options,
     Catalog& catalog);
 
+// Checks whether the ResolvedAST has ResolvedGroupingCall nodes.
+absl::StatusOr<bool> HasGroupingCallNode(const ResolvedNode* node);
+
 // Contains helper functions that reduce boilerplate in rewriting rules logic
 // related to constructing new ResolvedFunctionCall instances.
 // TODO: Move FunctionCallBuilder class from rewriter utils
@@ -237,7 +243,8 @@ class FunctionCallBuilder {
         catalog_(catalog),
         type_factory_(type_factory),
         annotation_propagator_(
-            AnnotationPropagator(analyzer_options, type_factory)) {}
+            AnnotationPropagator(analyzer_options, type_factory)),
+        coercer_(&type_factory, &analyzer_options.language(), &catalog) {}
 
   // Helper to check that engines support the required IFERROR and NULLIFERROR
   // functions that are used to implement SAFE mode in rewriters. If the
@@ -270,6 +277,12 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> IsNull(
       std::unique_ptr<const ResolvedExpr> arg);
 
+  // Construct a ResolvedFunctionCall for arg[0] IS NULL OR arg[1] IS NULL OR ..
+  //
+  // Like `IsNull`, a built-in function "$is_null" must be available.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> AnyIsNull(
+      std::vector<std::unique_ptr<const ResolvedExpr>> args);
+
   // Construct a ResolvedFunctionCall for IFERROR(try_expr, handle_expr)
   //
   // Requires: try_expr and handle_expr must return equal types.
@@ -279,6 +292,27 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> IfError(
       std::unique_ptr<const ResolvedExpr> try_expr,
       std::unique_ptr<const ResolvedExpr> handle_expr);
+
+  // Construct a ResolvedFunctionCall for ERROR(error_text).
+  //
+  // The signature for the built-in function "error" must be available in
+  // <catalog> or an error status is returned.
+  // If `target_type` is supplied, set the return type of ERROR function to
+  // `target_type` if needed.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Error(
+      const std::string& error_text, const Type* target_type = nullptr);
+
+  // Construct a ResolvedFunctionCall for ERROR(error_expr).
+  //
+  // Requires: error_expr has STRING type.
+  //
+  // The signature for the built-in function "error" must be available in
+  // <catalog> or an error status is returned.
+  // If `target_type` is supplied, set the return type of ERROR function to
+  // `target_type` if needed.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Error(
+      std::unique_ptr<const ResolvedExpr> error_expr,
+      const Type* target_type = nullptr);
 
   // Constructs a ResolvedFunctionCall for the $make_array function to create an
   // array for a list of elements
@@ -346,6 +380,58 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
 
+  // Construct a ResolvedFunctionCall for <left_expr> != <right_expr>.
+  //
+  // Requires: <left_expr> and <right_expr> must return equal types AND
+  //           the type supports equality.
+  //
+  // The signature for the built-in function "$not_equal" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NotEqual(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+
+  // Construct a ResolvedFunctionCall for LEAST(REPEATED <expressions>).
+  //
+  // Requires: All elements in <expressions> must have the same type which
+  //           supports ordering.
+  //
+  // The signature for the built-in function "least" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Least(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Construct a ResolvedFunctionCall for GREATEST(REPEATED <expressions>).
+  //
+  // Requires: All elements in <expressions> must have the same type which
+  //           supports ordering.
+  //
+  // The signature for the built-in function "greatest" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Greatest(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Construct a ResolvedFunctionCall for COALESCE(REPEATED <expressions>).
+  //
+  // Requires: Elements in <expressions> must have types which are implicitly
+  //           coercible to a common supertype.
+  //
+  // The signature for the built-in function "coalesce" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Coalesce(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Construct a ResolvedFunctionCall for <left_expr> < <right_expr>.
+  //
+  // Requires: <left_expr> and <right_expr> must return equal types AND
+  //           the type supports comparison (aka. ordering).
+  //
+  // The signature for the built-in function "$less" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Less(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+
   // Construct a ResolvedFunctionCall for <left_expr> >= <right_expr>.
   //
   // Requires: Both `left_expr` and `right_expr` must be order-able types. The
@@ -405,6 +491,38 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Or(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
+  // Construct a ResolvedFunctionCall for ARRAY_LENGTH(array_expr).
+  //
+  // Requires: array_expr is of ARRAY<T> type.
+  //
+  // The signature for the built-in function "array_length" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayLength(
+      std::unique_ptr<const ResolvedExpr> array_expr);
+
+  // Constructs a ResolvedFunctionCall for ARRAY[OFFSET(offset_expr)].
+  //
+  // Requires:
+  // - `array_expr` is ARRAY.
+  // - `offset_expr` is INT64.
+  //
+  // The signature for the built-in function "$array_at_offset" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayAtOffset(
+      std::unique_ptr<const ResolvedExpr> array_expr,
+      std::unique_ptr<const ResolvedExpr> offset_expr);
+
+  // Constructs a ResolvedFunctionCall for the MOD(dividend, divisor).
+  //
+  // Requires: `dividend_expr` and `divisor_expr` must be of the same type and
+  // are of one of the following types: [INT64, UINT64, NUMERIC, BIGNUMERIC].
+  //
+  // The signature for the built-in function "mod" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Mod(
+      std::unique_ptr<const ResolvedExpr> dividend_expr,
+      std::unique_ptr<const ResolvedExpr> divisor_expr);
+
  private:
   static AnnotationPropagator BuildAnnotationPropagator(
       const AnalyzerOptions& analyzer_options, TypeFactory& type_factory) {
@@ -424,6 +542,14 @@ class FunctionCallBuilder {
       absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
+  // Construct a ResolvedFunctionCall of
+  //  builtin_function_name(REPEATED <expressions>)
+  // whose arguments have the same type and supports ordering.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+  FunctionCallWithSameTypeArgumentsSupportingOrdering(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
+      absl::string_view builtin_function_name);
+
   // Helper that controls the error message when built-in functions are not
   // found in the catalog.
   absl::Status GetBuiltinFunctionFromCatalog(absl::string_view function_name,
@@ -434,6 +560,7 @@ class FunctionCallBuilder {
 
   TypeFactory& type_factory_;
   AnnotationPropagator annotation_propagator_;
+  Coercer coercer_;
 };
 
 // Contains helper functions for building components of the ResolvedAST when

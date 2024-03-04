@@ -213,9 +213,10 @@ QueryStmt
             +-right_scan=
             | +-WithRefScan(column_list=subq.[key#7, TestEnum#8, KitchenSink#9], with_query_name="subq")
             +-join_expr=
-              +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
-                +-ColumnRef(type=INT32, column=subq.key#4)
-                +-ColumnRef(type=INT32, column=subq.key#7)
+            | +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+            |   +-ColumnRef(type=INT32, column=subq.key#4)
+            |   +-ColumnRef(type=INT32, column=subq.key#7)
+            +-has_using=TRUE
 ==
 
 # Error in a with subquery that is never referenced.

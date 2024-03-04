@@ -160,7 +160,7 @@ absl::Status ProtoType::GetFieldTypeByTagNumber(int number,
                                     CatalogNamePath(), type);
 }
 
-absl::Status ProtoType::GetFieldTypeByName(const std::string& name,
+absl::Status ProtoType::GetFieldTypeByName(absl::string_view name,
                                            TypeFactory* factory,
                                            bool use_obsolete_timestamp,
                                            const Type** type,
@@ -191,7 +191,7 @@ std::string ProtoType::TypeName() const {
   return catalog_name_path;
 }
 
-std::string ProtoType::ShortTypeName(ProductMode mode_unused) const {
+std::string ProtoType::ShortTypeName() const {
   std::string catalog_name_path;
   if (catalog_name_ != nullptr) {
     absl::StrAppend(&catalog_name_path, *catalog_name_->path_string, ".");
@@ -337,6 +337,9 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
           break;
         case FieldFormat::INTERVAL:
           *kind = TYPE_INTERVAL;
+          break;
+        case FieldFormat::TOKENLIST:
+          *kind = TYPE_TOKENLIST;
           break;
         case FieldFormat::RANGE_DATES_ENCODED:
         case FieldFormat::RANGE_DATETIMES_ENCODED:
@@ -730,7 +733,7 @@ std::string ProtoType::FormatValueContent(
   if (!options.as_literal()) {
     return internal::GetCastExpressionString(
         ToBytesLiteral(std::string(GetCordValue(value))), this,
-        options.product_mode);
+        options.product_mode, options.use_external_float32);
   }
 
   google::protobuf::DynamicMessageFactory message_factory;
@@ -743,12 +746,13 @@ std::string ProtoType::FormatValueContent(
       return "{<unparseable>}";
     }
 
-    return absl::StrCat("{",
-                        options.verbose
-                            ?
-                        message->DebugString()
-                        : message->ShortDebugString(),
-                        "}");
+    return absl::StrCat(
+        "{",
+        options.verbose
+            ?
+        message->DebugString()
+        : message->ShortDebugString(),
+        "}");
   }
 
   absl::Status status;

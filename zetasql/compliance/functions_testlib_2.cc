@@ -20,6 +20,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <numeric>
@@ -32,7 +33,9 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -1625,6 +1628,17 @@ struct TypeFeaturePair {
 
   TypeFeaturePair(const Type* type, const Value& example1,
                   const Value& example2, const Value& example3,
+                  const Value& example4,
+                  std::initializer_list<LanguageFeature> features)
+      : type(type),
+        example_input_1(example1),
+        example_input_2(example2),
+        example_input_3(example3),
+        example_input_4(example4),
+        required_features(features.begin(), features.end()) {}
+
+  TypeFeaturePair(const Type* type, const Value& example1,
+                  const Value& example2, const Value& example3,
                   LanguageFeature feature)
       : TypeFeaturePair(type, example1, example2, example3, Value(), feature) {}
 
@@ -2363,6 +2377,38 @@ GetOrderableTypesWithFeaturesAndValues() {
           Value::Enum(TestEnumType(), 1),
           Value::Enum(TestEnumType(), 1),
           Value::Enum(TestEnumType(), 0x000000002),
+      },
+      // Ranges
+      {
+          types::DateRangeType(),
+          Range(NullDate(), Date(1)),
+          Range(Date(1), Date(2)),
+          Range(Date(1), Date(2)),
+          Range(Date(5), Date(10)),
+          FEATURE_RANGE_TYPE,
+      },
+      {types::DatetimeRangeType(),
+       Range(NullDatetime(), Datetime(DatetimeValue::FromYMDHMSAndMicros(
+                                 2024, 1, 9, 10, 00, 00, 99))),
+       Range(Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 1, 9, 12, 40, 55,
+                                                         99)),
+             Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 1, 9, 17, 40, 56,
+                                                         99))),
+       Range(Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 1, 9, 12, 40, 55,
+                                                         99)),
+             Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 1, 9, 17, 40, 56,
+                                                         99))),
+       Range(Datetime(
+                 DatetimeValue::FromYMDHMSAndMicros(2024, 1, 20, 10, 0, 0, 0)),
+             NullDatetime()),
+       {FEATURE_RANGE_TYPE, FEATURE_V_1_2_CIVIL_TIME}},
+      {
+          types::TimestampRangeType(),
+          Range(NullTimestamp(), Timestamp(2)),
+          Range(Timestamp(5), Timestamp(10)),
+          Range(Timestamp(5), Timestamp(10)),
+          Range(Timestamp(20), Timestamp(50)),
+          FEATURE_RANGE_TYPE,
       },
   };
 }

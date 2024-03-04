@@ -35,6 +35,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/convert_string.h"
@@ -42,12 +43,17 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/hash/hash.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -59,7 +65,9 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
+#include "zetasql/base/map_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -103,6 +111,11 @@ void Value::SetMetadataForNonSimpleType(const Type* type, bool is_null,
 // Null value constructor.
 Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
   ABSL_CHECK(type != nullptr);
+
+  if (type->IsMap()) {
+    ABSL_DCHECK(order_kind == kIgnoresOrder);
+    order_kind = kIgnoresOrder;
+  }
 
   if (type->IsSimpleType()) {
     metadata_ = Metadata(type->kind(), is_null, order_kind,
@@ -202,7 +215,7 @@ Value::Value(const EnumType* enum_type, int64_t value,
 
 Value::Value(const EnumType* enum_type, absl::string_view name) {
   int32_t number;
-  if (enum_type->FindNumber(std::string(name), &number)) {
+  if (enum_type->FindNumber(name, &number)) {
     SetMetadataForNonSimpleType(enum_type);
     enum_value_ = static_cast<int32_t>(number);
   } else {
@@ -297,6 +310,49 @@ absl::StatusOr<Value> Value::MakeRangeInternal(bool is_validated,
   return result;
 }
 
+absl::StatusOr<Value> Value::MakeMapInternal(
+    const Type* type, std::vector<std::pair<Value, Value>> map_entries) {
+  const Type* key_type = GetMapKeyType(type);
+  const Type* value_type = GetMapValueType(type);
+  if (kDebugMode) {
+    for (const auto& [key, value] : map_entries) {
+      ZETASQL_RET_CHECK(key.is_valid() && key.type()->Equals(key_type) &&
+                value.is_valid() && value.type()->Equals(value_type))
+          << absl::StrCat(
+                 "Values with invalid types provided to map. Expected ",
+                 type->DebugString(), " but got an entry with key of ",
+                 key.type()->DebugString(), " and value of ",
+                 value.type()->DebugString(), ".");
+    }
+  }
+
+  Value result(type, /*is_null=*/false, kIgnoresOrder);
+  result.map_ptr_ =
+      new internal::ValueContentMapRef(std::make_unique<TypedMap>(map_entries));
+
+  // If map_entries size is different from map size, we can infer that a
+  // nonzero amount of keys are duplicates.
+  if (map_entries.size() != result.map_ptr_->value()->num_elements()) {
+    absl::flat_hash_set<Value> map_entries_set;
+    for (const auto& [key, value] : map_entries) {
+      const auto& [unused_iter, inserted] = map_entries_set.insert(key);
+      if (!inserted) {
+        return MakeEvalError()
+               << "Duplicate map keys are not allowed, but got multiple "
+                  "instances of key: "
+               << key.Format(/*print_top_level_type=*/false);
+      }
+    }
+    // If execution gets here without finding the key, something is wrong with
+    // the logic.
+    return MakeEvalError()
+           << "Duplicate map keys are not allowed, but got multiple "
+              "instances of a key";
+  }
+
+  return result;
+}
+
 const Type* Value::type() const {
   ABSL_CHECK(is_valid()) << DebugString();
   return metadata_.type();
@@ -320,6 +376,18 @@ const std::vector<Value>& Value::elements() const {
   const TypedList* const list_ptr =
       static_cast<const TypedList* const>(container_ptr);
   return list_ptr->values();
+}
+
+zetasql_base::MapView<Value, Value> Value::map_entries() const {
+  if (metadata_.type_kind() != TYPE_MAP || is_null()) {
+    ABSL_DCHECK_EQ(TYPE_MAP, metadata_.type_kind());
+    ABSL_DCHECK(!is_null()) << "Null value";
+
+    static const absl::flat_hash_map<Value, Value>* empty_map =
+        new absl::flat_hash_map<Value, Value>();
+    return *empty_map;
+  }
+  return static_cast<const TypedMap* const>(map_ptr_->value())->entries();
 }
 
 Value Value::TimestampFromUnixMicros(int64_t v) {
@@ -370,11 +438,16 @@ std::string Value::EnumDisplayName() const {
 int64_t Value::ToInt64() const {
   ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
-    case TYPE_INT64: return int64_value_;
-    case TYPE_INT32: return int32_value_;
-    case TYPE_UINT32: return uint32_value_;
-    case TYPE_BOOL: return bool_value_;
-    case TYPE_DATE: return int32_value_;
+    case TYPE_INT64:
+      return int64_value_;
+    case TYPE_INT32:
+      return int32_value_;
+    case TYPE_UINT32:
+      return uint32_value_;
+    case TYPE_BOOL:
+      return bool_value_;
+    case TYPE_DATE:
+      return int32_value_;
     case TYPE_TIMESTAMP:
       return ToUnixMicros();
     case TYPE_ENUM:
@@ -395,9 +468,12 @@ int64_t Value::ToInt64() const {
 uint64_t Value::ToUint64() const {
   ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
-    case TYPE_UINT64: return uint64_value_;
-    case TYPE_UINT32: return uint32_value_;
-    case TYPE_BOOL: return bool_value_;
+    case TYPE_UINT64:
+      return uint64_value_;
+    case TYPE_UINT32:
+      return uint32_value_;
+    case TYPE_BOOL:
+      return bool_value_;
     default:
       ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to uint64";
@@ -408,13 +484,20 @@ uint64_t Value::ToUint64() const {
 double Value::ToDouble() const {
   ABSL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
-    case TYPE_BOOL: return bool_value_;
-    case TYPE_DATE: return int32_value_;
-    case TYPE_DOUBLE: return double_value_;
-    case TYPE_FLOAT: return float_value_;
-    case TYPE_INT32: return int32_value_;
-    case TYPE_UINT32: return uint32_value_;
-    case TYPE_UINT64: return uint64_value_;
+    case TYPE_BOOL:
+      return bool_value_;
+    case TYPE_DATE:
+      return int32_value_;
+    case TYPE_DOUBLE:
+      return double_value_;
+    case TYPE_FLOAT:
+      return float_value_;
+    case TYPE_INT32:
+      return int32_value_;
+    case TYPE_UINT32:
+      return uint32_value_;
+    case TYPE_UINT64:
+      return uint64_value_;
     case TYPE_INT64:
       return int64_value_;
     case TYPE_NUMERIC:
@@ -445,6 +528,8 @@ uint64_t Value::physical_byte_size() const {
 
   if (DoesTypeUseValueList()) {
     physical_size += container_ptr_->physical_byte_size();
+  } else if (DoesTypeUseValueMap()) {
+    physical_size += map_ptr_->physical_byte_size();
   } else {
     physical_size +=
         type()->GetValueContentExternallyAllocatedByteSize(GetContent());
@@ -466,6 +551,27 @@ absl::Cord Value::ToCord() const {
                  << " to Cord";
       return absl::Cord();
   }
+}
+
+std::string Value::ToString() const {
+  ABSL_CHECK(!is_null()) << "Null value";
+  switch (metadata_.type_kind()) {
+    case TYPE_STRING:
+    case TYPE_BYTES:
+      return string_ptr_->value();
+    case TYPE_PROTO:
+      return std::string(proto_ptr_->value());
+    default:
+      ABSL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+                 << " to std::string";
+      return std::string();
+  }
+}
+
+absl::CivilDay Value::ToCivilDay() const {
+  ABSL_CHECK(!is_null()) << "Null value";
+  ABSL_CHECK_EQ(TYPE_DATE, metadata_.type_kind()) << "Not a date value";
+  return absl::CivilDay() + date_value();
 }
 
 absl::Time Value::ToTime() const {
@@ -580,8 +686,12 @@ bool Value::EqualsInternal(const Value& x, const Value& y,
                            const bool allow_bags,
                            const ValueEqualityCheckOptions& options) {
   std::string* reason = options.reason;
-  if (!x.is_valid()) { return !y.is_valid(); }
-  if (!y.is_valid()) { return false; }
+  if (!x.is_valid()) {
+    return !y.is_valid();
+  }
+  if (!y.is_valid()) {
+    return false;
+  }
 
   if (!x.type()->Equivalent(y.type())) return TypesDiffer(x, y, reason);
 
@@ -683,7 +793,6 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(Equals(that));
-
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       if (num_fields() != that.num_fields()) {
         return values::False();
@@ -909,7 +1018,7 @@ std::string Value::DebugString(bool verbose) const {
   if (is_null()) {
     result = "NULL";
   } else {
-    if (DoesTypeUseValueList()) {
+    if (DoesTypeUseValueList() || DoesTypeUseValueMap()) {
       add_type_prefix = false;
     }
     Type::FormatValueContentOptions options;
@@ -935,28 +1044,32 @@ std::string Value::Format(bool print_top_level_type) const {
 //
 // This is also basically the same as GetSQLLiteral below, except this adds
 // CASTs and explicit type names so the exact value comes back out.
-std::string Value::GetSQL(ProductMode mode) const {
-  return GetSQLInternal<false, true>(mode);
+std::string Value::GetSQL(ProductMode mode, bool use_external_float32) const {
+  return GetSQLInternal<false, true>(mode, use_external_float32);
 }
 
 // This is basically the same as GetSQL() above, except this doesn't add CASTs
 // or explicit type names if the literal would be valid without them.
-std::string Value::GetSQLLiteral(ProductMode mode) const {
-  return GetSQLInternal<true, true>(mode);
+std::string Value::GetSQLLiteral(ProductMode mode,
+                                 bool use_external_float32) const {
+  return GetSQLInternal<true, true>(mode, use_external_float32);
 }
 
 template <bool as_literal, bool maybe_add_simple_type_prefix>
-std::string Value::GetSQLInternal(ProductMode mode) const {
+std::string Value::GetSQLInternal(ProductMode mode,
+                                  bool use_external_float32) const {
   const Type* type = this->type();
 
   if (is_null()) {
     return as_literal
                ? "NULL"
-               : absl::StrCat("CAST(NULL AS ", type->TypeName(mode), ")");
+               : absl::StrCat("CAST(NULL AS ",
+                              type->TypeName(mode, use_external_float32), ")");
   }
 
   Type::FormatValueContentOptions options;
   options.product_mode = mode;
+  options.use_external_float32 = use_external_float32;
   if (as_literal) {
     options.mode = maybe_add_simple_type_prefix
                        ? Type::FormatValueContentOptions::Mode::kSQLLiteral
@@ -1035,8 +1148,8 @@ static int FindSubstitutionMarker(absl::string_view block_template) {
       // Break upon finding "$0"
       if (block_template[marker_index + 1] == '0') {
         return marker_index;
-      // Skip an extra character upon seeing "$$", since this is the escape
-      // sequence for a single '$'.
+        // Skip an extra character upon seeing "$$", since this is the escape
+        // sequence for a single '$'.
       } else if (block_template[marker_index + 1] == '$') {
         ++marker_index;
       }
@@ -1125,7 +1238,11 @@ std::string FormatBlock(absl::string_view block_template,
                     absl::StrCat(pre, absl::StrJoin(parts, sep), post));
 }
 
-enum class ArrayElemFormat { ALL, NONE, FIRST_LEVEL_ONLY, };
+enum class ArrayElemFormat {
+  ALL,
+  NONE,
+  FIRST_LEVEL_ONLY,
+};
 
 const int kArrayIndent = 6;   // Length of "ARRAY<"
 const int kStructIndent = 7;  // Length of "STRUCT<"
@@ -1284,6 +1401,19 @@ std::string Value::FormatInternal(
         absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "[$0)");
     return FormatBlock(templ, boundaries_strings, ",", options.indent,
                        WrapStyle::AUTO,
+                       Type::FormatValueContentOptions::kIndentStep);
+  } else if (type()->IsTokenList() && !is_null()) {
+    // Empty tokenlists are rendered as "<empty>". Following the ARRAY and
+    // STRUCT pattern, we'll print the type in this case regardless of whether
+    // force_type_at_top_level is true.
+    std::vector<std::string> lines =
+        SimpleType::FormatTokenLines(GetContent(), options);
+    std::string tmpl =
+        (options.force_type_at_top_level || lines.empty())
+            ? type()->AddCapitalizedTypePrefix("{$0}", /*is_null=*/false)
+            : "{$0}";
+    if (lines.empty()) lines = {"<empty>"};
+    return FormatBlock(tmpl, lines, ",", options.indent, WrapStyle::AUTO,
                        Type::FormatValueContentOptions::kIndentStep);
   } else {
     return DebugString(options.force_type_at_top_level);
@@ -1622,6 +1752,9 @@ Value::Metadata::Metadata(const Type* type, bool is_null,
 }
 
 Value::TypedList::~TypedList() {
+}
+
+Value::TypedMap::~TypedMap() {
 }
 
 }  // namespace zetasql

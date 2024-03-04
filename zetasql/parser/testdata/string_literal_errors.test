@@ -1226,7 +1226,7 @@ select br"""a""\e
 
 # Some more cases of invalid quoting.
 select
-{{"|'|'''|"""|''''|""""|'''''|"""""|'''''''|"""""""|''''''''|""""""""|'''''''''|"""""""""}}
+{{"|'|'''|"""|''''|""""|'''''|"""""|'''''''|"""""""|'''''''''|"""""""""}}
 --
 ALTERNATION GROUP: "
 --
@@ -1286,18 +1286,6 @@ ALTERNATION GROUP: """""""
 --
 ERROR: Syntax error: Unclosed string literal [at 2:7]
 """""""
-      ^
---
-ALTERNATION GROUP: ''''''''
---
-ERROR: Syntax error: Expected end of input but got string literal '' [at 2:7]
-''''''''
-      ^
---
-ALTERNATION GROUP: """"""""
---
-ERROR: Syntax error: Expected end of input but got string literal "" [at 2:7]
-""""""""
       ^
 --
 ALTERNATION GROUP: '''''''''
@@ -1738,7 +1726,8 @@ QueryStatement [0-14] [SELECT ''' ''']
     Select [0-14] [SELECT ''' ''']
       SelectList [7-14] [''' ''']
         SelectColumn [7-14] [''' ''']
-          StringLiteral('''
+          StringLiteral [7-14] [''' ''']
+            StringLiteralComponent('''
 ''') [7-14] [''' ''']
 --
 SELECT
@@ -1773,7 +1762,8 @@ QueryStatement [0-15] [SELECT b''' ''']
     Select [0-15] [SELECT b''' ''']
       SelectList [7-15] [b''' ''']
         SelectColumn [7-15] [b''' ''']
-          BytesLiteral(b'''
+          BytesLiteral [7-15] [b''' ''']
+            BytesLiteralComponent(b'''
 ''') [7-15] [b''' ''']
 --
 SELECT
@@ -1808,7 +1798,8 @@ QueryStatement [0-14] [SELECT """ """]
     Select [0-14] [SELECT """ """]
       SelectList [7-14] [""" """]
         SelectColumn [7-14] [""" """]
-          StringLiteral("""
+          StringLiteral [7-14] [""" """]
+            StringLiteralComponent("""
 """) [7-14] [""" """]
 --
 SELECT
@@ -1843,7 +1834,8 @@ QueryStatement [0-15] [SELECT b""" """]
     Select [0-15] [SELECT b""" """]
       SelectList [7-15] [b""" """]
         SelectColumn [7-15] [b""" """]
-          BytesLiteral(b"""
+          BytesLiteral [7-15] [b""" """]
+            BytesLiteralComponent(b"""
 """) [7-15] [b""" """]
 --
 SELECT
@@ -1896,7 +1888,8 @@ QueryStatement [0-16] [SELECT rb'abc\ ']
     Select [0-16] [SELECT rb'abc\ ']
       SelectList [7-16] [rb'abc\ ']
         SelectColumn [7-16] [rb'abc\ ']
-          BytesLiteral(rb'abc\
+          BytesLiteral [7-16] [rb'abc\ ']
+            BytesLiteralComponent(rb'abc\
 ') [7-16] [rb'abc\ ']
 --
 SELECT
@@ -1958,7 +1951,8 @@ QueryStatement [0-16] [SELECT rb"abc\ "]
     Select [0-16] [SELECT rb"abc\ "]
       SelectList [7-16] [rb"abc\ "]
         SelectColumn [7-16] [rb"abc\ "]
-          BytesLiteral(rb"abc\
+          BytesLiteral [7-16] [rb"abc\ "]
+            BytesLiteralComponent(rb"abc\
 ") [7-16] [rb"abc\ "]
 --
 SELECT

@@ -59,6 +59,15 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override {
     applicable_rewrites_->insert(REWRITE_PIVOT);
+    for (const auto& pivot_expr : node->pivot_expr_list()) {
+      ZETASQL_RET_CHECK(pivot_expr->Is<ResolvedAggregateFunctionCall>());
+      const auto& aggregate_func_call =
+          pivot_expr->GetAs<ResolvedAggregateFunctionCall>();
+      if (aggregate_func_call->function()->Is<SQLFunctionInterface>() ||
+          aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
+        applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
+      }
+    }
     return DefaultVisit(node);
   }
 
@@ -133,6 +142,14 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_BYTE_ARRAY_LIKE_ALL:
       case FN_STRING_LIKE_ALL:
       case FN_BYTE_LIKE_ALL:
+      case FN_STRING_NOT_LIKE_ANY:
+      case FN_BYTE_NOT_LIKE_ANY:
+      case FN_STRING_ARRAY_NOT_LIKE_ANY:
+      case FN_BYTE_ARRAY_NOT_LIKE_ANY:
+      case FN_STRING_NOT_LIKE_ALL:
+      case FN_BYTE_NOT_LIKE_ALL:
+      case FN_STRING_ARRAY_NOT_LIKE_ALL:
+      case FN_BYTE_ARRAY_NOT_LIKE_ALL:
         applicable_rewrites_->insert(REWRITE_LIKE_ANY_ALL);
         break;
       default:
@@ -149,6 +166,15 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedInsertStmt(
+      const ResolvedInsertStmt* node) override {
+    if (!node->row_list().empty() && node->table_scan() != nullptr) {
+      applicable_rewrites_->insert(
+          ResolvedASTRewrite::REWRITE_INSERT_DML_VALUES);
+    }
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
     if (node->tvf()->Is<SQLTableValuedFunction>() ||
         node->tvf()->Is<TemplatedSQLTVF>()) {
@@ -159,10 +185,6 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedSetOperationScan(
       const ResolvedSetOperationScan* node) override {
-    if (node->column_match_mode() != ResolvedSetOperationScan::BY_POSITION) {
-      applicable_rewrites_->insert(
-          ResolvedASTRewrite::REWRITE_SET_OPERATION_CORRESPONDING);
-    }
     return DefaultVisit(node);
   }
 
@@ -175,6 +197,14 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
   absl::Status VisitResolvedAggregationThresholdAggregateScan(
       const ResolvedAggregationThresholdAggregateScan* node) override {
     ZETASQL_RETURN_IF_ERROR(VisitResolvedAggregateScanBasePrivate(node));
+    applicable_rewrites_->insert(REWRITE_AGGREGATION_THRESHOLD);
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override {
+    if (node->array_expr_list_size() > 1) {
+      applicable_rewrites_->insert(REWRITE_MULTIWAY_UNNEST);
+    }
     return DefaultVisit(node);
   }
 
@@ -192,7 +222,9 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       }
     }
     for (const auto& aggregate_comp_col : node->aggregate_list()) {
-      const auto& aggregate_expr = aggregate_comp_col->expr();
+      ZETASQL_RET_CHECK(aggregate_comp_col->Is<ResolvedComputedColumnImpl>());
+      const auto& aggregate_expr =
+          aggregate_comp_col->GetAs<ResolvedComputedColumnImpl>()->expr();
       ZETASQL_RET_CHECK(aggregate_expr->Is<ResolvedAggregateFunctionCall>());
       const auto& aggregate_func_call =
           aggregate_expr->GetAs<ResolvedAggregateFunctionCall>();

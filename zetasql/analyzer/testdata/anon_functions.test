@@ -1,5 +1,7 @@
 # Valid function calls
 [language_features=ANONYMIZATION]
+[default also_show_signature_mismatch_details]
+
 select ANON_COUNT(string clamped between 0 and 1), ANON_COUNT(* clamped between 0 and 1) from SimpleTypes
 --
 QueryStmt
@@ -222,15 +224,39 @@ ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument t
 select ANON_COUNT(* clamped between 0 and "def") from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate operator ANON_COUNT(*)
+  Argument types: INT64, STRING
+  Signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select ANON_COUNT(* clamped between 0 and "def") from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: "abc",1
 --
 ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: STRING, INT64. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
 select ANON_COUNT(* clamped between "abc" and 1) from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate operator ANON_COUNT(*)
+  Argument types: STRING, INT64
+  Signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select ANON_COUNT(* clamped between "abc" and 1) from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: "abc","def"
 --
 ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: STRING, STRING. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(* clamped between "abc" and "def") from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate operator ANON_COUNT(*)
+  Argument types: STRING, STRING
+  Signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 1: Unable to coerce type STRING to expected type INT64 [at 1:8]
 select ANON_COUNT(* clamped between "abc" and "def") from SimpleTypes
        ^
 ==
@@ -274,15 +300,39 @@ ERROR: No matching signature for aggregate function ANON_COUNT for argument type
 select ANON_COUNT(string clamped between 0 and "def") from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_COUNT
+  Argument types: STRING, INT64, STRING
+  Signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 3: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select ANON_COUNT(string clamped between 0 and "def") from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: "abc",1
 --
 ERROR: No matching signature for aggregate function ANON_COUNT for argument types: STRING, STRING, INT64. Supported signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
 select ANON_COUNT(string clamped between "abc" and 1) from SimpleTypes
        ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_COUNT
+  Argument types: STRING, STRING, INT64
+  Signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:8]
+select ANON_COUNT(string clamped between "abc" and 1) from SimpleTypes
+       ^
+--
 ALTERNATION GROUP: "abc","def"
 --
 ERROR: No matching signature for aggregate function ANON_COUNT for argument types: STRING, STRING, STRING. Supported signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(string clamped between "abc" and "def") from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_COUNT
+  Argument types: STRING, STRING, STRING
+  Signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 2: Unable to coerce type STRING to expected type INT64 [at 1:8]
 select ANON_COUNT(string clamped between "abc" and "def") from SimpleTypes
        ^
 ==
@@ -369,6 +419,18 @@ select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
 ERROR: No matching signature for aggregate function ANON_SUM for argument types: STRING, INT64, INT64. Supported signatures: ANON_SUM(INT64 [CLAMPED BETWEEN INT64 AND INT64]), ANON_SUM(UINT64 [CLAMPED BETWEEN UINT64 AND UINT64]), ANON_SUM(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:8]
 select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_SUM
+  Argument types: STRING, INT64, INT64
+  Signature: ANON_SUM(INT64 [CLAMPED BETWEEN INT64 AND INT64])
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: ANON_SUM(UINT64 [CLAMPED BETWEEN UINT64 AND UINT64])
+    Argument 1: Unable to coerce type STRING to expected type UINT64
+  Signature: ANON_SUM(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE])
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
+select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
+       ^
 ==
 
 # ANON_AVG should reject exprs other than int64, uint64, double & numeric
@@ -376,6 +438,14 @@ select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
 select ANON_AVG(string clamped between 0 and 1) from SimpleTypes
 --
 ERROR: No matching signature for aggregate function ANON_AVG for argument types: STRING, INT64, INT64. Supported signature: ANON_AVG(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:8]
+select ANON_AVG(string clamped between 0 and 1) from SimpleTypes
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_AVG
+  Argument types: STRING, INT64, INT64
+  Signature: ANON_AVG(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE])
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:8]
 select ANON_AVG(string clamped between 0 and 1) from SimpleTypes
        ^
 ==
@@ -680,6 +750,14 @@ from ArrayWithAnonymizationUid;
 ERROR: No matching signature for aggregate function ANON_VAR_POP for argument types: ARRAY<DOUBLE>. Supported signatures: ANON_VAR_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
 select with anonymization ANON_VAR_POP(double_array)
                           ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_VAR_POP
+  Argument types: ARRAY<DOUBLE>
+  Signature: ANON_VAR_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE])
+    Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:27]
+select with anonymization ANON_VAR_POP(double_array)
+                          ^
 ==
 
 # ANON_STDDEV_POP(ARRAY<DOUBLE>) is an internal signature and cannot be used by
@@ -691,6 +769,14 @@ from ArrayWithAnonymizationUid;
 ERROR: No matching signature for aggregate function ANON_STDDEV_POP for argument types: ARRAY<DOUBLE>. Supported signatures: ANON_STDDEV_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
 select with anonymization ANON_STDDEV_POP(double_array)
                           ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_STDDEV_POP
+  Argument types: ARRAY<DOUBLE>
+  Signature: ANON_STDDEV_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE])
+    Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:27]
+select with anonymization ANON_STDDEV_POP(double_array)
+                          ^
 ==
 
 # ANON_PERCENTILE_CONT(ARRAY<DOUBLE>, DOUBLE) is an internal signature and
@@ -700,6 +786,14 @@ select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
 from ArrayWithAnonymizationUid;
 --
 ERROR: No matching signature for aggregate function ANON_PERCENTILE_CONT for argument types: ARRAY<DOUBLE>, DOUBLE. Supported signatures: ANON_PERCENTILE_CONT(DOUBLE, DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
+                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_PERCENTILE_CONT
+  Argument types: ARRAY<DOUBLE>, DOUBLE
+  Signature: ANON_PERCENTILE_CONT(DOUBLE, DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE])
+    Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:27]
 select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
                           ^
 ==
@@ -814,6 +908,14 @@ from ArrayWithAnonymizationUid;
 ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: ARRAY<DOUBLE>, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
 select with anonymization ANON_QUANTILES(double_array, 4)
                           ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_QUANTILES
+  Argument types: ARRAY<DOUBLE>, INT64
+  Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE)
+    Signature requires at least 4 arguments, found 2 arguments [at 1:27]
+select with anonymization ANON_QUANTILES(double_array, 4)
+                          ^
 ==
 
 # ANON_QUANTILES(DOUBLE) is not supported because quantiles are not
@@ -845,6 +947,14 @@ from SimpleTypesWithAnonymizationUid;
 ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, DOUBLE. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
 select with anonymization ANON_QUANTILES(double, double)
                           ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_QUANTILES
+  Argument types: DOUBLE, DOUBLE
+  Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE)
+    Signature requires at least 4 arguments, found 2 arguments [at 1:27]
+select with anonymization ANON_QUANTILES(double, double)
+                          ^
 ==
 
 # quantiles requires explicit bounds
@@ -853,6 +963,14 @@ select with anonymization ANON_QUANTILES(double, int64)
 from SimpleTypesWithAnonymizationUid;
 --
 ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
+select with anonymization ANON_QUANTILES(double, int64)
+                          ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function ANON_QUANTILES
+  Argument types: DOUBLE, INT64
+  Signature: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE)
+    Signature requires at least 4 arguments, found 2 arguments [at 1:27]
 select with anonymization ANON_QUANTILES(double, int64)
                           ^
 ==

@@ -24,9 +24,11 @@
 #include <vector>
 
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"
+#include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -55,11 +57,12 @@ bool IsUnclosedTripleQuotedLiteralError(absl::Status status) {
 // Pluck next statement terminated by a semiclon from input string. nullopt is
 // returned if more input is necessary, e.g. because a statement is incomplete.
 absl::StatusOr<std::optional<absl::string_view>> NextStatement(
-    absl::string_view input) {
+    absl::string_view input, const LanguageOptions& language_options) {
   ABSL_DCHECK(!input.empty());
 
   ParseTokenOptions options;
   options.stop_at_end_of_statement = true;
+  options.language_options = language_options;
 
   ParseResumeLocation resume_loc{ParseResumeLocation::FromStringView(input)};
 
@@ -106,9 +109,10 @@ absl::Status ExecuteQueryCompletionRequest::Validate() const {
 }
 
 ExecuteQueryStatementPrompt::ExecuteQueryStatementPrompt(
+    const ExecuteQueryConfig& config,
     std::function<absl::StatusOr<std::optional<std::string>>(bool)>
         read_next_func)
-    : read_next_func_{read_next_func} {
+    : config_(config), read_next_func_{read_next_func} {
   ABSL_CHECK(read_next_func_);
 }
 
@@ -206,7 +210,7 @@ void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
 void ExecuteQueryStatementPrompt::ProcessBuffer() {
   while (!buf_.empty()) {
     absl::StatusOr<std::optional<absl::string_view>> stmt =
-        NextStatement(buf_.Flatten());
+        NextStatement(buf_.Flatten(), config_.analyzer_options().language());
 
     if (!stmt.ok()) {
       absl::Status status = std::move(stmt).status();
@@ -258,9 +262,12 @@ void ExecuteQueryStatementPrompt::ProcessBuffer() {
   }
 }
 
-ExecuteQuerySingleInput::ExecuteQuerySingleInput(absl::string_view query)
-    : ExecuteQueryStatementPrompt{absl::bind_front(
-          &ExecuteQuerySingleInput::ReadNext, this)},
+ExecuteQuerySingleInput::ExecuteQuerySingleInput(
+    absl::string_view query, const ExecuteQueryConfig& config)
+    : ExecuteQueryStatementPrompt{config,
+                                  absl::bind_front(
+                                      &ExecuteQuerySingleInput::ReadNext,
+                                      this)},
       query_{query} {}
 
 std::optional<std::string> ExecuteQuerySingleInput::ReadNext(

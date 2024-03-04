@@ -35,6 +35,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -87,7 +88,7 @@ inline absl::Status ConvertProto3WrapperToType(
   if (!IsWellFormedUTF8(input.value())) {
     return MakeEvalError()
            << "Invalid conversion: ZetaSQL strings must be UTF8 encoded"
-           << input.DebugString();
+           << absl::StrCat(input);
   }
   *output = input.value();
   return absl::OkStatus();

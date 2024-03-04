@@ -2807,6 +2807,7 @@ aggregated rows for each of them:
 
 + `(a, b, c)`
 + `(a, b)`
++ `(a, c)`
 + `(a)`
 + `(b, c)`
 + `(b)`
@@ -3350,7 +3351,10 @@ WINDOW
 
 <pre>
 <span class="var">set_operation</span>:
-  <a href="#sql_syntax"><span class="var">query_expr</span></a> <span class="var">set_operator</span> [ <a href="#corresponding"><span class="var">corresponding_specification</span></a> ] <a href="#sql_syntax"><span class="var">query_expr</span></a>
+  {
+    <a href="#sql_syntax"><span class="var">query_expr</span></a> <span class="var">set_operator</span> <a href="#sql_syntax"><span class="var">query_expr</span></a>
+    | <a href="#corresponding"><span class="var">corresponding_set_operation</span></a>
+  }
 
 <span class="var">set_operator</span>:
   {
@@ -3358,9 +3362,6 @@ WINDOW
     <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } |
     <a href="#except">EXCEPT</a> { ALL | DISTINCT }
   }
-
-<a href="#corresponding"><span class="var">corresponding_specification</span></a>:
-  CORRESPONDING
 </pre>
 
 Set operators combine results from two or
@@ -3485,23 +3486,105 @@ EXCEPT DISTINCT SELECT 1;
 ### `CORRESPONDING` 
 <a id="corresponding"></a>
 
-Add the `CORRESPONDING` specification to match columns by name instead of
-position in a set operation.
+<pre>
+<span class="var">corresponding_set_operation</span>:
+  <span class="var">query_expr</span> <span class="var">corresponding_set_operator</span> <span class="var">query_expr</span>
 
-General usage notes for the `CORRESPONDING` specification:
+<span class="var">corresponding_set_operator</span>:
+  [ <span class="var">set_op_outer_mode</span> ] <span class="var">set_operator</span> [ STRICT ] CORRESPONDING [ BY (<span class="var">column_list</span>) ]
 
-+ In the set operation, only columns appearing in both input queries are
-  preserved and all other columns are dropped.
-+ Both input queries in the set operation must produce at least
-  one column with the same name.
-+ Columns in the set operation results appear in the order in which they occur
-  in the first input query.
-+ Neither input query in the set operation can produce a value table.
-+ Neither input query in the set operation can produce anonymous columns or
-  duplicate column names.
-+ Pseudocolumns are ignored in the set operation.
+<span class="var">column_list</span>:
+  <span class="var">column_name</span>[, ...]
 
-#### Set operation results when matching by column position
+<span class="var">set_op_outer_mode</span>:
+  { <span class="var">set_op_full_outer_mode</span> | <span class="var">set_op_left_outer_mode</span> }
+
+<span class="var">set_op_full_outer_mode</span>:
+  { FULL OUTER | FULL | OUTER }
+
+<span class="var">set_op_left_outer_mode</span>:
+  { LEFT OUTER | LEFT }
+</pre>
+
+Use the `CORRESPONDING` set operation to match columns by name instead of by
+position.
+
+**Definitions**
+
++   `query_expr`: One of two input queries whose results are combined into a
+    single result set.
++   `set_operator`: The [set operator][set-operators] to include in the
+    operation.
++   `BY column_list`: If specified, the columns of an input query are preserved
+    if and only if they appear in `column_list`.
++   `set_op_left_outer_mode`: Applies left outer mode to the set operation.
++   `set_op_full_outer_mode`: Applies full outer mode to the set operation.
++   `STRICT`: Applies strict mode to the set operation.
+
+<a id="rules_for_corresponding"></a>
+
+**Rules**
+
+For all `CORRESPONDING` set operations:
+
++   `set_op_outer_mode` and `STRICT` cannot be used together.
++   An input query that produces a [value table][value-tables] is not supported.
+
+If the `BY` clause is used:
+
++   Columns in the result set are produced in the order in which they occur in
+    `column_list`. Any column names not in this list are excluded from the
+    results.
++   Regarding duplicate and anonymous columns:
+    +   The `column_list` must not contain duplicate names.
+    +   Input queries must have at most one column with each name from
+        `column_list`.
+    +   Input queries may have anonymous or duplicate column names that are not
+        in `column_list`.
++   If neither `STRICT` nor an outer mode is used (default mode):
+    +   Both the left and right input query must produce all columns in the
+        `column_list`.
++   In strict mode:
+    +   Both the left and the right input query must produce exactly the columns
+        in `column_list`; column order can be different.
++   In left outer mode:
+    +   Each column name in `column_list` must exist in the left input query.
+    +   If the right input query does not have a column in `column_list`, `NULL`
+        is used as the column values for rows originating from the right input
+        query.
++   In full outer mode:
+    +   Each column name in `column_list` must exist in at least one input
+        query.
+    +   If one input query does not have a column in `column_list`, `NULL` is
+        used as the column values for rows originating from that input.
+
+If the `BY` clause isn't used:
+
++   Columns from the left query are produced first, followed by the right
+    query's unique columns.
++   Neither input queries can produce duplicate nor anonymous columns.
++   If neither `STRICT` nor an outer mode is used (default mode):
+    +   Only columns appearing in both input queries are included in the result
+        set; all other columns are excluded.
+    +   There must be at least one column name common to the left and right
+        input query.
++   In strict mode:
+    +   Both input queries must have the same set of columns; column order can
+        be different.
+    +   All columns from the input queries are included in the result set.
++   In left outer mode:
+    +   All columns from the left input query are included in the result set.
+    +   If a column of the left query does not appear in the right query, `NULL`
+        is used as its column value for the right query.
+    +   There must be at least one column name common to the left and right
+        input query.
++   In full outer mode:
+    +   All columns from the input queries are included in the result set.
+    +   If a column of one input query does not appear in the other query,
+        `NULL` is used as its column value for the other query.
+
+#### Produce results by column name 
+<a id="set_op_results_col_pos"></a>
 
 ZetaSQL supports set operations, and by default, all of
 these set operations match columns by position. More specifically:
@@ -3534,12 +3617,9 @@ SELECT * FROM Produce1 UNION ALL SELECT * FROM Produce2;
 
 In the proceeding example, an attempt was made to list of fruits in one column
 and vegetables in another, however the results don't reflect this.
-To get the intended results, use the `CORRESPONDING` specification.
 
-#### Set operation results when matching by column name
-
-To produce the intended results, match columns by name, using the
-`CORRESPONDING` specification. In particular, this means:
+To produce the intended results, use the `CORRESPONDING` set operation to match
+the columns by name. In particular, this means:
 
 + When rows of the second input query contribute to the set operation,
   the columns are reordered so that the column names are in the same positions
@@ -3566,10 +3646,32 @@ SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
 Notice that the order of the columns is determined by the first input query in
 this example.
 
-#### Columns that don't appear in both result sets are dropped
+#### Produce results for specific columns only 
+<a id="set_op_results_specific_cols"></a>
 
-With the `CORRESPONDING` specification, only columns appearing in both
-input queries are preserved and all other columns are dropped.
+To produce results for only specific columns, use the optional `BY` clause
+with the `CORRESPONDING` set operation. In the following example, only results
+for `fruit` is produced:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit)
+SELECT * FROM Produce1 UNION ALL CORRESPONDING BY (fruit) SELECT * FROM Produce2;
+
+/*--------*
+ | fruit  |
+ +--------+
+ | apple  |
+ | orange |
+ +--------*/
+```
+
+#### Drop columns that don't appear in both result sets 
+<a id="set_op_results_drop_cols"></a>
+
+With the `CORRESPONDING` set operation, only columns appearing in both
+input queries are preserved and all other columns are removed from the results.
 
 In the following example, The columns `extra_col1` and `extra_col2` are dropped
 as they only occur in one input query.
@@ -3588,32 +3690,112 @@ SELECT * FROM Produce1 UNION ALL CORRESPONDING SELECT * FROM Produce2;
  +--------+-----------*/
 ```
 
+#### Inject `NULL` values into the results for missing columns 
+<a id="set_op_results_add_nulls"></a>
+
+You can inject `NULL` values for missing columns by including the `FULL OUTER`
+or `LEFT OUTER` syntax in the operation.
+
+In the following example, `FULL OUTER` is used to add `NULL` values for missing
+columns in both input queries:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
+SELECT * FROM Produce1
+FULL OUTER UNION ALL CORRESPONDING
+SELECT * FROM Produce2;
+
+/*--------+-----------+------------+------------+
+ | fruit  | vegetable | extra_col1 | extra_col2 |
+ +--------+-----------+------------+------------+
+ | apple  | leek      | 1          | NULL       |
+ | orange | kale      | NULL       | 2          |
+ +--------+-----------+------------+------------*/
+```
+
+In the following example, `LEFT OUTER` is used to add `NULL` values for missing
+columns in the second input query:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
+SELECT * FROM Produce1
+LEFT OUTER UNION ALL CORRESPONDING
+SELECT * FROM Produce2;
+
+/*--------+-----------+------------+
+ | fruit  | vegetable | extra_col1 |
+ +--------+-----------+------------+
+ | apple  | leek      | 1          |
+ | orange | kale      | NULL       |
+ +--------+-----------+------------*/
+```
+
+You can include the `BY` clause to only include specific columns in the results.
+For example:
+
+```sql
+WITH
+  Produce1 AS (SELECT 'apple' AS fruit, 'leek' AS vegetable, 1 AS extra_col1),
+  Produce2 AS (SELECT 'kale' AS vegetable, 'orange' AS fruit, 2 AS extra_col2)
+SELECT * FROM Produce1
+FULL OUTER UNION ALL CORRESPONDING BY (fruit, extra_col1)
+SELECT * FROM Produce2;
+
+/*--------+------------+
+ | fruit  | extra_col1 |
+ +--------+------------+
+ | apple  | 1          |
+ | orange | NULL       |
+ +--------+------------*/
+```
+
 ## `LIMIT` and `OFFSET` clauses 
 <a id="limit_and_offset_clause"></a>
 
-<pre>
+```sql
 LIMIT count [ OFFSET skip_rows ]
-</pre>
+```
 
-`LIMIT` specifies a non-negative `count` of type INT64,
-and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows.
+Limits the number of rows to return in a query. Optionally includes
+the ability to skip over rows.
 
-If there is a set operation, `LIMIT` is applied after the set operation is
-evaluated.
+**Definitions**
 
-`OFFSET` specifies a non-negative number of rows to skip before applying
-`LIMIT`. `skip_rows` is of type INT64.
++   `LIMIT`: Limits the number of rows to produce.
 
-These clauses accept only literal or parameter values. The rows that are
-returned by `LIMIT` and `OFFSET` are unspecified unless these
-operators are used after `ORDER BY`.
+    `count` is an `INT64` constant expression that represents the
+    non-negative, non-`NULL` limit. No more than `count` rows are produced.
+    `LIMIT 0` returns 0 rows.
 
-Examples:
+    
+    If there is a set operation, `LIMIT` is applied after the set operation is
+    evaluated.
+    
+
+    
++   `OFFSET`: Skips a specific number of rows before applying `LIMIT`.
+
+    `skip_rows` is an `INT64` constant expression that represents
+    the non-negative, non-`NULL` number of rows to skip.
+
+**Details**
+
+The rows that are returned by `LIMIT` and `OFFSET` have undefined order unless
+these clauses are used after `ORDER BY`.
+
+A constant expression can be represented by a general expression, literal, or
+parameter value.
+
+**Examples**
 
 ```sql
 SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
-ORDER BY letter ASC LIMIT 2
+ORDER BY letter ASC LIMIT 2;
 
 /*---------*
  | letter  |
@@ -3626,7 +3808,7 @@ ORDER BY letter ASC LIMIT 2
 ```sql
 SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
-ORDER BY letter ASC LIMIT 3 OFFSET 1
+ORDER BY letter ASC LIMIT 3 OFFSET 1;
 
 /*---------*
  | letter  |
@@ -4265,18 +4447,25 @@ SELECT * FROM B
 ## Differential privacy clause 
 <a id="dp_clause"></a>
 
-**Anonymization clause**
+Warning: `ANONYMIZATION` has been deprecated. Use
+`DIFFERENTIAL_PRIVACY` instead.
+
+Warning: `kappa` has been deprecated. Use
+`max_groups_contributed` instead.
+
+Syntax for queries that support differential privacy with views:
 
 <pre>
-WITH ANONYMIZATION OPTIONS( <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a> )
+WITH DIFFERENTIAL_PRIVACY OPTIONS( <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a> )
 
 <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a>:
   <span class="var">epsilon</span> = <span class="var">expression</span>,
   { <span class="var">delta</span> = <span class="var">expression</span> | <span class="var">k_threshold</span> = <span class="var">expression</span> },
-  [ { <span class="var">kappa</span> = <span class="var">expression</span> | <span class="var">max_groups_contributed</span> = <span class="var">expression</span> } ],
+  [ <span class="var">max_groups_contributed</span> = <span class="var">expression</span> ],
+  [ <span class="var">group_selection_strategy</span> = { LAPLACE_THRESHOLD | PUBLIC_GROUPS } ]
 </pre>
 
-**Differential privacy clause**
+Syntax for queries that support differential privacy without views:
 
 <pre>
 WITH DIFFERENTIAL_PRIVACY OPTIONS( <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a> )
@@ -4305,17 +4494,16 @@ You can use the following syntax to build a differential privacy clause:
 +  [`k_threshold`][dp-k-threshold]: The number of entities that must
    contribute to a group in order for the group to be exposed in the results.
    `expression` must return an `INT64`.
-+  [`kappa` or `max_groups_contributed`][dp-kappa]: A positive integer identifying the limit on
-   the number of groups that an entity is allowed to contribute to. This number
-   is also used to scale the noise for each group. `expression` must be a
-   literal and return an `INT64`.
++  [`max_groups_contributed`][dp-max-groups]: A positive integer identifying the
+   limit on the number of groups that an entity is allowed to contribute to.
+   This number is also used to scale the noise for each group. `expression` must
+   be a literal and return an `INT64`.
 + [`privacy_unit_column`][dp-privacy-unit-id]: The column that represents the
   privacy unit column. Replace `column_name` with the path expression for the
   column. The first identifier in the path can start with either a table name
   or a column name that is visible in the `FROM` clause.
-
-Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
-`max_groups_contributed`.
++ [`group_selection_strategy`][dp-group-selection-strategy]: Determines how
+  differential privacy is applied to groups.
 
 Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
 over `k_threshold`.
@@ -4324,11 +4512,6 @@ If you want to use this syntax, add it after the `SELECT` keyword with one or
 more differentially private aggregate functions in the `SELECT` list.
 To learn more about the privacy parameters in this syntax,
 see [Privacy parameters][dp-privacy-parameters].
-
-Both the anonymization and differential privacy clause indicate that you are
-adding differential privacy to your query. If possible, use
-the differential privacy clause as the anonymization clause contains
-legacy syntax.
 
 ### Privacy parameters 
 <a id="dp_privacy_parameters"></a>
@@ -4360,11 +4543,12 @@ will also inject an implicit differentially private aggregate into the plan for
 removing small groups that computes a noisy entity count per group. If you have
 `n` explicit differentially private aggregate functions in your query, then each
 aggregate individually gets `epsilon/(n+1)` for its computation. If used with
-`kappa` or `max_groups_contributed`, the effective `epsilon` per function per groups is further
-split by `kappa` or `max_groups_contributed`. Additionally, if implicit clamping is used for an
-aggregate differentially private function, then half of the function's epsilon
-is applied towards computing implicit bounds, and half of the function's epsilon
-is applied towards the differentially private aggregation itself.
+`max_groups_contributed`, the effective `epsilon` per function per groups is
+further split by `max_groups_contributed`. Additionally, if implicit clamping is
+used for an aggregate differentially private function, then half of the
+function's epsilon is applied towards computing implicit bounds, and half of the
+function's epsilon is applied towards the differentially private aggregation
+itself.
 
 #### `delta` 
 <a id="dp_delta"></a>
@@ -4401,37 +4585,88 @@ for each group and eliminates groups with few entities from the output. Use
 this parameter to define how many unique entities must be included in the group
 for the value to be included in the output.
 
-#### `kappa` or `max_groups_contributed` 
-<a id="dp_kappa"></a>
+#### `max_groups_contributed` 
+<a id="dp_max_groups"></a>
 
-Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
-`max_groups_contributed`.
-
-The `kappa` or `max_groups_contributed` differential privacy parameter is a positive integer that,
-if specified, scales the noise and limits the number of groups that each entity
-can contribute to.
-
-The default values for `kappa` and `max_groups_contributed` are determined by the
-query engine.
-
-If `kappa` or `max_groups_contributed` is unspecified, then there is no limit to the number of
+The `max_groups_contributed` differential privacy parameter is a
+positive integer that, if specified, scales the noise and limits the number of
 groups that each entity can contribute to.
 
-If `kappa` or `max_groups_contributed` is unspecified, the language can't guarantee that the
-results will be differentially private. We recommend that you specify
-`kappa` or `max_groups_contributed`. If you don't specify `kappa` or `max_groups_contributed`, the results might
-still be differentially private if certain preconditions are met. For example,
-if you know that the privacy unit column in a table or view is unique in the
-`FROM` clause, the entity can't contribute to more than one group and therefore
-the results will be the same regardless of whether `kappa` or `max_groups_contributed` is set.
+The default value for `max_groups_contributed` is determined by the
+query engine.
 
-Tip: We recommend that engines require `kappa` or `max_groups_contributed` to be set.
+If `max_groups_contributed` is unspecified, then there is no limit to the
+number of groups that each entity can contribute to.
+
+If `max_groups_contributed` is unspecified, the language can't guarantee that
+the results will be differentially private. We recommend that you specify
+`max_groups_contributed`. If you don't specify `max_groups_contributed`, the
+results might still be differentially private if certain preconditions are met.
+For example, if you know that the privacy unit column in a table or view is
+unique in the `FROM` clause, the entity can't contribute to more than one group
+and therefore the results will be the same regardless of whether
+`max_groups_contributed` is set.
+
+Tip: We recommend that engines require `max_groups_contributed` to be set.
 
 #### `privacy_unit_column` 
 <a id="dp_privacy_unit_id"></a>
 
 To learn about the privacy unit and how to define a privacy unit column, see
 [Define a privacy unit column][dp-define-privacy-unit-id].
+
+#### `group_selection_strategy` 
+<a id="dp_group_selection_strategy"></a>
+
+Differential privacy queries can include a `GROUP BY` clause. By default,
+including groups in a differentially private query requires the
+differential privacy algorithm to protect the entities in these groups.
+
+The `group_selection_strategy` privacy parameter determines how groups are
+anonymized in a query. The choices are:
+
++   `LAPLACE_THRESHOLD` (default): Groups are anonymized by counting distinct
+    privacy units that contributed to the group, adding laplace noise to the
+    count, and then adding the group from the results if the noised value is
+    above a certain threshold. This process depends on epsilon and delta.
+
+    If the `group_selection_strategy` parameter is not included in
+    the `WITH DIFFERENTIAL_PRIVACY` clause, this is the default setting.
++   `PUBLIC_GROUPS`: Groups won't be anonymized because they don't depend upon
+    protected data or they have already been anonymized. Use this option if the
+    groups in the `GROUP BY` clause don't depend on any private data, and no
+    further anonymization is needed for the groups. For example, if the groups
+    contain fixed data such as the days in a week or operating system types,
+    and this data doesn't need to be private, use this option.
+
+Semantic rules for `PUBLIC_GROUPS`:
+
++   In the query, there should be a _public table_, which is a table
+    without a privacy unit ID column. This table should contain
+    data that is common knowledge or data that has already been anonymized.
++   In the query, there must be a _private table_, which is a table with a
+    privacy unit ID column. This table might contain identifying data.
++   In the `GROUP BY` clause, all grouping items must come from a
+    public table.
++   You must join a public table and a private table with a _public group join_,
+    but conditions apply.
+
+    +   Only `LEFT OUTER JOIN` and `RIGHT OUTER JOIN` are supported.
+
+    +   You must include a `SELECT DISTINCT` subquery on the side of the join
+        with the public group table.
+
+    +   The public group join must join a public table with a private table.
+
+    +   The public group join must join on each grouping item.
+
+    +   If a join doesn't fulfill the previous requirements, it's treated as a
+        normal join in the query and not counted as a public group join for
+        any of the joined columns.
++   For every grouping item there must be a public group join,
+    otherwise, an error is returned.
++   To obtain accurate results in a differentially private query with
+    public groups, `NULL` privacy units should not be present in the query.
 
 ### Differential privacy examples
 
@@ -4471,13 +4706,13 @@ The examples in this section reference these views:
 ```sql
 CREATE OR REPLACE VIEW {{USERNAME}}.view_on_professors
 OPTIONS(anonymization_userid_column='id')
-AS (SELECT * FROM professors);
+AS (SELECT * FROM {{USERNAME}}.professors);
 ```
 
 ```sql
 CREATE OR REPLACE VIEW {{USERNAME}}.view_on_students
 OPTIONS(anonymization_userid_column='id')
-AS (SELECT * FROM students);
+AS (SELECT * FROM {{USERNAME}}.students);
 ```
 
 These views reference the [professors][dp-example-tables] and
@@ -4494,10 +4729,10 @@ privacy protection.
 -- This gets the average number of items requested per professor and adds
 -- noise to the results
 SELECT
-  WITH ANONYMIZATION
+  WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
     item,
-    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
@@ -4519,7 +4754,7 @@ SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2, privacy_unit_column=id)
     item,
-    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM professors
 GROUP BY item;
 
@@ -4545,10 +4780,10 @@ from the results.
 -- This gets the average number of items requested per professor and removes
 -- noise from the results
 SELECT
-  WITH ANONYMIZATION
+  WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=2)
     item,
-    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
@@ -4568,7 +4803,7 @@ SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=2, privacy_unit_column=id)
     item,
-    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM professors
 GROUP BY item;
 
@@ -4582,19 +4817,19 @@ GROUP BY item;
 ```
 
 #### Limit the groups in which a privacy unit ID can exist 
-<a id="limit_groups"></a>
+<a id="limit_groups_for_privacy_unit"></a>
 
 A privacy unit column can exist within multiple groups. For example, in the
 `professors` table, the privacy unit column `123` exists in the `pencil` and
-`pen` group. You can set `kappa` or `max_groups_contributed` to different values to limit how many
+`pen` group. You can set `max_groups_contributed` to different values to limit how many
 groups each privacy unit column will be included in.
 
 ```sql
 SELECT
-  WITH ANONYMIZATION
+  WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
     item,
-    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
@@ -4614,7 +4849,7 @@ SELECT
   WITH DIFFERENTIAL_PRIVACY
     OPTIONS(epsilon=1e20, delta=.01, privacy_unit_column=id)
     item,
-    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+    AVG(quantity, contribution_bounds_per_group => (0,100)) AS average_quantity
 FROM professors
 GROUP BY item;
 
@@ -4626,6 +4861,58 @@ GROUP BY item;
  | pencil   | 40               |
  | pen      | 18.5             |
  | scissors | 8                |
+ *----------+------------------*/
+```
+
+#### Use public groups in a differentially private query 
+<a id="use_public_groups"></a>
+
+In the following example, `UNNEST(["pen", "pencil", "book"])` is not
+anonymized because it's public knowledge and doesn't reveal any information
+about user data. In the results, `scissors` is excluded because it's not in the
+public table that is generated by the `UNNEST` operation.
+
+```sql
+-- Create the professors table (table to protect)
+CREATE OR REPLACE TABLE {{USERNAME}}.professors AS (
+  SELECT 101 AS id, "pencil" AS item, 24 AS quantity UNION ALL
+  SELECT 123, "pen", 16 UNION ALL
+  SELECT 123, "pencil", 10 UNION ALL
+  SELECT 123, "pencil", 38 UNION ALL
+  SELECT 101, "pen", 19 UNION ALL
+  SELECT 101, "pen", 23 UNION ALL
+  SELECT 130, "scissors", 8 UNION ALL
+  SELECT 150, "pencil", 72);
+
+-- Create the professors view
+CREATE OR REPLACE VIEW {{USERNAME}}.view_on_professors
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM {{USERNAME}}.professors);
+
+-- Run the DIFFERENTIAL_PRIVACY query
+SELECT WITH DIFFERENTIAL_PRIVACY
+  OPTIONS (
+    epsilon = 1e20,
+    delta = .01,
+    max_groups_contributed = 1,
+    group_selection_strategy = PUBLIC_GROUPS
+  )
+  item,
+  AVG(quantity) AS average_quantity
+FROM {{USERNAME}}.view_on_professors
+RIGHT OUTER JOIN
+(SELECT DISTINCT item FROM UNNEST(['pen', 'pencil', 'book']))
+USING (item)
+GROUP BY item;
+
+-- The privacy unit ID 123 was only included in the pen group in this example.
+-- Noise was removed from this query for demonstration purposes only.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ | book     | 0                |
  *----------+------------------*/
 ```
 
@@ -5469,11 +5756,13 @@ Results:
 
 [dp-epsilon]: #dp_epsilon
 
-[dp-kappa]: #dp_kappa
+[dp-max-groups]: #dp_max_groups
 
 [dp-delta]: #dp_delta
 
 [dp-privacy-unit-id]: #dp_privacy_unit_id
+
+[dp-group-selection-strategy]: #dp_group_selection_strategy
 
 [dp-define-privacy-unit-id]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_define_privacy_unit_id
 

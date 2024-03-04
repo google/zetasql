@@ -29,6 +29,7 @@
 #include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "re2/re2.h"
 
 namespace zetasql {
@@ -104,7 +105,7 @@ std::vector<std::string> GetSectionFromFile(
 // returns them as a set. Recognizes both the quoted form (e.g. "foo") and the
 // direct form (e.g. KW_FOO).
 std::set<std::string> ExtractKeywordsFromLines(
-    const std::vector<std::string>& input) {
+    absl::Span<const std::string> input) {
   std::set<std::string> result;
   RE2 extract_quoted_keyword(".*\"([A-Za-z_]+)\".*");
   RE2 extract_unquoted_keyword(".*KW_([A-Za-z_]+).*");
@@ -128,7 +129,7 @@ std::set<std::string> ExtractKeywordsFromLines(
 // followed by a space. Rules with trailing context (e.g. "foo/bar") are
 // ignored.
 std::set<std::string> ExtractTokenizerKeywordsFromLines(
-    const std::vector<std::string>& input) {
+    absl::Span<const std::string> input) {
   std::set<std::string> result;
   RE2 extract_tokenizer_keyword("^([A-Za-z_]+) ");
   for (const std::string& line : input) {

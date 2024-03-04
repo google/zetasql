@@ -47,6 +47,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "zetasql/base/endian.h"
 
 namespace zetasql {
@@ -374,8 +375,8 @@ struct IdStringEqualFunc {
 };
 
 template <class KeyEqual>
-bool IdStringVectorHasPrefix(const std::vector<IdString>& original_idstrings,
-                             const std::vector<IdString>& prefix_idstrings) {
+bool IdStringVectorHasPrefix(absl::Span<const IdString> original_idstrings,
+                             absl::Span<const IdString> prefix_idstrings) {
   if (prefix_idstrings.size() > original_idstrings.size()) {
     return false;
   }

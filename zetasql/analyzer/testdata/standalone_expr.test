@@ -430,16 +430,16 @@ KeyValue.Key
 # of the SELECT list itself) and because it outputs multiple columns.
 (select 1 x).*
 --
-ERROR: Syntax error: Expected end of input but got "." [at 1:13]
+ERROR: Syntax error: Unexpected "*" [at 1:14]
 (select 1 x).*
-            ^
+             ^
 ==
 
 @test_param_proto.*
 --
-ERROR: Syntax error: Expected end of input but got "." [at 1:18]
+ERROR: Syntax error: Unexpected "*" [at 1:19]
 @test_param_proto.*
-                 ^
+                  ^
 ==
 
 [parameter_mode=positional]
@@ -447,9 +447,9 @@ ERROR: Syntax error: Expected end of input but got "." [at 1:18]
 
 ?.*
 --
-ERROR: Syntax error: Expected end of input but got "." [at 1:2]
+ERROR: Syntax error: Unexpected "*" [at 1:3]
 ?.*
- ^
+  ^
 ==
 
 *

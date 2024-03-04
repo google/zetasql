@@ -14,19 +14,12 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_ANONYMIZATION_REWRITER_H_
-#define ZETASQL_ANALYZER_ANONYMIZATION_REWRITER_H_
-
-#include <memory>
+#ifndef ZETASQL_ANALYZER_REWRITERS_ANONYMIZATION_REWRITER_H_
+#define ZETASQL_ANALYZER_REWRITERS_ANONYMIZATION_REWRITER_H_
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
-#include "zetasql/public/rewriter_interface.h"
-#include "zetasql/public/type.h"
-#include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 
@@ -61,7 +54,7 @@ struct RewriteForAnonymizationOutput {
 // through this rewriter to apply the differential privacy semantic rewrites
 // before executing.
 //
-// Calls to RewriteForAnonymization are not idempotent, don't parse and rewrite
+// Calls to RewriteForAnonymization are not idempotent. Don't parse and rewrite
 // a query, unparse with SqlBuilder, and parse and rewrite again.
 // TODO: add a state enum to ResolvedAnonymizedAggregateScan to
 // track rewrite status
@@ -80,4 +73,4 @@ const Rewriter* GetAnonymizationRewriter();
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_ANONYMIZATION_REWRITER_H_
+#endif  // ZETASQL_ANALYZER_REWRITERS_ANONYMIZATION_REWRITER_H_

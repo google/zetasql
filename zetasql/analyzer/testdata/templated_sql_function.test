@@ -680,6 +680,476 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
       +-ArgumentRef(parse_location=4-5, type=INT64, name="x", argument_kind=AGGREGATE)
 ==
 
+# Regression test for b/316178328.
+#
+# The UDF is defined like
+#   CREATE FUNCTION udf_any_and_double_args_return_any(
+#       a ANY TYPE, x DOUBLE) AS (IF(x < 0, 'a', 'b'));
+#
+# The NULL value for argument 'x' in the second call should be converted to
+# DOUBLE explicitly, or otherwise the '<' in the templated SQL body would become
+# a comparison between two INT64s.
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+SELECT
+  udf_any_and_double_args_return_any(1, 314),
+  udf_any_and_double_args_return_any(1, null);
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=314)
+    | +-$col2#2 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=DOUBLE, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+| +-ArgumentRef(type=DOUBLE, name="x")
+| +-Literal(type=DOUBLE, value=0)
++-Literal(type=STRING, value="a")
++-Literal(type=STRING, value="b")
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+| +-ArgumentRef(type=INT64, name="x")
+| +-Literal(type=INT64, value=0)
++-Literal(type=STRING, value="a")
++-Literal(type=STRING, value="b")
+--
+ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=DOUBLE, value=314)
+    | +-$col2#2 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=DOUBLE, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_double_args_return_any(INT64, DOUBLE) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+| +-ArgumentRef(type=DOUBLE, name="x")
+| +-Literal(type=DOUBLE, value=0)
++-Literal(type=STRING, value="a")
++-Literal(type=STRING, value="b")
+==
+
+# Regression test for b/316178328.
+#
+# The UDF is defined like
+#   CREATE FUNCTION udf_any_and_double_array_args_return_any(
+#       a ANY TYPE, x ARRAY<DOUBLE>) AS (IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b'));
+#
+# The NULL and [] values for argument 'x' in the 2nd and 3rd calls should be
+# converted to DOUBLE array explicitly.
+# Before the fix, the type of 'x' in the 2nd and 3rd templated SQL function call
+# bodies would be ARRAY<INT64> which is the default type of an untyped NULL or
+# an empty array.
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+SELECT
+  udf_any_and_double_array_args_return_any(1, [314.0]),
+  udf_any_and_double_array_args_return_any(1, null),
+  udf_any_and_double_array_args_return_any(1, []);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid function udf_any_and_double_array_args_return_any [at 3:3]
+  udf_any_and_double_array_args_return_any(1, null),
+  ^
+Analysis of function Templated_SQL_Function:udf_any_and_double_array_args_return_any failed [at 1:4]
+IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')
+   ^
+Function calls with SAFE are not supported [at 1:4]
+IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')
+   ^
+--
+ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(Templated_SQL_Function:udf_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=ARRAY<DOUBLE>, value=[314])
+    | +-$col2#2 :=
+    | | +-FunctionCall(Templated_SQL_Function:udf_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> STRING)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=ARRAY<DOUBLE>, value=NULL)
+    | +-$col3#3 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> STRING)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ARRAY<DOUBLE>, value=[])
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+| +-FunctionCall(ZetaSQL:$safe_array_at_offset(ARRAY<DOUBLE>, INT64) -> DOUBLE)
+| | +-ArgumentRef(type=ARRAY<DOUBLE>, name="x")
+| | +-Literal(type=INT64, value=0)
+| +-Literal(type=DOUBLE, value=0)
++-Literal(type=STRING, value="a")
++-Literal(type=STRING, value="b")
+==
+
+# Regression test for b/259962379.
+#
+# The UDF is defined like
+#   CREATE FUNCTION udf_any_and_string_args_return_string_arg(
+#       a ANY TYPE, x DOUBLE) AS (x);
+#
+# Before the fix, the type of 'x' in the templated SQL function call body would
+# be INT64 which is the default type of an untyped NULL.
+# Cannot run with the feature disabled, or it would run into the error like
+# 'Unparsed tree does not produce same result shape as the original resolved
+# tree'.
+[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+SELECT udf_any_and_string_args_return_string_arg(TRUE, NULL);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_any_and_string_args_return_string_arg(BOOL, STRING) -> STRING)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=STRING, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_string_args_return_string_arg(BOOL, STRING) -> STRING
+containing resolved templated expression:
+ArgumentRef(type=STRING, name="x")
+==
+
+# Regression test for b/259962379.
+#
+# The UDF is defined like
+#   CREATE FUNCTION udf_any_and_string_args_return_string_arg(
+#       a ANY TYPE, x DOUBLE) AS (x);
+#
+# Unlike the case above, here the function argument is an untyped parameter.
+# This test case verifies that the untyped parameter can be handled correctly
+# with and without the feature.
+[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+[allow_undeclared_parameters]
+SELECT udf_any_and_string_args_return_string_arg(TRUE, @untyped_param);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_any_and_string_args_return_string_arg(BOOL, STRING) -> STRING)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Parameter(parse_location=55-69, type=STRING, name="untyped_param")
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_any_and_string_args_return_string_arg(BOOL, STRING) -> STRING
+containing resolved templated expression:
+ArgumentRef(type=STRING, name="x")
+[UNDECLARED_PARAMETERS]
+untyped_param: STRING
+==
+
+# Regression test for b/316178328.
+#
+# The UDA is defined like
+#   CREATE AGGREGATE FUNCTION uda_any_and_double_args_return_any(
+#       a ANY TYPE NOT AGGREGATE, x DOUBLE) AS (
+#     STRING_AGG(IF(x < 0, 'a', 'b'))
+#   );
+#
+# The NULL value for argument 'x' in the call should be converted to DOUBLE
+# explicitly, or otherwise the '<' in the templated SQL body would become a
+# comparison between two INT64s.
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+SELECT uda_any_and_double_args_return_any(3.1415, NULL)
+FROM KeyValue
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_double_args_return_any(DOUBLE, DOUBLE) -> STRING)
+              +-Literal(type=DOUBLE, value=3.1415)
+              +-Literal(type=DOUBLE, value=NULL)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_any_and_double_args_return_any(DOUBLE {is_not_aggregate: true}, DOUBLE) -> STRING
+containing resolved templated expression:
+ColumnRef(type=STRING, column=$aggregate.$agg1#1)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+      +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+        +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        | +-ArgumentRef(parse_location=14-15, type=INT64, name="x", argument_kind=AGGREGATE)
+        | +-Literal(type=INT64, value=0)
+        +-Literal(type=STRING, value="a")
+        +-Literal(type=STRING, value="b")
+--
+ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_double_args_return_any(DOUBLE, DOUBLE) -> STRING)
+              +-Literal(type=DOUBLE, value=3.1415)
+              +-Literal(type=DOUBLE, value=NULL)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_any_and_double_args_return_any(DOUBLE {is_not_aggregate: true}, DOUBLE) -> STRING
+containing resolved templated expression:
+ColumnRef(type=STRING, column=$aggregate.$agg1#1)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+      +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+        +-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+        | +-ArgumentRef(parse_location=14-15, type=DOUBLE, name="x", argument_kind=AGGREGATE)
+        | +-Literal(type=DOUBLE, value=0)
+        +-Literal(type=STRING, value="a")
+        +-Literal(type=STRING, value="b")
+==
+
+# Regression test for b/316178328.
+#
+# The UDA is defined like
+#   CREATE AGGREGATE FUNCTION uda_any_and_double_array_args_return_any(
+#       a ANY TYPE, x ARRAY<DOUBLE> NOT AGGREGATE) AS (
+#     IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
+#   );
+#
+# The NULL and [] values for argument 'x' in the 2nd and 3rd calls should be
+# converted to DOUBLE array explicitly.
+# Before the fix, the type of 'x' in the 2nd and 3rd templated SQL function call
+# bodies would be ARRAY<INT64> which is the default type of an untyped NULL or
+# an empty array.
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+SELECT
+  uda_any_and_double_array_args_return_any(key, [314.0]),
+  uda_any_and_double_array_args_return_any(key, null),
+  uda_any_and_double_array_args_return_any(key, [])
+FROM
+  keyValue
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid function uda_any_and_double_array_args_return_any [at 3:3]
+  uda_any_and_double_array_args_return_any(key, null),
+  ^
+Analysis of function Templated_SQL_Function:uda_any_and_double_array_args_return_any failed [at 1:4]
+IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
+   ^
+Function calls with SAFE are not supported [at 1:4]
+IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
+   ^
+--
+ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
+| +-$aggregate.$agg2#4 AS `$col2` [INT64]
+| +-$aggregate.$agg3#5 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#3, $agg2#4, $agg3#5]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4, $agg3#5]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> INT64)
+          |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   +-Literal(type=ARRAY<DOUBLE>, value=[314])
+          +-$agg2#4 :=
+          | +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> INT64)
+          |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   +-Literal(type=ARRAY<DOUBLE>, value=NULL)
+          +-$agg3#5 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE>) -> INT64)
+              +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+              +-Literal(type=ARRAY<DOUBLE>, value=[])
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_any_and_double_array_args_return_any(INT64, ARRAY<DOUBLE> {is_not_aggregate: true}) -> INT64
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
++-FunctionCall(ZetaSQL:$less(DOUBLE, DOUBLE) -> BOOL)
+| +-FunctionCall(ZetaSQL:$safe_array_at_offset(ARRAY<DOUBLE>, INT64) -> DOUBLE)
+| | +-ArgumentRef(type=ARRAY<DOUBLE>, name="x", argument_kind=NOT_AGGREGATE)
+| | +-Literal(type=INT64, value=0)
+| +-Literal(type=DOUBLE, value=0)
++-ColumnRef(type=INT64, column=$aggregate.$agg1#1)
++-ColumnRef(type=INT64, column=$aggregate.$agg2#2)
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+      +-ArgumentRef(parse_location=30-31, type=INT64, name="a", argument_kind=AGGREGATE)
+
+  $agg2#2 :=
+    +-AggregateFunctionCall(ZetaSQL:min(INT64) -> INT64)
+      +-ArgumentRef(parse_location=38-39, type=INT64, name="a", argument_kind=AGGREGATE)
+==
+
+# Regression test for b/259962379.
+#
+# The UDA is defined like
+#   CREATE AGGREGATE FUNCTION uda_any_and_string_args_return_string(
+#       a ANY TYPE, x STRING NOT AGGREGATE) AS (
+#     IF(LOGICAL_OR(a), x, x || '_suffix')
+#   );
+#
+# Before the fix, the type of 'x' in the templated SQL function call body would
+# be INT64 which is the default type of an untyped NULL.
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+SELECT uda_any_and_string_args_return_string(key > 43, NULL)
+FROM
+  keyValue
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid function uda_any_and_string_args_return_string [at 1:8]
+SELECT uda_any_and_string_args_return_string(key > 43, NULL)
+       ^
+Analysis of function Templated_SQL_Function:uda_any_and_string_args_return_string failed [at 1:22]
+IF(LOGICAL_OR(a), x, x || '_suffix')
+                     ^
+No matching signature for operator || for argument types: INT64, STRING. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:22]
+IF(LOGICAL_OR(a), x, x || '_suffix')
+                     ^
+--
+Signature Mismatch Details:
+ERROR: Invalid function uda_any_and_string_args_return_string [at 1:8]
+SELECT uda_any_and_string_args_return_string(key > 43, NULL)
+       ^
+Analysis of function Templated_SQL_Function:uda_any_and_string_args_return_string failed [at 1:22]
+IF(LOGICAL_OR(a), x, x || '_suffix')
+                     ^
+No matching signature for operator ||
+  Argument types: INT64, STRING
+  Signature: STRING || STRING
+    Argument 1: Unable to coerce type INT64 to expected type STRING
+  Signature: BYTES || BYTES
+    Argument 1: Unable to coerce type INT64 to expected type BYTES
+  Signature: (ARRAY<T1>) || (ARRAY<T1>)
+    Argument 1: expected array type but found INT64 [at 1:22]
+IF(LOGICAL_OR(a), x, x || '_suffix')
+                     ^
+--
+ALTERNATION GROUP: TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_any_and_string_args_return_string(BOOL, STRING) -> STRING)
+              +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+              | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+              | +-Literal(type=INT64, value=43)
+              +-Literal(type=STRING, value=NULL)
+
+With Templated SQL function call:
+  Templated_SQL_Function:uda_any_and_string_args_return_string(BOOL, STRING {is_not_aggregate: true}) -> STRING
+containing resolved templated expression:
+FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
++-ColumnRef(type=BOOL, column=$aggregate.$agg1#1)
++-ArgumentRef(type=STRING, name="x", argument_kind=NOT_AGGREGATE)
++-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+  +-ArgumentRef(type=STRING, name="x", argument_kind=NOT_AGGREGATE)
+  +-Literal(type=STRING, value="_suffix")
+
+  $agg1#1 :=
+    +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+      +-ArgumentRef(parse_location=14-15, type=BOOL, name="a", argument_kind=AGGREGATE)
+==
+
 ################################################################################
 #
 # Negative test cases

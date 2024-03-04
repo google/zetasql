@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
@@ -38,9 +37,7 @@
 #include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 

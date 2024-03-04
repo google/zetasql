@@ -21,13 +21,14 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-TableFromProto::TableFromProto(const std::string& name) : SimpleTable(name) {}
+TableFromProto::TableFromProto(absl::string_view name) : SimpleTable(name) {}
 
 TableFromProto::~TableFromProto() {
 }

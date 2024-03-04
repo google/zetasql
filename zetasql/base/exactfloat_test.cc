@@ -18,13 +18,13 @@
 
 #include <math.h>
 
+#include <cstdint>
 #include <limits>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "gtest/gtest.h"
 #include "absl/base/casts.h"
-#include <cstdint>
 #include "absl/base/macros.h"
 
 namespace zetasql_base {

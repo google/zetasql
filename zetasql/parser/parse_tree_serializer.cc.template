@@ -121,6 +121,10 @@ absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
   proto->set_{{field.name}}(static_cast<{{field.enum_value}}>(node->{{field.member_name}}));
   # elif field.member_type is eq('IdString')
   proto->set_{{field.name}}(node->{{field.member_name}}.ToString());
+  # elif not field.serialize_default_value
+  if (node->{{field.member_name}}) {
+    proto->set_{{field.name}}(node->{{field.member_name}});
+  }
   # else
   {# This case includes bool, int, std::string, TypeKind. #}
   proto->set_{{field.name}}(node->{{field.member_name}});

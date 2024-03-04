@@ -1539,9 +1539,9 @@ std::string ASTFilterFieldsArg::SingleNodeDebugString() const {
                       GetSQLForOperator(), ")");
 }
 
-std::string ASTLeaf::SingleNodeDebugString() const {
+std::string ASTPrintableLeaf::SingleNodeDebugString() const {
   return absl::StrCat(std::string(ASTNode::SingleNodeDebugString()), "(",
-                        image_, ")");
+                      image_, ")");
 }
 
 std::string ASTWithClause::SingleNodeDebugString() const {
@@ -1622,6 +1622,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "DATABASE";
     case SchemaObjectKind::kExternalTable:
       return "EXTERNAL TABLE";
+    case SchemaObjectKind::kExternalSchema:
+      return "EXTERNAL SCHEMA";
     case SchemaObjectKind::kFunction:
       return "FUNCTION";
     case SchemaObjectKind::kIndex:

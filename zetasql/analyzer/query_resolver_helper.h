@@ -121,19 +121,37 @@ struct GroupingSetIds {
   GroupingSetKind kind;
 };
 
+// This stores a column to order by in the final ResolvedOrderByScan.
 struct OrderByItemInfo {
-  OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,
+  // Constructor for ordering by an ordinal (column number).
+  OrderByItemInfo(const ASTNode* ast_location_in,
+                  const ASTCollate* ast_collate_in, int64_t index,
                   bool descending,
                   ResolvedOrderByItemEnums::NullOrderMode null_order)
       : ast_location(ast_location_in),
+        ast_collate(ast_collate_in),
         select_list_index(index),
         is_descending(descending),
         null_order(null_order) {}
+  // Constructor for ordering by an expression.
   OrderByItemInfo(const ASTNode* ast_location_in,
+                  const ASTCollate* ast_collate_in,
                   std::unique_ptr<const ResolvedExpr> expr, bool descending,
                   ResolvedOrderByItemEnums::NullOrderMode null_order)
       : ast_location(ast_location_in),
+        ast_collate(ast_collate_in),
         order_expression(std::move(expr)),
+        is_descending(descending),
+        null_order(null_order) {}
+  // Constructor for ordering by a ResolvedColumn (that will exist when
+  // we get to MakeResolvedOrderByScan).
+  OrderByItemInfo(const ASTNode* ast_location_in,
+                  const ASTCollate* ast_collate_in,
+                  const ResolvedColumn& order_column_in, bool descending,
+                  ResolvedOrderByItemEnums::NullOrderMode null_order)
+      : ast_location(ast_location_in),
+        ast_collate(ast_collate_in),
+        order_column(order_column_in),
         is_descending(descending),
         null_order(null_order) {}
 
@@ -141,7 +159,8 @@ struct OrderByItemInfo {
   static constexpr int64_t kInvalidSelectListIndex =
       std::numeric_limits<int64_t>::max();
 
-  const ASTNode* ast_location;
+  const ASTNode* ast_location;    // Expression being ordered by.
+  const ASTCollate* ast_collate;  // Collate clause, if present.
 
   bool is_select_list_index() const {
     return select_list_index != kInvalidSelectListIndex;
@@ -153,7 +172,12 @@ struct OrderByItemInfo {
   // be populated.
   int64_t select_list_index = kInvalidSelectListIndex;
 
-  // Only populated if <select_list_index> == -1;
+  // Expression or ResolvedColumn to order by.
+  // Not populated if selecting by ordinal, i.e. <select_list_index> != -1
+  // The <order_expression> is originally filled in by ResolveOrderingExprs.
+  // AddColumnsForOrderByExprs resolves those expressions to a specific
+  // <order_column>, which is then referenced in MakeResolvedOrderByScan.
+  //
   std::unique_ptr<const ResolvedExpr> order_expression;
   ResolvedColumn order_column;
 
@@ -203,7 +227,7 @@ struct QueryGroupByAndAggregateInfo {
   // Columns referenced by GROUPING function calls. A GROUPING function call
   // has a single ResolvedComputedColumn argument per call as well as an
   // output column to be referenced in column lists.
-  std::vector<std::unique_ptr<const ResolvedGroupingCall>> grouping_list;
+  std::vector<std::unique_ptr<const ResolvedGroupingCall>> grouping_call_list;
 
   // Aggregate function calls that must be computed.
   // This is built up as expressions are resolved.  During expression
@@ -254,10 +278,11 @@ struct QueryGroupByAndAggregateInfo {
 // TODO: Convert this to an enacapsulated class.
 struct SelectColumnState {
   explicit SelectColumnState(
-      const ASTExpression* ast_expr_in, IdString alias_in, bool is_explicit_in,
-      bool has_aggregation_in, bool has_analytic_in, bool has_volatile_in,
+      const ASTSelectColumn* ast_select_column, IdString alias_in,
+      bool is_explicit_in, bool has_aggregation_in, bool has_analytic_in,
+      bool has_volatile_in,
       std::unique_ptr<const ResolvedExpr> resolved_expr_in)
-      : ast_expr(ast_expr_in),
+      : ast_expr(ast_select_column->expression()),
         alias(alias_in),
         is_explicit(is_explicit_in),
         select_list_position(-1),
@@ -282,6 +307,7 @@ struct SelectColumnState {
   // Returns a multi-line debug string, where each line is prefixed by <indent>.
   std::string DebugString(absl::string_view indent = "") const;
 
+  // The expression for this selected column.
   // Points at the * if this came from SELECT *.
   const ASTExpression* ast_expr;
 
@@ -307,6 +333,12 @@ struct SelectColumnState {
   // this <resolved_expr> will be transferred to that ResolvedComputedColumn
   // and <resolved_expr> will be set to NULL.
   std::unique_ptr<const ResolvedExpr> resolved_expr;
+
+  // Unowned ResolvedExpr for this SELECT list item's original expression before
+  // it's updated to be a reference to a computed expression.
+  // It's only used if the `resolved_expr` is updated to a computed column.
+  // TODO: b/325532418 - propagate this as `resolved_expr` unconditionally
+  const ResolvedExpr* original_resolved_expr = nullptr;
 
   // References the related ResolvedComputedColumn for this SELECT list column,
   // if one is needed.  Otherwise it is NULL.  The referenced
@@ -359,7 +391,7 @@ class SelectColumnStateList {
   // not change any scoping behavior except for the final check in strict mode
   // that may raise an error. For more information, please see the beginning of
   // (broken link).
-  void AddSelectColumn(const ASTExpression* ast_expr, IdString alias,
+  void AddSelectColumn(const ASTSelectColumn* ast_select_column, IdString alias,
                        bool is_explicit, bool has_aggregation,
                        bool has_analytic, bool has_volatile,
                        std::unique_ptr<const ResolvedExpr> resolved_expr);
@@ -517,10 +549,24 @@ class QueryResolutionInfo {
     return !group_by_info_.grouping_set_list.empty();
   }
 
+  // Returns whether the query contains GROUPING function calls. grouping_list
+  // and grouping_output_columns are populated at different stages, so we check
+  // them both.
+  bool HasGroupingCall() const {
+    return !group_by_info_.grouping_call_list.empty() ||
+           !group_by_info_.grouping_output_columns.empty();
+  }
+
   // Returns whether or not the query includes analytic functions.
   bool HasAnalytic() const;
 
-  absl::Status CheckComputedColumnListsAreEmpty();
+  // Returns whether or not the query includes aggregate functions.
+  bool HasAggregation() const;
+
+  // Sets the boolean indicating the query contains an aggregation function.
+  void SetHasAggregation(bool value);
+
+  absl::Status CheckComputedColumnListsAreEmpty() const;
 
   void set_is_post_distinct(bool is_post_distinct) {
     group_by_info_.is_post_distinct = is_post_distinct;
@@ -547,15 +593,15 @@ class QueryResolutionInfo {
   }
 
   std::vector<std::unique_ptr<const ResolvedGroupingCall>>
-  release_grouping_columns_list() {
+  release_grouping_call_list() {
     std::vector<std::unique_ptr<const ResolvedGroupingCall>> tmp;
-    group_by_info_.grouping_list.swap(tmp);
+    group_by_info_.grouping_call_list.swap(tmp);
     return tmp;
   }
 
   const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
   grouping_columns_list() const {
-    return group_by_info_.grouping_list;
+    return group_by_info_.grouping_call_list;
   }
 
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
@@ -596,7 +642,6 @@ class QueryResolutionInfo {
   const std::vector<OrderByItemInfo>& order_by_item_info() {
     return order_by_item_info_;
   }
-
   std::vector<OrderByItemInfo>* mutable_order_by_item_info() {
     return &order_by_item_info_;
   }
@@ -766,6 +811,8 @@ class QueryResolutionInfo {
   // columns if the query has GROUP BY or aggregation, and either HAVING or
   // ORDER BY is present in the query.  This list only contains SELECT columns
   // that do not themselves include aggregation.
+  // Note that, the computed columns might or might not be used by other parts
+  // of the query like GROUP BY, HAVING, ORDER BY, etc.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       select_list_columns_to_compute_before_aggregation_;
 
@@ -832,7 +879,7 @@ class QueryResolutionInfo {
   // ORDER BY information.
   bool has_order_by_ = false;
 
-  // List of ORDER BY information.
+  // List of items from ORDER BY.
   std::vector<OrderByItemInfo> order_by_item_info_;
 
   // DML THEN RETURN information, where it also uses the select list.

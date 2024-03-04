@@ -204,7 +204,7 @@ void Unparser::PrintCloseParenIfNeeded(const ASTNode* node) {
   }
 }
 
-void Unparser::UnparseLeafNode(const ASTLeaf* leaf_node) {
+void Unparser::UnparseLeafNode(const ASTPrintableLeaf* leaf_node) {
   print(leaf_node->image());
 }
 
@@ -1263,6 +1263,11 @@ void Unparser::visitASTUndropStatement(const ASTUndropStatement* node,
     Formatter::Indenter indenter(&formatter_);
     node->for_system_time()->Accept(this, data);
   }
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
@@ -1584,11 +1589,42 @@ void Unparser::visitASTAliasedQuery(const ASTAliasedQuery* node, void* data) {
   }
   println();
   print(")");
+  if (node->modifiers() != nullptr) {
+    node->modifiers()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTAliasedQueryList(const ASTAliasedQueryList* node,
                                         void* data) {
   UnparseVectorWithSeparator(node->aliased_query_list(), data, ",");
+}
+
+void Unparser::visitASTAliasedQueryModifiers(
+    const ASTAliasedQueryModifiers* node, void* data) {
+  if (node->recursion_depth_modifier() != nullptr) {
+    node->recursion_depth_modifier()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTRecursionDepthModifier(
+    const ASTRecursionDepthModifier* node, void* data) {
+  print("WITH DEPTH");
+  if (node->alias() != nullptr) {
+    node->alias()->Accept(this, data);
+  }
+  print("BETWEEN");
+  node->lower_bound()->Accept(this, data);
+  print("AND");
+  node->upper_bound()->Accept(this, data);
+}
+
+void Unparser::visitASTIntOrUnbounded(const ASTIntOrUnbounded* node,
+                                      void* data) {
+  if (node->bound() != nullptr) {
+    node->bound()->Accept(this, data);
+  } else {
+    print("UNBOUNDED");
+  }
 }
 
 void Unparser::visitASTIntoAlias(const ASTIntoAlias* node, void* data) {
@@ -1955,6 +1991,7 @@ void Unparser::visitASTNewConstructor(const ASTNewConstructor* node,
 
 void Unparser::visitASTBracedConstructorFieldValue(
     const ASTBracedConstructorFieldValue* node, void* data) {
+  print(node->colon_prefixed() ? ": " : " ");
   if (node->expression()) {
     node->expression()->Accept(this, data);
   }
@@ -1970,21 +2007,14 @@ void Unparser::visitASTBracedConstructorField(
     node->parenthesized_path()->Accept(this, data);
     print(")");
   }
-  print(": ");
   node->value()->Accept(this, data);
 }
 
 void Unparser::visitASTBracedConstructor(const ASTBracedConstructor* node,
                                          void* data) {
   print("{");
-  bool first = true;
   for (auto* field : node->fields()) {
-    if (first) {
-      field->Accept(this, data);
-      first = false;
-      continue;
-    }
-    if (field->parenthesized_path()) {
+    if (field->comma_separated()) {
       print(",");
     }
     field->Accept(this, data);
@@ -1996,6 +2026,16 @@ void Unparser::visitASTBracedNewConstructor(const ASTBracedNewConstructor* node,
                                             void* data) {
   print("NEW");
   node->type_name()->Accept(this, data);
+  node->braced_constructor()->Accept(this, data);
+}
+
+void Unparser::visitASTStructBracedConstructor(
+    const ASTStructBracedConstructor* node, void* data) {
+  if (node->type_name() != nullptr) {
+    node->type_name()->Accept(this, data);
+  } else {
+    print("STRUCT");
+  }
   node->braced_constructor()->Accept(this, data);
 }
 
@@ -2053,18 +2093,18 @@ void Unparser::visitASTIntLiteral(const ASTIntLiteral* node, void* data) {
 void Unparser::visitASTNumericLiteral(
     const ASTNumericLiteral* node, void* data) {
   print("NUMERIC");
-  UnparseLeafNode(node);
+  node->string_literal()->Accept(this, data);
 }
 
 void Unparser::visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                          void* data) {
   print("BIGNUMERIC");
-  UnparseLeafNode(node);
+  node->string_literal()->Accept(this, data);
 }
 
 void Unparser::visitASTJSONLiteral(const ASTJSONLiteral* node, void* data) {
   print("JSON");
-  UnparseLeafNode(node);
+  node->string_literal()->Accept(this, data);
 }
 
 void Unparser::visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) {
@@ -2072,10 +2112,20 @@ void Unparser::visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) {
 }
 
 void Unparser::visitASTStringLiteral(const ASTStringLiteral* node, void* data) {
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTStringLiteralComponent(
+    const ASTStringLiteralComponent* node, void* data) {
   UnparseLeafNode(node);
 }
 
 void Unparser::visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) {
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTBytesLiteralComponent(
+    const ASTBytesLiteralComponent* node, void* data) {
   UnparseLeafNode(node);
 }
 
@@ -3470,6 +3520,12 @@ void Unparser::visitASTAlterDatabaseStatement(
 void Unparser::visitASTAlterSchemaStatement(
     const ASTAlterSchemaStatement* node, void* data) {
   print("ALTER SCHEMA");
+  VisitAlterStatementBase(node, data);
+}
+
+void Unparser::visitASTAlterExternalSchemaStatement(
+    const ASTAlterExternalSchemaStatement* node, void* data) {
+  print("ALTER EXTERNAL SCHEMA");
   VisitAlterStatementBase(node, data);
 }
 

@@ -25,6 +25,7 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
@@ -50,18 +51,22 @@ class ParserOptions {
  public:
   ABSL_DEPRECATED("Use the overload that accepts LanguageOptions.")
   ParserOptions();
-  explicit ParserOptions(LanguageOptions language_options);
+  explicit ParserOptions(
+      LanguageOptions language_options,
+      const parser::macros::MacroCatalog* macro_catalog = nullptr);
 
   // This will make a _copy_ of language_options. It is not referenced after
   // construction.
   ABSL_DEPRECATED("Inline me!")
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                const LanguageOptions* language_options);
+                const LanguageOptions* language_options,
+                const parser::macros::MacroCatalog* macro_catalog = nullptr);
 
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                LanguageOptions language_options = {});
+                LanguageOptions language_options = {},
+                const parser::macros::MacroCatalog* macro_catalog = nullptr);
   ~ParserOptions();
 
   // Sets an IdStringPool for storing strings used in parsing. If it is not set,
@@ -91,22 +96,14 @@ class ParserOptions {
     return arena_ != nullptr && id_string_pool_ != nullptr;
   }
 
-  // If nullptr, resets language options to default. Otherwise makes a copy
-  // of language options.
-  ABSL_DEPRECATED("Inline me!")
-  void set_language_options(const LanguageOptions* language_options) {
-    if (language_options == nullptr) {
-      language_options_ = LanguageOptions();
-    } else {
-      language_options_ = *language_options;
-    }
-  }
-
   void set_language_options(LanguageOptions language_options) {
     language_options_ = std::move(language_options);
   }
 
   const LanguageOptions& language_options() const { return language_options_; }
+  const parser::macros::MacroCatalog* macro_catalog() const {
+    return macro_catalog_;
+  }
 
  private:
   // Allocate all AST nodes in this arena.
@@ -118,6 +115,7 @@ class ParserOptions {
   std::shared_ptr<IdStringPool> id_string_pool_;
 
   LanguageOptions language_options_;
+  const parser::macros::MacroCatalog* macro_catalog_ = nullptr;
 };
 
 // Output of a parse operation. The output parse tree can be accessed via

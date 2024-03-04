@@ -281,13 +281,14 @@ function. For details, see [Function calls][function-calls].
 ### SQL type encodings in JavaScript 
 <a id="javascript_udf_data_types"></a>
 
-ZetaSQL represents types in the following manner:
+[ZetaSQL data types][data-types] represent
+[JavaScript data types][javascript-types] in the following manner:
 
 <table>
   <thead>
     <tr>
-    <th>SQL Data Type</th>
-    <th>JavaScript Data Type</th>
+    <th>ZetaSQL<br/> Data Type</th>
+    <th>JavaScript<br/> Data Type</th>
     <th>Notes</th>
     </tr>
   </thead>
@@ -296,7 +297,12 @@ ZetaSQL represents types in the following manner:
     <tr>
       <td>ARRAY</td>
       <td>Array</td>
-      <td></td>
+      <td>
+        An array of arrays is not supported. To get around this
+        limitation, use
+        JavaScript <code>Array&lt;Object&lt;Array&gt;&gt;</code> and
+        ZetaSQL <code>ARRAY&lt;STRUCT&lt;ARRAY&gt;&gt;</code>.
+      </td>
     </tr>
     
     
@@ -375,14 +381,12 @@ ZetaSQL represents types in the following manner:
     <tr>
       <td>INT64</td>
       <td>
-        
-        See notes
-        
+        N/A
       </td>
       <td>
-        
-        See the documentation for your database engine.
-        
+        INT64 is unsupported as an input type for JavaScript UDFs. Instead,
+        use DOUBLE to represent integer values as a
+        number, or STRING to represent integer values as a string.
       </td>
     </tr>
     
@@ -392,12 +396,12 @@ ZetaSQL represents types in the following manner:
         UINT64
       </td>
       <td>
-        
-        See notes
-        
+        N/A
       </td>
       <td>
-        Same as INT64.
+        UINT64 is unsupported as an input type for JavaScript UDFs. Instead,
+        use DOUBLE to represent integer values as a
+        number, or STRING to represent integer values as a string.
       </td>
     </tr>
     
@@ -413,9 +417,8 @@ ZetaSQL represents types in the following manner:
       <td>STRUCT</td>
       <td>Object</td>
       <td>
-        
-        See the documentation for your database engine.
-        
+        Object where each STRUCT field is a named property in the Object.
+        Unnamed field in STRUCT is not supported.
       </td>
     </tr>
     
@@ -439,6 +442,26 @@ ZetaSQL represents types in the following manner:
     
   </tbody>
 </table>
+
+Some ZetaSQL types have a direct mapping to JavaScript types, but
+others do not.
+
+For example, because JavaScript does not support a 64-bit integer type,
+`INT64` is unsupported as an input type for JavaScript UDFs. Instead,
+use `DOUBLE` to represent integer values as a number,
+or `STRING` to represent integer values as a string.
+
+ZetaSQL does support `INT64` as a return type in JavaScript UDFs.
+In this case, the JavaScript function body can return either a JavaScript
+`Number` or a `String`. ZetaSQL then converts either of
+these types to `INT64`.
+
+In addition, some ZetaSQL and JavaScript data types have different
+rules. For example, in JavaScript, you can have an array of arrays
+(`Array<Array>`), whereas in ZetaSQL, you can't. Before using
+encodings, ensure they are compatible. To learn more about ZetaSQL
+data types, see [ZetaSQL data types][data-types]. To learn more about
+JavaScript data types, see [JavaScript data types][javascript-types].
 
 ### JavaScript UDF examples
 
@@ -1070,6 +1093,8 @@ to pass to the function any argument type as long as the function body is
 valid for that argument type.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[javascript-types]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects
 
 [templated-parameters]: #templated_function_parameters
 

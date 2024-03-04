@@ -21,19 +21,21 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/descriptor_database.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
 
 namespace zetasql {
 
@@ -58,9 +60,8 @@ class SampleCatalog {
   // and this SampleCatalog does not take ownership of it.  If 'type_factory'
   // is not specified then a locally owned TypeFactory is created and
   // used instead.
-  explicit SampleCatalog(
-      const ZetaSQLBuiltinFunctionOptions& builtin_function_options,
-      TypeFactory* type_factory = nullptr);
+  explicit SampleCatalog(const BuiltinFunctionOptions& builtin_function_options,
+                         TypeFactory* type_factory = nullptr);
 
   SampleCatalog(const SampleCatalog&) = delete;
   SampleCatalog& operator=(const SampleCatalog&) = delete;
@@ -118,6 +119,7 @@ class SampleCatalog {
   // split it up in order to avoid lint warnings.
   void LoadTableValuedFunctions1();
   void LoadTableValuedFunctions2();
+  void LoadTableValuedFunctionsWithEvaluators();
   void LoadTVFWithExtraColumns();
   void LoadConnectionTableValuedFunctions();
   void LoadDescriptorTableValuedFunctions();
@@ -209,6 +211,9 @@ class SampleCatalog {
   const ArrayType* proto_array_type_;
   const ArrayType* struct_array_type_;
   const ArrayType* json_array_type_;
+  const ArrayType* numeric_array_type_;
+  const ArrayType* bignumeric_array_type_;
+  const ArrayType* interval_array_type_;
 
   const EnumType* enum_TestEnum_;
   const EnumType* enum_AnotherTestEnum_;

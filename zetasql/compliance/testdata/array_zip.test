@@ -1,0 +1,2278 @@
+# The function call has null arrays so the return value is NULL
+[name=null_array]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP(NULL AS a, [1, 2])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64>>(NULL)}]
+==
+
+# The function call has null arrays and explicit array_zip_mode
+[name=null_array_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, [1, 2], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64>>(NULL)}]
+==
+
+# The function call has null arrays and the return value is NULL even with explicit STRICT mode
+[name=null_array_strict_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, [1, 2], mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64>>(NULL)}]
+==
+
+# The function call has array_zip_mode = NULL and the result should be NULL
+[name=null_zip_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['s', 't'], mode => NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING>>(NULL)}]
+==
+
+# All arrays are empty array literals
+[name=all_empty_array_literals]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, [])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64>>[]}]
+==
+
+# All arrays are empty arrays of different types
+[name=all_empty_array_different_types]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, ARRAY<STRING>[])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING>>[]}]
+==
+
+# Unspecified array_zip_mode input arrays have different lengths
+[name=unspecified_array_zip_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'])
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Unspecified array_zip_mode SAFE mode arrays have different lengths
+[name=unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT SAFE.ARRAY_ZIP([1] AS a, ['a', 'b'])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING>>(NULL)}]
+==
+
+# Unspecified array_zip_mode input arrays have the same lengths
+[name=unspecified_array_zip_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+# Unspecified array_zip_mode with empty input arrays
+[name=unspecified_array_zip_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP(['a'] AS a, [])
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Unspecified array_zip_mode same-length arrays some arrays have collations
+[name=unspecified_array_zip_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a, [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# Unspecified array_zip_mode same-length arrays same collations
+[name=unspecified_array_zip_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# Unspecified array_zip_mode same-length arrays different collations
+[name=unspecified_array_zip_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, false}, {true, false}]
+==
+
+# Unspecified array_zip_mode different-length arrays some arrays have collations
+[name=unspecified_array_zip_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a, [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# PAD mode input arrays have different lengths
+[name=pad_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING>>[known order:{1, "a"}, {NULL, "b"}]}
+]
+==
+
+# PAD mode input arrays have the same lengths
+[name=pad_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+# PAD mode with empty input arrays
+[name=pad_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(['a'] AS a, [], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a STRING, INT64>>[{"a", NULL}]}]
+==
+
+# PAD mode same-length arrays some arrays have collations
+[name=pad_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# PAD mode same-length arrays same collations
+[name=pad_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# PAD mode same-length arrays different collations
+[name=pad_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, false}, {true, false}]
+==
+
+# PAD mode different-length arrays some arrays have collations
+[name=pad_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {NULL, true}]
+==
+
+# PAD mode different-length arrays same collations
+[name=pad_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {NULL, true}]
+==
+
+# PAD mode different-length arrays different collations
+[name=pad_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, false}, {NULL, false}]
+==
+
+# TRUNCATE mode input arrays have different lengths
+[name=truncate_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING>>[{1, "a"}]}]
+==
+
+# TRUNCATE mode input arrays have the same lengths
+[name=truncate_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+# TRUNCATE mode with empty input arrays
+[name=truncate_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(['a'] AS a, [], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a STRING, INT64>>[]}]
+==
+
+# TRUNCATE mode same-length arrays some arrays have collations
+[name=truncate_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# TRUNCATE mode same-length arrays same collations
+[name=truncate_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# TRUNCATE mode same-length arrays different collations
+[name=truncate_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, false}, {true, false}]
+==
+
+# TRUNCATE mode different-length arrays some arrays have collations
+[name=truncate_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+# TRUNCATE mode different-length arrays same collations
+[name=truncate_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+# TRUNCATE mode different-length arrays different collations
+[name=truncate_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+# STRICT mode input arrays have different lengths
+[name=strict_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'], mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# STRICT mode SAFE mode arrays have different lengths
+[name=strict_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT SAFE.ARRAY_ZIP([1] AS a, ['a', 'b'], mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING>>(NULL)}]
+==
+
+# STRICT mode input arrays have the same lengths
+[name=strict_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+# STRICT mode with empty input arrays
+[name=strict_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(['a'] AS a, [], mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# STRICT mode same-length arrays some arrays have collations
+[name=strict_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# STRICT mode same-length arrays same collations
+[name=strict_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, true}]
+==
+
+# STRICT mode same-length arrays different collations
+[name=strict_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, false}, {true, false}]
+==
+
+# STRICT mode different-length arrays some arrays have collations
+[name=strict_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+## ==== Start section: three input arrays ====
+
+# Three arrays: The function call has null arrays so the return value is NULL
+[name=three_arrays_null_array]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP(NULL AS a, NULL, [1, 2] AS b)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64>>(NULL)}]
+==
+
+# Three arrays: The function call has null arrays and explicit array_zip_mode
+[name=three_arrays_null_array_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, NULL, [1, 2] AS b, mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64>>(NULL)}]
+==
+
+# Three arrays: The function call has null arrays and the return value is NULL even with explicit STRICT mode
+[name=three_arrays_null_array_strict_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, NULL, [1, 2] AS b, mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64>>(NULL)}]
+==
+
+# Three arrays: The function call has array_zip_mode = NULL and the result should be NULL
+[name=three_arrays_null_zip_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['s', 't'], [TRUE] AS b, mode => NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL>>(NULL)}]
+==
+
+# Three arrays: All arrays are empty array literals
+[name=three_arrays_all_empty_array_literals]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, [], [] AS b)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64>>[]}]
+==
+
+# Three arrays: All arrays are empty arrays of different types
+[name=three_arrays_all_empty_array_different_types]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, ARRAY<STRING>[], ARRAY<BOOL>[] AS b)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL>>[]}]
+==
+
+# Three arrays: Unspecified array_zip_mode input arrays have different lengths
+[name=three_arrays_unspecified_array_zip_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b)
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: Unspecified array_zip_mode SAFE mode arrays have different lengths
+[name=three_arrays_unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT SAFE.ARRAY_ZIP([1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL>>(NULL)}]
+==
+
+# Three arrays: Unspecified array_zip_mode input arrays have the same lengths
+[name=three_arrays_unspecified_array_zip_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b)
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+# Three arrays: Unspecified array_zip_mode with empty input arrays
+[name=three_arrays_unspecified_array_zip_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([TRUE, FALSE] AS a, ['a'], [] AS b)
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: Unspecified array_zip_mode same-length arrays some arrays have collations
+[name=three_arrays_unspecified_array_zip_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: Unspecified array_zip_mode same-length arrays same collations
+[name=three_arrays_unspecified_array_zip_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: Unspecified array_zip_mode same-length arrays different collations
+[name=three_arrays_unspecified_array_zip_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, false, true},
+  {true, false, true}
+]
+==
+
+# Three arrays: Unspecified array_zip_mode different-length arrays some arrays have collations
+[name=three_arrays_unspecified_array_zip_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: PAD mode input arrays have different lengths
+[name=three_arrays_pad_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[known order:
+     {1, "a", true},
+     {NULL, "b", false},
+     {NULL, NULL, true}
+   ]}
+]
+==
+
+# Three arrays: PAD mode input arrays have the same lengths
+[name=three_arrays_pad_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+# Three arrays: PAD mode with empty input arrays
+[name=three_arrays_pad_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([TRUE, FALSE] AS a, ['a'], [] AS b, mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a BOOL, STRING, b INT64>>[known order:
+     {true, "a", NULL},
+     {false, NULL, NULL}
+   ]}
+]
+==
+
+# Three arrays: PAD mode same-length arrays some arrays have collations
+[name=three_arrays_pad_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: PAD mode same-length arrays same collations
+[name=three_arrays_pad_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: PAD mode same-length arrays different collations
+[name=three_arrays_pad_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, false, true},
+  {true, false, true}
+]
+==
+
+# Three arrays: PAD mode different-length arrays some arrays have collations
+[name=three_arrays_pad_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {NULL, true, true},
+  {NULL, NULL, true}
+]
+==
+
+# Three arrays: PAD mode different-length arrays same collations
+[name=three_arrays_pad_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {NULL, true, true},
+  {NULL, NULL, true}
+]
+==
+
+# Three arrays: PAD mode different-length arrays different collations
+[name=three_arrays_pad_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, false, true},
+  {NULL, false, true},
+  {NULL, NULL, true}
+]
+==
+
+# Three arrays: TRUNCATE mode input arrays have different lengths
+[name=three_arrays_truncate_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP([1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[{1, "a", true}]}
+]
+==
+
+# Three arrays: TRUNCATE mode input arrays have the same lengths
+[name=three_arrays_truncate_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP([1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+# Three arrays: TRUNCATE mode with empty input arrays
+[name=three_arrays_truncate_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([TRUE, FALSE] AS a, ['a'], [] AS b, mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a BOOL, STRING, b INT64>>[]}]
+==
+
+# Three arrays: TRUNCATE mode same-length arrays some arrays have collations
+[name=three_arrays_truncate_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: TRUNCATE mode same-length arrays same collations
+[name=three_arrays_truncate_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: TRUNCATE mode same-length arrays different collations
+[name=three_arrays_truncate_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, false, true},
+  {true, false, true}
+]
+==
+
+# Three arrays: TRUNCATE mode different-length arrays some arrays have collations
+[name=three_arrays_truncate_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+# Three arrays: TRUNCATE mode different-length arrays same collations
+[name=three_arrays_truncate_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+# Three arrays: TRUNCATE mode different-length arrays different collations
+[name=three_arrays_truncate_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, false, true}]
+==
+
+# Three arrays: STRICT mode input arrays have different lengths
+[name=three_arrays_strict_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP([1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: STRICT mode SAFE mode arrays have different lengths
+[name=three_arrays_strict_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL>>(NULL)}]
+==
+
+# Three arrays: STRICT mode input arrays have the same lengths
+[name=three_arrays_strict_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+# Three arrays: STRICT mode with empty input arrays
+[name=three_arrays_strict_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([TRUE, FALSE] AS a, ['a'], [] AS b, mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: STRICT mode same-length arrays some arrays have collations
+[name=three_arrays_strict_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: STRICT mode same-length arrays same collations
+[name=three_arrays_strict_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, true, true},
+  {true, true, true}
+]
+==
+
+# Three arrays: STRICT mode same-length arrays different collations
+[name=three_arrays_strict_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {true, false, true},
+  {true, false, true}
+]
+==
+
+# Three arrays: STRICT mode different-length arrays some arrays have collations
+[name=three_arrays_strict_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+## ==== Start section: Four input arrays ====
+
+# Four arrays: The function call has null arrays so the return value is NULL
+[name=four_arrays_null_array]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP(NULL AS a, NULL, NULL AS b, [1, 2])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64, INT64>>(NULL)}]
+==
+
+# Four arrays: The function call has null arrays and explicit array_zip_mode
+[name=four_arrays_null_array_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, NULL, NULL AS b, [1, 2], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64, INT64>>(NULL)}]
+==
+
+# Four arrays: The function call has null arrays and the return value is NULL even with explicit STRICT mode
+[name=four_arrays_null_array_strict_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(NULL AS a, NULL, NULL AS b, [1, 2], mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64, INT64>>(NULL)}]
+==
+
+# Four arrays: The function call has array_zip_mode = NULL and the result should be NULL
+[name=four_arrays_null_zip_mode]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP([1, 2] AS a, ['s', 't'], [TRUE] AS b, [b''], mode => NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL, BYTES>>(NULL)}]
+==
+
+# Four arrays: All arrays are empty array literals
+[name=four_arrays_all_empty_array_literals]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, [], [] AS b, [])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, INT64, b INT64, INT64>>[]}]
+==
+
+# Four arrays: All arrays are empty arrays of different types
+[name=four_arrays_all_empty_array_different_types]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([] AS a, ARRAY<STRING>[], ARRAY<BOOL>[] AS b, ARRAY<DOUBLE>[])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[]}]
+==
+
+# Four arrays: Unspecified array_zip_mode input arrays have different lengths
+[name=four_arrays_unspecified_array_zip_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT
+  ARRAY_ZIP(
+    [1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, [1.0, 2.0, 3.0, 4.0])
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: Unspecified array_zip_mode SAFE mode arrays have different lengths
+[name=four_arrays_unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1] AS a, ['a', 'b'], [TRUE, FALSE, TRUE] AS b, [1.0, 2.0, 3.0, 4.0])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>(NULL)}]
+==
+
+# Four arrays: Unspecified array_zip_mode input arrays have the same lengths
+[name=four_arrays_unspecified_array_zip_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, [1.0, 2.0])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[known order:
+     {1, "a", true, 1},
+     {2, "b", false, 2}
+   ]}
+]
+==
+
+# Four arrays: Unspecified array_zip_mode with empty input arrays
+[name=four_arrays_unspecified_array_zip_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP([1.0, 2.0, 3.0] AS a, [TRUE, FALSE], ['a'] AS b, [])
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: Unspecified array_zip_mode same-length arrays some arrays have collations
+[name=four_arrays_unspecified_array_zip_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: Unspecified array_zip_mode same-length arrays same collations
+[name=four_arrays_unspecified_array_zip_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: Unspecified array_zip_mode same-length arrays different collations
+[name=four_arrays_unspecified_array_zip_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS d))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, false, true, false},
+  {true, false, true, false}
+]
+==
+
+# Four arrays: Unspecified array_zip_mode different-length arrays some arrays have collations
+[name=four_arrays_unspecified_array_zip_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: PAD mode input arrays have different lengths
+[name=four_arrays_pad_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1] AS a,
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE] AS b,
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[known order:
+     {1, "a", true, 1},
+     {NULL, "b", false, 2},
+     {NULL, NULL, true, 3},
+     {NULL, NULL, NULL, 4}
+   ]}
+]
+==
+
+# Four arrays: PAD mode input arrays have the same lengths
+[name=four_arrays_pad_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, [1.0, 2.0], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[known order:
+     {1, "a", true, 1},
+     {2, "b", false, 2}
+   ]}
+]
+==
+
+# Four arrays: PAD mode with empty input arrays
+[name=four_arrays_pad_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP([1.0, 2.0, 3.0] AS a, [TRUE, FALSE], ['a'] AS b, [], mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a DOUBLE, BOOL, b STRING, INT64>>[known order:
+     {1, true, "a", NULL},
+     {2, false, NULL, NULL},
+     {3, NULL, NULL, NULL}
+   ]}
+]
+==
+
+# Four arrays: PAD mode same-length arrays some arrays have collations
+[name=four_arrays_pad_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: PAD mode same-length arrays same collations
+[name=four_arrays_pad_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: PAD mode same-length arrays different collations
+[name=four_arrays_pad_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, false, true, false},
+  {true, false, true, false}
+]
+==
+
+# Four arrays: PAD mode different-length arrays some arrays have collations
+[name=four_arrays_pad_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {NULL, true, true, true},
+  {NULL, NULL, true, true},
+  {NULL, NULL, NULL, true}
+]
+==
+
+# Four arrays: PAD mode different-length arrays same collations
+[name=four_arrays_pad_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {NULL, true, true, true},
+  {NULL, NULL, true, true},
+  {NULL, NULL, NULL, true}
+]
+==
+
+# Four arrays: PAD mode different-length arrays different collations
+[name=four_arrays_pad_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      [
+        COLLATE('c', 'binary'), COLLATE('c', 'binary'), COLLATE('c', 'binary'),
+        COLLATE('c', 'binary')]
+        AS d,
+      mode => 'PAD'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, false, true, false},
+  {NULL, false, true, false},
+  {NULL, NULL, true, false},
+  {NULL, NULL, NULL, false}
+]
+==
+
+# Four arrays: TRUNCATE mode input arrays have different lengths
+[name=four_arrays_truncate_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1] AS a,
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE] AS b,
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[{1, "a", true, 1}]}
+]
+==
+
+# Four arrays: TRUNCATE mode input arrays have the same lengths
+[name=four_arrays_truncate_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, [1.0, 2.0], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[known order:
+     {1, "a", true, 1},
+     {2, "b", false, 2}
+   ]}
+]
+==
+
+# Four arrays: TRUNCATE mode with empty input arrays
+[name=four_arrays_truncate_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1.0, 2.0, 3.0] AS a, [TRUE, FALSE], ['a'] AS b, [], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a DOUBLE, BOOL, b STRING, INT64>>[]}]
+==
+
+# Four arrays: TRUNCATE mode same-length arrays some arrays have collations
+[name=four_arrays_truncate_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: TRUNCATE mode same-length arrays same collations
+[name=four_arrays_truncate_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: TRUNCATE mode same-length arrays different collations
+[name=four_arrays_truncate_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, false, true, false},
+  {true, false, true, false}
+]
+==
+
+# Four arrays: TRUNCATE mode different-length arrays some arrays have collations
+[name=four_arrays_truncate_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true}]
+==
+
+# Four arrays: TRUNCATE mode different-length arrays same collations
+[name=four_arrays_truncate_mode_different_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true}]
+==
+
+# Four arrays: TRUNCATE mode different-length arrays different collations
+[name=four_arrays_truncate_mode_different_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')]
+        AS c,
+      [
+        COLLATE('c', 'binary'), COLLATE('c', 'binary'), COLLATE('c', 'binary'),
+        COLLATE('c', 'binary')]
+        AS d,
+      mode => 'TRUNCATE'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
+==
+
+# Four arrays: STRICT mode input arrays have different lengths
+[name=four_arrays_strict_mode_input_arrays_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1] AS a,
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE] AS b,
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: STRICT mode SAFE mode arrays have different lengths
+[name=four_arrays_strict_mode_safe_mode_arrays_have_different_lengths]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1] AS a,
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE] AS b,
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>(NULL)}]
+==
+
+# Four arrays: STRICT mode input arrays have the same lengths
+[name=four_arrays_strict_mode_input_arrays_same_length]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1, 2] AS a, ['a', 'b'], [TRUE, FALSE] AS b, [1.0, 2.0], mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<a INT64, STRING, b BOOL, DOUBLE>>[known order:
+     {1, "a", true, 1},
+     {2, "b", false, 2}
+   ]}
+]
+==
+
+# Four arrays: STRICT mode with empty input arrays
+[name=four_arrays_strict_mode_has_empty_input_arrays]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT
+  ARRAY_ZIP(
+    [1.0, 2.0, 3.0] AS a, [TRUE, FALSE], ['a'] AS b, [], mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: STRICT mode same-length arrays some arrays have collations
+[name=four_arrays_strict_mode_same_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a', 'a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a'] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: STRICT mode same-length arrays same collations
+[name=four_arrays_strict_mode_same_length_arrays_same_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'B', c = 'B', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS d,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, true, true, true},
+  {true, true, true, true}
+]
+==
+
+# Four arrays: STRICT mode same-length arrays different collations
+[name=four_arrays_strict_mode_same_length_arrays_different_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'B', b = 'C', c = 'B', d = 'C'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS a,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS b,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS c,
+      [COLLATE('c', 'binary'), COLLATE('c', 'binary')] AS d,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[known order:
+  {true, false, true, false},
+  {true, false, true, false}
+]
+==
+
+# Four arrays: STRICT mode different-length arrays some arrays have collations
+[name=four_arrays_strict_mode_different_length_arrays_some_input_arrays_have_collations]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT a = 'a', b = 'B', c = 'a', d = 'B'
+FROM
+  UNNEST(
+    ARRAY_ZIP(
+      ['a'] AS a,
+      [COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci')] AS b,
+      ['a', 'a', 'a'] AS c,
+      [
+        COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('b', 'und:ci'),
+        COLLATE('b', 'und:ci')]
+        AS d,
+      mode => 'STRICT'))
+  WITH OFFSET
+ORDER BY OFFSET
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+## ==== Start Section: Two-Array Lambda Test Cases ==== ##
+# The following test cases are not covered due to known issues with lambda:
+# - Empty or NULL arrays: the resolver cannot infer the type for the lambda
+#   arguments corresponding to them. See b/308192630.
+# - Lambda with collations: lambda does not propagate collations correctly. See
+#   b/258733832.
+
+# Unspecified array_zip_mode input arrays have different lengths lambda STRUCT return type
+[name=unspecified_array_zip_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT ARRAY_ZIP([1], ['a', 'b'], transformation => (e1, e2) -> STRUCT(e1, e2))
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Unspecified array_zip_mode SAFE mode arrays have different lengths lambda constant return value
+[name=unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT SAFE.ARRAY_ZIP([1], ['a', 'b'], transformation => (e1, e2) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+
+# Unspecified array_zip_mode input arrays have the same lengths lambda complex expression
+[name=unspecified_array_zip_mode_input_arrays_same_length_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2], ['a', 'b'], transformation => (e1, e2) -> e1 > 2 OR e2 != 'a')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:false, true]}]
+==
+
+# PAD mode input arrays have different lengths lambda STRUCT return type
+[name=pad_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    mode => 'PAD',
+    transformation => (e1, e2) -> STRUCT(e1, e2))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<e1 INT64, e2 STRING>>[known order:{1, "a"}, {NULL, "b"}]}
+]
+==
+
+# PAD mode input arrays have the same lengths lambda constant return value
+[name=pad_mode_input_arrays_same_length_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP([1, 2], ['a', 'b'], mode => 'PAD', transformation => (e1, e2) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
+==
+
+# TRUNCATE mode input arrays have different lengths lambda complex expression
+[name=truncate_mode_input_arrays_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    mode => 'TRUNCATE',
+    transformation => (e1, e2) -> e1 > 2 OR e2 != 'a')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[false]}]
+==
+
+# TRUNCATE mode input arrays have the same lengths lambda STRUCT return type
+[name=truncate_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    mode => 'TRUNCATE',
+    transformation => (e1, e2) -> STRUCT(e1, e2))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<e1 INT64, e2 STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+# STRICT mode input arrays have different lengths lambda constant return value
+[name=strict_mode_input_arrays_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP([1], ['a', 'b'], mode => 'STRICT', transformation => (e1, e2) -> 1)
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# STRICT mode SAFE mode arrays have different lengths lambda complex expression
+[name=strict_mode_safe_mode_arrays_have_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    mode => 'STRICT',
+    transformation => (e1, e2) -> e1 > 2 OR e2 != 'a')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>(NULL)}]
+==
+
+# STRICT mode input arrays have the same lengths lambda STRUCT return type
+[name=strict_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    mode => 'STRICT',
+    transformation => (e1, e2) -> STRUCT(e1, e2))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<e1 INT64, e2 STRING>>[known order:{1, "a"}, {2, "b"}]}
+]
+==
+
+## ==== Start section: three-input-array with lambda ====
+
+# Three arrays: Unspecified array_zip_mode input arrays have different lengths lambda STRUCT return type
+[name=three_arrays_unspecified_array_zip_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    transformation => (e1, e2, e3) -> STRUCT(e1 AS field1, e2, e3))
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: Unspecified array_zip_mode SAFE mode arrays have different lengths lambda constant return value
+[name=three_arrays_unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1], ['a', 'b'], [TRUE, FALSE, TRUE], transformation => (e1, e2, e3) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+
+# Three arrays: Unspecified array_zip_mode input arrays have the same lengths lambda complex expression
+[name=three_arrays_unspecified_array_zip_mode_input_arrays_same_length_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    transformation => (e1, e2, e3) -> e1 > 2 OR e2 != 'a' OR e3)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:true, true]}]
+==
+
+# Three arrays: PAD mode input arrays have different lengths lambda STRUCT return type
+[name=three_arrays_pad_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    mode => 'PAD',
+    transformation => (e1, e2, e3) -> STRUCT(e1 AS field1, e2, e3))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<field1 INT64, e2 STRING, e3 BOOL>>[known order:
+     {1, "a", true},
+     {NULL, "b", false},
+     {NULL, NULL, true}
+   ]}
+]
+==
+
+# Three arrays: PAD mode input arrays have the same lengths lambda constant return value
+[name=three_arrays_pad_mode_input_arrays_same_length_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    mode => 'PAD',
+    transformation => (e1, e2, e3) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
+==
+
+# Three arrays: TRUNCATE mode input arrays have different lengths lambda complex expression
+[name=three_arrays_truncate_mode_input_arrays_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    mode => 'TRUNCATE',
+    transformation => (e1, e2, e3) -> e1 > 2 OR e2 != 'a' OR e3)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
+==
+
+# Three arrays: TRUNCATE mode input arrays have the same lengths lambda STRUCT return type
+[name=three_arrays_truncate_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    mode => 'TRUNCATE',
+    transformation => (e1, e2, e3) -> STRUCT(e1 AS field1, e2, e3))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<field1 INT64, e2 STRING, e3 BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+# Three arrays: STRICT mode input arrays have different lengths lambda constant return value
+[name=three_arrays_strict_mode_input_arrays_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    transformation => (e1, e2, e3) -> 1,
+    mode => 'STRICT')
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Three arrays: STRICT mode SAFE mode arrays have different lengths lambda complex expression
+[name=three_arrays_strict_mode_safe_mode_arrays_have_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    (e1, e2, e3) -> e1 > 2 OR e2 != 'a' OR e3,
+    mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>(NULL)}]
+==
+
+# Three arrays: STRICT mode input arrays have the same lengths lambda STRUCT return type
+[name=three_arrays_strict_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    (e1, e2, e3) -> STRUCT(e1 AS field1, e2, e3),
+    mode => 'STRICT')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<field1 INT64, e2 STRING, e3 BOOL>>[known order:
+     {1, "a", true},
+     {2, "b", false}
+   ]}
+]
+==
+
+## ==== Start section: four-input-array with lambda ====
+
+# Four arrays: Unspecified array_zip_mode input arrays have different lengths lambda STRUCT return type
+[name=four_arrays_unspecified_array_zip_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    transformation => (e1, e2, e3, e4) -> STRUCT(e1 AS field1, e2, e3, e4 AS field4))
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: Unspecified array_zip_mode SAFE mode arrays have different lengths lambda constant return value
+[name=four_arrays_unspecified_array_zip_mode_safe_mode_arrays_have_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    transformation => (e1, e2, e3, e4) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+
+# Four arrays: Unspecified array_zip_mode input arrays have the same lengths lambda complex expression
+[name=four_arrays_unspecified_array_zip_mode_input_arrays_same_length_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    [1.0, 2.0],
+    transformation => (e1, e2, e3, e4) -> e1 > 2 OR e2 != 'a' OR e3 OR e4 <= 2)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[known order:true, true]}]
+==
+
+# Four arrays: PAD mode input arrays have different lengths lambda STRUCT return type
+[name=four_arrays_pad_mode_input_arrays_different_lengths_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    transformation => (e1, e2, e3, e4) -> STRUCT(e1, e2 AS field2, e3 AS field3, e4),
+    mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {
+    ARRAY<STRUCT<e1 INT64, field2 STRING, field3 BOOL, e4 DOUBLE>>[known order:
+      {1, "a", true, 1},
+      {NULL, "b", false, 2},
+      {NULL, NULL, true, 3},
+      {NULL, NULL, NULL, 4}
+    ]
+  }
+]
+==
+
+# Four arrays: PAD mode input arrays have the same lengths lambda constant return value
+[name=four_arrays_pad_mode_input_arrays_same_length_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    [1.0, 2.0],
+    (e1, e2, e3, e4) -> 1,
+    mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
+==
+
+# Four arrays: TRUNCATE mode input arrays have different lengths lambda complex expression
+[name=four_arrays_truncate_mode_input_arrays_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    transformation => (e1, e2, e3, e4) -> e1 > 2 OR e2 != 'a' OR e3 OR e4 <= 2,
+    mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
+==
+
+# Four arrays: TRUNCATE mode input arrays have the same lengths lambda STRUCT return type
+[name=four_arrays_truncate_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    [1.0, 2.0],
+    mode => 'TRUNCATE',
+    transformation => (e1, e2, e3, e4) -> STRUCT(e1 AS field1, e2 AS field2, e3, e4))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {
+    ARRAY<STRUCT<field1 INT64, field2 STRING, e3 BOOL, e4 DOUBLE>>[known order:
+      {1, "a", true, 1},
+      {2, "b", false, 2}
+    ]
+  }
+]
+==
+
+# Four arrays: STRICT mode input arrays have different lengths lambda constant return value
+[name=four_arrays_strict_mode_input_arrays_different_lengths_lambda_constant_return_value]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'STRICT',
+    transformation => (e1, e2, e3, e4) -> 1)
+--
+ERROR: generic::out_of_range: Unequal array length in ARRAY_ZIP using STRICT mode
+==
+
+# Four arrays: STRICT mode SAFE mode arrays have different lengths lambda complex expression
+[name=four_arrays_strict_mode_safe_mode_arrays_have_different_lengths_lambda_complex_expression]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_2_SAFE_FUNCTION_CALL,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  SAFE.ARRAY_ZIP(
+    [1],
+    ['a', 'b'],
+    [TRUE, FALSE, TRUE],
+    [1.0, 2.0, 3.0, 4.0],
+    mode => 'STRICT',
+    transformation => (e1, e2, e3, e4) -> e1 > 2 OR e2 != 'a' OR e3 OR e4 <= 2)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>(NULL)}]
+==
+
+# Four arrays: STRICT mode input arrays have the same lengths lambda STRUCT return type
+[name=four_arrays_strict_mode_input_arrays_same_length_lambda_struct_return_type]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  ARRAY_ZIP(
+    [1, 2],
+    ['a', 'b'],
+    [TRUE, FALSE],
+    [1.0, 2.0],
+    mode => 'STRICT',
+    transformation => (e1, e2, e3, e4) -> STRUCT(e1, e2 AS field2, e3, e4 AS field4))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {
+    ARRAY<STRUCT<e1 INT64, field2 STRING, e3 BOOL, field4 DOUBLE>>[known order:
+      {1, "a", true, 1},
+      {2, "b", false, 2}
+    ]
+  }
+]
+==
+
+# One input array does not have a defined order, so the result is
+# non-deterministic.
+[name=array_zip_non_determinism_is_correctly_marked]
+[required_features=V_1_4_ARRAY_ZIP]
+SELECT ARRAY_ZIP(ARRAY(SELECT * FROM UNNEST([1, 2])), [2, 3])
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<INT64, INT64>>[known order:{1, 2}, {2, 3}]}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# Lambda signature: one input array does not have a defined order, and the
+# result is marked non-deterministic even though the result is actually
+# deterministic due to the lambda body.
+[name=array_zip_non_determinism_is_marked_for_lambda]
+[required_features=V_1_4_ARRAY_ZIP,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT ARRAY_ZIP(ARRAY(SELECT * FROM UNNEST([1, 2])), [2, 3], (e1, e2) -> 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 1]}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# The array with kIgnoresOrder only has one element, so the result is
+# deterministic.
+[name=array_zip_igore_order_array_only_has_one_element]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(ARRAY(SELECT * FROM UNNEST([1])), [2, 3], [4], mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<INT64, INT64, INT64>>[{1, 2, 4}]}]
+==
+
+# Lambda signature: The array with kIgnoresOrder only has one element, so the
+# result is deterministic.
+[name=array_zip_igore_order_array_only_has_one_element_lambda]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT ARRAY_ZIP(
+  ARRAY(SELECT * FROM UNNEST([1])),
+  [2, 3],
+  [4],
+  (e1, e2, e3) -> e1 + e2 + e3,
+  mode => 'TRUNCATE')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[7]}]
+==
+
+# All elements of the array with kIgnoresOrder are equal, so the result is still
+# deterministic.
+[name=array_zip_igore_order_array_all_elements_are_the_same]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS]
+SELECT ARRAY_ZIP(
+  [2, 3],
+  ARRAY(SELECT * FROM UNNEST(['S', 'S', 'S'])),
+  [4],
+  [TRUE, FALSE, TRUE, FALSE],
+  mode => 'PAD')
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<INT64, STRING, INT64, BOOL>>[known order:
+     {2, "S", 4, true},
+     {3, "S", NULL, false},
+     {NULL, "S", NULL, true},
+     {NULL, NULL, NULL, false}
+   ]}
+]
+==
+
+# Lambda signature: All elements of the array with kIgnoresOrder are equal, so
+# the result is still deterministic.
+[name=array_zip_igore_order_array_all_elements_are_the_same_lambda]
+[required_features=V_1_4_ARRAY_ZIP,NAMED_ARGUMENTS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT ARRAY_ZIP(
+  [2, 3],
+  ARRAY(SELECT * FROM UNNEST(['S', 'S', 'S'])),
+  [4],
+  [TRUE, FALSE, TRUE, FALSE],
+  mode => 'PAD',
+  transformation => (e1, e2, e3, e4) -> STRUCT(e4, e3, e2, e1))
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<e4 BOOL, e3 INT64, e2 STRING, e1 INT64>>[known order:
+     {true, 4, "S", 2},
+     {false, NULL, "S", 3},
+     {true, NULL, "S", NULL},
+     {false, NULL, NULL, NULL}
+   ]}
+]

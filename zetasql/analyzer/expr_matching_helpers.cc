@@ -39,6 +39,7 @@
 #include "absl/hash/hash.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -329,8 +330,7 @@ static bool IsProtoOrStructFieldAccess(const ResolvedNode* node) {
 // Returns true if the `column_ref_list` contains a equal pointer to
 // `column_ref`.
 static bool ContainsColumnReference(
-    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
-        column_ref_list,
+    absl::Span<const std::unique_ptr<const ResolvedColumnRef>> column_ref_list,
     const ResolvedColumnRef* column_ref) {
   for (const auto& param : column_ref_list) {
     if (param.get() == column_ref) {

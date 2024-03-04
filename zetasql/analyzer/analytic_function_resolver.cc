@@ -541,47 +541,14 @@ absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
     const Type** expr_type_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  // This is NULL if this analytic function call is in the SELECT list, which
-  // cannot reference a column in the SELECT list.
-  const SelectColumnState* select_column_state = nullptr;
-
-  // Identify whether the expression is an alias reference.  Alias references
-  // are only allowed in the ORDER BY.  We know whether or not we are in the
-  // ORDER BY based on whether or not named window references are allowed.
-  if (named_window_not_allowed_here_name_ != nullptr &&
-      ast_expr->node_kind() == AST_PATH_EXPRESSION) {
-    const IdString alias =
-        ast_expr->GetAs<ASTPathExpression>()->first_name()->GetAsIdString();
-    const SelectColumnStateList* select_column_state_list =
-        expr_resolution_info->query_resolution_info->select_column_state_list();
-    ZETASQL_RETURN_IF_ERROR(
-        select_column_state_list->FindAndValidateSelectColumnStateByAlias(
-            clause_name, ast_expr, alias, expr_resolution_info,
-            &select_column_state));
-  }
-
-  // The ResolvedExpr of the SELECT-list column that this window expression
-  // references.
   std::unique_ptr<const ResolvedExpr> tmp_resolved_expr;
-  if (select_column_state == nullptr) {
-    ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_expr, expr_resolution_info,
-                                           &tmp_resolved_expr));
-  }
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_expr, expr_resolution_info,
+                                         &tmp_resolved_expr));
 
-  if (select_column_state != nullptr) {
-    expr_resolution_info->has_aggregation =
-        select_column_state->has_aggregation;
-    expr_resolution_info->has_analytic = select_column_state->has_analytic;
-    *expr_type_out = select_column_state->GetType();
-    *resolved_item_out = std::make_unique<WindowExprInfo>(
-        ast_expr, select_column_state->select_list_position,
-        select_column_state->GetType());
-  } else {
-    ZETASQL_RET_CHECK(tmp_resolved_expr != nullptr);
-    *expr_type_out = tmp_resolved_expr->type();
-    *resolved_item_out =
-        std::make_unique<WindowExprInfo>(ast_expr, tmp_resolved_expr.release());
-  }
+  *expr_type_out = tmp_resolved_expr->type();
+  *resolved_item_out =
+      std::make_unique<WindowExprInfo>(ast_expr, tmp_resolved_expr.release());
+
   return absl::OkStatus();
 }
 
@@ -1052,19 +1019,9 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
       ast_order_by->ordering_expressions();
   ZETASQL_RET_CHECK_EQ(ast_ordering_exprs.size(), order_by_info->size());
   for (int i = 0; i < order_by_info->size(); ++i) {
-    ResolvedOrderByItemEnums::NullOrderMode null_order =
-        ResolvedOrderByItemEnums::ORDER_UNSPECIFIED;
-    if (ast_ordering_exprs[i]->null_order()) {
-      if (!resolver_->language().LanguageFeatureEnabled(
-              FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY)) {
-        return MakeSqlErrorAt(ast_ordering_exprs[i]->null_order())
-               << "NULLS FIRST and NULLS LAST are not supported";
-      } else {
-        null_order = ast_ordering_exprs[i]->null_order()->nulls_first()
-                         ? ResolvedOrderByItemEnums::NULLS_FIRST
-                         : ResolvedOrderByItemEnums::NULLS_LAST;
-      }
-    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        ResolvedOrderByItemEnums::NullOrderMode null_order,
+        resolver_->ResolveNullOrderMode(ast_ordering_exprs[i]->null_order()));
 
     // Since a window ORDER BY may be shared by multiple analytic functions,
     // do not create a new column if we have created one for this ordering

@@ -42,6 +42,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
@@ -1026,6 +1027,13 @@ class FunctionSignatureOptions {
   }
   bool is_internal() const { return is_internal_; }
 
+  // Setter/getter for whether or not this signature is hidden from the user.
+  FunctionSignatureOptions& set_is_hidden(bool value) {
+    is_hidden_ = value;
+    return *this;
+  }
+  bool is_hidden() const { return is_hidden_; }
+
   // Setters/getters for additional deprecation warnings associated with
   // this function signature. These have DeprecationWarning protos attached. The
   // analyzer will propagate these warnings to any statement that invokes this
@@ -1183,6 +1191,8 @@ class FunctionSignatureOptions {
   bool is_deprecated_ = false;
 
   bool is_internal_ = false;
+
+  bool is_hidden_ = false;
 
   // When true, the signature uses the same signature (context) id as another
   // signature with different function name, and this signature's function name
@@ -1388,8 +1398,8 @@ class FunctionSignature {
   // signatures.  Each signature string is prefixed with <prefix>, and
   // <separator> appears between each signature string.
   static std::string SignaturesToString(
-      const std::vector<FunctionSignature>& signatures, bool verbose = false,
-      absl::string_view prefix = "  ", const std::string& separator = "\n");
+      absl::Span<const FunctionSignature> signatures, bool verbose = false,
+      absl::string_view prefix = "  ", absl::string_view separator = "\n");
 
   // Get the SQL declaration for this signature, including all options.
   // For each argument in the signature, the name will be taken from the
@@ -1397,12 +1407,14 @@ class FunctionSignature {
   // <argument_names> will result in a signature with just type names.
   // The result is formatted as "(arg_name type, ...) RETURNS type", which
   // is valid to use in CREATE FUNCTION, DROP FUNCTION, etc, if possible.
-  std::string GetSQLDeclaration(const std::vector<std::string>& argument_names,
+  std::string GetSQLDeclaration(absl::Span<const std::string> argument_names,
                                 ProductMode product_mode) const;
 
   bool IsDeprecated() const { return options_.is_deprecated(); }
 
   bool IsInternal() const { return options_.is_internal(); }
+
+  bool IsHidden() const { return options_.is_hidden(); }
 
   void SetIsDeprecated(bool value) {
     options_.set_is_deprecated(value);
@@ -1456,8 +1468,8 @@ class FunctionSignature {
 
   // Returns true if this signature should be hidden in the supported signature
   // list in signature mismatch error message.
-  // Signatures are hidden if they are internal, deprecated, or unsupported
-  // according to LanguageOptions.
+  // Signatures are hidden if they are internal, deprecated, explictly hidden or
+  // unsupported according to LanguageOptions.
   bool HideInSupportedSignatureList(
       const LanguageOptions& language_options) const;
 

@@ -1135,9 +1135,10 @@ QueryStmt
     |                 |   +-array_offset_column=
     |                 |     +-ColumnHolder(column=$array_offset.offset#6)
     |                 +-join_expr=
-    |                   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |                     +-ColumnRef(type=INT64, column=$array_offset.offset#4)
-    |                     +-ColumnRef(type=INT64, column=$array_offset.offset#6)
+    |                 | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                 |   +-ColumnRef(type=INT64, column=$array_offset.offset#4)
+    |                 |   +-ColumnRef(type=INT64, column=$array_offset.offset#6)
+    |                 +-has_using=TRUE
     +-input_scan=
       +-ProjectScan
         +-column_list=sub.[ca#1, cb#2]
@@ -1214,9 +1215,10 @@ QueryStmt
     |                     |   +-array_offset_column=
     |                     |     +-ColumnHolder(column=$array_offset.offset#6)
     |                     +-join_expr=
-    |                       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |                         +-ColumnRef(type=INT64, column=$array_offset.offset#4)
-    |                         +-ColumnRef(type=INT64, column=$array_offset.offset#6)
+    |                     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                     |   +-ColumnRef(type=INT64, column=$array_offset.offset#4)
+    |                     |   +-ColumnRef(type=INT64, column=$array_offset.offset#6)
+    |                     +-has_using=TRUE
     +-input_scan=
       +-ProjectScan
         +-column_list=sub.[ca#1, cb#2]
@@ -1830,5 +1832,3 @@ ALTERNATION GROUP: FULL
 ERROR: Unrecognized name: arr2 [at 19:26]
   FULL OUTER JOIN UNNEST(arr2) AS r
                          ^
-==
-

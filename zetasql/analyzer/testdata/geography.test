@@ -752,11 +752,13 @@ select
   st_geogfromtext('point(0 0)', planar => true, make_valid => false, oriented => true),
   st_geogfromtext('point(0 0)', oriented => true, planar => true, make_valid => false),
   st_geogfromtext('point(0 0)', make_valid => false, oriented => true, planar => true),
-  # Some named arguments are missing - become NULLs in resolved AST.
-  # Note: this might change when (broken link) is implemented.
   st_geogfromtext('point(0 0)', oriented => false, planar => true),
   st_geogfromtext('point(0 0)', planar => true),
-  st_geogfromtext('point(0 0)', make_valid => true, oriented => true)
+  st_geogfromtext('point(0 0)', make_valid => true, oriented => true),
+  st_geogfromwkb(b'0123456789', oriented => false),
+  st_geogfromwkb(b'0123456789', oriented => true),
+  st_geogfromwkb(b'0123456789', planar => true),
+  st_geogfromwkb(b'0123456789', make_valid => true)
 --
 QueryStmt
 +-output_column_list=
@@ -766,9 +768,13 @@ QueryStmt
 | +-$query.$col4#4 AS `$col4` [GEOGRAPHY]
 | +-$query.$col5#5 AS `$col5` [GEOGRAPHY]
 | +-$query.$col6#6 AS `$col6` [GEOGRAPHY]
+| +-$query.$col7#7 AS `$col7` [GEOGRAPHY]
+| +-$query.$col8#8 AS `$col8` [GEOGRAPHY]
+| +-$query.$col9#9 AS `$col9` [GEOGRAPHY]
+| +-$query.$col10#10 AS `$col10` [GEOGRAPHY]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6]
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10]
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
@@ -801,9 +807,33 @@ QueryStmt
     | |   +-Literal(type=BOOL, value=true)
     | |   +-Literal(type=BOOL, value=false)
     | +-$col6#6 :=
-    |   +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
-    |     +-Literal(type=STRING, value="point(0 0)")
-    |     +-Literal(type=BOOL, value=true)
+    | | +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
+    | |   +-Literal(type=STRING, value="point(0 0)")
+    | |   +-Literal(type=BOOL, value=true)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=BOOL, value=true)
+    | +-$col7#7 :=
+    | | +-FunctionCall(ZetaSQL:st_geogfromwkb(BYTES, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
+    | |   +-Literal(type=BYTES, value=b"0123456789")
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=BOOL, value=false)
+    | +-$col8#8 :=
+    | | +-FunctionCall(ZetaSQL:st_geogfromwkb(BYTES, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
+    | |   +-Literal(type=BYTES, value=b"0123456789")
+    | |   +-Literal(type=BOOL, value=true)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=BOOL, value=false)
+    | +-$col9#9 :=
+    | | +-FunctionCall(ZetaSQL:st_geogfromwkb(BYTES, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
+    | |   +-Literal(type=BYTES, value=b"0123456789")
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=BOOL, value=true)
+    | |   +-Literal(type=BOOL, value=false)
+    | +-$col10#10 :=
+    |   +-FunctionCall(ZetaSQL:st_geogfromwkb(BYTES, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
+    |     +-Literal(type=BYTES, value=b"0123456789")
+    |     +-Literal(type=BOOL, value=false)
     |     +-Literal(type=BOOL, value=false)
     |     +-Literal(type=BOOL, value=true)
     +-input_scan=

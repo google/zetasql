@@ -28,6 +28,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace functions {
@@ -35,7 +36,7 @@ namespace functions {
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
-void TestBadPattern(absl::string_view pattern, const std::vector<Value>& values,
+void TestBadPattern(absl::string_view pattern, absl::Span<const Value> values,
                     bool canonicalize_zero) {
   std::string output;
   bool is_null;
@@ -148,19 +149,6 @@ TEST_P(StringFormatTest, TestBadUtf8Values) {
       Value::Array(array_of_struct_type, {bad_struct_value});
   TestBadValue("%t", bad_array_of_struct_value, canonicalize_zero);
   TestBadValue("%T", bad_array_of_struct_value, canonicalize_zero);
-
-  zetasql_test__::KitchenSinkPB proto;
-  proto.set_string_val("abc\xc1xyz");
-
-  const ProtoType* proto_type;
-  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(proto.GetDescriptor(), &proto_type));
-  absl::Cord bytes;
-  ABSL_CHECK(proto.SerializePartialToCord(&bytes));
-  const Value bad_proto_value = Value::Proto(proto_type, bytes);
-  TestBadValue("%p", bad_proto_value, canonicalize_zero);
-  TestBadValue("%P", bad_proto_value, canonicalize_zero);
-  TestBadValue("%t", bad_proto_value, canonicalize_zero);
-  TestBadValue("%T", bad_proto_value, canonicalize_zero);
 }
 
 TEST_P(StringFormatTest, TestBadJsonValue) {

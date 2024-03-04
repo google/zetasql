@@ -1168,6 +1168,13 @@ TokenGroupingState MaybeMoveParseTokenIntoTokens(
     }
 
     case GroupingType::kLegacySetStmt: {
+      // If the set statement operand is multiline (grouping state end position
+      // points at the end of line, hence will be in the middle of operand
+      // token), update grouping state end position to include the entire token.
+      if (TokenStartOffset(parse_token) < grouping_state.end_position &&
+          TokenEndOffset(parse_token) > grouping_state.end_position) {
+        grouping_state.end_position = TokenEndOffset(parse_token);
+      }
       // Look for the end of set statement operand.
       if (parse_token.IsEndOfInput() ||
           TokenStartOffset(parse_token) >= grouping_state.end_position) {

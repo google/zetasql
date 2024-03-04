@@ -62,14 +62,15 @@ following syntax to build a window function:
 **Notes**
 
 A window function can appear as a scalar expression operand in
-two places in the query:
+the following places in the query:
 
-   +  The `SELECT` list. If the window function appears in the `SELECT` list,
-      its argument list and `OVER` clause can't refer to aliases introduced
-      in the same SELECT list.
-   +  The `ORDER BY` clause. If the window function appears in the `ORDER BY`
-      clause of the query, its argument list can refer to `SELECT`
-      list aliases.
++  The `SELECT` list. If the window function appears in the `SELECT` list,
+  its argument list and `OVER` clause can't refer to aliases introduced
+  in the same `SELECT` list.
++  The `ORDER BY` clause. If the window function appears in the `ORDER BY`
+  clause of the query, its argument list can refer to `SELECT`
+  list aliases.
++  The `QUALIFY` clause.
 
 A window function can't refer to another window function in its
 argument list or its `OVER` clause, even indirectly through an alias.

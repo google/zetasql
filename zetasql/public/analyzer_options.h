@@ -320,6 +320,10 @@ class AnalyzerOptions {
   }
   // Enables or disables a particular rewrite.
   void enable_rewrite(ResolvedASTRewrite rewrite, bool enable = true);
+
+  // Disables a particular rewrite. Identical to calling `enable_rewrite` with
+  // `enable` = false.
+  void disable_rewrite(ResolvedASTRewrite rewrite);
   // Returns if a given AST rewrite is enabled.
   ABSL_MUST_USE_RESULT bool rewrite_enabled(ResolvedASTRewrite rewrite) const {
     return data_->enabled_rewrites.contains(rewrite);

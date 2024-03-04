@@ -293,7 +293,7 @@ absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
 }
 
 absl::Status TemplatedSQLTVF::MakeTVFQueryAnalysisError(
-    const std::string& message) const {
+    absl::string_view message) const {
   std::string result =
       absl::StrCat("Analysis of table-valued function ", FullName(), " failed");
   if (!message.empty()) {

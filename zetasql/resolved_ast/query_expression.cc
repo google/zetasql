@@ -30,6 +30,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -40,7 +41,7 @@ namespace zetasql {
 // <delimiter>. While appending each pair we add the second element (if present)
 // as an alias to the first element.
 static std::string JoinListWithAliases(
-    const std::vector<std::pair<std::string, std::string>>& list,
+    absl::Span<const std::pair<std::string, std::string>> list,
     absl::string_view delimiter) {
   std::string list_str;
   bool first = true;
@@ -338,7 +339,7 @@ bool QueryExpression::TrySetWithClause(
 
 bool QueryExpression::TrySetSelectClause(
     const std::vector<std::pair<std::string, std::string>>& select_list,
-    const std::string& select_hints) {
+    absl::string_view select_hints) {
   if (!CanSetSelectClause()) {
     return false;
   }
@@ -352,7 +353,7 @@ void QueryExpression::ResetSelectClause() {
   select_list_.clear();
 }
 
-bool QueryExpression::TrySetFromClause(const std::string& from) {
+bool QueryExpression::TrySetFromClause(absl::string_view from) {
   if (!CanSetFromClause()) {
     return false;
   }
@@ -360,7 +361,7 @@ bool QueryExpression::TrySetFromClause(const std::string& from) {
   return true;
 }
 
-bool QueryExpression::TrySetWhereClause(const std::string& where) {
+bool QueryExpression::TrySetWhereClause(absl::string_view where) {
   if (!CanSetWhereClause()) {
     return false;
   }
@@ -370,10 +371,10 @@ bool QueryExpression::TrySetWhereClause(const std::string& where) {
 
 bool QueryExpression::TrySetSetOpScanList(
     std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
-    const std::string& set_op_type, const std::string& set_op_modifier,
-    const std::string& set_op_column_match_mode,
-    const std::string& set_op_column_propagation_mode,
-    const std::string& query_hints) {
+    absl::string_view set_op_type, absl::string_view set_op_modifier,
+    absl::string_view set_op_column_match_mode,
+    absl::string_view set_op_column_propagation_mode,
+    absl::string_view query_hints) {
   if (!CanSetSetOpScanList()) {
     return false;
   }
@@ -392,7 +393,7 @@ bool QueryExpression::TrySetSetOpScanList(
 
 bool QueryExpression::TrySetGroupByClause(
     const std::map<int, std::string>& group_by_list,
-    const std::string& group_by_hints,
+    absl::string_view group_by_hints,
     const std::vector<GroupingSetIds>& grouping_set_id_list,
     const std::vector<int>& rollup_column_id_list) {
   if (!CanSetGroupByClause()) {
@@ -408,7 +409,7 @@ bool QueryExpression::TrySetGroupByClause(
 
 absl::Status QueryExpression::SetGroupByAllClause(
     const std::map<int, std::string>& group_by_list,
-    const std::string& group_by_hints) {
+    absl::string_view group_by_hints) {
   ZETASQL_RET_CHECK(CanSetGroupByClause());
   group_by_all_ = true;
   group_by_list_ = group_by_list;
@@ -429,7 +430,7 @@ bool QueryExpression::TrySetOrderByClause(
   return true;
 }
 
-bool QueryExpression::TrySetLimitClause(const std::string& limit) {
+bool QueryExpression::TrySetLimitClause(absl::string_view limit) {
   if (!CanSetLimitClause()) {
     return false;
   }
@@ -437,7 +438,7 @@ bool QueryExpression::TrySetLimitClause(const std::string& limit) {
   return true;
 }
 
-bool QueryExpression::TrySetOffsetClause(const std::string& offset) {
+bool QueryExpression::TrySetOffsetClause(absl::string_view offset) {
   if (!CanSetOffsetClause()) {
     return false;
   }
@@ -446,7 +447,7 @@ bool QueryExpression::TrySetOffsetClause(const std::string& offset) {
 }
 
 bool QueryExpression::TrySetWithAnonymizationClause(
-    const std::string& anonymization_options) {
+    absl::string_view anonymization_options) {
   if (!CanSetWithAnonymizationClause()) {
     return false;
   }
@@ -462,7 +463,7 @@ bool QueryExpression::TrySetPivotClause(const std::string& pivot) {
   return true;
 }
 
-bool QueryExpression::TrySetUnpivotClause(const std::string& unpivot) {
+bool QueryExpression::TrySetUnpivotClause(absl::string_view unpivot) {
   if (!CanSetUnpivotClause()) {
     return false;
   }
@@ -584,7 +585,7 @@ absl::Status QueryExpression::SetAliasesForSelectList(
   return absl::OkStatus();
 }
 
-void QueryExpression::SetSelectAsModifier(const std::string& modifier) {
+void QueryExpression::SetSelectAsModifier(absl::string_view modifier) {
   ABSL_DCHECK(select_as_modifier_.empty());
   select_as_modifier_ = modifier;
 }

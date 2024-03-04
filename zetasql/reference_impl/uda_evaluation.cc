@@ -53,6 +53,10 @@ class UserDefinedAggregateFunctionEvaluator
         argument_is_aggregate_(std::move(argument_is_aggregate)) {}
   ~UserDefinedAggregateFunctionEvaluator() override = default;
 
+  void SetEvaluationContext(EvaluationContext* context) override {
+    eval_context_ = context;
+  }
+
   absl::Status Reset() override {
     memory_accountant_ = std::make_unique<MemoryAccountant>(
         EvaluationOptions().max_intermediate_byte_size);
@@ -77,8 +81,14 @@ class UserDefinedAggregateFunctionEvaluator
   }
 
   absl::StatusOr<Value> GetFinalResult() override {
-    auto context = std::make_unique<EvaluationContext>(EvaluationOptions());
-    context->set_active_group_rows(inputs_.get());
+    ZETASQL_RET_CHECK(eval_context_ != nullptr)
+        << "UserDefinedAggregateFunctionEvaluator must have EvaluationContext "
+        << "set before calling GetFinalResult().";
+    // Create a local context to evaluate the UDA function body on the
+    // accumulated rows.
+    std::unique_ptr<EvaluationContext> local_context =
+        eval_context_->MakeChildContext();
+    local_context->set_active_group_rows(inputs_.get());
 
     if (!inputs_->IsEmpty()) {
       auto first_row = inputs_->GetTuplePtrs()[0];
@@ -86,9 +96,9 @@ class UserDefinedAggregateFunctionEvaluator
         // NOT_AGGREGATE arguments should be mapped by value since they are
         // represented by a FunctionArgumentRefExpr. These arguments have a
         // constant value for each grouped rows, so we can just add them once.
-        if (!context->HasFunctionArgumentRef(argument_names_[i]) &&
+        if (!local_context->HasFunctionArgumentRef(argument_names_[i]) &&
             !argument_is_aggregate_[i]) {
-          ZETASQL_RETURN_IF_ERROR(context->AddFunctionArgumentRef(
+          ZETASQL_RETURN_IF_ERROR(local_context->AddFunctionArgumentRef(
               argument_names_[i], first_row->slot(i).value()));
         }
       }
@@ -99,7 +109,7 @@ class UserDefinedAggregateFunctionEvaluator
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<TupleIterator> iter,
         algebrized_tree_->Eval(/*params=*/{},
-                               /*num_extra_slots=*/0, context.get()));
+                               /*num_extra_slots=*/0, local_context.get()));
     Value result;
     while (true) {
       const TupleData* next_input = iter->Next();
@@ -121,6 +131,7 @@ class UserDefinedAggregateFunctionEvaluator
   std::vector<bool> argument_is_aggregate_;
   std::unique_ptr<MemoryAccountant> memory_accountant_;
   std::unique_ptr<TupleDataDeque> inputs_;
+  EvaluationContext* eval_context_;
 };
 
 std::unique_ptr<AggregateFunctionEvaluator>

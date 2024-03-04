@@ -1,0 +1,156 @@
+# STRING literals concatenate and raw modifiers apply only to their immediate
+# component.
+select r'\n' '\n' "b" """c"d"e""" '''f'g'h''' "1" "2"
+--
+
+QueryStatement [0-53] [select r'\...'' "1" "2"]
+  Query [0-53] [select r'\...'' "1" "2"]
+    Select [0-53] [select r'\...'' "1" "2"]
+      SelectList [7-53] [r'\n' '\n'...'' "1" "2"]
+        SelectColumn [7-53] [r'\n' '\n'...'' "1" "2"]
+          StringLiteral [7-53] [r'\n' '\n'...'' "1" "2"]
+            StringLiteralComponent(r'\n') [7-12] [r'\n']
+            StringLiteralComponent('\n') [13-17] ['\n']
+            StringLiteralComponent("b") [18-21] ["b"]
+            StringLiteralComponent("""c"d"e""") [22-33] ["""c"d"e"""]
+            StringLiteralComponent('''f'g'h''') [34-45] ['''f'g'h''']
+            StringLiteralComponent("1") [46-49] ["1"]
+            StringLiteralComponent("2") [50-53] ["2"]
+--
+SELECT
+  r'\n' '\n' "b" """c"d"e""" '''f'g'h''' "1" "2"
+==
+
+# BYTES literals concatenate and raw modifiers apply only to their immediate
+# component.
+select br'\n' b'\n' b"b" b"""c"d"e""" b'''f'g'h''' b"1" b"2"
+--
+
+QueryStatement [0-60] [select br'...b"1" b"2"]
+  Query [0-60] [select br'...b"1" b"2"]
+    Select [0-60] [select br'...b"1" b"2"]
+      SelectList [7-60] [br'\n' b'\...b"1" b"2"]
+        SelectColumn [7-60] [br'\n' b'\...b"1" b"2"]
+          BytesLiteral [7-60] [br'\n' b'\...b"1" b"2"]
+            BytesLiteralComponent(br'\n') [7-13] [br'\n']
+            BytesLiteralComponent(b'\n') [14-19] [b'\n']
+            BytesLiteralComponent(b"b") [20-24] [b"b"]
+            BytesLiteralComponent(b"""c"d"e""") [25-37] [b"""c"d"e"""]
+            BytesLiteralComponent(b'''f'g'h''') [38-50] [b'''f'g'h''']
+            BytesLiteralComponent(b"1") [51-55] [b"1"]
+            BytesLiteralComponent(b"2") [56-60] [b"2"]
+--
+SELECT
+  br'\n' b'\n' b"b" b"""c"d"e""" b'''f'g'h''' b"1" b"2"
+==
+
+# STRING and BYTES literals do not concatenate
+select '1' b'2'
+--
+
+ERROR: Syntax error: string and bytes literals cannot be concatenated. [at 1:12]
+select '1' b'2'
+           ^
+==
+
+# BYTES and STRING literals do not concatenate
+select b'1' '2'
+--
+
+ERROR: Syntax error: string and bytes literals cannot be concatenated. [at 1:13]
+select b'1' '2'
+            ^
+==
+
+# JSON literal with concatenation. Comments can interleave.
+# In this example, we broke a string value that has quotes and slashes.
+select JSON /*some_comment*/ '{"number": 1, "str_with_slashes": ' /*begin_val*/ r'"\escaped\"' /*end_val*/ ' "other": 2}'
+--
+
+QueryStatement [0-121] [select JSON...other": 2}']
+  Query [0-121] [select JSON...other": 2}']
+    Select [0-121] [select JSON...other": 2}']
+      SelectList [7-121] [JSON /*some_comme...ther": 2}']
+        SelectColumn [7-121] [JSON /*some_comme...ther": 2}']
+          JSONLiteral [7-121] [JSON /*some_comme...ther": 2}']
+            StringLiteral [29-121] ['{"number"...other": 2}']
+              StringLiteralComponent('{"number": 1, "str_with_slashes": ') [29-65] ['{"number"..._with_slashes": ']
+              StringLiteralComponent(r'"\escaped\"') [80-94] [r'"\escaped\"']
+              StringLiteralComponent(' "other": 2}') [107-121] [' "other": 2}']
+--
+SELECT
+  JSON '{"number": 1, "str_with_slashes": ' r'"\escaped\"' ' "other": 2}'
+==
+
+# Other literals can also concat
+SELECT
+  NUMERIC "1" r'2',
+  DECIMAL /*whole:*/ '1' /*fractional:*/ ".23" /*exponent=*/ "e+6",
+  BIGNUMERIC '1' r"2",
+  BIGDECIMAL /*sign*/ '-' /*whole:*/ '1' /*fractional:*/ ".23" /*exponent=*/ "e+6",
+  RANGE<DATE> '[2014-01-01,' /*comment*/ "2015-01-01)",
+  DATE '2014' "-01-01",
+  DATETIME '2016-01-01' r"12:00:00",
+  TIMESTAMP '2018-10-01' "12:00:00+08"
+--
+QueryStatement [0-357] [SELECT   NUMERIC...:00:00+08"]
+  Query [0-357] [SELECT   NUMERIC...:00:00+08"]
+    Select [0-357] [SELECT   NUMERIC...:00:00+08"]
+      SelectList [9-357] [NUMERIC "1...:00:00+08"]
+        SelectColumn [9-25] [NUMERIC "1" r'2']
+          NumericLiteral [9-25] [NUMERIC "1" r'2']
+            StringLiteral [17-25] ["1" r'2']
+              StringLiteralComponent("1") [17-20] ["1"]
+              StringLiteralComponent(r'2') [21-25] [r'2']
+        SelectColumn [29-93] [DECIMAL /*...exponent=*/ "e+6"]
+          NumericLiteral [29-93] [DECIMAL /*...exponent=*/ "e+6"]
+            StringLiteral [48-93] ['1' /*fractional...nt=*/ "e+6"]
+              StringLiteralComponent('1') [48-51] ['1']
+              StringLiteralComponent(".23") [68-73] [".23"]
+              StringLiteralComponent("e+6") [88-93] ["e+6"]
+        SelectColumn [97-116] [BIGNUMERIC '1' r"2"]
+          BigNumericLiteral [97-116] [BIGNUMERIC '1' r"2"]
+            StringLiteral [108-116] ['1' r"2"]
+              StringLiteralComponent('1') [108-111] ['1']
+              StringLiteralComponent(r"2") [112-116] [r"2"]
+        SelectColumn [120-200] [BIGDECIMAL...exponent=*/ "e+6"]
+          BigNumericLiteral [120-200] [BIGDECIMAL...exponent=*/ "e+6"]
+            StringLiteral [140-200] ['-' /*whole...xponent=*/ "e+6"]
+              StringLiteralComponent('-') [140-143] ['-']
+              StringLiteralComponent('1') [155-158] ['1']
+              StringLiteralComponent(".23") [175-180] [".23"]
+              StringLiteralComponent("e+6") [195-200] ["e+6"]
+        SelectColumn [204-256] [RANGE<DATE...2015-01-01)"]
+          RangeLiteral [204-256] [RANGE<DATE...2015-01-01)"]
+            RangeType [204-215] [RANGE<DATE>]
+              SimpleType [210-214] [DATE]
+                PathExpression [210-214] [DATE]
+                  Identifier(DATE) [210-214] [DATE]
+            StringLiteral [216-256] ['[2014-01-...2015-01-01)"]
+              StringLiteralComponent('[2014-01-01,') [216-230] ['[2014-01-01,']
+              StringLiteralComponent("2015-01-01)") [243-256] ["2015-01-01)"]
+        SelectColumn [260-280] [DATE '2014' "-01-01"]
+          DateOrTimeLiteral(TYPE_DATE) [260-280] [DATE '2014' "-01-01"]
+            StringLiteral [265-280] ['2014' "-01-01"]
+              StringLiteralComponent('2014') [265-271] ['2014']
+              StringLiteralComponent("-01-01") [272-280] ["-01-01"]
+        SelectColumn [284-317] [DATETIME '..."12:00:00"]
+          DateOrTimeLiteral(TYPE_DATETIME) [284-317] [DATETIME '..."12:00:00"]
+            StringLiteral [293-317] ['2016-01-01' r"12:00:00"]
+              StringLiteralComponent('2016-01-01') [293-305] ['2016-01-01']
+              StringLiteralComponent(r"12:00:00") [306-317] [r"12:00:00"]
+        SelectColumn [321-357] [TIMESTAMP...:00:00+08"]
+          DateOrTimeLiteral(TYPE_TIMESTAMP) [321-357] [TIMESTAMP...:00:00+08"]
+            StringLiteral [331-357] ['2018-10-01' "12:00:00+08"]
+              StringLiteralComponent('2018-10-01') [331-343] ['2018-10-01']
+              StringLiteralComponent("12:00:00+08") [344-357] ["12:00:00+08"]
+--
+SELECT
+  NUMERIC "1" r'2',
+  NUMERIC '1' ".23" "e+6",
+  BIGNUMERIC '1' r"2",
+  BIGNUMERIC '-' '1' ".23" "e+6",
+  RANGE< DATE > '[2014-01-01,' "2015-01-01)",
+  DATE '2014' "-01-01",
+  DATETIME '2016-01-01' r"12:00:00",
+  TIMESTAMP '2018-10-01' "12:00:00+08"

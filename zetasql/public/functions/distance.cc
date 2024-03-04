@@ -35,11 +35,14 @@
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "unicode/umachine.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/edit_distance.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -76,7 +79,7 @@ absl::Status Apply(
 // Populates a sparse vector content into its representation as a map and a list
 // of all non-zero indices.
 template <typename IdxType>
-absl::Status PopulateSparseInput(const std::vector<Value>& input_array,
+absl::Status PopulateSparseInput(absl::Span<const Value> input_array,
                                  absl::flat_hash_map<IdxType, double>& map,
                                  absl::btree_set<IdxType>& all_indices) {
   map.reserve(input_array.size());
@@ -97,7 +100,7 @@ absl::Status PopulateSparseInput(const std::vector<Value>& input_array,
     double value = element.field(1).Get<double>();
     if (!map.emplace(index, value).second) {
       return absl::InvalidArgumentError(absl::Substitute(
-          "Duplicate index $0 found in the input array.", index));
+          "Duplicate index $0 found in the input array", index));
     }
     all_indices.emplace(index);
   }
@@ -146,7 +149,7 @@ absl::StatusOr<Value> ComputeCosineDistance(
 
   if (len_a == 0 || len_b == 0) {
     return absl::InvalidArgumentError(
-        "Cannot compute cosine distance against zero vector.");
+        "Cannot compute cosine distance against zero vector");
   }
 
   double sqrt_len_a;
@@ -242,9 +245,124 @@ absl::StatusOr<Value> ComputeEuclideanDistanceFunctionSparse(
   return ComputeEuclideanDistance<double>(array_elements_supplier);
 }
 
+template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+absl::StatusOr<Value> ComputeDotProduct(
+    absl::FunctionRef<absl::StatusOr<std::optional<std::pair<T, T>>>()>
+        array_elements_supplier) {
+  double result = 0;
+  while (true) {
+    std::optional<std::pair<T, T>> paired_elements;
+    ZETASQL_ASSIGN_OR_RETURN(paired_elements, array_elements_supplier());
+    if (!paired_elements.has_value()) {
+      break;
+    }
+    double left_magnitude = (double)paired_elements.value().first;
+    double right_magnitude = (double)paired_elements.value().second;
+
+    double magnitude_product;
+    ZETASQL_RETURN_IF_ERROR(Apply(Multiply<double>, left_magnitude, right_magnitude,
+                          &magnitude_product));
+    ZETASQL_RETURN_IF_ERROR(Apply(Add<double>, result, magnitude_product, &result));
+  }
+
+  return Value::Double(result);
+}
+
+template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+absl::StatusOr<Value> ComputeManhattanDistance(
+    absl::FunctionRef<absl::StatusOr<std::optional<std::pair<T, T>>>()>
+        array_elements_supplier) {
+  double result = 0;
+  while (true) {
+    std::optional<std::pair<T, T>> paired_elements;
+    ZETASQL_ASSIGN_OR_RETURN(paired_elements, array_elements_supplier());
+    if (!paired_elements.has_value()) {
+      break;
+    }
+    double left_magnitude = (double)paired_elements.value().first;
+    double right_magnitude = (double)paired_elements.value().second;
+
+    double magnitude_difference;
+    ZETASQL_RETURN_IF_ERROR(Apply(Subtract<double>, left_magnitude, right_magnitude,
+                          &magnitude_difference));
+    ZETASQL_RETURN_IF_ERROR(
+        Apply(Abs<double>, magnitude_difference, &magnitude_difference));
+
+    ZETASQL_RETURN_IF_ERROR(Apply(Add<double>, result, magnitude_difference, &result));
+  }
+
+  return Value::Double(result);
+}
+
+template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+absl::StatusOr<Value> ComputeL1Norm(
+    absl::FunctionRef<absl::StatusOr<std::optional<T>>()>
+        array_elements_supplier) {
+  double result = 0;
+  while (true) {
+    std::optional<T> element;
+    ZETASQL_ASSIGN_OR_RETURN(element, array_elements_supplier());
+    if (!element.has_value()) {
+      break;
+    }
+    double element_value = (double)element.value();
+
+    ZETASQL_RETURN_IF_ERROR(Apply(Abs<double>, element_value, &element_value));
+
+    ZETASQL_RETURN_IF_ERROR(Apply(Add<double>, result, element_value, &result));
+  }
+
+  return Value::Double(result);
+}
+
+template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+absl::StatusOr<Value> ComputeL2Norm(
+    absl::FunctionRef<absl::StatusOr<std::optional<T>>()>
+        array_elements_supplier) {
+  double result = 0;
+  while (true) {
+    std::optional<T> element;
+    ZETASQL_ASSIGN_OR_RETURN(element, array_elements_supplier());
+    if (!element.has_value()) {
+      break;
+    }
+    double element_value = (double)element.value();
+
+    ZETASQL_RETURN_IF_ERROR(
+        Apply(Multiply<double>, element_value, element_value, &element_value));
+
+    ZETASQL_RETURN_IF_ERROR(Apply(Add<double>, result, element_value, &result));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(Apply(Sqrt<double>, result, &result));
+
+  return Value::Double(result);
+}
+
 }  // namespace
 
-template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T> ||
+                                                  std::is_integral_v<T>>>
+std::function<absl::StatusOr<std::optional<T>>()>
+MakeZippedArrayElementsSupplier(const std::vector<Value>& vector) {
+  return [v1_it = vector.begin(),
+          v1_end = vector.end()]() mutable -> absl::StatusOr<std::optional<T>> {
+    if (v1_it == v1_end) {
+      return std::nullopt;
+    }
+
+    if (v1_it->is_null()) {
+      return absl::OutOfRangeError("NULL array element");
+    }
+
+    auto element = v1_it->Get<T>();
+    v1_it++;
+    return element;
+  };
+}
+
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T> ||
+                                                  std::is_integral_v<T>>>
 std::function<absl::StatusOr<std::optional<std::pair<T, T>>>()>
 MakeZippedArrayElementsSupplier(const std::vector<Value>& vector1,
                                 const std::vector<Value>& vector2) {
@@ -256,7 +374,9 @@ MakeZippedArrayElementsSupplier(const std::vector<Value>& vector1,
     }
 
     if (v1_it->is_null() || v2_it->is_null()) {
-      return absl::InvalidArgumentError("NULL array element");
+      return absl::OutOfRangeError(
+          absl::StrCat("NULL array element in ",
+                       v1_it->is_null() ? "first" : "second", " argument"));
     }
 
     auto pair = std::make_pair(v1_it->Get<T>(), v2_it->Get<T>());
@@ -269,7 +389,7 @@ MakeZippedArrayElementsSupplier(const std::vector<Value>& vector1,
 absl::StatusOr<Value> CosineDistanceDense(Value vector1, Value vector2) {
   if (vector1.num_elements() != vector2.num_elements()) {
     return absl::InvalidArgumentError(
-        absl::Substitute("Array length mismatch: $0 and $1.",
+        absl::Substitute("Array length mismatch: $0 and $1",
                          vector1.num_elements(), vector2.num_elements()));
   }
   if (vector1.type()->AsArray()->element_type() == types::DoubleType()) {
@@ -295,7 +415,7 @@ absl::StatusOr<Value> CosineDistanceSparseStringKey(Value vector1,
 absl::StatusOr<Value> EuclideanDistanceDense(Value vector1, Value vector2) {
   if (vector1.num_elements() != vector2.num_elements()) {
     return absl::InvalidArgumentError(
-        absl::Substitute("Array length mismatch: $0 and $1.",
+        absl::Substitute("Array length mismatch: $0 and $1",
                          vector1.num_elements(), vector2.num_elements()));
   }
 
@@ -320,6 +440,93 @@ absl::StatusOr<Value> EuclideanDistanceSparseStringKey(Value vector1,
   return ComputeEuclideanDistanceFunctionSparse<std::string>(vector1, vector2);
 }
 
+absl::StatusOr<Value> DotProduct(Value vector1, Value vector2) {
+  if (vector1.num_elements() != vector2.num_elements()) {
+    return absl::OutOfRangeError(
+        absl::Substitute("Array length mismatch: $0 and $1",
+                         vector1.num_elements(), vector2.num_elements()));
+  }
+
+  const Type* element_type = vector1.type()->AsArray()->element_type();
+
+  if (element_type->IsInt64()) {
+    return ComputeDotProduct<int64_t>(MakeZippedArrayElementsSupplier<int64_t>(
+        vector1.elements(), vector2.elements()));
+  } else if (element_type->IsFloat()) {
+    return ComputeDotProduct<float>(MakeZippedArrayElementsSupplier<float>(
+        vector1.elements(), vector2.elements()));
+  } else if (element_type->IsDouble()) {
+    return ComputeDotProduct<double>(MakeZippedArrayElementsSupplier<double>(
+        vector1.elements(), vector2.elements()));
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Unexpected array element type: "
+                     << element_type->DebugString();
+  }
+}
+
+absl::StatusOr<Value> ManhattanDistance(Value vector1, Value vector2) {
+  if (vector1.num_elements() != vector2.num_elements()) {
+    return absl::OutOfRangeError(
+        absl::Substitute("Array length mismatch: $0 and $1",
+                         vector1.num_elements(), vector2.num_elements()));
+  }
+
+  const Type* element_type = vector1.type()->AsArray()->element_type();
+
+  if (element_type->IsInt64()) {
+    return ComputeManhattanDistance<int64_t>(
+        MakeZippedArrayElementsSupplier<int64_t>(vector1.elements(),
+                                                 vector2.elements()));
+  } else if (element_type->IsFloat()) {
+    return ComputeManhattanDistance<float>(
+        MakeZippedArrayElementsSupplier<float>(vector1.elements(),
+                                               vector2.elements()));
+  } else if (element_type->IsDouble()) {
+    return ComputeManhattanDistance<double>(
+        MakeZippedArrayElementsSupplier<double>(vector1.elements(),
+                                                vector2.elements()));
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Unexpected array element type: "
+                     << element_type->DebugString();
+  }
+}
+
+absl::StatusOr<Value> L1Norm(Value vector) {
+  const Type* element_type = vector.type()->AsArray()->element_type();
+
+  if (element_type->IsInt64()) {
+    return ComputeL1Norm<int64_t>(
+        MakeZippedArrayElementsSupplier<int64_t>(vector.elements()));
+  } else if (element_type == types::FloatType()) {
+    return ComputeL1Norm<float>(
+        MakeZippedArrayElementsSupplier<float>(vector.elements()));
+  } else if (element_type == types::DoubleType()) {
+    return ComputeL1Norm<double>(
+        MakeZippedArrayElementsSupplier<double>(vector.elements()));
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Unexpected array element type: "
+                     << element_type->DebugString();
+  }
+}
+
+absl::StatusOr<Value> L2Norm(Value vector) {
+  const Type* element_type = vector.type()->AsArray()->element_type();
+
+  if (element_type->IsInt64()) {
+    return ComputeL2Norm<int64_t>(
+        MakeZippedArrayElementsSupplier<int64_t>(vector.elements()));
+  } else if (element_type == types::FloatType()) {
+    return ComputeL2Norm<float>(
+        MakeZippedArrayElementsSupplier<float>(vector.elements()));
+  } else if (element_type == types::DoubleType()) {
+    return ComputeL2Norm<double>(
+        MakeZippedArrayElementsSupplier<double>(vector.elements()));
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Unexpected array element type: "
+                     << element_type->DebugString();
+  }
+}
+
 absl::StatusOr<std::vector<char32_t>> GetUtf8CodePoints(absl::string_view s) {
   std::vector<char32_t> result;
   int32_t offset = 0;
@@ -327,7 +534,7 @@ absl::StatusOr<std::vector<char32_t>> GetUtf8CodePoints(absl::string_view s) {
     UChar32 character;
     U8_NEXT(s, offset, s.size(), character);
     if (character < 0) {
-      return absl::InvalidArgumentError("invalid UTF8 string");
+      return absl::InvalidArgumentError("Invalid UTF8 string");
     }
     result.push_back(character);
   }
@@ -342,7 +549,7 @@ absl::StatusOr<int64_t> EditDistance(
                              ? max_distance_value.value()
                              : std::max(s0.size(), s1.size());
   if (max_distance < 0) {
-    return absl::InvalidArgumentError("max_distance must be non-negative");
+    return absl::InvalidArgumentError("Max distance must be non-negative");
   }
   const int64_t max_possible_distance = std::max(s0.size(), s1.size());
   if (max_distance > max_possible_distance) {
@@ -367,7 +574,7 @@ absl::StatusOr<int64_t> EditDistanceBytes(
                              ? max_distance_value.value()
                              : std::max(s0.size(), s1.size());
   if (max_distance < 0) {
-    return absl::InvalidArgumentError("max_distance must be non-negative");
+    return absl::InvalidArgumentError("Max distance must be non-negative");
   }
   const int64_t max_possible_distance = std::max(s0.size(), s1.size());
   if (max_distance > max_possible_distance) {

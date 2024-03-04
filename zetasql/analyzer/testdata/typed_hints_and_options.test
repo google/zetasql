@@ -884,6 +884,22 @@ CreateTableFunctionStmt
   +-$query.p#1 AS p [INT64]
 ==
 
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+CREATE TABLE foo (a STRING OPTIONS (string_array_allow_alter_option += ['str1', 'str2']));
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:37]
+CREATE TABLE foo (a STRING OPTIONS (string_array_allow_alter_option += ['str1...
+                                    ^
+==
+
+[language_features=ENABLE_ALTER_ARRAY_OPTIONS]
+ALTER TABLE abTable ADD COLUMN c STRING OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
+--
+ERROR: Operators '+=' and '-=' are not allowed for option string_array_allow_alter_option [at 1:50]
+ALTER TABLE abTable ADD COLUMN c STRING OPTIONS (string_array_allow_alter_opt...
+                                                 ^
+==
+
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
 ERROR: Syntax error: Invalid operator "+=" [at 1:81]

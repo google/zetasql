@@ -24,6 +24,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -52,7 +53,7 @@ struct LiteralReplacementOptions {
 // This can return errors that point at a location in the input. How this
 // location is reported is given by <options.error_message_mode()>.
 absl::Status ReplaceLiteralsByParameters(
-    const std::string& sql,
+    absl::string_view sql,
     const LiteralReplacementOptions& literal_replacement_options,
     const AnalyzerOptions& analyzer_options, const ResolvedStatement* stmt,
     LiteralReplacementMap* literal_map,

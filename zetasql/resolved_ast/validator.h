@@ -35,6 +35,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 namespace zetasql {
@@ -74,6 +75,10 @@ class Validator {
   absl::Status ValidateStandaloneResolvedExpr(const ResolvedExpr* expr);
 
  private:
+  // Called at the end of each entry point, ValidateResolvedStatement() and
+  // ValidateStandaloneExpr().
+  absl::Status ValidateFinalState();
+
   // Statements.
   absl::Status ValidateResolvedStatementInternal(
       const ResolvedStatement* statement);
@@ -322,7 +327,7 @@ class Validator {
       const ResolvedAggregateFunctionCall* aggregate_function_call);
 
   absl::Status ValidateResolvedAggregateComputedColumn(
-      const ResolvedComputedColumn* computed_column,
+      const ResolvedComputedColumnImpl* computed_column,
       const std::set<ResolvedColumn>& input_scan_visible_columns,
       const std::set<ResolvedColumn>& visible_parameters);
 
@@ -390,29 +395,34 @@ class Validator {
   absl::Status ValidateResolvedExprList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const std::vector<std::unique_ptr<const ResolvedExpr>>& expr_list);
+      absl::Span<const std::unique_ptr<const ResolvedExpr>> expr_list);
 
   absl::Status ValidateResolvedFunctionArgumentList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
+      absl::Span<const std::unique_ptr<const ResolvedFunctionArgument>>
           expr_list);
 
   absl::Status ValidateResolvedComputedColumn(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const ResolvedComputedColumn* computed_column);
+      const ResolvedComputedColumnBase* computed_column);
 
   absl::Status ValidateGroupingFunctionCallList(
       const std::set<ResolvedColumn>& visible_columns,
-      const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+      absl::Span<const std::unique_ptr<const ResolvedGroupingCall>>
           grouping_call_list,
       const std::set<ResolvedColumn>& group_by_columns);
 
   absl::Status ValidateResolvedComputedColumnList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
+          computed_column_list);
+  absl::Status ValidateResolvedComputedColumnList(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumnBase>>
           computed_column_list);
 
   absl::Status ValidateResolvedOutputColumn(
@@ -420,13 +430,16 @@ class Validator {
       const ResolvedOutputColumn* output_column);
 
   absl::Status ValidateResolvedOutputColumnList(
-      const std::vector<ResolvedColumn>& visible_columns,
-      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+      absl::Span<const ResolvedColumn> visible_columns,
+      absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_column_list,
       bool is_value_table);
 
   absl::Status ValidateResolvedCreateSchemaStmt(
       const ResolvedCreateSchemaStmt* stmt);
+
+  absl::Status ValidateResolvedCreateExternalSchemaStmt(
+      const ResolvedCreateExternalSchemaStmt* stmt);
 
   absl::Status ValidateResolvedCreateTableStmtBase(
       const ResolvedCreateTableStmtBase* stmt,
@@ -454,28 +467,28 @@ class Validator {
 
   absl::Status ValidateArgumentAliases(
       const FunctionSignature& signature,
-      const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
+      absl::Span<const std::unique_ptr<const ResolvedFunctionArgument>>
           arguments);
 
   absl::Status ValidateOptionsList(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& list);
+      absl::Span<const std::unique_ptr<const ResolvedOption>> list);
 
   template <class MapType>
   absl::Status ValidateOptionsList(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& list,
+      absl::Span<const std::unique_ptr<const ResolvedOption>> list,
       const MapType& allowed_options,
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       absl::string_view option_type);
 
   absl::Status ValidateHintList(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& list);
+      absl::Span<const std::unique_ptr<const ResolvedOption>> list);
 
   absl::Status ValidateResolvedTableAndColumnInfo(
       const ResolvedTableAndColumnInfo* table_and_column_info);
 
   absl::Status ValidateResolvedTableAndColumnInfoList(
-      const std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>&
+      absl::Span<const std::unique_ptr<const ResolvedTableAndColumnInfo>>
           table_and_column_info_list);
 
   absl::Status ValidateCollateExpr(
@@ -488,7 +501,7 @@ class Validator {
       const ResolvedColumnAnnotations* annotations);
 
   absl::Status ValidateColumnDefinitions(
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnDefinition>>
           column_definitions,
       std::set<ResolvedColumn>* visible_columns);
 
@@ -526,24 +539,31 @@ class Validator {
   absl::Status CheckColumnList(const ResolvedScan* scan,
                                const std::set<ResolvedColumn>& visible_columns);
 
+  absl::Status MakeColumnList(const ResolvedColumnList& column_list,
+                              std::set<ResolvedColumn>* visible_columns);
+
   absl::Status AddColumnList(const ResolvedColumnList& column_list,
                              std::set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnList(
       const ResolvedColumnList& column_list,
       absl::flat_hash_set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnFromComputedColumn(
-      const ResolvedComputedColumn* computed_column,
+      const ResolvedComputedColumnBase* computed_column,
       std::set<ResolvedColumn>* visible_columns);
   absl::Status AddGroupingFunctionCallColumn(
       ResolvedColumn grouping_call_column,
       std::set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnsFromComputedColumnList(
-      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
+          computed_column_list,
+      std::set<ResolvedColumn>* visible_columns);
+  absl::Status AddColumnsFromComputedColumnList(
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumnBase>>
           computed_column_list,
       std::set<ResolvedColumn>* visible_columns);
 
   absl::Status AddColumnsFromGroupingCallList(
-      const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+      absl::Span<const std::unique_ptr<const ResolvedGroupingCall>>
           grouping_call_list,
       std::set<ResolvedColumn>* visible_columns);
 
@@ -590,6 +610,10 @@ class Validator {
   absl::Status ValidateResolvedRecursiveRefScan(
       const ResolvedRecursiveRefScan* scan);
 
+  absl::Status ValidateResolvedRecursionDepthModifier(
+      const ResolvedRecursionDepthModifier* modifier,
+      const ResolvedColumnList& recursion_column_list);
+
   absl::Status ValidateResolvedPivotScan(
       const ResolvedPivotScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -635,7 +659,7 @@ class Validator {
       const ResolvedExpr* group_threshold_expr,
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options,
+      absl::Span<const std::unique_ptr<const ResolvedOption>> scan_options,
       absl::string_view expression_name);
 
   // Validates the group selection threshold expression for differential privacy
@@ -668,18 +692,18 @@ class Validator {
   // Validates GroupingSet and grouping columns are empty.
   // This is only for the nodes that don't have grouping sets implemented yet.
   absl::Status ValidateGroupingSetListAreEmpty(
-      const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+      absl::Span<const std::unique_ptr<const ResolvedGroupingSetBase>>
           grouping_set_list,
-      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnRef>>
           rollup_column_list);
 
   // Validates GroupingSet and grouping columns based on grouping conditions.
   absl::Status ValidateGroupingSetList(
-      const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+      absl::Span<const std::unique_ptr<const ResolvedGroupingSetBase>>
           grouping_set_list,
-      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnRef>>
           rollup_column_list,
-      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>>
           group_by_list);
 
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
@@ -689,8 +713,11 @@ class Validator {
                                const ResolvedColumnRef** ref);
 
   // Validates whether <expr> is a literal or a parameter. In either case, it
-  // should be of type int64_t.
-  absl::Status ValidateArgumentIsInt64Constant(const ResolvedExpr* expr);
+  // should be of type int64_t. <context_msg> represents where this validation
+  // happens.
+  absl::Status ValidateArgumentIsInt64(const ResolvedExpr* expr,
+                                       bool validate_constant_nonnegative,
+                                       absl::string_view context_msg);
 
   absl::Status ValidateGenericArgumentsAgainstConcreteArguments(
       const ResolvedFunctionCallBase* resolved_function_call,
@@ -791,6 +818,11 @@ class Validator {
   // List of column ids seen so far. Used to ensure that every unique column
   // has a distinct id.
   absl::flat_hash_set<int> column_ids_seen_;
+
+  // List of side effect columns that are yet to be consumed by a
+  // $with_side_effects() call. At the end of validation, this list must be
+  // empty.
+  absl::flat_hash_set<int> unconsumed_side_effect_columns_;
 
   // The node at the top of the stack is the innermost node being validated.
   std::vector<const ResolvedNode*> context_stack_;

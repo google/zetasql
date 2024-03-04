@@ -260,4 +260,34 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
   });
 }
 
+// Keeping these separate as GetFunctionTestsFormat() is being used by format
+// unit tests too. We do not want these cases to run in those unit tests (which
+// run in the context of PRODUCT_INTERNAL), as these cases are only applicable
+// for PRODUCT_EXTERNAL.
+std::vector<FunctionTestCall>
+GetFunctionTestsFormatWithExternalModeFloatType() {
+  const float kFloatNan = std::numeric_limits<float>::quiet_NaN();
+  const float kFloatNegNan = absl::bit_cast<float>(0xffc00000u);
+  const float kFloatPosInf = std::numeric_limits<float>::infinity();
+  const float kFloatNegInf = -std::numeric_limits<float>::infinity();
+
+  return std::vector<FunctionTestCall>({
+      {"format",
+       {"external: %T", kFloatNan},
+       "external: CAST(\"nan\" AS FLOAT32)"},
+      {"format",
+       {"external: %T", kFloatNegNan},
+       "external: CAST(\"nan\" AS FLOAT32)"},
+      {"format",
+       {"external: %T", kFloatPosInf},
+       "external: CAST(\"inf\" AS FLOAT32)"},
+      {"format",
+       {"external: %T", kFloatNegInf},
+       "external: CAST(\"-inf\" AS FLOAT32)"},
+      {"format",
+       {"external: %T", values::FloatArray({4, -2.5, kFloatNan})},
+       "external: [4.0, -2.5, CAST(\"nan\" AS FLOAT32)]"},
+  });
+}
+
 }  // namespace zetasql

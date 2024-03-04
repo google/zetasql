@@ -5,7 +5,7 @@
 # Navigation functions
 
 ZetaSQL supports navigation functions.
-Navigation functions are a subset window functions. To create a
+Navigation functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function_calls][window-function-calls].
 

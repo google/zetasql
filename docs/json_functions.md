@@ -2189,6 +2189,7 @@ SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 JSON_SET(
   json_expr,
   json_path_value_pair[, ...]
+  [, create_if_missing=> { TRUE | FALSE }]
 )
 
 json_path_value_pair:
@@ -2213,35 +2214,42 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         insert.
++   `create_if_missing`: An optional, mandatory named argument.
+
+    +   If TRUE (default), replaces or inserts data if the path does not exist.
+
+    +   If FALSE, only _existing_ JSONPath values are replaced. If the path
+        doesn't exist, the set operation is ignored.
 
 Details:
 
 +   Path value pairs are evaluated left to right. The JSON produced by
     evaluating one pair becomes the JSON against which the next pair
     is evaluated.
-+   If a path doesn't exist, the remainder of the path is recursively created.
 +   If a matched path has an existing value, it overwrites the existing data
     with `value`.
++   If `create_if_missing` is `TRUE`:
+
+      +  If a path doesn't exist, the remainder of the path is recursively
+         created.
+      +  If the matched path prefix points to a JSON null, the remainder of the
+         path is recursively created, and `value` is inserted.
+      +  If a path token points to a JSON array and the specified index is
+         _larger_ than the size of the array, pads the JSON array with JSON
+         nulls, recursively creates the remainder of the path at the specified
+         index, and inserts the path value pair.
 +   This function applies all path value pair set operations even if an
     individual path value pair operation is invalid. For invalid operations,
     the operation is ignored and the function continues to process the rest
     of the path value pairs.
 +   If the path exists but has an incompatible type at any given path
     token, no update happens for that specific path value pair.
-+   If the matched path prefix points to a JSON null, the remainder of the
-    path is recursively created, and `value` is inserted.
-+   If a path token points to a JSON array and the specified
-    index is _larger_ than the size of the array, pads the JSON array with
-    JSON nulls, recursively creates the remainder of the path at the specified
-    index, and inserts the path value pair.
-+   If a matched path points to a JSON array and the specified index is
-    _less than_ the length of the array, replaces the existing JSON array value
-    at index with `value`.
 +   If any `json_path` is an invalid [JSONPath][JSONPath-format], an error is
     produced.
 +   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
 +   If `json_path` is SQL `NULL`, the `json_path_value_pair` operation is
     ignored.
++   If `create_if_missing` is SQL `NULL`, the set operation is ignored.
 
 **Return type**
 
@@ -2260,6 +2268,38 @@ SELECT JSON_SET(JSON '{"a": 1}', '$', JSON '{"b": 2, "c": 3}') AS json_data
  +---------------+
  | {"b":2,"c":3} |
  *---------------*/
+```
+
+In the following example, `create_if_missing` is `FALSE` and the path `$.b`
+doesn't exist, so the set operation is ignored.
+
+```sql
+SELECT JSON_SET(
+  JSON '{"a": 1}',
+  "$.b", 999,
+  create_if_missing => false) AS json_data
+
+/*------------*
+ | json_data  |
+ +------------+
+ | '{"a": 1}' |
+ *------------*/
+```
+
+In the following example, `create_if_missing` is `TRUE` and the path `$.a`
+exists, so the value is replaced.
+
+```sql
+SELECT JSON_SET(
+  JSON '{"a": 1}',
+  "$.a", 999,
+  create_if_missing => false) AS json_data
+
+/*--------------*
+ | json_data    |
+ +--------------+
+ | '{"a": 999}' |
+ *--------------*/
 ```
 
 In the following example, the path `$.a` is matched, but `$.a.b` does not
@@ -3202,8 +3242,8 @@ Details:
   <tr>
     <td>string</td>
     <td>
-      If the JSON string represents a JSON number, parses it as a
-      <code>BIGNUMERIC</code> value, and then safe casts the result as a
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the result as a
       <code>DOUBLE</code> value.
       If the JSON string can't be converted, returns <code>NULL</code>.
     </td>
@@ -3425,8 +3465,8 @@ Details:
   <tr>
     <td>string</td>
     <td>
-      If the JSON string represents a JSON number, parses it as a
-      <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
       <code>INT64</code> value.
       If the JSON string can't be converted, returns <code>NULL</code>.
     </td>
@@ -3637,13 +3677,13 @@ Details:
   <tr>
     <td>string</td>
     <td>
-      Returns the JSON string as a <code>STRING<code> value.
+      Returns the JSON string as a <code>STRING</code> value.
     </td>
   </tr>
   <tr>
     <td>number</td>
     <td>
-      Returns the JSON number as a <code>STRING<code> value.
+      Returns the JSON number as a <code>STRING</code> value.
     </td>
   </tr>
   <tr>

@@ -38,6 +38,7 @@ import com.google.zetasql.DescriptorPool.ZetaSQLEnumDescriptor;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.EnumTypeProto;
+import com.google.zetasql.ZetaSQLType.MapTypeProto;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.RangeTypeProto;
 import com.google.zetasql.ZetaSQLType.StructFieldProto;
@@ -183,6 +184,11 @@ public abstract class TypeFactory implements Serializable {
     return new RangeType(elementType);
   }
 
+  /** Returns a MapType that contains the given {@code keyType} and {@code valueType}. */
+  public static MapType createMapType(Type keyType, Type valueType) {
+    return new MapType(keyType, valueType);
+  }
+
   /**
    * Returns a ProtoType with a proto message descriptor that is loaded from FileDescriptorSet with
    * {@link DescriptorPool}.
@@ -318,6 +324,8 @@ public abstract class TypeFactory implements Serializable {
         case TYPE_RANGE:
           return deserializeRangeType(proto, pools);
 
+        case TYPE_MAP:
+          return deserializeMapType(proto, pools);
         default:
           throw new IllegalArgumentException(
               String.format("proto.type_kind: %s", proto.getTypeKind()));
@@ -408,6 +416,12 @@ public abstract class TypeFactory implements Serializable {
     private RangeType deserializeRangeType(TypeProto proto, List<? extends DescriptorPool> pools) {
       RangeTypeProto rangeType = proto.getRangeType();
       return createRangeType(deserialize(rangeType.getElementType(), pools));
+    }
+
+    private MapType deserializeMapType(TypeProto proto, List<? extends DescriptorPool> pools) {
+      MapTypeProto mapType = proto.getMapType();
+      return createMapType(
+          deserialize(mapType.getKeyType(), pools), deserialize(mapType.getValueType(), pools));
     }
   }
 

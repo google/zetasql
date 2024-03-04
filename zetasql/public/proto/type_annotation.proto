@@ -149,6 +149,10 @@ message FieldFormat {
     // Can be applied to bytes fields.
     INTERVAL = 14;
 
+    // A ZetaSQL TOKENLIST value.
+    // Can be applied to bytes fields.
+    TOKENLIST = 15;
+
     // A ZetaSQL Range value encoded as bytes.
     //
     // Can be applied to bytes fields.

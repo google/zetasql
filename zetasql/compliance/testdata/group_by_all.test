@@ -561,3 +561,50 @@ ARRAY<STRUCT<b1 STRUCT<c1 INT64, c2 INT64>,
 ]
 ==
 
+# Regression test for b/310705631
+[required_features=V_1_2_GROUP_BY_ARRAY,V_1_4_GROUP_BY_ALL]
+[name=group_by_all_implicit_unnest_table_array_path_regression_test]
+WITH Table5 AS (SELECT [1, 2, 3] AS arr_col)
+SELECT
+  ( SELECT e FROM t5.arr_col AS e ORDER BY e LIMIT 1 ) AS scalar_subq_col,
+  t5.arr_col
+FROM Table5 AS t5
+GROUP BY ALL
+--
+ARRAY<STRUCT<
+        scalar_subq_col INT64,
+        arr_col ARRAY<>
+      >>
+[{
+   1,
+   ARRAY<INT64>[known order:1, 2, 3]
+ }]
+==
+
+# Regression test for b/323439034
+[name=group_by_all_no_agg_no_grouping_keys_regression_test]
+SELECT 'a' AS x
+FROM (
+  SELECT 1 AS id
+  UNION ALL
+  SELECT 2 AS id
+)
+GROUP BY ALL
+--
+ARRAY<STRUCT<x STRING>>[{"a"}]
+==
+
+# Regression test for b/323567303
+[name=group_by_all_no_agg_no_grouping_keys_having_regression_test]
+SELECT 'a' AS x
+FROM (
+  SELECT 1 AS id
+  UNION ALL
+  SELECT 2 AS id
+)
+GROUP BY ALL
+HAVING TRUE
+--
+ARRAY<STRUCT<x STRING>>[{"a"}]
+==
+

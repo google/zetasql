@@ -51,12 +51,24 @@ DEFINE MACRO m1 /* unfinished comment
                 ^
 ==
 
-# Invalid tokens are still invalid in macros
+# Invalid tokens are still invalid in macros in strict mode
+[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
 DEFINE MACRO m1 3m
 --
 ERROR: Syntax error: Missing whitespace between literal and alias [at 1:18]
 DEFINE MACRO m1 3m
                  ^
+==
+
+# Invalid tokens allowed in lenient mode
+[language_features=V_1_4_SQL_MACROS]
+DEFINE MACRO m1 3m
+--
+DefineMacroStatement [0-18] [DEFINE MACRO m1 3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3m) [16-18] [3m]
+--
+DEFINE MACRO m1 3m
 ==
 
 # Tokens do now splice, so * and / are acceptable as 2 tokens here

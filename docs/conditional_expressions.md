@@ -340,7 +340,7 @@ SELECT NULLIFZERO(0) AS result
 ### `ZEROIFNULL`
 
 ```sql
-NULLIFZERO(expr)
+ZEROIFNULL(expr)
 ```
 
 **Description**

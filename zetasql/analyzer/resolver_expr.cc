@@ -19,6 +19,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -75,6 +76,7 @@
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/range.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
@@ -83,6 +85,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto_util.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_function.h"
@@ -109,11 +112,13 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
@@ -201,16 +206,15 @@ absl::Status AddGetFieldToFlatten(std::unique_ptr<const ResolvedExpr> expr,
   return absl::OkStatus();
 }
 
-std::string GetNodePrefixToken(absl::string_view sql,
-                               const ASTLeaf& leaf_node) {
-  const ParseLocationRange& parse_location_range =
-      leaf_node.GetParseLocationRange();
-  absl::string_view type_token = absl::StripAsciiWhitespace(
-      absl::ClippedSubstr(sql, parse_location_range.start().GetByteOffset(),
-                          parse_location_range.end().GetByteOffset() -
-                              parse_location_range.start().GetByteOffset() -
-                              leaf_node.image().size()));
-  return absl::AsciiStrToUpper(type_token);
+static std::string GetTypeNameForPrefixedLiteral(absl::string_view sql,
+                                                 const ASTLeaf& leaf_node) {
+  int start_offset = leaf_node.GetParseLocationRange().start().GetByteOffset();
+  int end_offset = start_offset;
+  while (end_offset < sql.size() && std::isalpha(sql[end_offset])) {
+    end_offset++;
+  }
+  return absl::AsciiStrToUpper(
+      absl::ClippedSubstr(sql, start_offset, end_offset - start_offset));
 }
 
 inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
@@ -252,6 +256,29 @@ absl::Span<const std::string> GetTypeCatalogNamePath(const Type* type) {
   }
   return {};
 }
+
+absl::Status MakeUnsupportedGroupingFunctionError(
+    const ASTFunctionCall* func_call, SelectWithMode mode) {
+  ABSL_DCHECK(func_call != nullptr);
+  std::string query_kind;
+  switch (mode) {
+    case SelectWithMode::ANONYMIZATION:
+      query_kind = "anonymization";
+      break;
+    case SelectWithMode::DIFFERENTIAL_PRIVACY:
+      query_kind = "differential privacy";
+      break;
+    case SelectWithMode::AGGREGATION_THRESHOLD:
+      query_kind = "aggregation threshold";
+      break;
+    case SelectWithMode::NONE:
+    default:
+      return absl::OkStatus();
+  }
+  return MakeSqlErrorAt(func_call) << absl::StrFormat(
+             "GROUPING function is not supported in %s queries", query_kind);
+}
+
 }  // namespace
 
 absl::Status Resolver::ResolveBuildProto(
@@ -356,7 +383,9 @@ absl::Status Resolver::ResolveBuildProto(
       }
       return MakeSqlErrorAt(argument.ast_location)
              << "Could not store value with type "
-             << GetInputArgumentTypeForExpr(expr.get())
+             << GetInputArgumentTypeForExpr(
+                    expr.get(),
+                    /*pick_default_type_for_untyped_expr=*/false)
                     .UserFacingName(product_mode())
              << " into proto field " << field->full_name()
              << " which has SQL type "
@@ -718,10 +747,8 @@ absl::Status Resolver::ResolveScalarExpr(
 
 absl::StatusOr<std::unique_ptr<const ResolvedLiteral>>
 Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
-  std::string unquoted_image;
-  ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(json_literal->image(), &unquoted_image));
   auto status_or_value = JSONValue::ParseJSONString(
-      unquoted_image,
+      json_literal->string_literal()->string_value(),
       JSONParsingOptions{
           .wide_number_mode =
               (language().LanguageFeatureEnabled(
@@ -1016,6 +1043,12 @@ absl::Status Resolver::ResolveExpr(
           expr_resolution_info.get(), resolved_expr_out));
       break;
 
+    case AST_STRUCT_BRACED_CONSTRUCTOR:
+      ZETASQL_RETURN_IF_ERROR(ResolveStructBracedConstructor(
+          ast_expr->GetAsOrDie<ASTStructBracedConstructor>(), inferred_type,
+          expr_resolution_info.get(), resolved_expr_out));
+      break;
+
     case AST_BRACED_CONSTRUCTOR:
       ZETASQL_RETURN_IF_ERROR(ResolveBracedConstructor(
           ast_expr->GetAsOrDie<ASTBracedConstructor>(), inferred_type,
@@ -1160,6 +1193,13 @@ absl::Status Resolver::ResolveLiteralExpr(
     case AST_STRING_LITERAL: {
       const ASTStringLiteral* literal =
           ast_expr->GetAsOrDie<ASTStringLiteral>();
+      if (literal->components().size() > 1 &&
+          !language().LanguageFeatureEnabled(
+              FEATURE_V_1_4_LITERAL_CONCATENATION)) {
+        return MakeSqlErrorAt(literal->components()[1])
+               << "Concatenation of subsequent string literals is not "
+                  "supported. Did you mean to use the || operator?";
+      }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::String(literal->string_value()));
       return absl::OkStatus();
@@ -1167,6 +1207,13 @@ absl::Status Resolver::ResolveLiteralExpr(
 
     case AST_BYTES_LITERAL: {
       const ASTBytesLiteral* literal = ast_expr->GetAsOrDie<ASTBytesLiteral>();
+      if (literal->components().size() > 1 &&
+          !language().LanguageFeatureEnabled(
+              FEATURE_V_1_4_LITERAL_CONCATENATION)) {
+        return MakeSqlErrorAt(literal->components()[1])
+               << "Concatenation of subsequent bytes literals is not "
+                  "supported. Did you mean to use the || operator?";
+      }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::Bytes(literal->bytes_value()));
       return absl::OkStatus();
@@ -1200,18 +1247,21 @@ absl::Status Resolver::ResolveLiteralExpr(
       const ASTNumericLiteral* literal =
           ast_expr->GetAsOrDie<ASTNumericLiteral>();
       if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)) {
-        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
+        std::string error_type_token =
+            GetTypeNameForPrefixedLiteral(sql_, *literal);
         return MakeSqlErrorAt(literal)
                << error_type_token << " literals are not supported";
       }
-      std::string unquoted_image;
-      ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
-      auto value_or_status = NumericValue::FromStringStrict(unquoted_image);
+
+      absl::string_view string_value =
+          literal->string_literal()->string_value();
+      auto value_or_status = NumericValue::FromStringStrict(string_value);
       if (!value_or_status.status().ok()) {
-        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
+        std::string error_type_token =
+            GetTypeNameForPrefixedLiteral(sql_, *literal);
         return MakeSqlErrorAt(literal)
                << "Invalid " << error_type_token
-               << " literal: " << ToStringLiteral(unquoted_image);
+               << " literal: " << ToStringLiteral(string_value);
       }
       *resolved_expr_out = MakeResolvedLiteral(
           ast_expr, {types::NumericType(), /*annotation_map=*/nullptr},
@@ -1223,18 +1273,20 @@ absl::Status Resolver::ResolveLiteralExpr(
       const ASTBigNumericLiteral* literal =
           ast_expr->GetAsOrDie<ASTBigNumericLiteral>();
       if (!language().LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
-        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
+        std::string error_type_token =
+            GetTypeNameForPrefixedLiteral(sql_, *literal);
         return MakeSqlErrorAt(literal)
                << error_type_token << " literals are not supported";
       }
-      std::string unquoted_image;
-      ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
-      auto value_or_status = BigNumericValue::FromStringStrict(unquoted_image);
+      absl::string_view string_value =
+          literal->string_literal()->string_value();
+      auto value_or_status = BigNumericValue::FromStringStrict(string_value);
       if (!value_or_status.ok()) {
-        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
+        std::string error_type_token =
+            GetTypeNameForPrefixedLiteral(sql_, *literal);
         return MakeSqlErrorAt(literal)
                << "Invalid " << error_type_token
-               << " literal: " << ToStringLiteral(unquoted_image);
+               << " literal: " << ToStringLiteral(string_value);
       }
       *resolved_expr_out = MakeResolvedLiteral(
           ast_expr, {types::BigNumericType(), /*annotation_map=*/nullptr},
@@ -3335,7 +3387,9 @@ absl::Status Resolver::ResolveInSubquery(
     // test since if we have two equivalent but different field types
     // (such as two enums with the same name) we must coerce one to the other.
     InputArgumentTypeSet type_set;
-    type_set.Insert(GetInputArgumentTypeForExpr(resolved_in_expr.get()));
+    type_set.Insert(GetInputArgumentTypeForExpr(
+        resolved_in_expr.get(),
+        /*pick_default_type_for_untyped_expr=*/false));
     // The output column from the subquery column is non-literal, non-parameter.
     type_set.Insert(InputArgumentType(in_subquery_type));
     const Type* supertype = nullptr;
@@ -3440,6 +3494,64 @@ static absl::StatusOr<std::string> GetLikeAnySomeAllOpTypeString(
   ZETASQL_RET_CHECK_FAIL() << "Operation type for LIKE must be either ANY, SOME or ALL";
 }
 
+static absl::StatusOr<std::string> GetLikeAnyAllFunctionName(
+    const ASTLikeExpression* like_expr, bool is_not) {
+  const bool is_list = like_expr->in_list() != nullptr;
+  const bool is_array = like_expr->unnest_expr() != nullptr;
+  switch (like_expr->op()->op()) {
+    // ANY and SOME are synonyms.
+    case ASTAnySomeAllOp::kAny:
+    case ASTAnySomeAllOp::kSome:
+      if (is_list) {
+        return is_not ? "$not_like_any" : "$like_any";
+      } else if (is_array) {
+        return is_not ? "$not_like_any_array" : "$like_any_array";
+      }
+      break;
+    case ASTAnySomeAllOp::kAll:
+      if (is_list) {
+        return is_not ? "$not_like_all" : "$like_all";
+      } else if (is_array) {
+        return is_not ? "$not_like_all_array" : "$like_all_array";
+      }
+      break;
+    default:
+      break;
+  }
+
+  ZETASQL_RET_CHECK_FAIL() << "Unsupported LIKE expression operation."
+                      " Operation must be [NOT] ANY|SOME|ALL.";
+}
+
+absl::Status Resolver::ResolveLikeAnyAllExpressionHelper(
+    const ASTLikeExpression* like_expr,
+    const absl::Span<const ASTExpression* const> arguments,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  // not-like any/all behavior is documented here (broken link)
+  const bool new_behavior = language().LanguageFeatureEnabled(
+      FEATURE_V_1_4_OPT_IN_NEW_BEHAVIOR_NOT_LIKE_ANY_SOME_ALL);
+  ZETASQL_ASSIGN_OR_RETURN(std::string function_name,
+                   GetLikeAnyAllFunctionName(
+                       like_expr, like_expr->is_not() && new_behavior));
+  std::unique_ptr<const ResolvedExpr> resolved_like_expr;
+  ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
+      like_expr->like_location(), function_name, arguments,
+      *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_like_expr));
+
+  // Do not wrap like_expr inside `NOT` if the resolved function is a
+  // $not_like_any|all variant. That's because like_expr's NOT operator is
+  // already considered while constructing $not_like_any|all resolved fun node.
+  if (!new_behavior && like_expr->is_not()) {
+    return MakeNotExpr(like_expr->like_location(),
+                       std::move(resolved_like_expr), expr_resolution_info,
+                       resolved_expr_out);
+  }
+
+  *resolved_expr_out = std::move(resolved_like_expr);
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveLikeExprArray(
     const ASTLikeExpression* like_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -3454,29 +3566,27 @@ absl::Status Resolver::ResolveLikeExprArray(
                op_type, " (pattern1, pattern2, ...)?");
   }
 
-  std::string function_type = "";
-  switch (like_expr->op()->op()) {
-    case ASTAnySomeAllOp::kAny:
-      function_type = "$like_any_array";
-      break;
-    case ASTAnySomeAllOp::kSome:
-      function_type = "$like_any_array";
-      break;
-    case ASTAnySomeAllOp::kAll:
-      function_type = "$like_all_array";
-      break;
-    default:
-      ZETASQL_RET_CHECK_FAIL() << "Unsupported LIKE expression operation."
-                          " Operation must be of type ANY|SOME|ALL.";
-  }
-
   FlattenState::Restorer restorer;
   expr_resolution_info->flatten_state.set_can_flatten(true, &restorer);
-  return ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
-      like_expr->like_location(), function_type,
+  return ResolveLikeAnyAllExpressionHelper(
+      like_expr,
       {like_expr->lhs(),
        like_expr->unnest_expr()->expressions()[0]->expression()},
-      *kEmptyArgumentOptionMap, expr_resolution_info, resolved_expr_out);
+      expr_resolution_info, resolved_expr_out);
+}
+
+absl::Status Resolver::ResolveLikeExprList(
+    const ASTLikeExpression* like_expr,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  std::vector<const ASTExpression*> like_arguments;
+  like_arguments.reserve(1 + like_expr->in_list()->list().size());
+  like_arguments.push_back(like_expr->lhs());
+  for (const ASTExpression* expr : like_expr->in_list()->list()) {
+    like_arguments.push_back(expr);
+  }
+  return ResolveLikeAnyAllExpressionHelper(
+      like_expr, like_arguments, expr_resolution_info, resolved_expr_out);
 }
 
 // TODO: The noinline attribute is to prevent the stack usage
@@ -3497,28 +3607,8 @@ absl::Status Resolver::ResolveLikeExpr(
     ZETASQL_RETURN_IF_ERROR(ResolveLikeExprSubquery(like_expr, expr_resolution_info,
                                             &resolved_like_expr));
   } else if (like_expr->in_list() != nullptr) {
-    std::vector<const ASTExpression*> like_arguments;
-    like_arguments.reserve(1 + like_expr->in_list()->list().size());
-    like_arguments.push_back(like_expr->lhs());
-    for (const ASTExpression* expr : like_expr->in_list()->list()) {
-      like_arguments.push_back(expr);
-    }
-    std::string function_type = "";
-    switch (like_expr->op()->op()) {
-      case ASTAnySomeAllOp::kAny:
-      case ASTAnySomeAllOp::kSome:
-        function_type = "$like_any";
-        break;
-      case ASTAnySomeAllOp::kAll:
-        function_type = "$like_all";
-        break;
-      default:
-        ZETASQL_RET_CHECK_FAIL() << "Unsupported LIKE expression operation."
-                            " Operation must be of type ANY|SOME|ALL.";
-    }
-    ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
-        like_expr->like_location(), function_type, like_arguments,
-        *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_like_expr));
+    ZETASQL_RETURN_IF_ERROR(ResolveLikeExprList(like_expr, expr_resolution_info,
+                                        &resolved_like_expr));
   } else if (like_expr->unnest_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveLikeExprArray(like_expr, expr_resolution_info,
                                          &resolved_like_expr));
@@ -3527,11 +3617,6 @@ absl::Status Resolver::ResolveLikeExpr(
            << "Internal: Unsupported LIKE expression.";
   }
 
-  if (like_expr->is_not()) {
-    return MakeNotExpr(like_expr->like_location(),
-                       std::move(resolved_like_expr), expr_resolution_info,
-                       resolved_expr_out);
-  }
   *resolved_expr_out = std::move(resolved_like_expr);
   return absl::OkStatus();
 }
@@ -4257,9 +4342,11 @@ absl::Status Resolver::ResolveIntervalArgument(
     if (((resolved_interval_value_arg->node_kind() == RESOLVED_LITERAL ||
           resolved_interval_value_arg->node_kind() == RESOLVED_PARAMETER) &&
          resolved_interval_value_arg->type()->IsString()) ||
-        coercer_.CoercesTo(
-            GetInputArgumentTypeForExpr(resolved_interval_value_arg.get()),
-            type_factory_->get_int64(), /*is_explicit=*/false, &result)) {
+        coercer_.CoercesTo(GetInputArgumentTypeForExpr(
+                               resolved_interval_value_arg.get(),
+                               /*pick_default_type_for_untyped_expr=*/false),
+                           type_factory_->get_int64(), /*is_explicit=*/false,
+                           &result)) {
       ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
           interval_expr->interval_value(), type_factory_->get_int64(),
           kExplicitCoercion, &resolved_interval_value_arg));
@@ -4996,16 +5083,21 @@ absl::Status Resolver::AddColumnToGroupingListSecondPass(
     const ResolvedAggregateFunctionCall* agg_function_call,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<ResolvedColumn>* resolved_column_out) {
+  QueryResolutionInfo* query_resolution_info =
+      expr_resolution_info->query_resolution_info;
   if (agg_function_call->argument_list().size() != 1) {
     return MakeSqlErrorAt(ast_function)
            << "GROUPING can only have a single expression argument.";
+  }
+  if (query_resolution_info->select_with_mode() != SelectWithMode::NONE) {
+    return MakeUnsupportedGroupingFunctionError(
+        ast_function, query_resolution_info->select_with_mode());
   }
   const ResolvedExpr* argument =
       agg_function_call->argument_list().front().get();
   for (const std::unique_ptr<const ResolvedComputedColumn>&
            resolved_computed_column :
-       expr_resolution_info->query_resolution_info
-           ->group_by_columns_to_compute()) {
+       query_resolution_info->group_by_columns_to_compute()) {
     ZETASQL_ASSIGN_OR_RETURN(
         bool expression_match,
         IsSameExpressionForGroupBy(argument, resolved_computed_column->expr()));
@@ -5024,8 +5116,7 @@ absl::Status Resolver::AddColumnToGroupingListSecondPass(
       *resolved_column_out =
           std::make_unique<ResolvedColumn>(grouping_output_column);
 
-      expr_resolution_info->query_resolution_info->AddGroupingColumn(
-          std::move(grouping_call));
+      query_resolution_info->AddGroupingColumn(std::move(grouping_call));
       return absl::OkStatus();
     }
   }
@@ -5328,9 +5419,10 @@ absl::StatusOr<bool> Resolver::CheckExplicitCast(
     const ResolvedExpr* resolved_argument, const Type* to_type,
     ExtendedCompositeCastEvaluator* extended_conversion_evaluator) {
   SignatureMatchResult result;
-  return coercer_.CoercesTo(GetInputArgumentTypeForExpr(resolved_argument),
-                            to_type, /*is_explicit=*/true, &result,
-                            extended_conversion_evaluator);
+  return coercer_.CoercesTo(
+      GetInputArgumentTypeForExpr(resolved_argument,
+                                  /*pick_default_type_for_untyped_expr=*/false),
+      to_type, /*is_explicit=*/true, &result, extended_conversion_evaluator);
 }
 
 static absl::Status CastResolutionError(const ASTNode* ast_location,
@@ -5354,7 +5446,6 @@ absl::Status Resolver::ResolveFormatOrTimeZoneExpr(
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(expr, expr_resolution_info, resolved_expr));
 
-  auto expr_type = GetInputArgumentTypeForExpr(resolved_expr->get());
   auto make_error_msg = [clause_name](absl::string_view target_type_name,
                                       absl::string_view actual_type_name) {
     return absl::Substitute("$2 should return type $0, but returns $1",
@@ -5561,7 +5652,7 @@ absl::Status Resolver::ResolveExplicitCast(
           folding_result.code() != absl::StatusCode::kOutOfRange) {
         // Only kInvalidArgument and kOutOfRange indicate a bad value when
         // folding. Anything else is a bigger problem that we need to bubble
-        // up. This logic is not to be used elsehwere as there are exceptional
+        // up. This logic is not to be used elsewhere as there are exceptional
         // circumstances here:
         // 1. kOutOfRange generally is a runtime error, but it may arise during
         //    folding, which we are absorbing and deferring to runtime.
@@ -6530,19 +6621,83 @@ absl::Status Resolver::ResolveBracedConstructor(
     const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
-
+  // This function is called for bare brace, we don't know whether the brace is
+  // struct or proto, so we need to derive from the infer_type.
   if (inferred_type == nullptr) {
     return MakeSqlErrorAt(ast_braced_constructor)
            << "Unable to infer a type for braced constructor";
   }
 
-  if (!inferred_type->IsProto()) {
-    return MakeSqlErrorAt(ast_braced_constructor)
-           << "Braced constructors are not allowed for type "
-           << inferred_type->ShortTypeName(product_mode());
+  if (inferred_type->IsStruct()) {  // bare braced
+    return ResolveBracedConstructorForStruct(
+        ast_braced_constructor, /*is_bare_struct*/ false,
+        /*expression_location_node*/ ast_braced_constructor,
+        /*ast_struct_type*/ nullptr, inferred_type, expr_resolution_info,
+        resolved_expr_out);
+  } else if (inferred_type->IsProto()) {
+    return ResolveBracedConstructorForProto(ast_braced_constructor,
+                                            inferred_type, expr_resolution_info,
+                                            resolved_expr_out);
   }
+  // Neither Proto or Struct
+  return MakeSqlErrorAt(ast_braced_constructor)
+         << "Braced constructors are not allowed for type "
+         << inferred_type->ShortTypeName(product_mode());
+}
 
-  std::vector<ResolvedBuildProtoArg> arguments;
+absl::Status Resolver::ResolveBracedConstructorForStruct(
+    const ASTBracedConstructor* ast_braced_constructor, bool is_bare_struct,
+    const ASTNode* expression_location_node,
+    const ASTStructType* ast_struct_type, const Type* inferred_type,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  std::vector<const ASTIdentifier*> identifiers;
+  identifiers.reserve(ast_braced_constructor->fields().size());
+  std::vector<const ASTExpression*> field_expressions;
+  field_expressions.reserve(ast_braced_constructor->fields().size());
+  bool is_first_field = true;
+  for (const ASTBracedConstructorField* ast_field :
+       ast_braced_constructor->fields()) {
+    // Pure whiteSpace separation for fields is not allowed in STRUCT.
+    // comma_separated() records whether this record uses comma or pure
+    // whitespace to separate with the previous records, for the 1st record,
+    // leading comma is not allowed, so comma_separated() is always false, and
+    // it's allowed.
+    if (!is_first_field && !ast_field->comma_separated()) {
+      return MakeSqlErrorAt(ast_field)
+             << "STRUCT Braced constructor is not allowed to use pure "
+                "whitespace separation, please use comma instead";
+    }
+    if (is_first_field) {
+      is_first_field = false;
+    }
+    // Proto extension is parsed as parenthesized_path, otherwise identifier.
+    if (ast_field->parenthesized_path() != nullptr) {
+      return MakeSqlErrorAt(ast_field)
+             << "STRUCT Braced constructor is not allowed to use proto "
+                "extension.";
+    }
+    ZETASQL_RET_CHECK_NE(ast_field->identifier(), nullptr)
+        << "Fields in STRUCT Braced constructor should always have a "
+           "single identifier specified, not a path expression";
+    identifiers.push_back(ast_field->identifier());
+    field_expressions.push_back(ast_field->value()->expression());
+  }
+  // Skip name matching for all bare struct.
+  // Discussion: http://shortn/_XFezKJYuR7
+  ZETASQL_RETURN_IF_ERROR(ResolveStructConstructorImpl(
+      expression_location_node, ast_struct_type, field_expressions, identifiers,
+      inferred_type, /*require_name_match=*/!is_bare_struct,
+      expr_resolution_info, resolved_expr_out));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveBracedConstructorForProto(
+    const ASTBracedConstructor* ast_braced_constructor,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  // This is a proto braced constructor.
+  std::vector<ResolvedBuildProtoArg> resolved_build_proto_args;
   for (int i = 0; i < ast_braced_constructor->fields().size(); ++i) {
     const ASTBracedConstructorField* ast_field =
         ast_braced_constructor->fields(i);
@@ -6551,13 +6706,13 @@ absl::Status Resolver::ResolveBracedConstructor(
         ResolvedBuildProtoArg arg,
         ResolveBracedConstructorField(ast_field, inferred_type->AsProto(), i,
                                       expr_resolution_info));
-    arguments.emplace_back(std::move(arg));
+    resolved_build_proto_args.emplace_back(std::move(arg));
   }
 
   ZETASQL_RETURN_IF_ERROR(
       ResolveBuildProto(ast_braced_constructor, inferred_type->AsProto(),
                         /*input_scan=*/nullptr, "Argument", "Constructor",
-                        &arguments, resolved_expr_out));
+                        &resolved_build_proto_args, resolved_expr_out));
   return absl::OkStatus();
 }
 
@@ -6591,9 +6746,42 @@ absl::Status Resolver::ResolveBracedNewConstructor(
            << resolved_type->ShortTypeName(product_mode());
   }
 
-  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_braced_new_constructor->braced_constructor(),
-                              expr_resolution_info, resolved_expr_out,
-                              resolved_type));
+  ZETASQL_RETURN_IF_ERROR(ResolveBracedConstructorForProto(
+      ast_braced_new_constructor->braced_constructor(), resolved_type,
+      expr_resolution_info, resolved_expr_out));
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveStructBracedConstructor(
+    const ASTStructBracedConstructor* ast_struct_braced_constructor,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  const ASTType* type_name = ast_struct_braced_constructor->type_name();
+  const ASTStructType* ast_struct_type = nullptr;
+  bool is_bare_struct = true;
+  if (type_name) {
+    is_bare_struct = false;
+    // STRUCT<...> { ... } with explicit type, use the explicit type.
+    ast_struct_type = type_name->GetAsOrNull<ASTStructType>();
+    ZETASQL_RET_CHECK_NE(ast_struct_type, nullptr)
+        << " STRUCT Braced constructors are not allowed for type "
+        << ast_struct_type->DebugString() << ", which should a struct.";
+    ZETASQL_RET_CHECK(type_name->type_parameters() == nullptr)
+        << "The parser does not support type parameters in braced STRUCT "
+           "constructor syntax";
+    ZETASQL_RET_CHECK(type_name->collate() == nullptr)
+        << "The parser does not support type with collation name in braced "
+           "STRUCT constructor syntax";
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ResolveBracedConstructorForStruct(
+      ast_struct_braced_constructor->braced_constructor(), is_bare_struct,
+      ast_struct_braced_constructor, ast_struct_type, inferred_type,
+      expr_resolution_info, resolved_expr_out));
+
   return absl::OkStatus();
 }
 
@@ -6658,7 +6846,8 @@ absl::Status Resolver::ResolveArrayConstructor(
       has_explicit_type = true;
     }
 
-    element_type_set.Insert(GetInputArgumentTypeForExpr(resolved_expr.get()));
+    element_type_set.Insert(GetInputArgumentTypeForExpr(
+        resolved_expr.get(), /*pick_default_type_for_untyped_expr=*/false));
     resolved_elements.push_back(std::move(resolved_expr));
   }
 
@@ -6850,8 +7039,8 @@ absl::Status Resolver::ResolveStructConstructorWithParens(
   return ResolveStructConstructorImpl(
       ast_struct_constructor,
       /*ast_struct_type=*/nullptr, ast_struct_constructor->field_expressions(),
-      /*ast_field_aliases=*/{}, inferred_type, expr_resolution_info,
-      resolved_expr_out);
+      /*ast_field_names*/ {}, inferred_type, /*require_name_match*/ false,
+      expr_resolution_info, resolved_expr_out);
 }
 
 // TODO: The noinline attribute is to prevent the stack usage
@@ -6866,27 +7055,29 @@ absl::Status Resolver::ResolveStructConstructorWithKeyword(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   std::vector<const ASTExpression*> ast_field_expressions;
-  std::vector<const ASTAlias*> ast_field_aliases;
+  std::vector<const ASTIdentifier*> ast_field_identifiers;
   for (const ASTStructConstructorArg* arg : ast_struct_constructor->fields()) {
     ast_field_expressions.push_back(arg->expression());
-    ast_field_aliases.push_back(arg->alias());
+    ast_field_identifiers.push_back(arg->alias() ? arg->alias()->identifier()
+                                                 : nullptr);
   }
 
   return ResolveStructConstructorImpl(
       ast_struct_constructor, ast_struct_constructor->struct_type(),
-      ast_field_expressions, ast_field_aliases, inferred_type,
-      expr_resolution_info, resolved_expr_out);
+      ast_field_expressions, ast_field_identifiers, inferred_type,
+      /*require_name_match=*/false, expr_resolution_info, resolved_expr_out);
 }
 
 absl::Status Resolver::ResolveStructConstructorImpl(
     const ASTNode* ast_location, const ASTStructType* ast_struct_type,
     const absl::Span<const ASTExpression* const> ast_field_expressions,
-    const absl::Span<const ASTAlias* const> ast_field_aliases,
-    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+    const absl::Span<const ASTIdentifier* const> ast_field_identifiers,
+    const Type* inferred_type, bool require_name_match,
+    ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
-  if (!ast_field_aliases.empty()) {
-    ZETASQL_RET_CHECK_EQ(ast_field_expressions.size(), ast_field_aliases.size());
+  if (!ast_field_identifiers.empty()) {
+    ZETASQL_RET_CHECK_EQ(ast_field_expressions.size(), ast_field_identifiers.size());
   }
 
   // If we have a type from the AST, use it.  Otherwise, we'll collect field
@@ -6926,6 +7117,27 @@ absl::Status Resolver::ResolveStructConstructorImpl(
     inferred_struct_type = inferred_type->AsStruct();
   }
 
+  if (require_name_match && inferred_struct_type != nullptr) {
+    // Need to additionally check field name matching.
+    if (inferred_struct_type->num_fields() != ast_field_identifiers.size()) {
+      return MakeSqlErrorAt(ast_location)
+             << "Require naming match but field num does not match, "
+             << "expected: " << inferred_struct_type->num_fields()
+             << ", actual: " << ast_field_identifiers.size();
+    }
+    for (int i = 0; i < ast_field_identifiers.size(); ++i) {
+      const ASTIdentifier* ast_identifier = ast_field_identifiers[i];
+      if (!zetasql_base::CaseEqual(inferred_struct_type->field(i).name,
+                                  ast_identifier->GetAsIdString().ToString())) {
+        return MakeSqlErrorAt(ast_identifier)
+               << "Require naming match but field name does not match at "
+                  "position "
+               << i << ": '" << inferred_struct_type->field(i).name << "' vs '"
+               << ast_identifier->GetAsIdString().ToString() << "'";
+      }
+    }
+  }
+
   // Resolve all the field expressions.
   std::vector<std::unique_ptr<const ResolvedExpr>> resolved_field_expressions;
   std::vector<StructType::StructField> struct_fields;
@@ -6953,6 +7165,16 @@ absl::Status Resolver::ResolveStructConstructorImpl(
 
   for (int i = 0; i < ast_field_expressions.size(); ++i) {
     const ASTExpression* ast_expression = ast_field_expressions[i];
+    const ASTNode* ast_parent = ast_expression->parent();
+    if (ast_parent->Is<ASTBracedConstructorFieldValue>()) {
+      const auto* field_value =
+          ast_parent->GetAsOrDie<ASTBracedConstructorFieldValue>();
+      if (!field_value->colon_prefixed()) {
+        return MakeSqlErrorAt(field_value)
+               << "Struct field " << (i + 1)
+               << " should use colon(:) to separate field and value";
+      }
+    }
     std::unique_ptr<const ResolvedExpr> resolved_expr;
     const Type* inferred_field_type = nullptr;
     if (inferred_struct_type && i < inferred_struct_type->num_fields()) {
@@ -6971,7 +7193,9 @@ absl::Status Resolver::ResolveStructConstructorImpl(
           CollationAnnotation::ExistsIn(resolved_expr->type_annotation_map())) {
         SignatureMatchResult result;
         const InputArgumentType input_argument_type =
-            GetInputArgumentTypeForExpr(resolved_expr.get());
+            GetInputArgumentTypeForExpr(
+                resolved_expr.get(),
+                /*pick_default_type_for_untyped_expr=*/false);
         if (!coercer_.CoercesTo(input_argument_type, target_field_type,
                                 /*is_explicit=*/false, &result)) {
           return MakeSqlErrorAt(ast_expression)
@@ -7001,23 +7225,24 @@ absl::Status Resolver::ResolveStructConstructorImpl(
             struct_has_explicit_type);
       }
 
-      if (!ast_field_aliases.empty() && ast_field_aliases[i] != nullptr) {
-        return MakeSqlErrorAt(ast_field_aliases[i])
+      if (!require_name_match && !ast_field_identifiers.empty() &&
+          ast_field_identifiers[i] != nullptr) {
+        return MakeSqlErrorAt(ast_field_identifiers[i])
                << "STRUCT constructors cannot specify both an explicit "
                   "type and field names with AS";
       }
     } else {
       // Otherwise, we need to compute the struct field type to create.
       IdString alias;
-      if (ast_field_aliases.empty()) {
+      if (ast_field_identifiers.empty()) {
         // We are in the (...) construction syntax and will always
         // generate anonymous fields.
       } else {
         // We are in the STRUCT(...) constructor syntax and will use the
         // explicitly provided aliases, or try to infer aliases from the
         // expression.
-        if (ast_field_aliases[i] != nullptr) {
-          alias = ast_field_aliases[i]->GetAsIdString();
+        if (ast_field_identifiers[i] != nullptr) {
+          alias = ast_field_identifiers[i]->GetAsIdString();
         } else {
           alias = GetAliasForExpression(ast_field_expressions[i]);
         }
@@ -7199,9 +7424,9 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
 
     // Resolves the ordering expression in arguments.
     std::vector<OrderByItemInfo> order_by_info;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveOrderingExprs(order_by_arguments->ordering_expressions(),
-                             expr_resolution_info, &order_by_info));
+    ZETASQL_RETURN_IF_ERROR(ResolveOrderingExprs(
+        order_by_arguments->ordering_expressions(), expr_resolution_info,
+        &order_by_info));
 
     // Checks if there is any order by index.
     // Supporting order by index here makes little sense as the function
@@ -7239,10 +7464,10 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       }
     }
 
-    AddColumnsForOrderByExprs(
+    ZETASQL_RETURN_IF_ERROR(AddColumnsForOrderByExprs(
         kOrderById, &order_by_info,
         query_resolution_info
-            ->select_list_columns_to_compute_before_aggregation());
+            ->select_list_columns_to_compute_before_aggregation()));
 
     // We may have precomputed some ORDER BY expression columns before
     // aggregation.  If any aggregate function arguments match those
@@ -7271,7 +7496,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       (*resolved_function_call)->set_argument_list(std::move(updated_args));
     }
     ZETASQL_RETURN_IF_ERROR(ResolveOrderByItems(
-        order_by_arguments, /*output_column_list=*/{}, order_by_info,
+        /*output_column_list=*/{}, {order_by_info},
         &resolved_order_by_items));
   }
   const ASTLimitOffset* limit_offset = ast_function_call->limit_offset();
@@ -7381,7 +7606,11 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     input_arguments.reserve(arg_list.size());
     for (const std::unique_ptr<const ResolvedExpr>& arg :
          (*resolved_function_call)->argument_list()) {
-      input_arguments.push_back(GetInputArgumentTypeForExpr(arg.get()));
+      input_arguments.push_back(GetInputArgumentTypeForExpr(
+          arg.get(),
+          /*pick_default_type_for_untyped_expr=*/
+          language().LanguageFeatureEnabled(
+              FEATURE_TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS)));
     }
 
     // Call the TemplatedSQLFunction::Resolve() method to get the output type.
@@ -7484,7 +7713,8 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
   // it out into <query_resolution_info->aggregate_columns_to_compute().
   // The actual ResolvedExpr we return is a ColumnRef pointing to that
   // function call.
-  ResolvedColumn aggregate_column(AllocateColumnId(), kAggregateId, alias,
+  const IdString* query_alias = &kAggregateId;
+  ResolvedColumn aggregate_column(AllocateColumnId(), *query_alias, alias,
                                   resolved_agg_call->annotated_type());
 
   query_resolution_info->AddAggregateComputedColumn(
@@ -7850,6 +8080,14 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         case FN_BYTE_ARRAY_LIKE_ALL:
         case FN_STRING_LIKE_ALL:
         case FN_BYTE_LIKE_ALL:
+        case FN_STRING_NOT_LIKE_ANY:
+        case FN_BYTE_NOT_LIKE_ANY:
+        case FN_STRING_ARRAY_NOT_LIKE_ANY:
+        case FN_BYTE_ARRAY_NOT_LIKE_ANY:
+        case FN_STRING_NOT_LIKE_ALL:
+        case FN_BYTE_NOT_LIKE_ALL:
+        case FN_STRING_ARRAY_NOT_LIKE_ALL:
+        case FN_BYTE_ARRAY_NOT_LIKE_ALL:
           analyzer_output_properties_.MarkRelevant(REWRITE_LIKE_ANY_ALL);
           break;
         default:
@@ -8142,7 +8380,7 @@ IdString Resolver::GetColumnAliasForTopLevelExpression(
     ExprResolutionInfo* expr_resolution_info, const ASTExpression* ast_expr) {
   const IdString alias = expr_resolution_info->column_alias;
   if (expr_resolution_info->top_level_ast_expr == ast_expr &&
-      !IsInternalAlias(expr_resolution_info->column_alias)) {
+      !IsInternalAlias(alias)) {
     return alias;
   }
   return IdString();
@@ -8185,8 +8423,9 @@ absl::Status Resolver::CoerceExprToType(
                                          CollationAnnotation::GetId())) {
     return absl::OkStatus();
   }
-  InputArgumentType expr_arg_type =
-      GetInputArgumentTypeForExpr(resolved_expr->get());
+  // Untyped NULL can make the Coerce more flexible.
+  InputArgumentType expr_arg_type = GetInputArgumentTypeForExpr(
+      resolved_expr->get(), /*pick_default_type_for_untyped_expr=*/false);
   SignatureMatchResult sig_match_result;
   Coercer coercer(type_factory_, &language(), catalog_);
   bool success;

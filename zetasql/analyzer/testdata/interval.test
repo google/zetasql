@@ -1,5 +1,6 @@
 # TODO: Figure out how to make all tests work in Java.
 [default no_java]
+[default also_show_signature_mismatch_details]
 
 [language_features={{|INTERVAL_TYPE}}]
 SELECT INTERVAL "1" YEAR
@@ -285,6 +286,54 @@ SELECT INTERVAL '17:23.123456789' MINUTE TO SECOND
        ^
 ==
 
+# MILLISECOND date part
+[language_features={{|INTERVAL_TYPE}}]
+SELECT INTERVAL '7684416' MILLISECOND
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unexpected INTERVAL expression [at 1:8]
+SELECT INTERVAL '7684416' MILLISECOND
+       ^
+--
+ALTERNATION GROUP: INTERVAL_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 2:8:4.416)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# MICROSECOND date part
+[language_features={{|INTERVAL_TYPE}}]
+SELECT INTERVAL '7684416539' MICROSECOND
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unexpected INTERVAL expression [at 1:8]
+SELECT INTERVAL '7684416539' MICROSECOND
+       ^
+--
+ALTERNATION GROUP: INTERVAL_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INTERVAL, value=0-0 0 2:8:4.416539)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 [language_features={{|INTERVAL_TYPE}}]
 select interval 1 year
 --
@@ -405,6 +454,22 @@ ALTERNATION GROUP: INTERVAL_TYPE
 ERROR: No matching signature for operator - for argument types: STRING. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE); -(INTERVAL) [at 1:17]
 SELECT INTERVAL -'2' HOUR
                 ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: STRING
+  Signature: -(INT32)
+    Argument 1: Unable to coerce type STRING to expected type INT32
+  Signature: -(INT64)
+    Argument 1: Unable to coerce type STRING to expected type INT64
+  Signature: -(FLOAT)
+    Argument 1: Unable to coerce type STRING to expected type FLOAT
+  Signature: -(DOUBLE)
+    Argument 1: Unable to coerce type STRING to expected type DOUBLE
+  Signature: -(INTERVAL)
+    Argument 1: Unable to coerce type STRING to expected type INTERVAL [at 1:17]
+SELECT INTERVAL -'2' HOUR
+                ^
 ==
 
 [language_features=INTERVAL_TYPE]
@@ -461,6 +526,18 @@ SELECT CURRENT_DATE - DATE '2000-01-01'
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator - for argument types: DATE, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+SELECT CURRENT_DATE - DATE '2000-01-01'
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: DATE, DATE
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type DATE to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type DATE to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument 1: Unable to coerce type DATE to expected type DOUBLE [at 1:8]
 SELECT CURRENT_DATE - DATE '2000-01-01'
        ^
 --
@@ -560,6 +637,26 @@ SELECT CURRENT_TIMESTAMP - CURRENT_DATE
 ERROR: No matching signature for operator - for argument types: TIMESTAMP, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; TIMESTAMP - INTERVAL; INTERVAL - INTERVAL [at 1:8]
 SELECT CURRENT_TIMESTAMP - CURRENT_DATE
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: TIMESTAMP, DATE
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type TIMESTAMP to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type TIMESTAMP to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument 1: Unable to coerce type TIMESTAMP to expected type DOUBLE
+  Signature: DATE - DATE
+    Argument 1: Unable to coerce type TIMESTAMP to expected type DATE
+  Signature: TIMESTAMP - TIMESTAMP
+    Argument 2: Unable to coerce type DATE to expected type TIMESTAMP
+  Signature: TIMESTAMP - INTERVAL
+    Argument 2: Unable to coerce type DATE to expected type INTERVAL
+  Signature: INTERVAL - INTERVAL
+    Argument 1: Unable to coerce type TIMESTAMP to expected type INTERVAL [at 1:8]
+SELECT CURRENT_TIMESTAMP - CURRENT_DATE
+       ^
 ==
 
 [language_features=INTERVAL_TYPE]
@@ -598,6 +695,26 @@ SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
 ERROR: No matching signature for operator - for argument types: INTERVAL, TIMESTAMP. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; TIMESTAMP - INTERVAL; INTERVAL - INTERVAL [at 1:8]
 SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
        ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INTERVAL, TIMESTAMP
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type INTERVAL to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INTERVAL to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument 1: Unable to coerce type INTERVAL to expected type DOUBLE
+  Signature: DATE - DATE
+    Argument 1: Unable to coerce type INTERVAL to expected type DATE
+  Signature: TIMESTAMP - TIMESTAMP
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: TIMESTAMP - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: INTERVAL - INTERVAL
+    Argument 2: Unable to coerce type TIMESTAMP to expected type INTERVAL [at 1:8]
+SELECT INTERVAL 1 YEAR - CURRENT_TIMESTAMP
+       ^
 ==
 
 [language_features=INTERVAL_TYPE{{|,V_1_2_CIVIL_TIME}}]
@@ -608,6 +725,24 @@ SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
 ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator + for argument types: DATE, INTERVAL. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE; TIMESTAMP + INTERVAL; INTERVAL + TIMESTAMP; INTERVAL + INTERVAL [at 1:8]
+SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator +
+  Argument types: DATE, INTERVAL
+  Signature: INT64 + INT64
+    Argument 1: Unable to coerce type DATE to expected type INT64
+  Signature: UINT64 + UINT64
+    Argument 1: Unable to coerce type DATE to expected type UINT64
+  Signature: DOUBLE + DOUBLE
+    Argument 1: Unable to coerce type DATE to expected type DOUBLE
+  Signature: TIMESTAMP + INTERVAL
+    Argument 1: Unable to coerce type DATE to expected type TIMESTAMP
+  Signature: INTERVAL + TIMESTAMP
+    Argument 1: Unable to coerce type DATE to expected type INTERVAL
+  Signature: INTERVAL + INTERVAL
+    Argument 1: Unable to coerce type DATE to expected type INTERVAL [at 1:8]
 SELECT CURRENT_DATE + INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
        ^
 --
@@ -642,6 +777,34 @@ QueryStmt
 SELECT INTERVAL 1 YEAR - CURRENT_DATE
 --
 ERROR: No matching signature for operator - for argument types: INTERVAL, DATE. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; DATETIME - DATETIME; TIME - TIME; TIMESTAMP - INTERVAL; DATE - INTERVAL; DATETIME - INTERVAL; INTERVAL - INTERVAL [at 1:8]
+SELECT INTERVAL 1 YEAR - CURRENT_DATE
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INTERVAL, DATE
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type INTERVAL to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INTERVAL to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument 1: Unable to coerce type INTERVAL to expected type DOUBLE
+  Signature: DATE - DATE
+    Argument 1: Unable to coerce type INTERVAL to expected type DATE
+  Signature: TIMESTAMP - TIMESTAMP
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: DATETIME - DATETIME
+    Argument 1: Unable to coerce type INTERVAL to expected type DATETIME
+  Signature: TIME - TIME
+    Argument 1: Unable to coerce type INTERVAL to expected type TIME
+  Signature: TIMESTAMP - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: DATE - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type DATE
+  Signature: DATETIME - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type DATETIME
+  Signature: INTERVAL - INTERVAL
+    Argument 2: Unable to coerce type DATE to expected type INTERVAL [at 1:8]
 SELECT INTERVAL 1 YEAR - CURRENT_DATE
        ^
 ==
@@ -680,6 +843,34 @@ QueryStmt
 SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
 --
 ERROR: No matching signature for operator - for argument types: INTERVAL, DATETIME. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE; DATE - DATE; TIMESTAMP - TIMESTAMP; DATETIME - DATETIME; TIME - TIME; TIMESTAMP - INTERVAL; DATE - INTERVAL; DATETIME - INTERVAL; INTERVAL - INTERVAL [at 1:8]
+SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator -
+  Argument types: INTERVAL, DATETIME
+  Signature: INT64 - INT64
+    Argument 1: Unable to coerce type INTERVAL to expected type INT64
+  Signature: UINT64 - UINT64
+    Argument 1: Unable to coerce type INTERVAL to expected type UINT64
+  Signature: DOUBLE - DOUBLE
+    Argument 1: Unable to coerce type INTERVAL to expected type DOUBLE
+  Signature: DATE - DATE
+    Argument 1: Unable to coerce type INTERVAL to expected type DATE
+  Signature: TIMESTAMP - TIMESTAMP
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: DATETIME - DATETIME
+    Argument 1: Unable to coerce type INTERVAL to expected type DATETIME
+  Signature: TIME - TIME
+    Argument 1: Unable to coerce type INTERVAL to expected type TIME
+  Signature: TIMESTAMP - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP
+  Signature: DATE - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type DATE
+  Signature: DATETIME - INTERVAL
+    Argument 1: Unable to coerce type INTERVAL to expected type DATETIME
+  Signature: INTERVAL - INTERVAL
+    Argument 2: Unable to coerce type DATETIME to expected type INTERVAL [at 1:8]
 SELECT INTERVAL 1 YEAR - CURRENT_DATETIME
        ^
 ==
@@ -752,6 +943,16 @@ QueryStmt
 select 10 / INTERVAL '10' YEAR
 --
 ERROR: No matching signature for operator / for argument types: INT64, INTERVAL. Supported signatures: DOUBLE / DOUBLE; INTERVAL / INT64 [at 1:8]
+select 10 / INTERVAL '10' YEAR
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for operator /
+  Argument types: INT64, INTERVAL
+  Signature: DOUBLE / DOUBLE
+    Argument 2: Unable to coerce type INTERVAL to expected type DOUBLE
+  Signature: INTERVAL / INT64
+    Argument 1: Unable to coerce type INT64 to expected type INTERVAL [at 1:8]
 select 10 / INTERVAL '10' YEAR
        ^
 ==
@@ -957,6 +1158,13 @@ SELECT EXTRACT({{DATE|QUARTER}} FROM INTERVAL '0' YEAR)
 ALTERNATION GROUP: DATE
 --
 ERROR: No matching signature for function EXTRACT for argument types: DATE FROM INTERVAL. Supported signature: EXTRACT(DATE FROM TIMESTAMP [AT TIME ZONE STRING]) [at 1:8]
+SELECT EXTRACT(DATE FROM INTERVAL '0' YEAR)
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function EXTRACT for argument types: DATE FROM INTERVAL
+  Signature: EXTRACT(DATE FROM TIMESTAMP [AT TIME ZONE STRING])
+    Argument 1: Unable to coerce type INTERVAL to expected type TIMESTAMP [at 1:8]
 SELECT EXTRACT(DATE FROM INTERVAL '0' YEAR)
        ^
 --

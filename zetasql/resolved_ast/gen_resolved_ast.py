@@ -296,7 +296,8 @@ def Field(name,
           to_string_method=None,
           java_to_string_method=None,
           comment=None,
-          propagate_order=False):
+          propagate_order=False,
+          override_virtual_getter=False):
   """Make a field to put in a node class.
 
   Args:
@@ -326,6 +327,10 @@ def Field(name,
     propagate_order: If true, this field and the parent node must both be
                      ResolvedScan subclasses, and the is_ordered property of
                      the field will be propagated to the containing scan.
+    override_virtual_getter: If true, the getter is marked with `override`.
+                             Used for cases where the parent class declares a
+                             virtual method interface for this getter, so this
+                             getter needs an 'override'.
   Returns:
     The newly created field.
 
@@ -381,7 +386,10 @@ def Field(name,
     not_serialize_if_default = ctype.not_serialize_if_default
 
     if ctype.passed_by_reference:
-      setter_arg_type = 'const %s&' % member_type
+      if ctype.ctype == SCALAR_STRING.ctype:
+        setter_arg_type = 'absl::string_view'
+      else:
+        setter_arg_type = 'const %s&' % member_type
       getter_return_type = 'const %s&' % member_type
     else:
       setter_arg_type = member_type
@@ -506,6 +514,7 @@ def Field(name,
       'maybe_ptr_setter_arg_type': maybe_ptr_setter_arg_type,
       'scoped_setter_arg_type': scoped_setter_arg_type,
       'getter_return_type': getter_return_type,
+      'override_virtual_getter': override_virtual_getter,
       'release_return_type': release_return_type,
       'is_vector': vector,
       'element_getter_return_type': element_getter_return_type,
@@ -544,24 +553,25 @@ class TreeGenerator(object):
     # is a list of the first-level children.
     self.root_child_nodes = []
 
-  def AddNode(self,
-              name,
-              tag_id,
-              parent,
-              fields,
-              is_abstract=False,
-              extra_defs='',
-              extra_defs_node_only='',
-              emit_default_constructor=True,
-              use_custom_debug_string=False,
-              comment=None):
+  def AddNode(
+      self,
+      name,
+      tag_id,  # Next tag_id: 257
+      parent,
+      fields,
+      is_abstract=False,
+      extra_defs='',
+      extra_defs_node_only='',
+      emit_default_constructor=True,
+      use_custom_debug_string=False,
+      comment=None,
+  ):
     """Add a node class to be generated.
 
     Args:
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
-          tag_id for each node type is hard coded and should never change.
-          Next tag_id: 248
+        tag_id for each node type is hard coded and should never change.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2378,9 +2388,8 @@ value.
       tag_id=141,
       parent='ResolvedArgument',
       comment="""
-      Represents a connection object as a TVF argument.
-      <connection> is the connection object encapsulated metadata to connect to
-      an external data source.
+      Represents a connection object, which encapsulates engine-specific
+      metadata used to connect to an external data source.
               """,
       fields=[
           Field('connection', SCALAR_CONNECTION, tag_id=2),
@@ -2502,15 +2511,29 @@ value.
               'join_type',
               SCALAR_JOIN_TYPE,
               tag_id=2,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field('left_scan', 'ResolvedScan', tag_id=3),
           Field('right_scan', 'ResolvedScan', tag_id=4),
           Field(
-              'join_expr',
-              'ResolvedExpr',
-              tag_id=5,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+              'join_expr', 'ResolvedExpr', tag_id=5, ignorable=IGNORABLE_DEFAULT
+          ),
+          Field(
+              'has_using',
+              SCALAR_BOOL,
+              is_optional_constructor_arg=True,
+              tag_id=6,
+              ignorable=IGNORABLE,
+              comment="""
+              This indicates this join was generated from syntax with USING.
+              The sql_builder will use this field only as a suggestion.
+              JOIN USING(...) syntax will be used if and only if
+              `has_using` is True and `join_expr` has the correct shape.
+              Otherwise the sql_builder will generate JOIN ON.
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedArrayScan',
@@ -2830,7 +2853,10 @@ value.
               is_constructor_arg=False,
           ),
           Field(
-              'aggregate_list', 'ResolvedComputedColumn', tag_id=4, vector=True
+              'aggregate_list',
+              'ResolvedComputedColumnBase',
+              tag_id=4,
+              vector=True,
           ),
           Field(
               'grouping_set_list',
@@ -2853,7 +2879,7 @@ value.
               vector=True,
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
-          )
+          ),
       ],
   )
 
@@ -3131,8 +3157,11 @@ value.
       window ORDER BY.
 
       The output <column_list> contains all columns from <input_scan>,
-      one column per analytic function. It may also conain partitioning/ordering
+      one column per analytic function. It may also contain partitioning/ordering
       expression columns if they reference to select columns.
+
+      Currently, the analyzer combines equivalent OVER clauses into the same
+      ResolvedAnalyticFunctionGroup only for OVER () or a named window.
               """,
       fields=[
           Field('input_scan', 'ResolvedScan', tag_id=2),
@@ -3140,8 +3169,10 @@ value.
               'function_group_list',
               'ResolvedAnalyticFunctionGroup',
               tag_id=3,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedSampleScan',
@@ -3195,25 +3226,131 @@ value.
   # Other nodes
 
   gen.AddNode(
-      name='ResolvedComputedColumn',
-      tag_id=32,
+      name='ResolvedComputedColumnBase',
+      tag_id=253,
       parent='ResolvedArgument',
-      use_custom_debug_string=True,
+      is_abstract=True,
       comment="""
       This is used when an expression is computed and given a name (a new
       ResolvedColumn) that can be referenced elsewhere.  The new ResolvedColumn
       can appear in a column_list or in ResolvedColumnRefs in other expressions,
       when appropriate.  This node is not an expression itself - it is a
       container that holds an expression.
+
+      There are 2 concrete subclasses: ResolvedComputedColumn and
+      ResolvedDeferredComputedColumn.
+
+      ResolvedDeferredComputedColumn has extra information about deferring
+      side effects like errors.  This can be used in cases like AggregateScans
+      before conditional expressions like IF(), where errors from the aggregate
+      function should only be exposed if the right IF branch is chosen.
+
+      Nodes where deferred side effects are not possible (like GROUP BY
+      expressions) are declared as ResolvedComputedColumn directly.
+
+      Nodes that might need to defer errors, such as AggregateScan's
+      aggregate_list(), are declared as ResolvedComputedColumnBase.
+      The runtime type will be either ResolvedComputedColumn or
+      ResolvedDeferredComputedColumn, depending on whether any side effects need
+      to be captured.
+
+      If FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION is not set, the runtime
+      type is always just ResolvedComputedColumn.
+
+      See (broken link) for more details.
+              """,
+      fields=[],
+      extra_defs="""
+  // Virtual getter to avoid changing ResolvedComputedColumnProto
+  virtual const ResolvedColumn& column() const = 0;
+
+  // Virtual getter to avoid changing ResolvedComputedColumnProto
+  virtual const ResolvedExpr* expr() const = 0;
+      """)
+
+  gen.AddNode(
+      name='ResolvedComputedColumnImpl',
+      tag_id=254,
+      parent='ResolvedComputedColumnBase',
+      is_abstract=True,
+      comment="""
+      An intermediate abstract superclass that holds common getters for
+      ResolvedComputedColumn and ResolvedDeferredComputedColumn. This class
+      exists to ensure that callers static_cast to the appropriate subclass,
+      rather than processing ResolvedComputedColumnBase directly.
+              """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedComputedColumn',
+      tag_id=32,
+      parent='ResolvedComputedColumnImpl',
+      use_custom_debug_string=True,
+      comment="""
+      This is the usual ResolvedComputedColumn without deferred side effects.
+      See comments on ResolvedComputedColumnBase.
               """,
       fields=[
           Field(
               'column',
               SCALAR_RESOLVED_COLUMN,
               tag_id=2,
-              ignorable=IGNORABLE),
-          Field('expr', 'ResolvedExpr', tag_id=3)
-      ])
+              ignorable=IGNORABLE,
+              override_virtual_getter=True,
+          ),
+          Field('expr', 'ResolvedExpr', tag_id=3, override_virtual_getter=True),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedDeferredComputedColumn',
+      tag_id=255,
+      parent='ResolvedComputedColumnImpl',
+      use_custom_debug_string=True,
+      comment="""
+      This is a ResolvedColumnColumn variant that adds deferred side effect
+      capture.
+
+      This is used for computations that get separated into multiple scans,
+      where side effects like errors in earlier scans need to be deferred
+      util conditional expressions in later scans are evalauted.
+      See (broken link) for details.
+      For example:
+        SELECT IF(C, SUM(A/B), -1) FROM T
+      The division A/B could produce an error when B is 0, but errors should not
+      be exposed when C is false, due to IF's conditional evaluation semantics.
+
+      `side_effect_column` is a new column (of type BYTES) created at the same
+      time as `column`, storing side effects like errors from the computation.
+      This column will store an implementation-specific representation of the
+      side effect (e.g. util::StatusProto) and will get a NULL value if there
+      are no captured side effects.
+
+      Typically, this column will be passed to a call to the internal function
+      $with_side_effect() later to expose the side effects. The validator checks
+      that it is consumed downstream.
+              """,
+      fields=[
+          Field(
+              'column', SCALAR_RESOLVED_COLUMN,
+              tag_id=2,
+              ignorable=IGNORABLE,
+              override_virtual_getter=True
+          ),
+          Field('expr', 'ResolvedExpr', tag_id=3, override_virtual_getter=True),
+          Field(
+              'side_effect_column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=4,
+              ignorable=NOT_IGNORABLE,
+              comment="""Creates the companion side effects columns for this
+              computation, of type BYTES. Instead of immediately exposing the
+              side effect (e.g. an error), the side effect is captured in the
+              side_effects_column.
+                """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedOrderByItem',
@@ -4167,16 +4304,40 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedCreateSchemaStmtBase',
+      tag_id=248,
+      parent='ResolvedCreateStatement',
+      is_abstract=True,
+      comment="""
+      A base for statements that create schemas, such as:
+        CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] <name>
+        [DEFAULT COLLATE <collation>]
+        [OPTIONS (name=value, ...)]
+
+        CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
+        [IF NOT EXISTS] <name> WITH CONNECTION <connection>
+        OPTIONS (name=value, ...)
+
+      <option_list> contains engine-specific options associated with the schema
+              """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
       name='ResolvedCreateSchemaStmt',
       tag_id=157,
-      parent='ResolvedCreateStatement',
+      parent='ResolvedCreateSchemaStmtBase',
       comment="""
       This statement:
         CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] <name>
         [DEFAULT COLLATE <collation>]
         [OPTIONS (name=value, ...)]
-
-      <option_list> engine-specific options.
       <collation_name> specifies the default collation specification for future
         tables created in the dataset. If a table is created in this dataset
         without specifying table-level default collation, it inherits the
@@ -4194,12 +4355,30 @@ value.
               'ResolvedExpr',
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedCreateExternalSchemaStmt',
+      tag_id=249,
+      parent='ResolvedCreateSchemaStmtBase',
+      comment="""
+      This statement:
+        CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
+        [IF NOT EXISTS] <name> WITH CONNECTION <connection>
+        OPTIONS (name=value, ...)
+
+        <connection> encapsulates engine-specific metadata used to connect
+        to an external data source
+
+        Note: external schemas are pointers to schemas defined in an external
+        system. CREATE EXTERNAL SCHEMA does not actually build a new schema.
+              """,
+      fields=[
           Field(
-              'option_list',
-              'ResolvedOption',
+              'connection',
+              'ResolvedConnection',
               tag_id=2,
-              vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -4465,13 +4644,13 @@ value.
         * Trained: <has_query>
         * External: !<has_query>
       * Remote models <is_remote> = TRUE
-        * Trained: <has_query> [Not supported yet]
+        * Trained: <has_query>
         * External: !<has_query>
 
       <option_list> has engine-specific directives for how to train this model.
-      <query> is the AS SELECT statement. It can be only set when <is_remote> is
-        false and all of <input_column_definition_list>,
-        <output_column_definition_list> and <aliased_query_list> are empty.
+      <query> is the AS SELECT statement. It can be only set when all of
+        <input_column_definition_list>, <output_column_definition_list> and
+        <aliased_query_list> are empty.
       TODO: consider rename to <query_output_column_list>.
       <output_column_list> matches 1:1 with the <query>'s column_list and
         identifies the names and types of the columns output from the select
@@ -4484,8 +4663,7 @@ value.
         columns. Cannot be set if <has_query> is true. Might be absent when
         <is_remote> is true, meaning schema is read from the remote model
         itself.
-      <is_remote> is true if this is a remote model. Cannot be set when
-        <has_query> is true.
+      <is_remote> is true if this is a remote model.
       <connection> is the identifier path of the connection object. It can be
         only set when <is_remote> is true.
       <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
@@ -5167,6 +5345,54 @@ value.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedRecursionDepthModifier',
+      tag_id=256,
+      parent='ResolvedArgument',
+      comment="""
+        This represents a recursion depth modifier to recursive CTE:
+          WITH DEPTH [ AS <recursion_depth_column> ]
+                     [ BETWEEN <lower_bound> AND <upper_bound> ]
+
+      <lower_bound> and <upper_bound> represents the range of iterations (both
+      side included) whose results are part of CTE's final output.
+
+      lower_bound and upper_bound are two integer literals or
+      query parameters. Query parameter values must be checked at run-time by
+      ZetaSQL compliant backend systems.
+      - both lower/upper_bound must be non-negative;
+      - lower_bound is by default zero if unspecified;
+      - upper_bound is by default infinity if unspecified;
+      - lower_bound must be smaller or equal than upper_bound;
+
+      <recursion_depth_column> is the column that represents the
+      recursion depth semantics: the iteration number that outputs this row;
+      it is part of ResolvedRecursiveScan's column list when specified, but
+      there is no corresponding column in the inputs of Recursive CTE.
+
+      See (broken link):explicit-recursion-depth for details.
+      """,
+      fields=[
+          Field(
+              'lower_bound',
+              'ResolvedExpr',
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'upper_bound',
+              'ResolvedExpr',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'recursion_depth_column',
+              'ResolvedColumnHolder',
+              tag_id=4,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedRecursiveScan',
       tag_id=148,
       parent='ResolvedScan',
@@ -5188,19 +5414,29 @@ value.
 
       At runtime, a recursive scan is evaluated using an iterative process:
 
-      Step 1: Evaluate the non-recursive term. If UNION DISTINCT
+      Step 1 (iteration 0): Evaluate the non-recursive term. If UNION DISTINCT
         is specified, discard duplicates.
 
-      Step 2:
+      Step 2 (iteration k):
         Repeat until step 2 produces an empty result:
           Evaluate the recursive term, binding the recursive table to the
-          new rows produced by previous step. If UNION DISTINCT is specified,
-          discard duplicate rows, as well as any rows which match any
-          previously-produced result.
+          new rows produced by previous step (iteration k-1).
+          If UNION DISTINCT is specified, discard duplicate rows, as well as any
+          rows which match any previously-produced result.
 
       Step 3:
         The final content of the recursive table is the UNION ALL of all results
-        produced (step 1, plus all iterations of step 2).
+        produced [lower_bound, upper_bound] iterations specified in the
+        recursion depth modifier. (which are already DISTINCT because of step 2,
+        if the query had UNION DISTINCT). The final content is augmented by the
+        column specified in the recursion depth modifier (if specified) which
+        represents the iteration number that the row is output.
+        If UNION DISTINCT is specified, the depth column represents the first
+        iteration that produces a given row.
+        The depth column will be part of the output column list.
+
+      When recursion_depth_modifier is unspecified, the lower bound is
+      effectively zero, the upper bound is infinite.
 
       ResolvedRecursiveScan only supports a recursive WITH entry which
         directly references itself; ZetaSQL does not support mutual recursion
@@ -5212,7 +5448,15 @@ value.
           Field('op_type', SCALAR_RECURSIVE_SET_OPERATION_TYPE, tag_id=2),
           Field('non_recursive_term', 'ResolvedSetOperationItem', tag_id=3),
           Field('recursive_term', 'ResolvedSetOperationItem', tag_id=4),
-      ])
+          Field(
+              'recursion_depth_modifier',
+              'ResolvedRecursionDepthModifier',
+              is_optional_constructor_arg=True,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWithScan',
@@ -6493,6 +6737,16 @@ value.
       comment="""
       This statement:
         ALTER SCHEMA [IF NOT EXISTS] <name_path> <alter_action_list>;
+              """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedAlterExternalSchemaStmt',
+      tag_id=250,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER EXTERNAL SCHEMA [IF EXISTS] <name_path> <alter_action_list>;
               """,
       fields=[])
 
@@ -8976,7 +9230,8 @@ ResolvedArgumentRef(y)
       comment="""
       This statement:
         UNDROP <schema_object_kind> [IF NOT EXISTS] <name_path>
-        FOR SYSTEM_TIME AS OF [<for_system_time_expr>];
+        FOR SYSTEM_TIME AS OF [<for_system_time_expr>]
+        [OPTIONS (name=value, ...)];
 
       <schema_object_kind> is a string identifier for the entity to be
       undroped. Currently, only 'SCHEMA' object is supported.
@@ -8989,6 +9244,8 @@ ResolvedArgumentRef(y)
 
       <for_system_time_expr> specifies point in time from which entity is to
       be undropped.
+
+      <option_list> contains engine-specific options associated with the schema.
           """,
       fields=[
           Field('schema_object_kind', SCALAR_STRING, tag_id=2),
@@ -9003,6 +9260,13 @@ ResolvedArgumentRef(y)
               'for_system_time_expr',
               'ResolvedExpr',
               tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=6,
+              vector=True,
               ignorable=IGNORABLE_DEFAULT,
           ),
       ],

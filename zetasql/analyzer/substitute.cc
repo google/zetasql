@@ -31,6 +31,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
@@ -130,7 +131,7 @@ class ColumnRefReplacer : public ResolvedASTDeepCopyVisitor {
       const ResolvedColumn& column) override {
     if (!column_map_.contains(column)) {
       column_map_[column] = column_factory_.MakeCol(
-          column.table_name(), column.name(), column.type());
+          column.table_name(), column.name(), column.annotated_type());
     }
     return column_map_[column];
   }
@@ -307,6 +308,17 @@ absl::Status ExpressionSubstitutor::SetupLambdasCatalog(
         /*name=*/name, /*group=*/"SubstitutionLambda", Function::SCALAR,
         FunctionOptions());
 
+    // When the lambda body has a type annotation map, that type annotation map
+    // needs to be conveyed to the fake function we're creating as a body
+    // placeholder.
+    FunctionSignatureOptions signature_options;
+    if (lambda->body()->type_annotation_map()) {
+      signature_options.set_compute_result_annotations_callback(
+          [map = lambda->body()->type_annotation_map()](
+              const AnnotationCallbackArgs& args, TypeFactory& type_factory)
+              -> absl::StatusOr<const AnnotationMap*> { return map; });
+    }
+
     // We add a signature for the injected lambda function with the following
     // properties. The context_id is set to kSubstitutionLambdaContextId
     // in order to differentiate it as an injected lambda function. The result
@@ -316,7 +328,7 @@ absl::Status ExpressionSubstitutor::SetupLambdasCatalog(
         /*arguments=*/
         {{SignatureArgumentKind::ARG_TYPE_ARBITRARY,
           FunctionArgumentType::REPEATED}},
-        /*context_id=*/kSubstitutionLambdaContextId));
+        /*context_id=*/kSubstitutionLambdaContextId, signature_options));
     lambdas_catalog_->AddOwnedFunction(std::move(lambda_function));
   }
 
