@@ -197,6 +197,7 @@ class Type {
   }
   bool IsSignedInteger() const { return IsInt32() || IsInt64(); }
   bool IsUnsignedInteger() const { return IsUint32() || IsUint64(); }
+  bool IsUuid() const { return kind_ == TYPE_UUID; }
 
   // Simple types are those builtin types that can be represented with just a
   // TypeKind, with no parameters. This exists instead of IsScalarType because
@@ -624,7 +625,7 @@ class Type {
  protected:
   // Types can only be created and destroyed by TypeFactory.
   Type(const TypeFactory* factory, TypeKind kind);
-  virtual ~Type();
+  virtual ~Type() = default;
 
   bool EqualsImpl(const Type* other_type, bool equivalent) const {
     if (this == other_type) {
@@ -710,20 +711,6 @@ class Type {
     // Number of columns per indentation.
     static const int kIndentStep = 2;
   };
-
-  std::string FormatValueContentContainerElement(
-      const internal::ValueContentContainerElement element, const Type* type,
-      const FormatValueContentOptions& options) const {
-    if (element.is_null()) {
-      return options.as_literal()
-                 ? "NULL"
-                 : absl::StrCat("CAST(NULL AS ",
-                                type->TypeName(options.product_mode,
-                                               options.use_external_float32),
-                                ")");
-    }
-    return type->FormatValueContent(element.value_content(), options);
-  }
 
   // List of DebugStringImpl outputs. Used to serve as a stack in
   // DebugStringImpl to protect from stack overflows.

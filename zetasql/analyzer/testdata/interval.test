@@ -1183,3 +1183,20 @@ QueryStmt
     |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=QUARTER)
     +-input_scan=
       +-SingleRowScan
+==
+
+[language_features=INTERVAL_TYPE]
+select JUSTIFY_INTERVAL(INTERVAL cast(null as string) HOUR TO SECOND)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:justify_interval(INTERVAL) -> INTERVAL)
+    |     +-Literal(type=INTERVAL, value=NULL)
+    +-input_scan=
+      +-SingleRowScan

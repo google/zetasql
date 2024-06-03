@@ -229,7 +229,6 @@ enum class FunctionKind {
   kArrayAtOffset,
   kSafeArrayAtOrdinal,
   kSafeArrayAtOffset,
-  kSubscript,
   kArrayIsDistinct,
   kGenerateArray,
   kGenerateDateArray,
@@ -312,6 +311,8 @@ enum class FunctionKind {
   kJsonStripNulls,
   kJsonArrayInsert,
   kJsonArrayAppend,
+  kJsonSubscript,
+  kJsonKeys,
   // Proto functions
   kFromProto,
   kToProto,
@@ -475,6 +476,7 @@ enum class FunctionKind {
   // Random functions
   kRand,
   kGenerateUuid,
+  kNewUuid,
 
   // Hashing functions
   kMd5,
@@ -511,6 +513,12 @@ enum class FunctionKind {
 
   // Map functions
   kMapFromArray,
+  kMapEntriesSorted,
+  kMapEntriesUnsorted,
+  kMapGet,
+  kMapSubscript,
+  kMapSubscriptWithKey,
+  kMapContainsKey,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -582,14 +590,14 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>> CreateValidated(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
  private:
   // Like CreateValidated(), but returns a raw pointer with ownership.
   static absl::StatusOr<BuiltinScalarFunction*> CreateValidatedRaw(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   // Creates a like function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>

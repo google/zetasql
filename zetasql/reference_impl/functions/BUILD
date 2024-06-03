@@ -70,6 +70,7 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -109,6 +110,7 @@ cc_library(
         "//zetasql/public/types",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
     ],
@@ -121,6 +123,7 @@ cc_library(
     deps = [
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",
+        "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
     ],
@@ -151,13 +154,17 @@ cc_library(
     srcs = ["map.cc"],
     hdrs = ["map.h"],
     deps = [
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/common:internal_value",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
     ],

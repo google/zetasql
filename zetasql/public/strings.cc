@@ -763,9 +763,9 @@ std::string ToDoubleQuotedBytesLiteral(absl::string_view str) {
 // Return true if <str> is guaranteed to be a valid identifier without quoting.
 // If <allow_reserved_keywords> is false, returns false if <str> is a reserved
 // or conditionally reserved keyword.
-static bool IsValidUnquotedIdentifier(absl::string_view str,
-                                      const LanguageOptions& language_options,
-                                      bool allow_reserved_keywords) {
+bool IsValidUnquotedIdentifier(absl::string_view str,
+                               const LanguageOptions& language_options,
+                               bool allow_reserved_keywords) {
   if (str.empty()) return false;
   if (!isalpha(str[0]) && str[0] != '_') return false;
   for (char c : str) {

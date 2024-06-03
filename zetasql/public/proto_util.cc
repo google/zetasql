@@ -36,6 +36,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/token_list.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
@@ -310,6 +311,9 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
           types::RangeTypeFromSimpleTypeKind(range_element_type->kind()));
       break;
     }
+    case TYPE_TOKENLIST:
+      *default_value = Value::TokenList(tokens::TokenList());
+      break;
     default: {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();

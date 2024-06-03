@@ -7,6 +7,22 @@ CreateExternalSchemaStmt
   +-Connection(connection=connection1)
 ==
 
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION `` OPTIONS()
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:44]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION `` OPTIONS()
+                                           ^
+==
+
+
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION DEFAULT OPTIONS()
+--
+ERROR: CONNECTION DEFAULT is not supported [at 1:44]
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION DEFAULT OPTIONS()
+                                           ^
+==
+
+
 CREATE {{|OR REPLACE}} EXTERNAL SCHEMA {{|IF NOT EXISTS}} foo.bar.baz
 WITH CONNECTION connection1 OPTIONS (a=1, b="cde")
 --
@@ -58,9 +74,7 @@ CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1
 
 CREATE EXTERNAL SCHEMA foo OPTIONS ()
 --
-ERROR: Syntax error: Expected "." or keyword WITH but got keyword OPTIONS [at 1:28]
-CREATE EXTERNAL SCHEMA foo OPTIONS ()
-                           ^
+CreateExternalSchemaStmt(name_path=foo)
 ==
 
 CREATE {{temp|temporary|public|private}} EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS()
@@ -103,4 +117,3 @@ CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1)
 ERROR: CREATE EXTERNAL SCHEMA is not supported [at 1:1]
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION connection1 OPTIONS(x=1)
 ^
-==

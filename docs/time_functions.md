@@ -76,7 +76,8 @@ ZetaSQL supports the following time functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>TIME</code> values.
+    Gets the number of unit boundaries between two <code>TIME</code> values at
+    a particular time granularity.
   </td>
 </tr>
 
@@ -253,16 +254,16 @@ each element in `time_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_TIME("%I:%M:%S", "07:30:00")
+SELECT PARSE_TIME("%I:%M:%S", "07:30:00");
 
 -- This produces an error because the seconds element is in different locations.
-SELECT PARSE_TIME("%S:%I:%M", "07:30:00")
+SELECT PARSE_TIME("%S:%I:%M", "07:30:00");
 
 -- This produces an error because one of the seconds elements is missing.
-SELECT PARSE_TIME("%I:%M", "07:30:00")
+SELECT PARSE_TIME("%I:%M", "07:30:00");
 
 -- This works because %T can find all matching elements in time_string.
-SELECT PARSE_TIME("%T", "07:30:00")
+SELECT PARSE_TIME("%T", "07:30:00");
 ```
 
 When using `PARSE_TIME`, keep the following in mind:
@@ -295,7 +296,7 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
 ```
 
 ```sql
-SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
+SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 /*-------------*
  | parsed_time |
@@ -403,28 +404,36 @@ SELECT
 ### `TIME_DIFF`
 
 ```sql
-TIME_DIFF(time_expression_a, time_expression_b, part)
+TIME_DIFF(start_time, end_time, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `part` intervals between two
-`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
-`TIME` is earlier than the second one, the output is negative. Throws an error
-if the computation overflows the result type, such as if the difference in
-nanoseconds
-between the two `TIME` objects would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `TIME` values (`end_time` -
+`start_time`) at a particular time granularity.
 
-`TIME_DIFF` supports the following values for `part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
++   `start_time`: The starting `TIME` value.
++   `end_time`: The ending `TIME` value.
++   `granularity`: The time part that represents the granularity.
+    This can be:
+
+    
+    + `NANOSECOND`
+      (if the SQL engine supports it)
+    + `MICROSECOND`
+    + `MILLISECOND`
+    + `SECOND`
+    + `MINUTE`
+    + `HOUR`
+
+**Details**
+
+If `end_time` is earlier than `start_time`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `TIME` values overflows.
 
 **Return Data Type**
 

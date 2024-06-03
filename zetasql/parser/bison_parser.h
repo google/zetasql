@@ -38,9 +38,7 @@
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 
-namespace zetasql_bison_parser {
-class BisonParserImpl;
-}  // namespace zetasql_bison_parser
+namespace zetasql_bison_parser {}  // namespace zetasql_bison_parser
 
 namespace zetasql {
 namespace parser {
@@ -212,7 +210,6 @@ class BisonParser {
     return node;
   }
 
-  IdString filename() const { return filename_; }
   IdStringPool* id_string_pool() const { return id_string_pool_; }
 
   const LanguageOptions& language_options() { return *language_options_; }

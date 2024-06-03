@@ -174,6 +174,9 @@ class StrictJSONPathToken {
   StrictTokenValue token_;
 };
 
+// Specified path options for a JSONPath.
+enum class JsonPathOptions { kStrict, kLax, kLaxRecursive };
+
 // Used for strict iteration over a JSON path. Strict notation only allows '[]'
 // to refer to an array location and .property to refer to an object member. It
 // is a bi-directed iterator over tokens in a valid JSON path in standard sql

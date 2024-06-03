@@ -27,6 +27,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/rewriter_interface.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -43,6 +44,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
@@ -150,47 +152,19 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
       full_join_offset_columns_[i] = column;
     }
 
-    // STRUCT(arr1, arr2 [, ...], offset)
-    // REQUIRES: all rewritten columns are initialized before calling this
-    // function.
-    absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeStructExpr(
-        TypeFactory& type_factory) {
-      std::vector<std::unique_ptr<const ResolvedExpr>> field_list;
-      std::vector<StructField> struct_fields;
-      for (int i = 0; i < element_column_count_; ++i) {
-        const ResolvedColumn& rewritten_element_column = element_columns_[i];
-        field_list.push_back(MakeResolvedColumnRef(
-            rewritten_element_column.type(), rewritten_element_column,
-            /*is_correlated=*/false));
-        struct_fields.push_back(
-            {rewritten_element_column.name(), rewritten_element_column.type()});
-      }
-
-      const ResolvedColumn& rewritten_offset_column =
-          GetLastFullJoinOffsetColumn();
-      field_list.push_back(MakeResolvedColumnRef(rewritten_offset_column.type(),
-                                                 rewritten_offset_column,
-                                                 /*is_correlated=*/false));
-      // It's OK to choose a fixed offset column name here as it will be mapped
-      // to the pre-rewritten offset column in the final column replacement
-      // ProjectScan.
-      // WARNING: The offset column has be the last field. As the parent node
-      // depends on the order of the struct field to map pre-rewrite element
-      // columns back to rewritten get struct field columns.
-      struct_fields.push_back({"offset", rewritten_offset_column.type()});
-
-      ZETASQL_RETURN_IF_ERROR(
-          type_factory.MakeStructType(struct_fields, &struct_type_));
-
-      return ResolvedMakeStructBuilder()
-          .set_type(struct_type_)
-          .set_field_list(std::move(field_list))
-          .Build();
-    }
-
-    const StructType* GetStructType() const {
+    const StructType* struct_type() const {
       ABSL_DCHECK(struct_type_ != nullptr);
       return struct_type_;
+    }
+
+    void set_struct_type(const StructType* type) { struct_type_ = type; }
+
+    const AnnotationMap* struct_annotation_map() const {
+      return struct_annotation_map_;
+    }
+
+    void set_struct_annotation_map(const AnnotationMap* annotation_map) {
+      struct_annotation_map_ = annotation_map;
     }
 
    private:
@@ -241,7 +215,8 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     explicit State(int element_column_count)
         : element_column_count_(element_column_count),
           pre_rewritten_array_offset_column_(std::nullopt),
-          struct_type_(nullptr) {}
+          struct_type_(nullptr),
+          struct_annotation_map_(nullptr) {}
     int element_column_count_;
 
     // Pre-rewrite states
@@ -256,6 +231,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     ResolvedColumnList array_offset_columns_;
     ResolvedColumnList full_join_offset_columns_;
     const StructType* struct_type_;
+    const AnnotationMap* struct_annotation_map_;
   };
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
@@ -293,9 +269,11 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
                       original_array_scan->array_zip_mode(), state));
 
     ResolvedColumnList column_list = state.input_scan_columns();
-    const ResolvedColumn array_element_col =
-        column_factory_.MakeCol("$array", "$with_expr_element",
-                                with_expr->type()->AsArray()->element_type());
+    const ResolvedColumn array_element_col = column_factory_.MakeCol(
+        "$array", "$with_expr_element",
+        AnnotatedType(with_expr->type()->AsArray()->element_type(),
+                      state.struct_annotation_map()));
+
     column_list.push_back(array_element_col);
 
     std::unique_ptr<const ResolvedScan> input_scan;
@@ -314,7 +292,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
 
   // LEAST(arr1_len, arr2_len [, ... ] )
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> BuildLeastArrayLengthExpr(
-      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+      absl::Span<const std::unique_ptr<const ResolvedColumnRef>>
           arr_len_exprs) {
     ZETASQL_ASSIGN_OR_RETURN(
         std::vector<std::unique_ptr<const ResolvedExpr>> copied_array_lens,
@@ -351,7 +329,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> BuildStrictCheckExpr(
-      const std::vector<std::unique_ptr<const ResolvedColumnRef>>& array_lens,
+      absl::Span<const std::unique_ptr<const ResolvedColumnRef>> array_lens,
       const ResolvedColumn& mode) {
     // mode = 'STRICT'
     ZETASQL_ASSIGN_OR_RETURN(
@@ -396,8 +374,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> BuildResultLengthEpxr(
-      const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
-          array_lengths,
+      absl::Span<const std::unique_ptr<const ResolvedColumnRef>> array_lengths,
       const ResolvedColumn& mode) {
     // mode = 'TRUNCATE'
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> equal,
@@ -446,13 +423,13 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> BuildArrayLengthExpr(
       const Type* array_type, const ResolvedColumn& array_col) {
     // array_expr IS NULL
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> condition,
-                     fn_builder_.IsNull(MakeResolvedColumnRef(
-                         array_type, array_col, /*is_correlated=*/false)));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> condition,
+        fn_builder_.IsNull(BuildResolvedColumnRef(array_type, array_col)));
     // ARRAY_LENGTH(array_expr)
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_length,
-                     fn_builder_.ArrayLength(MakeResolvedColumnRef(
-                         array_type, array_col, /*is_correlated=*/false)));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedExpr> array_length,
+        fn_builder_.ArrayLength(BuildResolvedColumnRef(array_type, array_col)));
     return fn_builder_.If(
         std::move(condition),
         MakeResolvedLiteral(types::Int64Type(), Value::Int64(0)),
@@ -471,8 +448,9 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     assignment_list.reserve(input_arrays.size() + 1);
     for (int i = 0; i < input_arrays.size(); ++i) {
       // `arrN` expr
-      ResolvedColumn arr_col = column_factory_.MakeCol(
-          "$with_expr", absl::StrCat("arr", i), input_arrays[i]->type());
+      ResolvedColumn arr_col =
+          column_factory_.MakeCol("$with_expr", absl::StrCat("arr", i),
+                                  input_arrays[i]->annotated_type());
       state.SetWithExprArrayColumn(i, arr_col);
 
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_expr,
@@ -521,9 +499,11 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_subquery,
                      BuildArraySubqueryExpr(state));
     const Type* array_type = array_subquery->type();
-
+    const AnnotationMap* array_annotation_map =
+        array_subquery->type_annotation_map();
     return ResolvedWithExprBuilder()
         .set_type(array_type)
+        .set_type_annotation_map(array_annotation_map)
         .set_expr(std::move(array_subquery))
         .set_assignment_list(std::move(assignment_list))
         .Build();
@@ -551,17 +531,16 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedScan> make_struct_scan,
         BuildMakeStructProjectScan(std::move(order_by_scan), state));
-    ZETASQL_RET_CHECK_GT(state.GetStructType()->num_fields(), 2);
+    ZETASQL_RET_CHECK_GT(state.struct_type()->num_fields(), 2);
 
     // `parameter_list` only needs to reference array columns and result_len
     // column from with expr's `assignment_list`.
     std::vector<std::unique_ptr<const ResolvedColumnRef>>
         subquery_parameter_list(state.element_column_count() + 1);
     for (int i = 0; i < state.element_column_count(); ++i) {
-      subquery_parameter_list[i] =
-          MakeResolvedColumnRef(state.with_expr_array_columns()[i].type(),
-                                state.with_expr_array_columns()[i],
-                                /*is_correlated=*/false);
+      subquery_parameter_list[i] = BuildResolvedColumnRef(
+          state.with_expr_array_columns()[i].type(),
+          state.with_expr_array_columns()[i], /*is_correlated=*/false);
     }
     subquery_parameter_list.back() = MakeResolvedColumnRef(
         state.GetResultLengthColumn().type(), state.GetResultLengthColumn(),
@@ -569,25 +548,79 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
 
     const ArrayType* array_type = nullptr;
     ZETASQL_RETURN_IF_ERROR(
-        type_factory_.MakeArrayType(state.GetStructType(), &array_type));
+        type_factory_.MakeArrayType(state.struct_type(), &array_type));
+    const AnnotationMap* annotation_map = nullptr;
+    if (state.struct_annotation_map() != nullptr) {
+      std::unique_ptr<AnnotationMap> map = AnnotationMap::Create(array_type);
+      ZETASQL_RETURN_IF_ERROR(
+          map->AsArrayMap()->CloneIntoElement(state.struct_annotation_map()));
+      ZETASQL_ASSIGN_OR_RETURN(annotation_map,
+                       type_factory_.TakeOwnership(std::move(map)));
+    }
 
     return ResolvedSubqueryExprBuilder()
         .set_type(array_type)
+        .set_type_annotation_map(annotation_map)
         .set_subquery_type(ResolvedSubqueryExpr::ARRAY)
         .set_parameter_list(std::move(subquery_parameter_list))
         .set_subquery(std::move(make_struct_scan))
         .Build();
   }
 
+  // STRUCT(arr1, arr2 [, ...], offset)
+  // REQUIRES: all rewritten columns are initialized before calling this
+  // function.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeStructExpr(
+      TypeFactory& type_factory, State& state) {
+    std::vector<std::unique_ptr<const ResolvedExpr>> field_list;
+    std::vector<StructField> struct_fields;
+    for (int i = 0; i < state.element_column_count(); ++i) {
+      const ResolvedColumn& rewritten_element_column =
+          state.element_columns()[i];
+      field_list.push_back(BuildResolvedColumnRef(
+          rewritten_element_column.type(), rewritten_element_column,
+          /*is_correlated=*/false));
+      struct_fields.push_back(
+          {rewritten_element_column.name(), rewritten_element_column.type()});
+    }
+
+    const ResolvedColumn& rewritten_offset_column =
+        state.GetLastFullJoinOffsetColumn();
+    field_list.push_back(MakeResolvedColumnRef(rewritten_offset_column.type(),
+                                               rewritten_offset_column,
+                                               /*is_correlated=*/false));
+    // It's OK to choose a fixed offset column name here as it will be mapped
+    // to the pre-rewritten offset column in the final column replacement
+    // ProjectScan.
+    // WARNING: The offset column has be the last field. As the parent node
+    // depends on the order of the struct field to map pre-rewrite element
+    // columns back to rewritten get struct field columns.
+    struct_fields.push_back({"offset", rewritten_offset_column.type()});
+    const StructType* struct_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory.MakeStructType(struct_fields, &struct_type));
+    state.set_struct_type(struct_type);
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedMakeStruct> make_struct,
+                     ResolvedMakeStructBuilder()
+                         .set_type(struct_type)
+                         .set_field_list(std::move(field_list))
+                         .BuildMutable());
+    ZETASQL_RETURN_IF_ERROR(
+        fn_builder_.annotation_propagator().CheckAndPropagateAnnotations(
+            /*error_node=*/nullptr, make_struct.get()));
+    state.set_struct_annotation_map(make_struct->type_annotation_map());
+    return make_struct;
+  }
+
   absl::StatusOr<std::unique_ptr<const ResolvedProjectScan>>
   BuildMakeStructProjectScan(std::unique_ptr<const ResolvedScan> input_scan,
                              State& state) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> struct_expr,
-                     state.MakeStructExpr(type_factory_));
+                     MakeStructExpr(type_factory_, state));
 
     ResolvedColumnList column_list;
-    ResolvedColumn make_struct_col =
-        column_factory_.MakeCol("$make_struct", "$struct", struct_expr->type());
+    ResolvedColumn make_struct_col = column_factory_.MakeCol(
+        "$make_struct", "$struct", struct_expr->annotated_type());
     column_list.push_back(make_struct_col);
 
     return ResolvedProjectScanBuilder()
@@ -684,12 +717,11 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
   // Build a ProjectScan doing a struct expansion against the output of
   // UNNEST(ARRAY(SELECT AS STRUCT arr1, arr2 [ , ... ], offset)):
   //   ARRAY<STRUCT<arr1, arr2 [ , ... ], offset>>
-  // TODO: b/297249122 - attach type_annotation_map to appropriate columns
   absl::StatusOr<std::unique_ptr<const ResolvedProjectScan>>
   BuildStructExpansionWithColumnReplacement(
       std::unique_ptr<const ResolvedArrayScan> array_scan, State& state) {
     ZETASQL_RET_CHECK_EQ(array_scan->element_column_list_size(), 1);
-    const StructType* struct_type = state.GetStructType();
+    const StructType* struct_type = state.struct_type();
     ZETASQL_RET_CHECK_EQ(state.element_column_count() + 1, struct_type->num_fields());
 
     ResolvedColumnList column_list = state.input_scan_columns();
@@ -728,16 +760,23 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
         .Build();
   }
 
-  // TODO: b/297249122 - investigate propagation of type annotation map for
-  // collated element column type
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> BuildGetStructFieldExpr(
       const StructType* struct_type, int field_index,
       const ResolvedColumn& source_column) {
+    const AnnotationMap* type_annotation_map = nullptr;
+    if (source_column.type_annotation_map() != nullptr &&
+        field_index < struct_type->num_fields() - 1) {
+      type_annotation_map =
+          source_column.type_annotation_map()->AsStructMap()->field(
+              field_index);
+    }
+
     return ResolvedGetStructFieldBuilder()
         .set_type(struct_type->field(field_index).type)
+        .set_type_annotation_map(type_annotation_map)
         .set_field_idx(field_index)
-        .set_expr(MakeResolvedColumnRef(struct_type, source_column,
-                                        /*is_correlated=*/false))
+        .set_expr(BuildResolvedColumnRef(struct_type, source_column,
+                                         /*is_correlated=*/false))
         .Build();
   }
 
@@ -839,6 +878,22 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     return fn_builder_.Coalesce(std::move(array_offsets));
   }
 
+  absl::StatusOr<const AnnotationMap*> GetElementAnnotationMap(
+      const Type* array_type, const AnnotationMap* array_annotation_map) {
+    ZETASQL_RET_CHECK(array_type != nullptr);
+    ZETASQL_RET_CHECK(array_type->IsArray());
+    if (array_annotation_map == nullptr) {
+      return nullptr;
+    }
+    ZETASQL_RET_CHECK(array_annotation_map->IsArrayMap());
+    if (!array_annotation_map->IsTopLevelColumnAnnotationEmpty()) {
+      return absl::InvalidArgumentError(
+          "Input arrays to UNNEST cannot have annotations on the arrays "
+          "themselves");
+    }
+    return array_annotation_map->AsArrayMap()->element();
+  }
+
   // Build a ResolvedArrayScan out of the `array_expr` as the `index`-th
   // argument in the original UNNEST.
   absl::StatusOr<std::unique_ptr<const ResolvedArrayScan>>
@@ -850,10 +905,15 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     // the with expr.
     const ResolvedColumn& array_expr_column =
         state.with_expr_array_columns()[index];
+    ZETASQL_ASSIGN_OR_RETURN(
+        const AnnotationMap* element_annotation_map,
+        GetElementAnnotationMap(array_expr_column.type(),
+                                array_expr_column.type_annotation_map()));
 
     const ResolvedColumn array_element_col = column_factory_.MakeCol(
         "$array", absl::StrCat("arr", index),
-        array_expr_column.type()->AsArray()->element_type());
+        AnnotatedType(array_expr_column.type()->AsArray()->element_type(),
+                      element_annotation_map));
     const ResolvedColumn array_position_col =
         column_factory_.MakeCol("$array_offset", "offset", types::Int64Type());
     ResolvedColumnList column_list = {array_element_col, array_position_col};

@@ -28,21 +28,19 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
+
 #include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/named_argument_info.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
-#include "zetasql/common/errors.h"
+#include "zetasql/analyzer/rewriters/privacy/privacy_utility.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/builtin_function.h"
@@ -58,7 +56,6 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/rewriter_interface.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -78,6 +75,7 @@
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -89,7 +87,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -318,7 +315,7 @@ class PublicGroupsState {
   // not a public groups join.
   const ResolvedScan* GetPublicGroupsScanOrNull(
       const ResolvedJoinScan* node,
-      const std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries)
+      absl::Span<const std::unique_ptr<WithEntryRewriteState>> with_entries)
       const;
 
   // Contains more information for the columns in the following sets. This map
@@ -655,6 +652,9 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::Status VisitResolvedDifferentialPrivacyAggregateScanTemplate(
       const NodeType* node);
 
+  absl::Status VisitResolvedAggregationThresholdAggregateScan(
+      const ResolvedAggregationThresholdAggregateScan* node) override;
+
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
   absl::Status VisitResolvedProjectScan(
       const ResolvedProjectScan* node) override;
@@ -700,6 +700,8 @@ class ColumnReplacingDeepCopyVisitor : public ResolvedASTDeepCopyVisitor {
 // Use the resolver to create a new function call using resolved arguments. The
 // calling code must ensure that the arguments can always be coerced and
 // resolved to a valid function. Any returned status is an internal error.
+// TODO: Conditional functions should respect the side effects scope
+//                nesting depth.
 absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
     absl::string_view function_name,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
@@ -720,11 +722,12 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
   // ResolvedFunctionCall with already-resolved arguments.
   NameScope empty_name_scope;
   QueryResolutionInfo query_resolution_info(resolver);
-  ExprResolutionInfo expr_resolution_info(
-      &empty_name_scope, &empty_name_scope, &empty_name_scope,
-      /*allows_aggregation_in=*/true,
-      /*allows_analytic_in=*/false, /*use_post_grouping_columns_in=*/false,
-      /*clause_name_in=*/"", &query_resolution_info);
+  ExprResolutionInfo expr_resolution_info(&query_resolution_info,
+                                          &empty_name_scope,
+                                          {
+                                              .allows_aggregation = true,
+                                              .allows_analytic = false,
+                                          });
 
   std::unique_ptr<const ResolvedExpr> result;
   absl::Status status = resolver->ResolveFunctionCallWithResolvedArguments(
@@ -739,27 +742,15 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
   // The resolver inserts the actual function call for aggregate functions
   // into query_resolution_info, so we need to extract it if applicable.
   if (query_resolution_info.aggregate_columns_to_compute().size() == 1) {
-    std::unique_ptr<ResolvedComputedColumn> col =
-        absl::WrapUnique(const_cast<ResolvedComputedColumn*>(
+    std::unique_ptr<ResolvedComputedColumnBase> col =
+        absl::WrapUnique(const_cast<ResolvedComputedColumnBase*>(
             query_resolution_info.release_aggregate_columns_to_compute()
                 .front()
                 .release()));
-    result = col->release_expr();
+    ZETASQL_RET_CHECK(col->Is<ResolvedComputedColumn>());
+    result = col->GetAs<ResolvedComputedColumn>()->release_expr();
   }
   return absl::WrapUnique(const_cast<ResolvedExpr*>(result.release()));
-}
-
-std::unique_ptr<ResolvedColumnRef> MakeColRef(const ResolvedColumn& col) {
-  return MakeResolvedColumnRef(col.type(), col, /*is_correlated=*/false);
-}
-
-zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ResolvedNode& node) {
-  zetasql_base::StatusBuilder builder = MakeSqlError();
-  const auto* parse_location = node.GetParseLocationRangeOrNULL();
-  if (parse_location != nullptr) {
-    builder.AttachPayload(parse_location->start().ToInternalErrorLocation());
-  }
-  return builder;
 }
 
 absl::Status MaybeAttachParseLocation(absl::Status status,
@@ -853,7 +844,7 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
           allocator->MakeCol("$orderby", "$orderbycol1", types::DoubleType());
     }
     std::unique_ptr<const ResolvedColumnRef> resolved_column_ref =
-        MakeColRef(*order_by_column);
+        BuildResolvedColumnRef(*order_by_column);
     std::unique_ptr<const ResolvedOrderByItem> resolved_order_by_item =
         MakeResolvedOrderByItem(std::move(resolved_column_ref), nullptr,
                                 /*is_descending=*/false,
@@ -928,13 +919,14 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   //
   // This also changes the output column of each function to the appropriate
   // intermediate column, as dictated by the injected_col_map.
-  absl::StatusOr<std::vector<std::unique_ptr<ResolvedComputedColumn>>>
+  absl::StatusOr<std::vector<std::unique_ptr<ResolvedComputedColumnBase>>>
   RewriteAggregateColumns(const ResolvedAggregateScanBase* node) {
-    std::vector<std::unique_ptr<ResolvedComputedColumn>> inner_aggregate_list;
+    std::vector<std::unique_ptr<ResolvedComputedColumnBase>>
+        inner_aggregate_list;
     for (const auto& col : node->aggregate_list()) {
       ZETASQL_RETURN_IF_ERROR(col->Accept(this));
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedComputedColumn> unique_ptr_node,
-                       this->ConsumeRootNode<ResolvedComputedColumn>());
+      ZETASQL_ASSIGN_OR_RETURN(auto unique_ptr_node,
+                       this->ConsumeRootNode<ResolvedComputedColumnBase>());
       inner_aggregate_list.emplace_back(std::move(unique_ptr_node));
     }
     return inner_aggregate_list;
@@ -980,23 +972,54 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
+  ResolvedColumn ReplaceColumn(const ResolvedColumn& old_column,
+                               absl::string_view new_name,
+                               const Type* new_type) {
+    const ResolvedColumn injected_column =
+        allocator_->MakeCol(old_column.table_name(), new_name, new_type);
+    injected_col_map_->emplace(old_column, injected_column);
+    return injected_column;
+  }
+
+  absl::Status ProcessResolvedComputedColumnImpl(
+      const ResolvedComputedColumnImpl* node) {
+    auto* col = GetUnownedTopOfStack<ResolvedComputedColumnImpl>();
+    // Create a column to splice together the per-user and cross-user
+    // aggregate/groupby lists, then update the copied computed column and place
+    // our new column in the replacement map.
+    if (node->Is<ResolvedComputedColumn>()) {
+      const ResolvedColumn& old_column = node->column();
+      static_cast<ResolvedComputedColumn*>(col)->set_column(ReplaceColumn(
+          old_column, old_column.name() + "_partial", col->expr()->type()));
+    } else {
+      ZETASQL_RET_CHECK(node->Is<ResolvedDeferredComputedColumn>());
+      const ResolvedColumn& old_column = node->column();
+      static_cast<ResolvedDeferredComputedColumn*>(col)->set_column(ReplaceColumn(
+          old_column, old_column.name() + "_partial", col->expr()->type()));
+
+      const ResolvedColumn& old_side_effect_column =
+          node->GetAs<ResolvedDeferredComputedColumn>()->side_effect_column();
+      static_cast<ResolvedDeferredComputedColumn*>(col)->set_side_effect_column(
+          ReplaceColumn(old_side_effect_column,
+                        old_side_effect_column.name() + "_partial",
+                        old_side_effect_column.type()));
+    }
+
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedDeferredComputedColumn(
+      const ResolvedDeferredComputedColumn* node) override {
+    // Rewrite the output column to point to the mapped column.
+    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedDeferredComputedColumn(node));
+    return ProcessResolvedComputedColumnImpl(node);
+  }
+
   absl::Status VisitResolvedComputedColumn(
       const ResolvedComputedColumn* node) override {
     // Rewrite the output column to point to the mapped column.
     ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedComputedColumn(node));
-    ResolvedComputedColumn* col =
-        GetUnownedTopOfStack<ResolvedComputedColumn>();
-
-    // Create a column to splice together the per-user and cross-user
-    // aggregate/groupby lists, then update the copied computed column and place
-    // our new column in the replacement map.
-    const ResolvedColumn& old_column = node->column();
-    const ResolvedColumn injected_column = allocator_->MakeCol(
-        old_column.table_name(), old_column.name() + "_partial",
-        col->expr()->type());
-    injected_col_map_->emplace(old_column, injected_column);
-    col->set_column(injected_column);
-    return absl::OkStatus();
+    return ProcessResolvedComputedColumnImpl(node);
   }
 
   absl::Status VisitResolvedSubqueryExpr(
@@ -1359,6 +1382,7 @@ class AggregateFunctionCallResolver {
   virtual absl::StatusOr<std::unique_ptr<ResolvedExpr>> Resolve(
       const ResolvedAggregateFunctionCall* function_call_node,
       const ResolvedColumn& containing_column,
+      const std::optional<const ResolvedColumn>& side_effect_column,
       std::vector<std::unique_ptr<ResolvedExpr>> argument_list) const = 0;
 };
 
@@ -1401,7 +1425,8 @@ class OuterAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // Resolve the new cross-user ANON_* function call.
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> result,
                      aggregate_function_call_resolver_->Resolve(
-                         node, current_column_, std::move(argument_list)));
+                         node, current_column_, current_side_effect_column_,
+                         std::move(argument_list)));
     ZETASQL_RET_CHECK_EQ(result->node_kind(), RESOLVED_AGGREGATE_FUNCTION_CALL)
         << result->DebugString();
 
@@ -1412,13 +1437,24 @@ class OuterAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
+  // This function is in practice the class entry point. We need to record
+  // what the current output column is so that we can look the appropriate
+  // intermediate column up in the map.
   absl::Status VisitResolvedComputedColumn(
       const ResolvedComputedColumn* node) override {
-    // This function is in practice the class entry point. We need to record
-    // what the current output column is so that we can look the appropriate
-    // intermediate column up in the map.
     current_column_ = node->column();
+    current_side_effect_column_ = std::nullopt;
     return CopyVisitResolvedComputedColumn(node);
+  }
+
+  // This function is in practice the class entry point. We need to record
+  // what the current output column is so that we can look the appropriate
+  // intermediate column up in the map.
+  absl::Status VisitResolvedDeferredComputedColumn(
+      const ResolvedDeferredComputedColumn* node) override {
+    current_column_ = node->column();
+    current_side_effect_column_ = node->side_effect_column();
+    return CopyVisitResolvedDeferredComputedColumn(node);
   }
 
   absl::Status VisitResolvedSubqueryExpr(
@@ -1438,6 +1474,10 @@ class OuterAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // When visiting an aggregate function call, current_column_ will point to the
   // column that contains that function call.
   ResolvedColumn current_column_;
+  // If the aggregate function in question defers side effects, the companion
+  // `current_side_effect_column_` points to the companion column, std::nullopt
+  // otherwise.
+  std::optional<ResolvedColumn> current_side_effect_column_;
 
   Resolver* resolver_;
   DistinctPrivacyIdsCountColumnFinder distinct_user_count_column_finder_;
@@ -1569,7 +1609,8 @@ struct UidColumnState {
     if (value_table_uid == nullptr) return expr_list;
     for (auto& col : expr_list) {
       if (MatchesPathExpression(*col->expr())) {
-        col = MakeResolvedComputedColumn(col->column(), MakeColRef(column));
+        col = MakeResolvedComputedColumn(col->column(),
+                                         BuildResolvedColumnRef(column));
         column = col->column();
         value_table_uid = nullptr;
       }
@@ -1801,7 +1842,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         IdentifierPathToString(userid_column_name_path);
     ResolvedColumn userid_column = value_table_value_resolved_column;
     std::unique_ptr<const ResolvedExpr> resolved_expr_to_ref =
-        MakeColRef(value_table_value_resolved_column);
+        BuildResolvedColumnRef(value_table_value_resolved_column);
 
     if (value_table_value_resolved_column.type()->IsStruct()) {
       const StructType* struct_type =
@@ -2419,8 +2460,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         copy->add_column_list(right_uid);
 
         std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
-        arguments.emplace_back(MakeColRef(left_uid));
-        arguments.emplace_back(MakeColRef(right_uid));
+        arguments.emplace_back(BuildResolvedColumnRef(left_uid));
+        arguments.emplace_back(BuildResolvedColumnRef(right_uid));
         ZETASQL_ASSIGN_OR_RETURN(
             std::unique_ptr<ResolvedExpr> coalesced_uid_function,
             ResolveFunctionCall("coalesce", std::move(arguments),
@@ -2762,7 +2803,7 @@ RewriterVisitor::ChooseUidColumn(
   }
 
   if (per_user_visitor_uid_column_state.column.IsInitialized()) {
-    return MakeColRef(per_user_visitor_uid_column_state.column);
+    return BuildResolvedColumnRef(per_user_visitor_uid_column_state.column);
   }
   return MakeSqlErrorAtNode(*node)
          << "A SELECT WITH " << select_with_mode_name.name
@@ -2820,7 +2861,8 @@ struct RewriteInnerAggregateListResult {
 
   // The rewritten aggregate columns produced by
   // InnerAggregateListRewriterVisitor.
-  std::vector<std::unique_ptr<ResolvedComputedColumn>> rewritten_aggregate_list;
+  std::vector<std::unique_ptr<ResolvedComputedColumnBase>>
+      rewritten_aggregate_list;
 
   // The rewritten group by columns produced by
   // InnerAggregateListRewriterVisitor.
@@ -2838,8 +2880,7 @@ RewriterVisitor::RewriteInnerAggregateList(
   std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
   InnerAggregateListRewriterVisitor inner_rewriter_visitor(
       &injected_col_map, allocator_, resolver_, select_with_mode_name.name);
-  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedComputedColumn>>
-                       rewritten_aggregate_list,
+  ZETASQL_ASSIGN_OR_RETURN(auto rewritten_aggregate_list,
                    inner_rewriter_visitor.RewriteAggregateColumns(node));
   ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedComputedColumn>>
                        rewritten_group_by_list,
@@ -2948,7 +2989,7 @@ RewriterVisitor::CreateCountDistinctPrivacyIdsColumn(
       std::unique_ptr<ResolvedComputedColumn> group_selection_threshold_col,
       MakeGroupSelectionThresholdFunctionColumn(original_input_scan));
   std::unique_ptr<ResolvedExpr> group_selection_threshold_expr =
-      MakeColRef(group_selection_threshold_col->column());
+      BuildResolvedColumnRef(group_selection_threshold_col->column());
   aggregate_list.emplace_back(std::move(group_selection_threshold_col));
   return group_selection_threshold_expr;
 }
@@ -3060,7 +3101,7 @@ RewriterVisitor::AddCrossPartitionSampleScan(
     PublicGroupsState* public_groups_state) {
   if (max_groups_contributed.has_value()) {
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
-    partition_by_list.push_back(MakeColRef(uid_column));
+    partition_by_list.push_back(BuildResolvedColumnRef(uid_column));
     const std::vector<ResolvedColumn>& column_list = input_scan->column_list();
     input_scan = MakeResolvedSampleScan(
         column_list, std::move(input_scan),
@@ -3096,11 +3137,11 @@ ExtractSubmessageFromProtoColumn(const std::string& field_name,
   ZETASQL_RETURN_IF_ERROR(
       type_factory.MakeProtoType(&proto_descriptor, &proto_field_type));
 
-  return MakeResolvedGetProtoField(field_type, MakeColRef(proto_column), field,
-                                   Value::Null(proto_field_type),
-                                   /* get_has_bit=*/false,
-                                   ProtoType::GetFormatAnnotation(field),
-                                   /* return_default_value_when_unset=*/false);
+  return MakeResolvedGetProtoField(
+      field_type, BuildResolvedColumnRef(proto_column), field,
+      Value::Null(proto_field_type),
+      /* get_has_bit=*/false, ProtoType::GetFormatAnnotation(field),
+      /* return_default_value_when_unset=*/false);
 }
 
 // Returns ResolvedGetProtoFieldExpr for extracting an int64_t field
@@ -3242,7 +3283,7 @@ MakeExtractCountFromAnonOutputWithReportJson(
       type_factory.get_json(),
       {type_factory.get_json(), type_factory.get_string()}, FN_JSON_QUERY_JSON);
   std::vector<std::unique_ptr<const ResolvedExpr>> json_query_fn_args(2);
-  json_query_fn_args[0] = MakeColRef(unique_users_count_column);
+  json_query_fn_args[0] = BuildResolvedColumnRef(unique_users_count_column);
   json_query_fn_args[1] =
       MakeResolvedLiteral(types::StringType(), Value::String("$.result.value"),
                           /*has_explicit_type=*/true);
@@ -3460,6 +3501,96 @@ absl::StatusOr<PrivacyOptionSpec> PrivacyOptionSpec::FromScanOptions(
   return privacy_option_spec;
 }
 
+struct AggregationThresholdOptionSpec {
+  // The threshold that a group must satisfy to be included in the results.
+  std::optional<int64_t> threshold;
+  // TODO: Implement max_groups_contributed, max_rows_contributed.
+  // The maximum number of groups a privacy unit can contribute to.
+  std::optional<int64_t> max_groups_contributed;
+  // The maximum number of rows a privacy unit can contribute to the dataset.
+  std::optional<int64_t> max_rows_contributed;
+};
+
+inline constexpr absl::string_view kAggThreshUnimplementedOptionErrorMsg =
+    "Aggregation Threshold option $0 is unimplemented";
+inline constexpr absl::string_view kAggThreshDuplicateOptionErrorMsg =
+    "Aggregation Threshold option $0 can only be set once";
+inline constexpr absl::string_view kThresholdOptionName = "threshold";
+inline constexpr absl::string_view kMaxGroupsContributedOptionName =
+    "max_groups_contributed";
+inline constexpr absl::string_view kMaxRowsContributedOptionName =
+    "max_rows_contributed";
+inline constexpr absl::string_view kPrivacyUnitColumnOptionName =
+    "privacy_unit_column";
+
+// Factory method that extracts the aggregation threshold options from the raw
+// options of the aggregation threshold aggregate scan.
+inline absl::StatusOr<AggregationThresholdOptionSpec> FromScanOptions(
+    const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options,
+    const LanguageOptions& language_options) {
+  std::optional<Value> threshold;
+  std::optional<Value> max_groups_contributed;
+  std::optional<Value> max_rows_contributed;
+  for (const auto& option : scan_options) {
+    if (zetasql_base::CaseEqual(option->name(), kThresholdOptionName)) {
+      // This condition was already checked in the resolver.
+      ZETASQL_RET_CHECK(!threshold.has_value()) << absl::Substitute(
+          kAggThreshDuplicateOptionErrorMsg, kThresholdOptionName);
+      ZETASQL_ASSIGN_OR_RETURN(threshold, ParseNullOrPositiveInt32Option(
+                                      *option, kThresholdOptionName));
+    } else if (zetasql_base::CaseEqual(option->name(),
+                                      kMaxRowsContributedOptionName)) {
+      // This condition was already checked in the resolver.
+      ZETASQL_RET_CHECK(!max_rows_contributed.has_value()) << absl::Substitute(
+          kAggThreshDuplicateOptionErrorMsg, kMaxRowsContributedOptionName);
+      ZETASQL_ASSIGN_OR_RETURN(max_rows_contributed,
+                       ParseNullOrPositiveInt32Option(
+                           *option, kMaxRowsContributedOptionName));
+    } else if (zetasql_base::CaseEqual(option->name(),
+                                      kMaxGroupsContributedOptionName)) {
+      // This condition was already checked in the resolver.
+      ZETASQL_RET_CHECK(!max_groups_contributed.has_value()) << absl::Substitute(
+          kAggThreshDuplicateOptionErrorMsg, kMaxGroupsContributedOptionName);
+      ZETASQL_ASSIGN_OR_RETURN(max_groups_contributed,
+                       ParseNullOrPositiveInt32Option(
+                           *option, kMaxGroupsContributedOptionName));
+    }
+  }
+  AggregationThresholdOptionSpec aggregation_threshold_option_spec;
+  aggregation_threshold_option_spec.threshold =
+      threshold.has_value() ? threshold->int64_value() : 0;
+  aggregation_threshold_option_spec.max_groups_contributed =
+      max_groups_contributed && !max_groups_contributed->is_null()
+          ? max_groups_contributed->int64_value()
+          : Value::Int64(0).int64_value();
+  aggregation_threshold_option_spec.max_rows_contributed =
+      max_rows_contributed && !max_rows_contributed->is_null()
+          ? max_rows_contributed->int64_value()
+          : Value::Int64(0).int64_value();
+  return aggregation_threshold_option_spec;
+}
+
+// Extracts privacy unit column from WITH AGGREGATION_THRESHOLD OPTIONS
+// privacy_unit_column option when it is present. see:
+// (broken link) for details.
+// TODO: Exact behaviour of option vs. source table UID is TBD.
+absl::StatusOr<std::optional<const ResolvedExpr*>> ExtractUidColumnFromOptions(
+    const ResolvedAggregationThresholdAggregateScan* node) {
+  std::optional<const ResolvedExpr*> result;
+  for (const auto& option : node->option_list()) {
+    if (!zetasql_base::CaseEqual(option->name(), "privacy_unit_column")) {
+      continue;
+    }
+    // This condition was already checked in the resolver.
+    ZETASQL_RET_CHECK(!result.has_value()) << absl::Substitute(
+        kAggThreshDuplicateOptionErrorMsg, kPrivacyUnitColumnOptionName);
+    PrivacyUnitColumnValidator visitor;
+    ZETASQL_RETURN_IF_ERROR(option->value()->Accept(&visitor));
+    result = option->value();
+  }
+  return result;
+}
+
 template <class NodeType>
 absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 RewriterVisitor::ExtractGroupSelectionThresholdExpr(
@@ -3492,7 +3623,7 @@ RewriterVisitor::ExtractGroupSelectionThresholdExpr(
         }
         default:
           group_selection_threshold_expr =
-              MakeColRef(unique_users_count_column);
+              BuildResolvedColumnRef(unique_users_count_column);
       }
     }
   }
@@ -3540,6 +3671,7 @@ class BoundRowsAggregateFunctionCallResolver final
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> Resolve(
       const ResolvedAggregateFunctionCall* function_call_node,
       const ResolvedColumn& containing_column,
+      const std::optional<const ResolvedColumn>& side_effect_column,
       std::vector<std::unique_ptr<ResolvedExpr>> argument_list) const override {
     ZETASQL_ASSIGN_OR_RETURN(ReplacementFunctionCall replacement_function_call,
                      GetReplacementAggregateFunctionCall(function_call_node));
@@ -3911,7 +4043,7 @@ const ResolvedScan* TryResolveCTESubqueryOrReturnSame(
 
 const ResolvedScan* PublicGroupsState::GetPublicGroupsScanOrNull(
     const ResolvedJoinScan* node,
-    const std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries)
+    absl::Span<const std::unique_ptr<WithEntryRewriteState>> with_entries)
     const {
   const ResolvedScan* public_group_scan_candidate;
   switch (node->join_type()) {
@@ -4265,9 +4397,10 @@ class BoundGroupsAggregateFunctionCallResolver final
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> Resolve(
       const ResolvedAggregateFunctionCall* function_call_node,
       const ResolvedColumn& containing_column,
+      const std::optional<const ResolvedColumn>& side_effect_column,
       std::vector<std::unique_ptr<ResolvedExpr>> argument_list) const override {
     ReplacementFunctionCall call = GetReplacementAggregateFunctionCall(
-        function_call_node, containing_column);
+        function_call_node, containing_column, side_effect_column);
     if (filter_values_with_null_uid_) {
       std::unique_ptr<ResolvedExpr> input_expr = std::move(call.input_expr);
       ZETASQL_ASSIGN_OR_RETURN(call.input_expr,
@@ -4282,11 +4415,25 @@ class BoundGroupsAggregateFunctionCallResolver final
  private:
   ReplacementFunctionCall GetReplacementAggregateFunctionCall(
       const ResolvedAggregateFunctionCall* node,
-      const ResolvedColumn& containing_column) const {
+      const ResolvedColumn& containing_column,
+      const std::optional<const ResolvedColumn>& side_effect_column) const {
     ReplacementFunctionCall replacement = {
         // Always rewrite to point at the intermediate column that
         // pre-aggregates per partition.
-        .input_expr = MakeColRef(injected_col_map_.at(containing_column))};
+        .input_expr =
+            BuildResolvedColumnRef(injected_col_map_.at(containing_column))};
+
+    if (side_effect_column.has_value()) {
+      std::vector<std::unique_ptr<const ResolvedExpr>> args;
+      args.push_back(std::move(replacement.input_expr));
+      args.push_back(
+          BuildResolvedColumnRef(injected_col_map_.at(*side_effect_column)));
+      auto wrapper_call =
+          ResolveFunctionCall("$with_side_effects", std::move(args),
+                              /*named_arguments=*/{}, resolver_);
+      ZETASQL_DCHECK_OK(wrapper_call);
+      replacement.input_expr = std::move(*wrapper_call);
+    }
 
     switch (node->signature().context_id()) {
       case FunctionSignatureId::FN_ANON_COUNT:
@@ -4358,6 +4505,21 @@ void AppendResolvedComputedColumnsToList(
   }
 }
 
+void AppendResolvedComputedColumnsToList(
+    const std::vector<std::unique_ptr<ResolvedComputedColumnBase>>&
+        resolved_computed_columns,
+    std::vector<ResolvedColumn>& out_column_list) {
+  for (const std::unique_ptr<ResolvedComputedColumnBase>& computed_column :
+       resolved_computed_columns) {
+    out_column_list.push_back(computed_column->column());
+    if (computed_column->Is<ResolvedDeferredComputedColumn>()) {
+      out_column_list.push_back(
+          computed_column->GetAs<ResolvedDeferredComputedColumn>()
+              ->side_effect_column());
+    }
+  }
+}
+
 template <class NodeType>
 absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 RewriterVisitor::IdentifyOrAddNoisyCountDistinctPrivacyIdsColumnToAggregateList(
@@ -4395,9 +4557,9 @@ RewriterVisitor::AddExactCountDistinctPrivacyIdsColumnToAggregateList(
       "$anon", "$exact_count_distinct_privacy_units_col", sum->type());
   outer_aggregate_list.emplace_back(MakeResolvedComputedColumn(
       exact_count_distinct_privacy_units_col, std::move(sum)));
-  return MakeColRef(outer_aggregate_list.back()
-                        ->GetAs<ResolvedComputedColumnImpl>()
-                        ->column());
+  return BuildResolvedColumnRef(outer_aggregate_list.back()
+                                    ->GetAs<ResolvedComputedColumnImpl>()
+                                    ->column());
 }
 
 template <typename NodeType>
@@ -4535,7 +4697,7 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
        original_input_scan->group_by_list()) {
     outer_group_by_list.emplace_back(MakeResolvedComputedColumn(
         group_by->column(),
-        MakeColRef(injected_col_map.at(group_by->column()))));
+        BuildResolvedColumnRef(injected_col_map.at(group_by->column()))));
   }
 
   // Copy the options for the new anonymized aggregate scan.
@@ -4595,7 +4757,7 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
             public_groups_state->FindPublicGroupColumnForAddedJoin(column)
                 .value_or(column);
         outer_group_by_list.emplace_back(MakeResolvedComputedColumn(
-            group_by->column(), MakeColRef(added_column)));
+            group_by->column(), BuildResolvedColumnRef(added_column)));
       }
     }
   }
@@ -4710,6 +4872,99 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
 
   ZETASQL_RETURN_IF_ERROR(AttachExtraNodeFields(*node, *result));
   PushNodeToStack(std::move(result));
+  return absl::OkStatus();
+}
+
+absl::Status ValidateAggregationThresholdOptions(
+    const AggregationThresholdOptionSpec& agg_options_spec) {
+  // If threshold is not set, this is unimplemented behaviour.
+  if (!agg_options_spec.threshold.has_value() ||
+      agg_options_spec.threshold <= 0) {
+    return absl::UnimplementedError(
+        "Unimplemented aggregation threshold defaults: threshold must be "
+        "specified");
+  }
+  // Max rows and max groups contributed are unimplemented.
+  if (agg_options_spec.max_rows_contributed.has_value() &&
+      agg_options_spec.max_rows_contributed > 0) {
+    return absl::UnimplementedError(absl::Substitute(
+        kAggThreshUnimplementedOptionErrorMsg, kMaxRowsContributedOptionName));
+  }
+  if (agg_options_spec.max_groups_contributed.has_value() &&
+      agg_options_spec.max_groups_contributed > 0) {
+    return absl::UnimplementedError(
+        absl::Substitute(kAggThreshUnimplementedOptionErrorMsg,
+                         kMaxGroupsContributedOptionName));
+  }
+  // All validations passed
+  return absl::OkStatus();
+}
+
+// Rewrites an aggregation threshold node to an aggregate with
+// the thresholding represented as a filter on the privacy unit column.
+absl::Status RewriterVisitor::VisitResolvedAggregationThresholdAggregateScan(
+    const ResolvedAggregationThresholdAggregateScan* node) {
+  // Validate the aggregation threshold options.
+  ZETASQL_ASSIGN_OR_RETURN(AggregationThresholdOptionSpec agg_options_spec,
+                   FromScanOptions(node->option_list(), resolver_->language()));
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregationThresholdOptions(agg_options_spec));
+  // Handle the privacy unit id.
+  ZETASQL_ASSIGN_OR_RETURN(std::optional<const ResolvedExpr*> options_uid_column,
+                   ExtractUidColumnFromOptions(node));
+  // Retrieve the column from the transform result which is either passed
+  // through the options or is inferred from the source table.
+  // TODO: Note this does not work if both the table has a defined
+  // privacy uid and a privacy unit is specified. This behaviour is yet to be
+  // determined.
+  ZETASQL_ASSIGN_OR_RETURN(
+      RewritePerUserTransformResult rewrite_per_user_result,
+      RewritePerUserTransform(
+          node, {.name = "AGGREGATION_THRESHOLD", .uses_a_article = false},
+          options_uid_column, /*public_groups_state=*/nullptr));
+  auto [rewritten_scan, inner_uid_column] = std::move(rewrite_per_user_result);
+  auto privacy_unit_column =
+      GetResolvedColumn(inner_uid_column.get()).value_or(ResolvedColumn());
+  // Construct a function call to count the number of distinct privacy units.
+  FunctionCallBuilder builder(*analyzer_options_, *catalog_, *type_factory_);
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedExpr> count_distinct_uid,
+      builder.Count(MakeResolvedColumnRef(privacy_unit_column.type(),
+                                          privacy_unit_column, false),
+                    /*is_distinct=*/true));
+  // Create a column to hold the results of the privacy unit distinct count.
+  ResolvedColumn count_column = allocator_->MakeCol(
+      "$aggregate", "$privacy_unit_count", types::Int64Type());
+  // Add the count column to a copy of the original column list.
+  ResolvedColumnList column_list_with_count = node->column_list();
+  column_list_with_count.push_back(count_column);
+  // Add the count distinct aggregate to the copy of the original list.
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<std::unique_ptr<ResolvedComputedColumnBase>> aggregate_list,
+      ProcessNodeList(node->aggregate_list()));
+  aggregate_list.emplace_back(
+      MakeResolvedComputedColumn(count_column, std::move(count_distinct_uid)));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<std::unique_ptr<ResolvedOption>> options_list,
+      ResolvedASTDeepCopyVisitor::CopyNodeList(node->option_list()));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<std::unique_ptr<ResolvedComputedColumn>> group_by_list,
+      ResolvedASTDeepCopyVisitor::CopyNodeList(node->group_by_list()));
+  // Make a new aggregation threshold scan to add the new column and aggregate.
+  auto agg_thresh_scan = MakeResolvedAggregationThresholdAggregateScan(
+      column_list_with_count, std::move(rewritten_scan),
+      std::move(group_by_list), std::move(aggregate_list),
+      /*grouping_set_list=*/{},
+      /*rollup_column_list=*/{},
+      /*grouping_call_list=*/{}, std::move(options_list));
+  //  Construct a HAVING function to compare the count against the threshold.
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedExpr> condition,
+      builder.GreaterOrEqual(
+          MakeResolvedColumnRef(types::Int64Type(), count_column, false),
+          MakeResolvedLiteral(Value::Int64(*agg_options_spec.threshold))));
+  // Construct a filter scan using the HAVING clause.
+  PushNodeToStack(MakeResolvedFilterScan(
+      node->column_list(), std::move(agg_thresh_scan), std::move(condition)));
   return absl::OkStatus();
 }
 

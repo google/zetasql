@@ -50,7 +50,8 @@ class InputArgumentType {
   // Same as InputArgumentType::UntypedNull(). Consider using the latter.
   InputArgumentType() : category_(kUntypedNull), type_(types::Int64Type()) {}
 
-  // Constructor for literal arguments. <literal_value> cannot be nullptr.
+  // Constructor for literal arguments without an explicit type.
+  // <literal_value> cannot be nullptr.
   // A Value can be either a NULL or non-NULL Value of any ZetaSQL Type.
   // The <literal_value> is not owned and must outlive all referencing
   // InputArgumentTypes. A true <is_default_argument_value> indicates that the
@@ -60,9 +61,15 @@ class InputArgumentType {
   explicit InputArgumentType(const Value& literal_value,
                              bool is_default_argument_value = false);
 
-  // Constructor for non-literal and parameter arguments.
-  explicit InputArgumentType(const Type* type,
-                             bool is_query_parameter = false);
+  // Constructor for query parameters, non-literals, and literals with
+  // an explicit type.
+  // WARNING: `is_literal()` will return false for any InputArgumentTypes that
+  // use this constructor, including literals with an explicit type.
+  // `is_literal_for_constness` should be used to provide a separate signal
+  // for whether the argument is a literal for the sake of constness, and can
+  // be checked with `is_literal_for_constness()`.
+  explicit InputArgumentType(const Type* type, bool is_query_parameter = false,
+                             bool is_literal_for_constness = false);
 
   // Constructor for STRUCT arguments that can have a mix of literal and
   // non-literal fields.  If a STRUCT argument is a literal or has all
@@ -73,7 +80,7 @@ class InputArgumentType {
 
   ~InputArgumentType() {}
 
-  // This may return nullptr (such as for for lambda).
+  // This may return nullptr (such as for lambda).
   const Type* type() const { return type_; }
 
   const std::vector<InputArgumentType>& field_types() const {
@@ -90,7 +97,17 @@ class InputArgumentType {
   const Value* literal_value() const {
     return literal_value_.has_value() ? &literal_value_.value() : nullptr;
   }
+  // Returns true if the argument was a ResolvedLiteral with
+  // `has_explicit_type` set to false.
+  // WARNING: This function may return false for explicitly typed
+  // ResolvedLiterals such as those of the form DATE `2024-01-01`.
+  // Other explicitly typed literals of this form could include but are not
+  // limited to JSON, FLOAT, NUMERIC, TIMESTAMP, and RANGE literals.
   bool is_literal() const { return literal_value_.has_value(); }
+  // Returns true if the argument was a ResolvedLiteral. This can produce
+  // different results compared with `is_literal` above as it does not require
+  // that a Value was supplied to InputArgumentType::literal_value_.
+  bool is_literal_for_constness() const { return is_literal_for_constness_; }
   bool is_literal_null() const {
     return literal_value_.has_value() && literal_value_.value().is_null();
   }
@@ -288,6 +305,11 @@ class InputArgumentType {
   // The alias of the argument this InputArgumentType corresponds to. If the
   // argument does not support aliases, `argument_alias_` = std::nullopt.
   std::optional<IdString> argument_alias_;
+
+  // True if the InputArgumentType was constructed from a ResolvedLiteral.
+  // This assessment is independent of whether or not
+  // `literal_value_` has a value.
+  bool is_literal_for_constness_ = false;
 };
 
 // Only hashes the type kind, not the type itself (so two different enums will

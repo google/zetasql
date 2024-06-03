@@ -1,4 +1,22 @@
 # Valid statement with connection and options.
+export model model.name with connection default options(uri="destination");
+--
+ExportModelStatement [0-74] [export model...destination")]
+  PathExpression [13-23] [model.name]
+    Identifier(model) [13-18] [model]
+    Identifier(name) [19-23] [name]
+  WithConnectionClause [24-47] [with connection default]
+    ConnectionClause [29-47] [connection default]
+      DefaultLiteral [40-47] [default]
+  OptionsList [55-74] [(uri="destination")]
+    OptionsEntry [56-73] [uri="destination"]
+      Identifier(uri) [56-59] [uri]
+      StringLiteral [60-73] ["destination"]
+        StringLiteralComponent("destination") [60-73] ["destination"]
+--
+EXPORT MODEL model.name WITH CONNECTION DEFAULT OPTIONS(uri = "destination")
+==
+
 export model model.name with connection connection_id options(uri="destination");
 --
 ExportModelStatement [0-80] [export model...destination")]

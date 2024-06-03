@@ -105,21 +105,6 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_
   return MakeSqlErrorAtNode(ast_node, /*include_leftmost_child=*/false);
 }
 
-// This is a variant of ZETASQL_RETURN_IF_ERROR from status_macros.h that also
-// converts errors to SQL errors and adds a location, overriding the existing
-// location if one existed.
-//
-// This is used to add locations onto errors that propagate from parts of the
-// system that don't have locations, like TypeFactory.
-#define RETURN_SQL_ERROR_AT_IF_ERROR(ast_node, expr)                         \
-  do {                                                                       \
-    /* Using _status below to avoid capture problems if expr is "status". */ \
-    const absl::Status _status = (expr);                                   \
-    if (ABSL_PREDICT_FALSE(!_status.ok())) {                                 \
-      return MakeSqlErrorAt((ast_node)) << _status.message();                \
-    }                                                                        \
-  } while (0)
-
 // Returns a team policy that attaches a parse location to an error status
 // without changing the error message or code. If the error status already has a
 // location, that will be overridden by this one.

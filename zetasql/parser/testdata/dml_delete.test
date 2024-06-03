@@ -341,7 +341,6 @@ WHERE
   true
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 delete db-1-2.T where true
 --

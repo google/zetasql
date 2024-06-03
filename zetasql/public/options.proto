@@ -108,7 +108,8 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 110, 13046, 14001, 14024, 999003;
+  reserved 36 to 39, 44 to 46, 48, 55, 74, 99, 110, 13046, 14001, 14024, 999003,
+      999004;
 
   // CROSS-VERSION FEATURES
   //
@@ -437,6 +438,10 @@ enum LanguageFeature {
   // See (broken link) for details.
   FEATURE_JSON_QUERY_LAX = 115;
 
+  // Enables JSON_KEYS function.
+  // See (broken link) for details.
+  FEATURE_JSON_KEYS_FUNCTION = 118;
+
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
   // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
@@ -652,17 +657,13 @@ enum LanguageFeature {
   // ALTER TABLE table ALTER COLUMN col DROP GENERATED;
   FEATURE_ALTER_COLUMN_DROP_GENERATED = 106;
 
-  // DEPRECATED: This is now a NOOP, as Textmapper is the default parser.
-  // The only way to change it is the opt out flag,
-  // FEATURE_DISABLE_TEXTMAPPER_PARSER.
-  // TODO: deprecate this opt-in flag.
-  FEATURE_TEXTMAPPER_PARSER = 999004;
-
   // If true, sets the shadow parser to the other alternative from the primary
   // (Textmapper or Bison)
   FEATURE_SHADOW_PARSING = 999005
       [(language_feature_options).ideally_enabled = false];
 
+  // DEPRECATED: Textmapper is the default parser in all engines. This will
+  // become a NOOP soon.
   // Prevents the TextMapper-generated parser from being used, and resorts to
   // the Bison-generated parser instead.
   FEATURE_DISABLE_TEXTMAPPER_PARSER = 107
@@ -689,8 +690,7 @@ enum LanguageFeature {
   // Example:
   // CREATE EXTERNAL SCHEMA external_ds WITH CONNECTION some_connection OPTIONS(
   // external_source = "some_external_source")
-  FEATURE_EXTERNAL_SCHEMA_DDL = 111
-      [(language_feature_options).in_development = true];
+  FEATURE_EXTERNAL_SCHEMA_DDL = 111;
 
   // When an non-templated argument to a templated SQL function is a NULL or
   // empty array literal, it will be attached to the exact argument type in the
@@ -925,7 +925,7 @@ enum LanguageFeature {
   // Enable support for additional string functions.
   FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS = 13020;
 
-  // Enable support for aggregate functions with WITH GROUP_ROWS syntax.
+  // Enable support for aggregate functions with WITH GROUP ROWS syntax.
   FEATURE_V_1_3_WITH_GROUP_ROWS = 13021;
 
   // Additional signatures for [DATE|DATETIME|TIMESTAMP]_[ADD|SUB|DIFF|TRUNC]
@@ -1164,10 +1164,7 @@ enum LanguageFeature {
 
   // Supporting CREATE FUNCTION LANGUAGE x WITH CONNECTION connection_name.
   // (broken link)
-  // TODO: Remove "in_development" when language with connection is
-  // launched.
-  FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION = 14030
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION = 14030;
 
   // Enables inferring column alias for explicit UNNEST with only one argument
   // when none of the trailing alias or column alias is used: `UNNEST(arg)`
@@ -1184,8 +1181,7 @@ enum LanguageFeature {
 
   // Enables explicit UNNEST with multiple arguments in FROM clause.
   // See (broken link)
-  FEATURE_V_1_4_MULTIWAY_UNNEST = 14033
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_MULTIWAY_UNNEST = 14033;
 
   // Enables generating operation collation for NULLIF function.
   // TODO: Remove "in_development" flag.
@@ -1295,8 +1291,7 @@ enum LanguageFeature {
   // then these functions are also enabled:
   // * LAX_BOOL_ARRAY, LAX_FLOAT64_ARRAY, LAX_INT64_ARRAY, LAX_STRING_ARRAY
   //
-  FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS = 14053
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS = 14053;
 
   // Ensures that computations properly defer side effects such as errors when
   // they get separated from larger expressions with conditional operators,
@@ -1321,8 +1316,28 @@ enum LanguageFeature {
   // are also enabled:
   // * LAX_FLOAT32_ARRAY, LAX_INT32_ARRAY, LAX_UINT32_ARRAY, LAX_UINT64_ARRAY
   //
-  FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS = 14055
+  FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS = 14055;
+
+  // Enables implicit coercion to BYTES for STRING literal containing only
+  // characters [0-127].
+  // See (broken link).
+  FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES = 14056;
+
+  // Enables UUID datatype.
+  FEATURE_V_1_4_UUID_TYPE = 14057
       [(language_feature_options).in_development = true];
+
+  // Enables support for multi-level aggregation.
+  FEATURE_V_1_4_MULTILEVEL_AGGREGATION = 14058
+      [(language_feature_options).in_development = true];
+
+  // Allow multiple fields of a oneof in REPLACE_FIELDS.
+  //
+  // For example, if oneof_a and oneof_b belongs to the same oneof,
+  // REPLACE_FIELDS(x, a as oneof_a, b as oneof_b) will be allowed if this
+  // feature is enabled. It is equivalent to
+  // REPLACE_FIELDS(REPLACE_FIELDS(x, a as oneof_a), b as oneof_b).
+  FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF = 14060;
 
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation
@@ -1628,9 +1643,28 @@ enum ErrorMessageStability {
   // Show the full error message.
   ERROR_MESSAGE_STABILITY_PRODUCTION = 1;
 
-  // This mode hides the message details. It is intended for external file-based
-  // tests.
+  // This mode redacts error message text for ZetaSQL error messages and
+  // strips off attached ZetaSQL-owned payloads. This mode should be used for
+  // tests that are stringifying ZetaSQL error messages into golden files.
+  // Error messages that have payloads not owned by ZetaSQL are not redacted
+  // because they are assumed to be error messages produced by engine code such
+  // as a catalog implementation, not by ZetaSQL.
   ERROR_MESSAGE_STABILITY_TEST_REDACTED = 2;
+
+  // This mode redacts error message text for ZetaSQL error messages but
+  // leaves error message payloads intact. This mode is useful for tests of code
+  // that use the payload information in a meaningul way. Sometimes the payloads
+  // exist so that clients can appropriately handle error without parsing useful
+  // information out of the error message text.
+  //
+  // Use with care. This mode should not be used with golden tests that ToString
+  // the payloads. Tests should never assert that payload message types do not
+  // change in compatible ways (like adding a new field). Tests should also be
+  // sensitive to the fact that not every payload field is promised to have
+  // backward compatibility always and forever. For example, ErrorLocation
+  // byte offset values are often influence by implementation details, and may
+  // move a bit as the lexer and parser are changed.
+  ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS = 3;
 }
 
 // Mode describing how parameters are defined and referenced.

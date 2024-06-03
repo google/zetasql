@@ -50,6 +50,28 @@ export data with connection as select 1;
                             ^
 ==
 
+export data with connection default options(x=5) as select 1;
+--
+ExportDataStatement [0-60] [export data...as select 1]
+  WithConnectionClause [12-35] [with connection default]
+    ConnectionClause [17-35] [connection default]
+      DefaultLiteral [28-35] [default]
+  OptionsList [43-48] [(x=5)]
+    OptionsEntry [44-47] [x=5]
+      Identifier(x) [44-45] [x]
+      IntLiteral(5) [46-47] [5]
+  Query [52-60] [select 1]
+    Select [52-60] [select 1]
+      SelectList [59-60] [1]
+        SelectColumn [59-60] [1]
+          IntLiteral(1) [59-60] [1]
+--
+EXPORT DATA WITH CONNECTION DEFAULT OPTIONS(x = 5) AS
+SELECT
+  1
+==
+
+
 export data with connection connection_id options(x=5) as select 1;
 --
 ExportDataStatement [0-66] [export data...as select 1]

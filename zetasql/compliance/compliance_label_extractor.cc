@@ -586,8 +586,8 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedAnalyticFunctionGroup(
       const ResolvedAnalyticFunctionGroup* node) override {
-    for (const auto& computed_col_ptr : node->analytic_function_list()) {
-      const ResolvedComputedColumn* computed_col = computed_col_ptr.get();
+    for (const std::unique_ptr<const ResolvedComputedColumnBase>& computed_col :
+         node->analytic_function_list()) {
       if (computed_col == nullptr) {
         return DefaultVisit(node);
       }

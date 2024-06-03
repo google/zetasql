@@ -84,6 +84,11 @@ class SampleCatalog {
   TypeFactory* types_;  // Not owned.
 
   void LoadCatalog(const LanguageOptions& language_options);
+  // Returns a copy of `options` that supplies default types for function
+  // signatures that expect them. This can override map entries in
+  // the original `options`'s `supplied_argument_types`.
+  ZetaSQLBuiltinFunctionOptions LoadDefaultSuppliedTypes(
+      const ZetaSQLBuiltinFunctionOptions& options);
   void LoadCatalogBuiltins(const LanguageOptions& language_options);
   void LoadCatalogBuiltins(
       const ZetaSQLBuiltinFunctionOptions& builtin_function_options);
@@ -231,6 +236,7 @@ class SampleCatalog {
   const ProtoType* proto_ambiguous_has_;
   const ProtoType* proto_field_formats_proto_;
   const ProtoType* proto_MessageWithMapField_;
+  const ProtoType* proto_approx_distance_function_options_;
 
   // STRUCT<a INT32, b STRING>
   const StructType* struct_type_;
@@ -247,6 +253,10 @@ class SampleCatalog {
   const StructType* struct_with_kitchen_sink_type_;
   // STRUCT<a INT64, b ARRAY<STRUCT<kitchen_sink KitchenSinkPB>>>
   const StructType* struct_of_array_of_struct_with_kitchen_sink_type_;
+
+  const Type* int32map_type_;
+  const Type* int64map_type_;
+  const Type* bytesmap_type_;
 
   const SimpleTable* key_value_table_;
 

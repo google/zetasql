@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/json_format.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -24,17 +25,19 @@
 #include <string_view>
 #include <vector>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/dynamic_message.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/json_util.h"
 #include "zetasql/common/string_util.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/json_value.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
@@ -42,7 +45,8 @@
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
-#include "zetasql/base/source_location.h"
+#include "google/protobuf/dynamic_message.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -495,6 +499,31 @@ absl::Status JsonFromValue(const Value& value,
         JsonFromNumericOrBool(value.enum_value(), output);
       }
       break;
+    case TYPE_RANGE: {
+      // RANGE is formatted the same way as STRUCT: (broken link)
+      output->push_back('{');
+      pretty_printer->IncreaseIndent();
+
+      pretty_printer->AppendNewlineAndIndent(output);
+      JsonFromString("start", output);
+      output->push_back(':');
+      pretty_printer->AppendSeparator(output);
+      ZETASQL_RETURN_IF_ERROR(JsonFromValue(value.start(), pretty_printer, output,
+                                    json_parsing_options));
+
+      output->push_back(',');
+      pretty_printer->AppendNewlineAndIndent(output);
+      JsonFromString("end", output);
+      output->push_back(':');
+      pretty_printer->AppendSeparator(output);
+      ZETASQL_RETURN_IF_ERROR(JsonFromValue(value.end(), pretty_printer, output,
+                                    json_parsing_options));
+
+      pretty_printer->DecreaseIndent();
+      pretty_printer->AppendNewlineAndIndent(output);
+      output->push_back('}');
+      break;
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported argument type "

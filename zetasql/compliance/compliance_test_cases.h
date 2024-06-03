@@ -112,12 +112,12 @@ class ComplianceCodebasedTests : public SQLTestBase {
 
   // Creates a sql string of the kind @p0 IN UNNEST([@p1, @p2, ...])
   void RunFunctionTestsInOperatorUnnestArray(
-      const std::vector<QueryParamsWithResult>& function_tests);
+      absl::Span<const QueryParamsWithResult> function_tests);
 
   // Runs given function tests.
   // function_name(@p0, @p1, ..., @pn).
   void RunFunctionTestsPrefix(
-      const std::vector<QueryParamsWithResult>& function_tests,
+      absl::Span<const QueryParamsWithResult> function_tests,
       absl::string_view function_name);
 
   // Return the original vector of tests, extended with an additional
@@ -138,8 +138,14 @@ class ComplianceCodebasedTests : public SQLTestBase {
 
   // Same as above, but creates FunctionTestCall from the provided
   // QueryParamsWithResults and function_name.
-  void RunFunctionCalls(const std::vector<QueryParamsWithResult>& test_cases,
+  void RunFunctionCalls(absl::Span<const QueryParamsWithResult> test_cases,
                         absl::string_view function_name);
+
+  // For each function test call, runs the original version of the function in
+  // addition to the SAFE version of the function, if the language feature is
+  // enabled. In addition, handles named value arguments if provided.
+  void RunFunctionCallsWithNamedValueArguments(
+      const std::vector<FunctionTestCall>& function_calls);
 
   // Runs the given normalize function tests.
   // function_name(@p0 [, mode]).

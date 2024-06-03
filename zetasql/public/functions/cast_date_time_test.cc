@@ -34,6 +34,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -648,7 +649,7 @@ static void TestCastStringToTime(const FunctionTestCall& test) {
     };
   };
   auto ParseTimeResultValidator = [](const Value& expected_result,
-                                     const std::string& actual_string) {
+                                     absl::string_view actual_string) {
     return expected_result.type_kind() == TYPE_TIME &&
            expected_result.DebugString() == actual_string;
   };
@@ -1663,6 +1664,28 @@ TEST(DateTimeUtilTest, StringToTimestampCasterTest) {
   ZETASQL_EXPECT_OK(caster.Cast("1973 11 29 21:33:09", absl::UTCTimeZone(), current_ts,
                         &timestamp_micros));
   EXPECT_EQ(timestamp_micros, 123456789000000);
+}
+
+TEST(DateTimeUtilTest, ValidateFormatStringContainsYearAndMonthSucceeds) {
+  // Success cases.
+  ZETASQL_EXPECT_OK(ValidateFormatStringContainsYearAndMonth("YYYYMM"));
+  ZETASQL_EXPECT_OK(ValidateFormatStringContainsYearAndMonth("MMYYYY"));
+  ZETASQL_EXPECT_OK(ValidateFormatStringContainsYearAndMonth("RRRRMON"));
+  ZETASQL_EXPECT_OK(ValidateFormatStringContainsYearAndMonth("MONTH/SYEAR"));
+  // Failure cases.
+  EXPECT_THAT(ValidateFormatStringContainsYearAndMonth("MON"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Year and month format elements are required."));
+  EXPECT_THAT(ValidateFormatStringContainsYearAndMonth("YEAR"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Year and month format elements are required."));
+  EXPECT_THAT(ValidateFormatStringContainsYearAndMonth("YEAR"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Year and month format elements are required."));
+  // we also get the regular errors from parsing the format string
+  EXPECT_THAT(ValidateFormatStringContainsYearAndMonth("NONSENSE"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element")));
 }
 
 }  // namespace

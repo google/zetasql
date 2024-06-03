@@ -19,13 +19,13 @@ CreateMaterializedViewStmt
 |     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
 +-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
 +-column_definition_list=
-| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
-| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
-| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#20)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#21)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#22)
 +-partition_by_list=
-| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#20)
 +-cluster_by_list=
-  +-ColumnRef(type=STRING, column=mv.c2#20)
+  +-ColumnRef(type=STRING, column=mv.c2#21)
 ==
 
 # With PARTITION BY and CLUSTER BY and OPTIONS
@@ -50,13 +50,13 @@ CreateMaterializedViewStmt
 |     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
 +-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
 +-column_definition_list=
-| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
-| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
-| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#20)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#21)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#22)
 +-partition_by_list=
-| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#20)
 +-cluster_by_list=
-  +-ColumnRef(type=STRING, column=mv.c2#20)
+  +-ColumnRef(type=STRING, column=mv.c2#21)
 ==
 
 # With PARTITION BY and CLUSTER BY on computed columns
@@ -69,19 +69,19 @@ as select timestamp_add(timestamp, interval 1 minute) as c1, string as c2,
 CreateMaterializedViewStmt
 +-name_path=mv
 +-output_column_list=
-| +-$view.c1#19 AS c1 [TIMESTAMP]
+| +-$view.c1#20 AS c1 [TIMESTAMP]
 | +-SimpleTypes.string#5 AS c2 [STRING]
-| +-$view.c3#20 AS c3 [INT64]
+| +-$view.c3#21 AS c3 [INT64]
 +-query=
 | +-ProjectScan
-|   +-column_list=[$view.c1#19, SimpleTypes.string#5, $view.c3#20]
+|   +-column_list=[$view.c1#20, SimpleTypes.string#5, $view.c3#21]
 |   +-expr_list=
-|   | +-c1#19 :=
+|   | +-c1#20 :=
 |   | | +-FunctionCall(ZetaSQL:timestamp_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
 |   | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
 |   | |   +-Literal(type=INT64, value=1)
 |   | |   +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
-|   | +-c3#20 :=
+|   | +-c3#21 :=
 |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 |   |     +-Cast(INT32 -> INT64)
 |   |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -90,13 +90,13 @@ CreateMaterializedViewStmt
 |     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
 +-sql="select timestamp_add(timestamp, interval 1 minute) as c1, string as c2,\n  int32+1 as c3 from SimpleTypes"
 +-column_definition_list=
-| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#21)
-| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#22)
-| +-ColumnDefinition(name="c3", type=INT64, column=mv.c3#23)
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#22)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#23)
+| +-ColumnDefinition(name="c3", type=INT64, column=mv.c3#24)
 +-partition_by_list=
-| +-ColumnRef(type=TIMESTAMP, column=mv.c1#21)
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#22)
 +-cluster_by_list=
-  +-ColumnRef(type=INT64, column=mv.c3#23)
+  +-ColumnRef(type=INT64, column=mv.c3#24)
 ==
 
 # With PARTITION BY and CLUSTER BY on computed expressions
@@ -118,18 +118,18 @@ CreateMaterializedViewStmt
 |     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
 +-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
 +-column_definition_list=
-| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
-| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
-| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#20)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#21)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#22)
 +-partition_by_list=
 | +-FunctionCall(ZetaSQL:timestamp_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
-|   +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
+|   +-ColumnRef(type=TIMESTAMP, column=mv.c1#20)
 |   +-Literal(type=INT64, value=1)
 |   +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
 +-cluster_by_list=
   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     +-Cast(INT32 -> INT64)
-    | +-ColumnRef(type=INT32, column=mv.c3#21)
+    | +-ColumnRef(type=INT32, column=mv.c3#22)
     +-Literal(type=INT64, value=1)
 ==
 
@@ -189,13 +189,13 @@ CreateMaterializedViewStmt
 |     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
 +-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
 +-column_definition_list=
-| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
-| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
-| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#20)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#21)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#22)
 +-partition_by_list=
-| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#20)
 +-cluster_by_list=
-  +-ColumnRef(type=STRING, column=mv.c2#20)
+  +-ColumnRef(type=STRING, column=mv.c2#21)
 ==
 
 [disallow_duplicate_options]

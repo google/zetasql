@@ -1176,7 +1176,7 @@ bool SafeConvertBytes(absl::string_view str, std::string* out,
         // replacements. In worst case, every char is invalid and replaced by
         // U+FFFD.
         size_t max_out_buf_size =
-            prev + (length - prev) * kUtf8ReplacementChar.length();
+            start + (length - start) * kUtf8ReplacementChar.length();
         out->clear();
         out->reserve(max_out_buf_size);
       }

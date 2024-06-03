@@ -1413,7 +1413,7 @@ select * from ARRAY(select * from Users) TABLESAMPLE RESERVOIR (1 ROWS)
 select * from Users
 where a IN((select * from a_s) TABLESAMPLE RESERVOIR (1 ROWS))
 --
-ERROR: Syntax error: Unexpected keyword TABLESAMPLE [at 2:32]
+ERROR: Syntax error: Expected "," but got keyword TABLESAMPLE [at 2:32]
 where a IN((select * from a_s) TABLESAMPLE RESERVOIR (1 ROWS))
                                ^
 ==

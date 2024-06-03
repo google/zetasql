@@ -263,9 +263,9 @@ FROM
 --
 ALTERNATION GROUP: @,3d
 --
-ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+ERROR: Syntax error: Expected end of input but got "3d" [at 1:14]
 select @ aId 3d t;
-              ^
+             ^
 --
 ALTERNATION GROUP: @@,AS
 --
@@ -305,9 +305,9 @@ FROM
 --
 ALTERNATION GROUP: @@,3d
 --
-ERROR: Syntax error: Missing whitespace between literal and alias [at 1:16]
+ERROR: Syntax error: Expected end of input but got "3d" [at 1:15]
 select @@ aId 3d t;
-               ^
+              ^
 ==
 
 # This shows an error that is an unfortunate consequence of the allowed
@@ -833,3 +833,232 @@ QueryStatement [0-14] [SELECT @EXCEPT]
 --
 SELECT
   @`EXCEPT`
+==
+
+SELECT @1
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:10]
+SELECT @1
+         ^
+==
+
+SELECT @1d
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT @1d
+         ^
+==
+
+SELECT @FULL
+--
+QueryStatement [0-12] [SELECT @FULL]
+  Query [0-12] [SELECT @FULL]
+    Select [0-12] [SELECT @FULL]
+      SelectList [7-12] [@FULL]
+        SelectColumn [7-12] [@FULL]
+          ParameterExpr [7-12] [@FULL]
+            Identifier(`FULL`) [8-12] [FULL]
+--
+SELECT
+  @`FULL`
+==
+
+SELECT @FULL.LEFT
+--
+QueryStatement [0-17] [SELECT @FULL.LEFT]
+  Query [0-17] [SELECT @FULL.LEFT]
+    Select [0-17] [SELECT @FULL.LEFT]
+      SelectList [7-17] [@FULL.LEFT]
+        SelectColumn [7-17] [@FULL.LEFT]
+          DotIdentifier [7-17] [@FULL.LEFT]
+            ParameterExpr [7-12] [@FULL]
+              Identifier(`FULL`) [8-12] [FULL]
+            Identifier(`LEFT`) [13-17] [LEFT]
+--
+SELECT
+  @`FULL`.`LEFT`
+==
+
+SELECT @FULL.1
+--
+QueryStatement [0-14] [SELECT @FULL.1]
+  Query [0-14] [SELECT @FULL.1]
+    Select [0-14] [SELECT @FULL.1]
+      SelectList [7-14] [@FULL.1]
+        SelectColumn [7-14] [@FULL.1]
+          DotIdentifier [7-14] [@FULL.1]
+            ParameterExpr [7-12] [@FULL]
+              Identifier(`FULL`) [8-12] [FULL]
+            Identifier(`1`) [13-14] [1]
+--
+SELECT
+  @`FULL`.`1`
+==
+
+SELECT @1.1
+--
+ERROR: Syntax error: Expected integer literal but got floating point literal "1.1" [at 1:9]
+SELECT @1.1
+        ^
+==
+
+SELECT @1.1d
+--
+ERROR: Syntax error: Expected integer literal but got "1.1d" [at 1:9]
+SELECT @1.1d
+        ^
+==
+
+SELECT @.1
+--
+ERROR: Syntax error: Unexpected floating point literal ".1" [at 1:9]
+SELECT @.1
+        ^
+==
+
+SELECT @1.
+--
+ERROR: Syntax error: Expected integer literal but got floating point literal "1." [at 1:9]
+SELECT @1.
+        ^
+==
+
+SELECT @1.a
+--
+ERROR: Syntax error: Expected integer literal but got floating point literal "1." [at 1:9]
+SELECT @1.a
+        ^
+==
+
+SELECT @@1
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:10]
+SELECT @@1
+         ^
+==
+
+SELECT @@1d
+--
+ERROR: Syntax error: Unexpected "1d" [at 1:10]
+SELECT @@1d
+         ^
+==
+
+SELECT @@FULL
+--
+QueryStatement [0-13] [SELECT @@FULL]
+  Query [0-13] [SELECT @@FULL]
+    Select [0-13] [SELECT @@FULL]
+      SelectList [7-13] [@@FULL]
+        SelectColumn [7-13] [@@FULL]
+          SystemVariableExpr [7-13] [@@FULL]
+            PathExpression [9-13] [FULL]
+              Identifier(`FULL`) [9-13] [FULL]
+--
+SELECT
+  @@`FULL`
+==
+
+SELECT @@FULL.LEFT
+--
+QueryStatement [0-18] [SELECT @@FULL.LEFT]
+  Query [0-18] [SELECT @@FULL.LEFT]
+    Select [0-18] [SELECT @@FULL.LEFT]
+      SelectList [7-18] [@@FULL.LEFT]
+        SelectColumn [7-18] [@@FULL.LEFT]
+          SystemVariableExpr [7-18] [@@FULL.LEFT]
+            PathExpression [9-18] [FULL.LEFT]
+              Identifier(`FULL`) [9-13] [FULL]
+              Identifier(`LEFT`) [14-18] [LEFT]
+--
+SELECT
+  @@`FULL`.`LEFT`
+==
+
+SELECT @@FULL.1
+--
+QueryStatement [0-15] [SELECT @@FULL.1]
+  Query [0-15] [SELECT @@FULL.1]
+    Select [0-15] [SELECT @@FULL.1]
+      SelectList [7-15] [@@FULL.1]
+        SelectColumn [7-15] [@@FULL.1]
+          SystemVariableExpr [7-15] [@@FULL.1]
+            PathExpression [9-15] [FULL.1]
+              Identifier(`FULL`) [9-13] [FULL]
+              Identifier(`1`) [14-15] [1]
+--
+SELECT
+  @@`FULL`.`1`
+==
+
+SELECT @@1.1
+--
+ERROR: Syntax error: Unexpected floating point literal "1.1" [at 1:10]
+SELECT @@1.1
+         ^
+==
+
+SELECT @@1.1d
+--
+ERROR: Syntax error: Unexpected "1.1d" [at 1:10]
+SELECT @@1.1d
+         ^
+==
+
+SELECT @@.1
+--
+ERROR: Syntax error: Unexpected floating point literal ".1" [at 1:10]
+SELECT @@.1
+         ^
+==
+
+SELECT @@1.
+--
+ERROR: Syntax error: Unexpected floating point literal "1." [at 1:10]
+SELECT @@1.
+         ^
+==
+
+SELECT @@1.a
+--
+ERROR: Syntax error: Unexpected floating point literal "1." [at 1:10]
+SELECT @@1.a
+         ^
+==
+
+SELECT @FULL.FULL.FULL.FULL
+--
+QueryStatement [0-27] [SELECT @FULL.FULL.FULL.FULL]
+  Query [0-27] [SELECT @FULL.FULL.FULL.FULL]
+    Select [0-27] [SELECT @FULL.FULL.FULL.FULL]
+      SelectList [7-27] [@FULL.FULL.FULL.FULL]
+        SelectColumn [7-27] [@FULL.FULL.FULL.FULL]
+          DotIdentifier [7-27] [@FULL.FULL.FULL.FULL]
+            DotIdentifier [7-22] [@FULL.FULL.FULL]
+              DotIdentifier [7-17] [@FULL.FULL]
+                ParameterExpr [7-12] [@FULL]
+                  Identifier(`FULL`) [8-12] [FULL]
+                Identifier(`FULL`) [13-17] [FULL]
+              Identifier(`FULL`) [18-22] [FULL]
+            Identifier(`FULL`) [23-27] [FULL]
+--
+SELECT
+  @`FULL`.`FULL`.`FULL`.`FULL`
+==
+
+SELECT @@FULL.FULL.FULL.FULL
+--
+QueryStatement [0-28] [SELECT @@FULL.FULL.FULL.FULL]
+  Query [0-28] [SELECT @@FULL.FULL.FULL.FULL]
+    Select [0-28] [SELECT @@FULL.FULL.FULL.FULL]
+      SelectList [7-28] [@@FULL.FULL.FULL.FULL]
+        SelectColumn [7-28] [@@FULL.FULL.FULL.FULL]
+          SystemVariableExpr [7-28] [@@FULL.FULL.FULL.FULL]
+            PathExpression [9-28] [FULL.FULL.FULL.FULL]
+              Identifier(`FULL`) [9-13] [FULL]
+              Identifier(`FULL`) [14-18] [FULL]
+              Identifier(`FULL`) [19-23] [FULL]
+              Identifier(`FULL`) [24-28] [FULL]
+--
+SELECT
+  @@`FULL`.`FULL`.`FULL`.`FULL`

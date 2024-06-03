@@ -642,6 +642,38 @@ inline std::unique_ptr<ResolvedArrayScan> MakeResolvedArrayScan(
         /*array_zip_mode=*/nullptr);
 }
 
+// Special overload for backward compatibility purposes.
+inline std::unique_ptr<ResolvedAggregateFunctionCall> MakeResolvedAggregateFunctionCall(
+  const Type* type,
+  const Function* function,
+  const FunctionSignature& signature,
+  std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
+  std::vector<std::unique_ptr<const ResolvedFunctionArgument>> generic_argument_list,
+  ResolvedFunctionCallBase::ErrorMode error_mode,
+  bool distinct,
+  ResolvedNonScalarFunctionCallBase::NullHandlingModifier null_handling_modifier,
+  std::unique_ptr<const ResolvedAggregateHavingModifier> having_modifier,
+  std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_item_list,
+  std::unique_ptr<const ResolvedExpr> limit,
+  const std::shared_ptr<ResolvedFunctionCallInfo>& function_call_info) {
+    return MakeResolvedAggregateFunctionCall(
+      type,
+      function,
+      signature,
+      std::move(argument_list),
+      std::move(generic_argument_list),
+      error_mode,
+      distinct,
+      null_handling_modifier,
+      std::move(having_modifier),
+      std::move(order_by_item_list),
+      std::move(limit),
+      function_call_info,
+      /*group_by_list=*/{},
+      /*group_by_aggregate_list=*/{}
+    );
+}
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_H_

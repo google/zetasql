@@ -1883,6 +1883,66 @@ TEST(ValidateTest, ErrorWhenSideEffectColumnIsNotConsumed) {
                         HasSubstr("unconsumed_side_effect_columns_.empty()")));
 }
 
+// TODO: Augment this test with actual validation logic for
+// multi-level aggregation.
+TEST(ValidateTest, MultilevelAggregationNotYetSupported) {
+  IdStringPool pool;
+  auto agg_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ResolvedColumn placeholder_column = ResolvedColumn(
+      1, pool.Make("table_name"), pool.Make("name"), types::Int64Type());
+
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedComputedColumn>
+            placeholder_computed_column,
+        ResolvedComputedColumnBuilder()
+            .set_column(placeholder_column)
+            .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+            .Build());
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .add_group_by_list(std::move(placeholder_computed_column))
+            .Build());
+
+    EXPECT_THAT(
+        Validator().ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Aggregate functions do not support group by yet")));
+  }
+
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<const ResolvedComputedColumn>
+            placeholder_computed_column,
+        ResolvedComputedColumnBuilder()
+            .set_column(placeholder_column)
+            .set_expr(MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)))
+            .Build());
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto agg_function_call,
+        ResolvedAggregateFunctionCallBuilder()
+            .set_type(types::Int64Type())
+            .set_function(agg_function.get())
+            .set_signature(sig)
+            .add_group_by_aggregate_list(std::move(placeholder_computed_column))
+            .Build());
+
+    EXPECT_THAT(
+        Validator().ValidateStandaloneResolvedExpr(agg_function_call.get()),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Aggregate functions do not support group by yet")));
+  }
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace zetasql

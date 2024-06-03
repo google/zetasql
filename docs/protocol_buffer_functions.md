@@ -27,6 +27,16 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
+  <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
+
+</td>
+  <td>
+    Gets the enum value descriptor proto
+    (<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#proto_extract"><code>EXTRACT</code></a>
 
 </td>
@@ -147,6 +157,57 @@ FROM
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `ENUM_VALUE_DESCRIPTOR_PROTO`
+
+```sql
+ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
+```
+
+**Description**
+
+Gets the enum value descriptor proto
+(<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+
+**Definitions**
+
++   `proto_enum`: An `ENUM` value that contains the descriptor to retrieve.
+
+**Return type**
+
+`proto2.EnumValueDescriptorProto PROTO`
+
+**Example**
+
+The following query gets the `ideally_enabled` and `in_development` options from
+the value descriptors in the `LanguageFeature` enum, and then produces query
+results that are based on these value descriptors.
+
+```sql
+WITH
+  EnabledFeatures AS (
+    SELECT CAST(999991 AS zetasql.LanguageFeature) AS feature UNION ALL
+    SELECT CAST(999992 AS zetasql.LanguageFeature) AS feature
+  )
+SELECT
+  CAST(feature AS STRING) AS feature_enum_name,
+  CAST(feature AS INT64) AS feature_enum_id,
+  IFNULL(
+    ENUM_VALUE_DESCRIPTOR_PROTO(feature).options.(zetasql.language_feature_options).ideally_enabled,
+    TRUE) AS feature_is_ideally_enabled,
+  IFNULL(
+    ENUM_VALUE_DESCRIPTOR_PROTO(feature).options.(zetasql.language_feature_options).in_development,
+    FALSE) AS feature_is_in_development
+FROM
+  EnabledFeatures;
+
+/*-------------------------------------------------+-----------------+----------------------------+---------------------------*
+ | feature_enum_name                               | feature_enum_id | feature_is_ideally_enabled | feature_is_in_development |
+ +-------------------------------------------------+-----------------+----------------------------+---------------------------+
+ | FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT | 999991          | TRUE                       | TRUE                      |
+ | FEATURE_TEST_IDEALLY_DISABLED                   | 999992          | FALSE                      | FALSE                     |
+ *-------------------------------------------------+-----------------+----------------------------+---------------------------*/
+```
 
 ### `EXTRACT` 
 <a id="proto_extract"></a>
@@ -900,7 +961,8 @@ REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
 **Description**
 
 Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field to be replaced.
+`field_path` is a delimited path to the protocol buffer field that is replaced.
+When using `replace_fields`, the following limitations apply:
 
 + If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
   component of `field_path` is a required field.
@@ -915,8 +977,7 @@ Type of `proto_expression`
 
 **Examples**
 
-To illustrate the usage of this function, we use protocol buffer messages
-`Book` and `BookDetails`.
+The following example uses protocol buffer messages `Book` and `BookDetails`.
 
 ```
 message Book {
@@ -931,7 +992,7 @@ message BookDetails {
 };
 ```
 
-This statement replaces value of field `title` and subfield `chapters`
+This statement replaces the values of the field `title` and subfield `chapters`
 of proto type `Book`. Note that field `details` must be set for the statement
 to succeed.
 
@@ -968,7 +1029,7 @@ AS proto;
  *-----------------------------------------------------------------------------*/
 ```
 
-It can set a field to `NULL`.
+The function can also set a field to `NULL`.
 
 ```sql
 SELECT REPLACE_FIELDS(

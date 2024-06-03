@@ -1331,9 +1331,39 @@ FROM
 # b/290310062
 select anon_count(if(expr, 0, 1) WITH REPORT(format="PROTO")) as a from T;
 --
-ERROR: Syntax error: Expected GROUP_ROWS but got keyword REPORT [at 1:39]
-select anon_count(if(expr, 0, 1) WITH REPORT(format="PROTO")) as a from T;
-                                      ^
+QueryStatement [0-73] [select anon_count...s a from T]
+  Query [0-73] [select anon_count...s a from T]
+    Select [0-73] [select anon_count...s a from T]
+      SelectList [7-66] [anon_count...PROTO")) as a]
+        SelectColumn [7-66] [anon_count...PROTO")) as a]
+          FunctionCall [7-61] [anon_count...="PROTO"))]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            FunctionCall [18-32] [if(expr, 0, 1)]
+              PathExpression [18-20] [if]
+                Identifier(`if`) [18-20] [if]
+              PathExpression [21-25] [expr]
+                Identifier(expr) [21-25] [expr]
+              IntLiteral(0) [27-28] [0]
+              IntLiteral(1) [30-31] [1]
+            WithReportModifier [33-60] [WITH REPORT(format="PROTO")]
+              OptionsList [44-60] [(format="PROTO")]
+                OptionsEntry [45-59] [format="PROTO"]
+                  Identifier(format) [45-51] [format]
+                  StringLiteral [52-59] ["PROTO"]
+                    StringLiteralComponent("PROTO") [52-59] ["PROTO"]
+          Alias [62-66] [as a]
+            Identifier(a) [65-66] [a]
+      FromClause [67-73] [from T]
+        TablePathExpression [72-73] [T]
+          PathExpression [72-73] [T]
+            Identifier(T) [72-73] [T]
+--
+SELECT
+  anon_count(`if`(expr, 0, 1)
+    WITH REPORT(format = "PROTO")) AS a
+FROM
+  T
 ==
 
 # WITH REPORT with/without FORMAT with leading identifier or star argument and

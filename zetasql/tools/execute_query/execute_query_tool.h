@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -34,6 +35,7 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
@@ -81,8 +83,11 @@ class ExecuteQueryConfig {
     kExpression
   };
 
-  void set_tool_mode(ToolMode tool_mode) { tool_mode_ = tool_mode; }
-  ToolMode tool_mode() const { return tool_mode_; }
+  void clear_tool_modes() { tool_modes_.clear(); }
+  void add_tool_mode(ToolMode tool_mode) { tool_modes_.insert(tool_mode); }
+  bool has_tool_mode(ToolMode tool_mode) const {
+    return tool_modes_.contains(tool_mode);
+  }
 
   void set_sql_mode(SqlMode sql_mode) { sql_mode_ = sql_mode; }
   SqlMode sql_mode() const { return sql_mode_; }
@@ -139,6 +144,8 @@ class ExecuteQueryConfig {
   parser::macros::MacroCatalog& mutable_macro_catalog() {
     return macro_catalog_;
   }
+  const std::list<std::string>& macro_sources() const { return macro_sources_; }
+  std::list<std::string>& mutable_macro_sources() { return macro_sources_; }
 
   void AddFunctionArtifacts(
       std::unique_ptr<const AnalyzerOutput> function_artifact) {
@@ -147,7 +154,8 @@ class ExecuteQueryConfig {
 
  private:
   ExamineResolvedASTCallback examine_resolved_ast_callback_ = nullptr;
-  ToolMode tool_mode_ = ToolMode::kExecute;
+  // if no tool modes are added then Execute is the default mode.
+  absl::flat_hash_set<ToolMode> tool_modes_ = {ToolMode::kExecute};
   SqlMode sql_mode_ = SqlMode::kQuery;
   AnalyzerOptions analyzer_options_;
   SimpleCatalog catalog_;
@@ -157,6 +165,9 @@ class ExecuteQueryConfig {
   std::unique_ptr<const google::protobuf::DescriptorPool> owned_descriptor_pool_;
   std::unique_ptr<google::protobuf::DescriptorDatabase> descriptor_db_;
   parser::macros::MacroCatalog macro_catalog_;
+  // std::list, not a vector, because we need stability. The entries in
+  // `macro_catalog_` have string_views into these sources.
+  std::list<std::string> macro_sources_;
   std::vector<std::unique_ptr<const AnalyzerOutput>> function_artifacts_;
 };
 
@@ -203,7 +214,7 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 }  // namespace zetasql
 
 // Exposed for tests only
-ABSL_DECLARE_FLAG(std::string, mode);
+ABSL_DECLARE_FLAG(std::vector<std::string>, mode);
 ABSL_DECLARE_FLAG(zetasql::internal::EnabledAstRewrites,
                   enabled_ast_rewrites);
 ABSL_DECLARE_FLAG(std::string, product_mode);

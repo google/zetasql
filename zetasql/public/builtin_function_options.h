@@ -17,9 +17,12 @@
 #ifndef ZETASQL_PUBLIC_BUILTIN_FUNCTION_OPTIONS_H_
 #define ZETASQL_PUBLIC_BUILTIN_FUNCTION_OPTIONS_H_
 
+#include <utility>
+
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
@@ -88,6 +91,24 @@ struct BuiltinFunctionOptions {
   // that function signature. For function signatures not specified in the map,
   // a default value is used.
   absl::flat_hash_map<FunctionSignatureId, bool> rewrite_enabled;
+
+  // Designates the concrete types for function signatures that require a
+  // caller-defined type when calling `GetBuiltinFunctionsAndTypes`.
+  // Function signatures that expect a custom argument type are only returned by
+  // `GetBuiltinFunctionsAndTypes` if a Type was supplied for that signature.
+  // Each map entry is keyed on a pair `<FunctionSignatureId, ArgumentIndex>`
+  // (ArgumentIndex is zero-based) and stores a Type that should correspond to
+  // the specified argument index in that function signature.
+  // The Type must outlive the function objects returned from a call
+  // to `GetBuiltinFunctionsAndTypes` with these options.
+  //
+  // - For each function signature in `include_function_ids`,
+  //   `argument_types` must contain a supplied Type for every
+  //   argument index which supports a supplied Type for that signature.
+  // - For each function signature in `exclude_function_ids`,
+  //   `argument_types` may not supply any Types for that signature.
+  absl::flat_hash_map<std::pair<FunctionSignatureId, int>, const Type*>
+      argument_types;
 };
 
 // Provides backward compatibility with a redundantly repetitive name.

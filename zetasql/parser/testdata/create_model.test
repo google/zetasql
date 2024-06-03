@@ -102,6 +102,18 @@ CreateModelStatement [0-38] [create model...nnection conn_1]
 CREATE MODEL t1 WITH CONNECTION conn_1
 ==
 
+create model t1 with connection default
+--
+CreateModelStatement [0-39] [create model...nection default]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  WithConnectionClause [16-39] [with connection default]
+    ConnectionClause [21-39] [connection default]
+      DefaultLiteral [32-39] [default]
+--
+CREATE MODEL t1 WITH CONNECTION DEFAULT
+==
+
 create model t1 remote with connection conn_1
 --
 CreateModelStatement [0-45] [create model...nnection conn_1]

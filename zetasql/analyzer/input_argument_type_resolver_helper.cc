@@ -35,6 +35,7 @@ namespace zetasql {
 InputArgumentType GetInputArgumentTypeForExpr(
     const ResolvedExpr* expr, bool pick_default_type_for_untyped_expr) {
   ABSL_DCHECK(expr != nullptr);
+  bool is_literal_for_constness = expr->node_kind() == RESOLVED_LITERAL;
   if (expr->type()->IsStruct() && expr->node_kind() == RESOLVED_MAKE_STRUCT) {
     const ResolvedMakeStruct* struct_expr = expr->GetAs<ResolvedMakeStruct>();
     std::vector<InputArgumentType> field_types;
@@ -91,7 +92,8 @@ InputArgumentType GetInputArgumentTypeForExpr(
   }
 
   return InputArgumentType(expr->type(),
-                           expr->node_kind() == RESOLVED_PARAMETER);
+                           expr->node_kind() == RESOLVED_PARAMETER,
+                           is_literal_for_constness);
 }
 
 static InputArgumentType GetInputArgumentTypeForGenericArgument(

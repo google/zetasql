@@ -20,14 +20,10 @@
 
 #include <stddef.h>
 
-#include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <cstdint>
 #include <functional>
-#include <iterator>
 #include <limits>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -38,7 +34,6 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/functions/json_internal.h"
@@ -59,12 +54,12 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {
 namespace {
 
+using json_internal::JsonPathOptions;
 using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::testing::IsNan;
@@ -6535,6 +6530,148 @@ TEST_P(JsonQueryLaxTest, Success) {
   EXPECT_THAT(
       result.GetConstRef(),
       JsonEq(JSONValue::ParseJSONString(GetExpectedResult())->GetConstRef()));
+}
+
+class JsonKeysTest
+    : public ::testing::TestWithParam<
+          std::tuple<std::tuple<std::string, std::vector<std::string>, int64_t>,
+                     JsonPathOptions>> {
+ protected:
+  absl::string_view GetJSONDoc() const {
+    return std::get<0>(std::get<0>(GetParam()));
+  }
+  std::vector<std::string> GetExpectedResult() const {
+    return std::get<1>(std::get<0>(GetParam()));
+  }
+
+  int64_t GetMaxDepth() const { return std::get<2>(std::get<0>(GetParam())); }
+
+  JsonPathOptions GetJsonPathOptions() const { return std::get<1>(GetParam()); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    JsonKeysObjectTests, JsonKeysTest,
+    ::testing::Combine(
+        ::testing::Values(
+            std::make_tuple("null", std::vector<std::string>(), INT64_MAX),
+            std::make_tuple("1", std::vector<std::string>(), INT64_MAX),
+            std::make_tuple("[1, 2]", std::vector<std::string>(), INT64_MAX),
+            std::make_tuple("[1, [2]]", std::vector<std::string>(), INT64_MAX),
+            std::make_tuple(R"({"a": 1})", std::vector<std::string>{"a"},
+                            INT64_MAX),
+            // Tests escaping key.
+            std::make_tuple(R"({"a.b": 1})",
+                            std::vector<std::string>{R"("a.b")"}, 1),
+            std::make_tuple(R"({"a.b": {"c":1}})",
+                            std::vector<std::string>{R"("a.b")", R"("a.b".c)"},
+                            2),
+            std::make_tuple(
+                R"({"a.b": {"c\"":1}})",
+                std::vector<std::string>{R"("a.b")", R"("a.b"."c\"")"}, 2),
+            std::make_tuple(R"({"a.b": {"c\"":1, "d.e":2}})",
+                            std::vector<std::string>{
+                                R"("a.b")",
+                                R"("a.b"."c\"")",
+                                R"("a.b"."d.e")",
+                            },
+                            2),
+            std::make_tuple(R"({"a": {"b":1}})", std::vector<std::string>{"a"},
+                            1),
+            std::make_tuple(R"({"a": {"b":1}})",
+                            std::vector<std::string>{"a", "a.b"}, INT64_MAX),
+            std::make_tuple(R"({"a": {"c":1, "b":1}})",
+                            std::vector<std::string>{"a", "a.b", "a.c"}, 2),
+            // Keys should be returned in sorted order.
+            std::make_tuple(
+                R"({"a": {"c":{"d":1, "e":1}, "b":1, "a":{"a":1}}})",
+                std::vector<std::string>{"a", "a.a", "a.a.a", "a.b", "a.c",
+                                         "a.c.d", "a.c.e"},
+                INT64_MAX),
+            std::make_tuple(
+                R"({"a": {"c":{"d":1, "e":1}, "b":1, "a":{"a":1}}})",
+                std::vector<std::string>{"a", "a.a", "a.b", "a.c"}, 2)),
+        ::testing::Values(JsonPathOptions::kStrict, JsonPathOptions::kLax,
+                          JsonPathOptions::kLaxRecursive)));
+
+// Tests arrays are correctly unwrapped when `lax` is enabled.
+INSTANTIATE_TEST_SUITE_P(
+    JsonKeysSingleArrayOnlyTests, JsonKeysTest,
+    ::testing::Combine(
+        ::testing::Values(
+            std::make_tuple(R"({"a": [{"b":1}, {"c":2}]})",
+                            std::vector<std::string>{"a", "a.b", "a.c"},
+                            INT64_MAX),
+            std::make_tuple(R"({"a": [{"b":1}, {"c":2}]})",
+                            std::vector<std::string>{"a"}, 1),
+            std::make_tuple(R"([{"a":1}, {"b":1}, {"c":2}, "d"])",
+                            std::vector<std::string>({"a", "b", "c"}), 1)),
+        ::testing::Values(JsonPathOptions::kLax,
+                          JsonPathOptions::kLaxRecursive)));
+
+// Tests nested array are correctly unwrapped when `lax` and `recursive`
+// behavior is enabled.
+INSTANTIATE_TEST_SUITE_P(
+    JsonKeysNestedArrayOnlyTests, JsonKeysTest,
+    ::testing::Combine(
+        ::testing::Values(
+            std::make_tuple(R"([1, {"a": 1}, [{"b": 2}]])",
+                            std::vector<std::string>{"a", "b"}, 3),
+            std::make_tuple(
+                R"({"a": [[{"b":1}, {"b":2}], {"c":2}, {"b":{"c":3}}]})",
+                std::vector<std::string>{"a", "a.b", "a.b.c", "a.c"}, 3),
+            std::make_tuple(
+                R"({"a": [[{"b":1}, {"b":2}], [[[{"c":2}]]], {"b":{"c":3}}]})",
+                std::vector<std::string>{"a", "a.b", "a.c"}, 2),
+            std::make_tuple(R"({"b":2, "a": [[{"b":1}, 2, "value"], {"c":2}]})",
+                            std::vector<std::string>{"a", "a.b", "a.c", "b"},
+                            2)),
+        ::testing::Values(JsonPathOptions::kLaxRecursive)));
+
+// Tests when `lax` is enabled but `recursive` is not, doesn't unwrap nested
+// arrays.
+INSTANTIATE_TEST_SUITE_P(
+    JsonKeysLaxPositiveRecursiveNegative, JsonKeysTest,
+    ::testing::Combine(
+        ::testing::Values(
+            std::make_tuple(R"([[{"a":1}]])", std::vector<std::string>{},
+                            INT64_MAX),
+            std::make_tuple(R"([1, {"a": 1}, [{"b": 2}]])",
+                            std::vector<std::string>{"a"}, INT64_MAX),
+            std::make_tuple(
+                R"([1, {"a": 1}, {"c": [{"d":2}, [{"e":3}]]}, [{"b": 2}]])",
+                std::vector<std::string>{"a", "c", "c.d"}, INT64_MAX)),
+        ::testing::Values(JsonPathOptions::kLax)));
+
+// Tests that when lax behavior isn't enabled doesn't unwrap arrays.
+INSTANTIATE_TEST_SUITE_P(
+    JsonKeysLaxRecursiveNegative, JsonKeysTest,
+    ::testing::Combine(
+        ::testing::Values(
+            std::make_tuple(R"([{"a":1}])", std::vector<std::string>{},
+                            INT64_MAX),
+            std::make_tuple(R"([[{"a":1}]])", std::vector<std::string>{},
+                            INT64_MAX),
+            std::make_tuple(R"([1, [{"a": 1}], [{"c": 1}], [[{"b": 2}]]])",
+                            std::vector<std::string>{}, INT64_MAX)),
+        ::testing::Values(JsonPathOptions::kStrict)));
+
+TEST_P(JsonKeysTest, Success) {
+  JSONValue value = JSONValue::ParseJSONString(GetJSONDoc()).value();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<std::string> results,
+      JsonKeys(value.GetRef(), {.path_options = GetJsonPathOptions(),
+                                .max_depth = GetMaxDepth()}));
+  EXPECT_THAT(results, ElementsAreArray(GetExpectedResult()));
+}
+
+TEST(JsonKeysInvalidTest, Invalid) {
+  JSONValue value = JSONValue::ParseJSONString(R"({"a": 1})").value();
+  EXPECT_THAT(JsonKeys(value.GetRef(), {.max_depth = -1}),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("max_depth must be positive")));
+  EXPECT_THAT(JsonKeys(value.GetRef(), {.max_depth = 0}),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("max_depth must be positive")));
 }
 
 }  // namespace

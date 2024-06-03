@@ -39,10 +39,14 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
@@ -1067,7 +1071,7 @@ class FunctionSignatureOptions {
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
   // be loaded in GetBuiltinFunctionsAndTypes.
-  FunctionSignatureOptions& add_required_language_feature(
+  FunctionSignatureOptions& AddRequiredLanguageFeature(
       LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&required_language_features_, feature);
     return *this;
@@ -1075,7 +1079,7 @@ class FunctionSignatureOptions {
 
   // Returns whether or not all language features required by a function are
   // enabled.
-  ABSL_MUST_USE_RESULT bool check_all_required_features_are_enabled(
+  ABSL_MUST_USE_RESULT bool CheckAllRequiredFeaturesAreEnabled(
       const LanguageOptions::LanguageFeatureSet& enabled_features) const {
     for (const LanguageFeature& feature : required_language_features_) {
       if (enabled_features.find(feature) == enabled_features.end()) {
@@ -1083,6 +1087,12 @@ class FunctionSignatureOptions {
       }
     }
     return true;
+  }
+
+  // Returns whether the given feature is required.
+  ABSL_MUST_USE_RESULT bool RequiresFeature(LanguageFeature feature) const {
+    return required_language_features_.find(feature) !=
+           required_language_features_.end();
   }
 
   // Setter/getter for whether function name for this signature is aliased
@@ -1293,6 +1303,14 @@ class FunctionSignature {
     context_id_ = context_id;
   }
 
+  // Returns the initialization status of this function signature.
+  // A Create method that returns the signature with a status would be ideal,
+  // but there are too many calls to the constructor to migrate without
+  // a large effort.
+  // This can be called after construction to check the status early. Otherwise,
+  // this will be checked when resolving function calls with this signature.
+  absl::Status init_status() const { return init_status_; }
+
   ~FunctionSignature() {}
 
   static absl::StatusOr<std::unique_ptr<FunctionSignature>> Deserialize(
@@ -1338,6 +1356,26 @@ class FunctionSignature {
   const FunctionArgumentType& result_type() const {
     return result_type_;
   }
+
+  // These methods use state populated during construction, if the signature is
+  // valid. With invalid signatures (init_status() is not OK), these may not be
+  // populated.
+  bool HasNamedArgument(absl::string_view name) const {
+    return argument_name_to_options_.contains(name);
+  }
+  // Check init_status before using.
+  const FunctionArgumentTypeOptions* FindNamedArgumentOptions(
+      absl::string_view name) const {
+    return zetasql_base::FindPtrOrNull(argument_name_to_options_, name);
+  }
+  // Check init_status before using.
+  // -1 if no argument with default exists.
+  int last_arg_index_with_default() const {
+    return last_arg_index_with_default_;
+  }
+  // Check init_status before using.
+  // -1 if no named argument exists.
+  int last_named_arg_index() const { return last_named_arg_index_; }
 
   // Checks the signature result type and argument types for unsupported
   // Types given 'language_options', and returns true if found.  This
@@ -1490,6 +1528,12 @@ class FunctionSignature {
       const;
 
  private:
+  void Init();
+
+  absl::Status InitInternal();
+
+  absl::Status CreateNamedArgumentToOptionsMap();
+
   bool ComputeIsConcrete() const;
   void ComputeConcreteArgumentTypes();
 
@@ -1500,6 +1544,18 @@ class FunctionSignature {
   FunctionArgumentType result_type_;
   int num_repeated_arguments_ = -1;
   int num_optional_arguments_ = -1;
+
+  // Deferred errors that happened during the constructor.
+  // See comments on init_status().
+  absl::Status init_status_;
+
+  // Map from argument name to its options.
+  absl::flat_hash_map<std::string, const FunctionArgumentTypeOptions*,
+                      zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
+      argument_name_to_options_;
+  int last_arg_index_with_default_ = -1;
+  int last_named_arg_index_ = -1;
 
   // This union should hold enough context for the implementation
   // to map a specific function signature back to an evaluator for the

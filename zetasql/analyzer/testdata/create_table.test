@@ -5541,6 +5541,24 @@ create table t (a int64) with connection connection2;
 ==
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
+create table t (a int64) with connection ``;
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:42]
+create table t (a int64) with connection ``;
+                                         ^
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+create table t (a int64) with connection default;
+--
+ERROR: CONNECTION DEFAULT is not supported [at 1:42]
+create table t (a int64) with connection default;
+                                         ^
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection connection2;
 --
 CreateTableStmt

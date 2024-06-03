@@ -22,13 +22,11 @@
 #include <optional>
 #include <string>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/message.h"
-#include "absl/memory/memory.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
+#include "google/rpc/status.pb.h"
 
 namespace zetasql {
 namespace internal {
@@ -119,6 +117,14 @@ inline void UpdateStatus(absl::Status* status, const absl::Status& new_status) {
   ABSL_DCHECK_EQ(status->code(), new_status.code());
   *status = AppendMessage(*status, new_status.message());
 }
+
+void SaveStatusToProto(
+    const absl::Status& status,
+    ::google::rpc::Status*
+        proto);
+
+absl::Status MakeStatusFromProto(
+    const ::google::rpc::Status& proto);
 
 }  // namespace internal
 }  // namespace zetasql

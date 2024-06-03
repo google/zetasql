@@ -472,13 +472,13 @@ select lead(uint32, 1, int32) over (order by int64) from simpletypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [INT64]
+| +-$analytic.$analytic1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3], table=SimpleTypes, column_index_list=[0, 1, 2])
         +-function_group_list=
@@ -490,7 +490,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(ZetaSQL:lead(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
                   +-Cast(UINT32 -> INT64)
                   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -545,15 +545,15 @@ window w1 as (order by int64);
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#22 AS `$col1` [UINT32]
-| +-$analytic.$analytic2#23 AS `$col2` [INT64]
-| +-$analytic.$analytic3#24 AS `$col3` [INT32]
+| +-$analytic.$analytic1#23 AS `$col1` [UINT32]
+| +-$analytic.$analytic2#24 AS `$col2` [INT64]
+| +-$analytic.$analytic3#25 AS `$col3` [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=$analytic.[$analytic1#22, $analytic2#23, $analytic3#24]
+    +-column_list=$analytic.[$analytic1#23, $analytic2#24, $analytic3#25]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#22, $analytic.$analytic2#23, $analytic.$analytic3#24]
+        +-column_list=[SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#23, $analytic.$analytic2#24, $analytic.$analytic3#25]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
         +-function_group_list=
@@ -565,7 +565,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
             +-analytic_function_list=
-              +-$analytic1#22 :=
+              +-$analytic1#23 :=
               | +-AnalyticFunctionCall(ZetaSQL:first_value(UINT32) -> UINT32)
               |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
               |   +-window_frame=
@@ -574,7 +574,7 @@ QueryStmt
               |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
               |       +-end_expr=
               |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
-              +-$analytic2#23 :=
+              +-$analytic2#24 :=
               | +-AnalyticFunctionCall(ZetaSQL:first_value(INT64) -> INT64)
               |   +-Literal(type=INT64, value=1)
               |   +-window_frame=
@@ -583,7 +583,7 @@ QueryStmt
               |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
               |       +-end_expr=
               |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
-              +-$analytic3#24 :=
+              +-$analytic3#25 :=
                 +-AnalyticFunctionCall(ZetaSQL:first_value(INT32) -> INT32)
                   +-Parameter(type=INT32, name="test_param_int32")
                   +-window_frame=
@@ -600,22 +600,22 @@ group by int64;
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#22 AS `$col1` [UINT64]
+| +-$analytic.$analytic1#23 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#22]
+    +-column_list=[$analytic.$analytic1#23]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[$groupby.int64#21, $aggregate.$agg1#19, $analytic.$analytic1#22]
+        +-column_list=[$groupby.int64#22, $aggregate.$agg1#20, $analytic.$analytic1#23]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$groupby.int64#21, $aggregate.$agg1#19]
+        |   +-column_list=[$groupby.int64#22, $aggregate.$agg1#20]
         |   +-input_scan=
         |   | +-TableScan(column_list=SimpleTypes.[int64#2, uint32#3], table=SimpleTypes, column_index_list=[1, 2])
         |   +-group_by_list=
-        |   | +-int64#21 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        |   | +-int64#22 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   +-aggregate_list=
-        |     +-$agg1#19 :=
+        |     +-$agg1#20 :=
         |       +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
         |         +-Cast(UINT32 -> UINT64)
         |           +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -626,11 +626,11 @@ QueryStmt
             |   +-order_by_item_list=
             |     +-OrderByItem
             |       +-column_ref=
-            |         +-ColumnRef(type=INT64, column=$groupby.int64#21)
+            |         +-ColumnRef(type=INT64, column=$groupby.int64#22)
             +-analytic_function_list=
-              +-$analytic1#22 :=
+              +-$analytic1#23 :=
                 +-AnalyticFunctionCall(ZetaSQL:first_value(UINT64) -> UINT64)
-                  +-ColumnRef(type=UINT64, column=$aggregate.$agg1#19)
+                  +-ColumnRef(type=UINT64, column=$aggregate.$agg1#20)
                   +-window_frame=
                     +-WindowFrame(frame_unit=RANGE)
                       +-start_expr=
@@ -656,13 +656,13 @@ window w1 as (partition by int32 order by int64
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [UINT32]
+| +-$analytic.$analytic1#21 AS `$col1` [UINT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3], table=SimpleTypes, column_index_list=[0, 1, 2])
         +-function_group_list=
@@ -678,7 +678,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(ZetaSQL:last_value(UINT32) -> UINT32)
                   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
                   +-window_frame=
@@ -728,13 +728,13 @@ from simpletypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [UINT32]
+| +-$analytic.$analytic1#21 AS `$col1` [UINT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
         +-function_group_list=
@@ -746,7 +746,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(ZetaSQL:nth_value(UINT32, INT64) -> UINT32)
                   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
                   +-Parameter(type=INT64, name="test_param_int64")
@@ -765,13 +765,13 @@ from simpletypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [UINT32]
+| +-$analytic.$analytic1#21 AS `$col1` [UINT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3], table=SimpleTypes, column_index_list=[0, 1, 2])
         +-function_group_list=
@@ -787,7 +787,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(ZetaSQL:nth_value(UINT32, INT64) -> UINT32)
                   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
                   +-Literal(type=INT64, value=5)
@@ -812,15 +812,15 @@ ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#22 AS `$col1` [UINT32]
-| +-$analytic.$analytic2#23 AS `$col2` [UINT32]
-| +-$analytic.$analytic3#24 AS `$col3` [UINT32]
+| +-$analytic.$analytic1#23 AS `$col1` [UINT32]
+| +-$analytic.$analytic2#24 AS `$col2` [UINT32]
+| +-$analytic.$analytic3#25 AS `$col3` [UINT32]
 +-query=
   +-ProjectScan
-    +-column_list=$analytic.[$analytic1#22, $analytic2#23, $analytic3#24]
+    +-column_list=$analytic.[$analytic1#23, $analytic2#24, $analytic3#25]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#22, $analytic.$analytic2#23, $analytic.$analytic3#24]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#23, $analytic.$analytic2#24, $analytic.$analytic3#25]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
         +-function_group_list=
@@ -832,7 +832,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
           | +-analytic_function_list=
-          |   +-$analytic1#22 :=
+          |   +-$analytic1#23 :=
           |     +-AnalyticFunctionCall(ZetaSQL:first_value(UINT32) -> UINT32)
           |       +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
           |       +-null_handling_modifier=IGNORE_NULLS
@@ -850,7 +850,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
           | +-analytic_function_list=
-          |   +-$analytic2#23 :=
+          |   +-$analytic2#24 :=
           |     +-AnalyticFunctionCall(ZetaSQL:last_value(UINT32) -> UINT32)
           |       +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
           |       +-null_handling_modifier=IGNORE_NULLS
@@ -868,7 +868,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             +-analytic_function_list=
-              +-$analytic3#24 :=
+              +-$analytic3#25 :=
                 +-AnalyticFunctionCall(ZetaSQL:nth_value(UINT32, INT64) -> UINT32)
                   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
                   +-Parameter(type=INT64, name="test_param_int64")
@@ -899,15 +899,15 @@ ALTERNATION GROUP: ,V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#22 AS `$col1` [UINT32]
-| +-$analytic.$analytic2#23 AS `$col2` [UINT32]
-| +-$analytic.$analytic3#24 AS `$col3` [UINT32]
+| +-$analytic.$analytic1#23 AS `$col1` [UINT32]
+| +-$analytic.$analytic2#24 AS `$col2` [UINT32]
+| +-$analytic.$analytic3#25 AS `$col3` [UINT32]
 +-query=
   +-ProjectScan
-    +-column_list=$analytic.[$analytic1#22, $analytic2#23, $analytic3#24]
+    +-column_list=$analytic.[$analytic1#23, $analytic2#24, $analytic3#25]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#22, $analytic.$analytic2#23, $analytic.$analytic3#24]
+        +-column_list=[SimpleTypes.int32#1, SimpleTypes.uint32#3, $analytic.$analytic1#23, $analytic.$analytic2#24, $analytic.$analytic3#25]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int32#1, uint32#3], table=SimpleTypes, column_index_list=[0, 2])
         +-function_group_list=
@@ -919,7 +919,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
           | +-analytic_function_list=
-          |   +-$analytic1#22 :=
+          |   +-$analytic1#23 :=
           |     +-AnalyticFunctionCall(ZetaSQL:nth_value(UINT32, INT64) -> UINT32)
           |       +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
           |       +-Parameter(type=INT64, name="test_param_int64")
@@ -938,7 +938,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
           | +-analytic_function_list=
-          |   +-$analytic2#23 :=
+          |   +-$analytic2#24 :=
           |     +-AnalyticFunctionCall(ZetaSQL:last_value(UINT32) -> UINT32)
           |       +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
           |       +-null_handling_modifier=RESPECT_NULLS
@@ -956,7 +956,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             +-analytic_function_list=
-              +-$analytic3#24 :=
+              +-$analytic3#25 :=
                 +-AnalyticFunctionCall(ZetaSQL:first_value(UINT32) -> UINT32)
                   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
                   +-null_handling_modifier=RESPECT_NULLS

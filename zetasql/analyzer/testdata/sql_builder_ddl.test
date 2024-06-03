@@ -234,16 +234,10 @@ create table t as select Key, Value from KeyValue;
 [UNPARSED_SQL]
 CREATE TABLE t AS
 SELECT
-  keyvalue_3.a_1 AS Key,
-  keyvalue_3.a_2 AS Value
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 create table t as select * from KeyValue;
@@ -251,16 +245,10 @@ create table t as select * from KeyValue;
 [UNPARSED_SQL]
 CREATE TABLE t AS
 SELECT
-  keyvalue_3.a_1 AS Key,
-  keyvalue_3.a_2 AS Value
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 # CTAS with redundant column list (same as SELECT output). Expectation: column
@@ -275,16 +263,10 @@ create table t
 [UNPARSED_SQL]
 CREATE TABLE t AS
 SELECT
-  keyvalue_3.a_1 AS Key,
-  keyvalue_3.a_2 AS Value
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 # CTAS with column list that is different than the output from SELECT - requires
@@ -300,22 +282,16 @@ create table t
 [UNPARSED_SQL]
 CREATE TABLE t AS
 SELECT
-  CAST(projectscan_4.a_1 AS INT32) AS Key1,
-  projectscan_4.a_2 AS Value1
+  CAST(projectscan_3.a_1 AS INT32) AS Key1,
+  projectscan_3.a_2 AS Value1
 FROM
   (
     SELECT
-      keyvalue_3.a_1 AS a_1,
-      keyvalue_3.a_2 AS a_2
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
     FROM
-      (
-        SELECT
-          KeyValue.Key AS a_1,
-          KeyValue.Value AS a_2
-        FROM
-          KeyValue
-      ) AS keyvalue_3
-  ) AS projectscan_4;
+      KeyValue
+  ) AS projectscan_3;
 ==
 
 # CTAS with column list that has additional information. Expectation: column
@@ -334,16 +310,10 @@ CREATE TABLE t
   Value STRING HIDDEN
 ) AS
 SELECT
-  keyvalue_3.a_1 AS Key,
-  keyvalue_3.a_2 AS Value
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 # CTAS with both column list and table constraints. Expectation: columns
@@ -367,22 +337,16 @@ CREATE TABLE t
   CHECK(Key1 > CAST(100 AS INT32)) ENFORCED
 ) AS
 SELECT
-  CAST(projectscan_4.a_1 AS INT32) AS Key1,
-  projectscan_4.a_2 AS Value1
+  CAST(projectscan_3.a_1 AS INT32) AS Key1,
+  projectscan_3.a_2 AS Value1
 FROM
   (
     SELECT
-      keyvalue_3.a_1 AS a_1,
-      keyvalue_3.a_2 AS a_2
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
     FROM
-      (
-        SELECT
-          KeyValue.Key AS a_1,
-          KeyValue.Value AS a_2
-        FROM
-          KeyValue
-      ) AS keyvalue_3
-  ) AS projectscan_4;
+      KeyValue
+  ) AS projectscan_3;
 ==
 
 # CTAS with both column list and table constraints, and some columns have
@@ -406,22 +370,16 @@ CREATE TABLE t
   CHECK(Key1 > CAST(100 AS INT32)) ENFORCED
 ) AS
 SELECT
-  CAST(projectscan_4.a_1 AS INT32) AS Key1,
-  projectscan_4.a_2 AS Value1
+  CAST(projectscan_3.a_1 AS INT32) AS Key1,
+  projectscan_3.a_2 AS Value1
 FROM
   (
     SELECT
-      keyvalue_3.a_1 AS a_1,
-      keyvalue_3.a_2 AS a_2
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
     FROM
-      (
-        SELECT
-          KeyValue.Key AS a_1,
-          KeyValue.Value AS a_2
-        FROM
-          KeyValue
-      ) AS keyvalue_3
-  ) AS projectscan_4;
+      KeyValue
+  ) AS projectscan_3;
 ==
 
 # CTAS with only table constraints. Expectation: column definitions are printed
@@ -443,16 +401,10 @@ CREATE TABLE t
   CHECK((LENGTH(Value)) < 3) ENFORCED
 ) AS
 SELECT
-  keyvalue_3.a_1 AS Key,
-  keyvalue_3.a_2 AS Value
+  KeyValue.Key AS Key,
+  KeyValue.Value AS Value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 # Create index without storing clause.

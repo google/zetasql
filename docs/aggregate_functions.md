@@ -1208,7 +1208,7 @@ ORDER BY product_name;
 /*--------------+--------------+-------------+------------------+------------------+
  | product_type | product_name | product_sum | product_type_agg | product_name_agg |
  +--------------+--------------+-------------+------------------+------------------+
- | NULL         | NULL         | 36          | 1                | 1                |
+ | NULL         | NULL         | 42          | 1                | 1                |
  | shirt        | NULL         | 36          | 0                | 1                |
  | pants        | NULL         | 6           | 0                | 1                |
  | NULL         | jeans        | 6           | 1                | 0                |
@@ -1244,7 +1244,7 @@ ORDER BY product_name;
 /*--------------+--------------+-------------+----------------------------+
  | product_type | product_name | product_sum | product_type_is_aggregated |
  +--------------+--------------+-------------+----------------------------+
- | shirt        | NULL         | 36          | 0                          |
+ | shirt        | NULL         | 11          | 0                          |
  | NULL         | NULL         | 25          | 0                          |
  | pants        | NULL         | 6           | 0                          |
  | NULL         | jeans        | 6           | 1                          |

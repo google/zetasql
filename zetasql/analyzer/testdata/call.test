@@ -288,3 +288,11 @@ call proc_on_rep(CONNECTION connection_a);
 ERROR: Connection typed argument is not supported [at 1:18]
 call proc_on_rep(CONNECTION connection_a);
                  ^
+==
+
+# Connection type argument is not supported, such as default connection
+call proc_on_rep(CONNECTION DEFAULT);
+--
+ERROR: Connection typed argument is not supported [at 1:18]
+call proc_on_rep(CONNECTION DEFAULT);
+                 ^

@@ -116,19 +116,14 @@ GROUP BY ALL
 --
 [UNPARSED_SQL]
 SELECT
-  aggregatescan_5.a_4 AS b
+  projectscan_3.a_2 AS b
 FROM
   (
     SELECT
-      projectscan_3.a_2 AS a_4
-    FROM
-      (
-        SELECT
-          1 AS a_1,
-          2 AS a_2
-      ) AS projectscan_3
-    GROUP BY ALL
-  ) AS aggregatescan_5;
+      1 AS a_1,
+      2 AS a_2
+  ) AS projectscan_3
+GROUP BY ALL;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
@@ -243,30 +238,16 @@ FROM (
 --
 [UNPARSED_SQL]
 SELECT
-  projectscan_8.a_4 AS a,
-  projectscan_8.a_5 AS b,
-  projectscan_8.a_6 AS a_6
+  projectscan_3.a_1 AS a,
+  projectscan_3.a_2 AS b,
+  COUNT(*) AS a_6
 FROM
   (
     SELECT
-      aggregatescan_7.a_4 AS a_4,
-      aggregatescan_7.a_5 AS a_5,
-      aggregatescan_7.a_6 AS a_6
-    FROM
-      (
-        SELECT
-          projectscan_3.a_1 AS a_4,
-          projectscan_3.a_2 AS a_5,
-          COUNT(*) AS a_6
-        FROM
-          (
-            SELECT
-              1 AS a_1,
-              2 AS a_2
-          ) AS projectscan_3
-        GROUP BY ALL
-      ) AS aggregatescan_7
-  ) AS projectscan_8;
+      1 AS a_1,
+      2 AS a_2
+  ) AS projectscan_3
+GROUP BY ALL;
 ==
 
 # GROUP BY ALL in the outermost query and its direct table subquery.
@@ -280,35 +261,23 @@ GROUP BY ALL
 --
 [UNPARSED_SQL]
 SELECT
-  aggregatescan_9.a_7 AS int32,
-  aggregatescan_9.a_8 AS a_8
+  projectscan_5.a_3 AS int32,
+  projectscan_5.a_4 AS a_7
 FROM
   (
     SELECT
-      projectscan_6.a_3 AS a_7,
-      projectscan_6.a_4 AS a_8
+      simpletypes_2.a_1 AS a_3,
+      COUNT(*) AS a_4
     FROM
       (
         SELECT
-          aggregatescan_5.a_3 AS a_3,
-          aggregatescan_5.a_4 AS a_4
+          SimpleTypes.int32 AS a_1
         FROM
-          (
-            SELECT
-              simpletypes_2.a_1 AS a_3,
-              COUNT(*) AS a_4
-            FROM
-              (
-                SELECT
-                  SimpleTypes.int32 AS a_1
-                FROM
-                  SimpleTypes
-              ) AS simpletypes_2
-            GROUP BY ALL
-          ) AS aggregatescan_5
-      ) AS projectscan_6
+          SimpleTypes
+      ) AS simpletypes_2
     GROUP BY ALL
-  ) AS aggregatescan_9;
+  ) AS projectscan_5
+GROUP BY ALL;
 ==
 
 # GROUP BY ALL in inner subquery and outermost query.
@@ -327,45 +296,24 @@ GROUP BY ALL
 --
 [UNPARSED_SQL]
 SELECT
-  aggregatescan_13.a_10 AS a,
-  aggregatescan_13.a_11 AS b,
-  aggregatescan_13.a_12 AS a_12
+  projectscan_7.a_4 AS a,
+  projectscan_7.a_5 AS b,
+  projectscan_7.a_6 AS a_10
 FROM
   (
     SELECT
-      projectscan_9.a_4 AS a_10,
-      projectscan_9.a_5 AS a_11,
-      projectscan_9.a_6 AS a_12
+      projectscan_3.a_1 AS a_4,
+      projectscan_3.a_2 AS a_5,
+      COUNT(*) AS a_6
     FROM
       (
         SELECT
-          projectscan_8.a_4 AS a_4,
-          projectscan_8.a_5 AS a_5,
-          projectscan_8.a_6 AS a_6
-        FROM
-          (
-            SELECT
-              aggregatescan_7.a_4 AS a_4,
-              aggregatescan_7.a_5 AS a_5,
-              aggregatescan_7.a_6 AS a_6
-            FROM
-              (
-                SELECT
-                  projectscan_3.a_1 AS a_4,
-                  projectscan_3.a_2 AS a_5,
-                  COUNT(*) AS a_6
-                FROM
-                  (
-                    SELECT
-                      1 AS a_1,
-                      2 AS a_2
-                  ) AS projectscan_3
-                GROUP BY ALL
-              ) AS aggregatescan_7
-          ) AS projectscan_8
-      ) AS projectscan_9
+          1 AS a_1,
+          2 AS a_2
+      ) AS projectscan_3
     GROUP BY ALL
-  ) AS aggregatescan_13;
+  ) AS projectscan_7
+GROUP BY ALL;
 ==
 
 [language_features=V_1_4_GROUP_BY_ALL,V_1_2_GROUP_BY_STRUCT]
@@ -450,22 +398,15 @@ WITH
       1 AS a_2
   )
 SELECT
-  aggregatescan_8.a_5 AS b1,
-  aggregatescan_8.a_6 AS a_6,
-  aggregatescan_8.a_7 AS a_7
-FROM
+  withrefscan_3.a_1.a2.b1 AS b1,
   (
     SELECT
-      withrefscan_3.a_1.a2.b1 AS a_5,
-      (
-        SELECT
-          withrefscan_3.a_1 AS a_4
-      ) AS a_6,
-      SUM(withrefscan_3.a_2) AS a_7
-    FROM
-      T AS withrefscan_3
-    GROUP BY ALL
-  ) AS aggregatescan_8;
+      withrefscan_3.a_1 AS a_4
+  ) AS a_6,
+  SUM(withrefscan_3.a_2) AS a_7
+FROM
+  T AS withrefscan_3
+GROUP BY ALL;
 ==
 
 # Repro for b/323439034: When SELECT clause does not contain aggregate column

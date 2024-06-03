@@ -17,6 +17,9 @@
 #include "zetasql/base/bits.h"
 
 #include <assert.h>
+
+#include <cstdint>
+
 #include "absl/numeric/int128.h"
 
 namespace zetasql_base {
@@ -44,7 +47,7 @@ const char Bits::num_bits[] = {
 
 int Bits::Count(const void *m, int num_bytes) {
   int nbits = 0;
-  const uint8_t *s = (const uint8_t *) m;
+  const uint8_t *s = (const uint8_t *)m;
   for (int i = 0; i < num_bytes; i++)
     nbits += num_bits[*s++];
   return nbits;
@@ -52,8 +55,8 @@ int Bits::Count(const void *m, int num_bytes) {
 
 int Bits::Difference(const void *m1, const void *m2, int num_bytes) {
   int nbits = 0;
-  const uint8_t *s1 = (const uint8_t *) m1;
-  const uint8_t *s2 = (const uint8_t *) m2;
+  const uint8_t *s1 = (const uint8_t *)m1;
+  const uint8_t *s2 = (const uint8_t *)m2;
   for (int i = 0; i < num_bytes; i++)
     nbits += num_bits[(*s1++) ^ (*s2++)];
   return nbits;
@@ -62,8 +65,8 @@ int Bits::Difference(const void *m1, const void *m2, int num_bytes) {
 int Bits::CappedDifference(const void *m1, const void *m2,
                            int num_bytes, int cap) {
   int nbits = 0;
-  const uint8_t *s1 = (const uint8_t *) m1;
-  const uint8_t *s2 = (const uint8_t *) m2;
+  const uint8_t *s1 = (const uint8_t *)m1;
+  const uint8_t *s2 = (const uint8_t *)m2;
   for (int i = 0; i < num_bytes && nbits <= cap; i++)
     nbits += num_bits[(*s1++) ^ (*s2++)];
   return nbits;

@@ -14,13 +14,13 @@
 // limitations under the License.
 //
 
-#include "zetasql/public/types/container_type.h"
+#include "zetasql/public/types/list_backed_type.h"
 
-#include <optional>
 #include <stack>
 #include <string>
 
-#include "zetasql/base/check.h"
+#include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value_content.h"
 
 namespace zetasql {
 
@@ -29,23 +29,23 @@ namespace zetasql {
 // TODO: Refactor for MAP type support. MapType is a container but
 // does not inherit from the (now incorrectly named) ContainerType. Investigate
 // factoring the heap-based stack structure out into a common supertype.
-std::string ContainerType::FormatValueContent(
+std::string ListBackedType::FormatValueContent(
     const ValueContent& value_content,
     const Type::FormatValueContentOptions& options) const {
   std::string result;
   struct Entry {
     const ValueContent value_content;
-    const ContainerType* container_type;
+    const ListBackedType* container_type;
     int next_child_index;
   };
   std::stack<Entry> stack;
   stack.push(Entry{value_content, this, 0});
   while (!stack.empty()) {
     const Entry top = stack.top();
-    const ContainerType* container_type = top.container_type;
-    internal::ValueContentContainerRef* container_ref =
-        top.value_content.GetAs<internal::ValueContentContainerRef*>();
-    const internal::ValueContentContainer* container = container_ref->value();
+    const ListBackedType* container_type = top.container_type;
+    internal::ValueContentOrderedListRef* container_ref =
+        top.value_content.GetAs<internal::ValueContentOrderedListRef*>();
+    const internal::ValueContentOrderedList* container = container_ref->value();
     // If we're just getting started printing container, then
     // print this container prefix (e.g. "[" for array or "{" for struct)
     if (top.next_child_index == 0) {
@@ -63,7 +63,7 @@ std::string ContainerType::FormatValueContent(
       if (child_index != 0) {
         result.append(", ");
       }
-      const internal::ValueContentContainerElement child =
+      const internal::NullableValueContent child =
           container->element(child_index);
 
       const Type* child_type = container_type->GetElementType(child_index);
@@ -74,12 +74,12 @@ std::string ContainerType::FormatValueContent(
                                child_type->kind() == TYPE_ARRAY)) {
         stack.top().next_child_index = child_index;
         stack.push(Entry{child.value_content(),
-                         static_cast<const ContainerType*>(child_type), 0});
+                         static_cast<const ListBackedType*>(child_type), 0});
         break;
       }
 
       std::string element_str =
-          FormatValueContentContainerElement(child, child_type, options);
+          FormatNullableValueContent(child, child_type, options);
       if (options.mode == Type::FormatValueContentOptions::Mode::kDebug &&
           options.verbose) {
         element_str =

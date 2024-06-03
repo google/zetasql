@@ -22,8 +22,12 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/type.pb.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
 
@@ -150,6 +154,12 @@ absl::Status ValidateFormatStringForParsing(absl::string_view format_string,
 // <out_type>, according to specifications at (broken link).
 absl::Status ValidateFormatStringForFormatting(absl::string_view format_string,
                                                zetasql::TypeKind out_type);
+
+// Verifies that a date format contains year and month values. This is necessary
+// to ensure that the output of CastStringToX will not depend on the current
+// date.
+absl::Status ValidateFormatStringContainsYearAndMonth(
+    absl::string_view format_string);
 
 // Populates <out> using the <format_string> following the formatting rules from
 // (broken link).

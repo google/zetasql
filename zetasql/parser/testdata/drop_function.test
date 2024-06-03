@@ -390,7 +390,6 @@ DROP AGGREGATE FUNCTION myfunc(string);
      ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123;
 --
@@ -409,7 +408,6 @@ DropTableFunctionStatement [0-31] [DROP TABLE...foo-bar-123]
 DROP TABLE FUNCTION `foo-bar-123`
 ==
 
-[no_test_get_parse_tokens]
 [language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz;
 --
@@ -429,7 +427,6 @@ DropTableFunctionStatement [0-35] [DROP TABLE...bar-123.baz]
 DROP TABLE FUNCTION `foo-bar-123`.baz
 ==
 
-[no_test_get_parse_tokens]
 [language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME]
 DROP {{|TABLE}} FUNCTION foo-bar-123.baz(string);
 --

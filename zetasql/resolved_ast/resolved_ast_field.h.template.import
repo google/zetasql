@@ -85,7 +85,7 @@ import directive. Example:
   }
 
  # endif
-  # if field.release_return_type
+  # if field.release_return_type or field.is_vector
   {{field.member_type}} release_{{field.name}}() {
     {#
        Note, we cannot simply:
@@ -96,7 +96,7 @@ import directive. Example:
     {{field.member_name}}.swap(tmp);
     return tmp;
   }
-  # if not is_from_builder
+  # if not is_from_builder and field.release_return_type
   # endif
   # endif
  # else

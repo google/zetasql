@@ -104,7 +104,6 @@ AlterTableStatement [0-71]
 ALTER TABLE foo ALTER CONSTRAINT bar SET OPTIONS(opt_a = 1, opt_b = 2)
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
 --

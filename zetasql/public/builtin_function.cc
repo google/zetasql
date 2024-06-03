@@ -22,14 +22,17 @@
 #include <utility>
 
 #include "zetasql/common/builtin_function_internal.h"
+#include "zetasql/common/builtins_output_properties.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
 
@@ -130,6 +133,53 @@ void GetZetaSQLFunctions(
   ZETASQL_DCHECK_OK(status);
 }
 
+static absl::Status ValidateBuiltinFunctionsAgainstOptions(
+    const BuiltinFunctionOptions& options,
+    const BuiltinsOutputProperties& output_properties) {
+  for (const auto& [id_idx_pair, argument_type] : options.argument_types) {
+    FunctionSignatureId signature_id = id_idx_pair.first;
+    int arg_idx = id_idx_pair.second;
+    // If we supply a Type, then the signature must support supplying a Type,
+    // otherwise it is an error.
+    if (!output_properties.SupportsSuppliedArgumentType(signature_id,
+                                                        arg_idx)) {
+      return absl::InternalError(absl::Substitute(
+          "Argument $0 of function signature `$1` does not support a "
+          "supplied argument type in BuiltinFunctionOptions",
+          arg_idx, FunctionSignatureId_Name(signature_id)));
+    }
+    // If we exclude a function signature in `exclude_function_ids`, then
+    // return an error if we also supplied a Type for it.
+    if (options.exclude_function_ids.contains(signature_id)) {
+      return absl::InternalError(absl::Substitute(
+          "Function signatures in `exclude_function_ids` are mutually "
+          "exclusive with signatures in `argument_types`. Exception "
+          "found for FunctionSignatureId `$0`",
+          FunctionSignatureId_Name(signature_id)));
+    }
+  }
+
+  // If we include a function signature in `include_function_ids`, then we must
+  // supply a Type for every argument index for which a supplied Type
+  // is supported, otherwise return an error.
+  for (FunctionSignatureId id : options.include_function_ids) {
+    absl::flat_hash_set<int> supported_arg_indices =
+        output_properties.GetSupportedArgumentIndicesForSuppliedType(id);
+    for (int arg_idx : supported_arg_indices) {
+      if (auto iter = options.argument_types.find({id, arg_idx});
+          iter == options.argument_types.end()) {
+        return absl::InternalError(absl::Substitute(
+            "Function signatures in `include_function_ids` must define a "
+            "supplied argument type for every argument index that supports "
+            "supplied argument types. Exception found for FunctionSignatureId "
+            "`$0` at argument index $1",
+            FunctionSignatureId_Name(id), arg_idx));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
                                          TypeFactory& type_factory,
                                          NameToFunctionMap& functions,
@@ -137,6 +187,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   // TODO: Enable these preconditions with global presubmit.
   // ZETASQL_RET_CHECK(types.empty());
   // ZETASQL_RET_CHECK(functions.empty());
+  BuiltinsOutputProperties output_properties;
   GetDatetimeFunctions(&type_factory, options, &functions);
   GetIntervalFunctions(&type_factory, options, &functions);
   GetArithmeticFunctions(&type_factory, options, &functions);
@@ -151,7 +202,8 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetErrorHandlingFunctions(&type_factory, options, &functions);
   GetConditionalFunctions(&type_factory, options, &functions);
   GetMiscellaneousFunctions(&type_factory, options, &functions);
-  ZETASQL_RETURN_IF_ERROR(GetDistanceFunctions(&type_factory, options, &functions));
+  ZETASQL_RETURN_IF_ERROR(GetDistanceFunctions(&type_factory, options, &functions,
+                                       output_properties));
   GetArrayMiscFunctions(&type_factory, options, &functions);
   GetArrayAggregationFunctions(&type_factory, options, &functions);
   GetSubscriptFunctions(&type_factory, options, &functions);
@@ -206,7 +258,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
   GetMapCoreFunctions(&type_factory, options, &functions);
-  return absl::OkStatus();
+  return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

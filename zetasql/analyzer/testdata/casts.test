@@ -71,50 +71,50 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRING]
-| +-$query.$col2#20 AS `$col2` [INT32]
-| +-$query.$col3#21 AS `$col3` [INT64]
-| +-$query.$col4#22 AS `$col4` [UINT32]
-| +-$query.$col5#23 AS `$col5` [UINT64]
-| +-$query.separator#24 AS separator [STRING]
-| +-$query.$col7#25 AS `$col7` [BOOL]
-| +-$query.$col8#26 AS `$col8` [BOOL]
-| +-$query.$col9#27 AS `$col9` [BOOL]
-| +-$query.$col10#28 AS `$col10` [BOOL]
-| +-$query.$col11#29 AS `$col11` [BOOL]
+| +-$query.$col1#20 AS `$col1` [STRING]
+| +-$query.$col2#21 AS `$col2` [INT32]
+| +-$query.$col3#22 AS `$col3` [INT64]
+| +-$query.$col4#23 AS `$col4` [UINT32]
+| +-$query.$col5#24 AS `$col5` [UINT64]
+| +-$query.separator#25 AS separator [STRING]
+| +-$query.$col7#26 AS `$col7` [BOOL]
+| +-$query.$col8#27 AS `$col8` [BOOL]
+| +-$query.$col9#28 AS `$col9` [BOOL]
+| +-$query.$col10#29 AS `$col10` [BOOL]
+| +-$query.$col11#30 AS `$col11` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, separator#24, $col7#25, $col8#26, $col9#27, $col10#28, $col11#29]
+    +-column_list=$query.[$col1#20, $col2#21, $col3#22, $col4#23, $col5#24, separator#25, $col7#26, $col8#27, $col9#28, $col10#29, $col11#30]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(BOOL -> STRING)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-Cast(BOOL -> INT32)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-$col3#21 :=
+    | +-$col3#22 :=
     | | +-Cast(BOOL -> INT64)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-$col4#22 :=
+    | +-$col4#23 :=
     | | +-Cast(BOOL -> UINT32)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-Cast(BOOL -> UINT64)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-separator#24 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col7#25 :=
+    | +-separator#25 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col7#26 :=
     | | +-Cast(STRING -> BOOL)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col8#26 :=
+    | +-$col8#27 :=
     | | +-Cast(INT32 -> BOOL)
     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col9#27 :=
+    | +-$col9#28 :=
     | | +-Cast(INT64 -> BOOL)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col10#28 :=
+    | +-$col10#29 :=
     | | +-Cast(UINT32 -> BOOL)
     | |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-    | +-$col11#29 :=
+    | +-$col11#30 :=
     |   +-Cast(UINT64 -> BOOL)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     +-input_scan=
@@ -132,58 +132,58 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRING]
-| +-$query.$col2#20 AS `$col2` [STRING]
-| +-$query.$col3#21 AS `$col3` [STRING]
-| +-$query.$col4#22 AS `$col4` [STRING]
-| +-$query.$col5#23 AS `$col5` [STRING]
-| +-$query.$col6#24 AS `$col6` [STRING]
-| +-$query.separator#25 AS separator [STRING]
-| +-$query.$col8#26 AS `$col8` [INT32]
-| +-$query.$col9#27 AS `$col9` [INT64]
-| +-$query.$col10#28 AS `$col10` [UINT32]
-| +-$query.$col11#29 AS `$col11` [UINT64]
-| +-$query.$col12#30 AS `$col12` [FLOAT]
-| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [STRING]
+| +-$query.$col2#21 AS `$col2` [STRING]
+| +-$query.$col3#22 AS `$col3` [STRING]
+| +-$query.$col4#23 AS `$col4` [STRING]
+| +-$query.$col5#24 AS `$col5` [STRING]
+| +-$query.$col6#25 AS `$col6` [STRING]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col8#27 AS `$col8` [INT32]
+| +-$query.$col9#28 AS `$col9` [INT64]
+| +-$query.$col10#29 AS `$col10` [UINT32]
+| +-$query.$col11#30 AS `$col11` [UINT64]
+| +-$query.$col12#31 AS `$col12` [FLOAT]
+| +-$query.$col13#32 AS `$col13` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, separator#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31]
+    +-column_list=$query.[$col1#20, $col2#21, $col3#22, $col4#23, $col5#24, $col6#25, separator#26, $col8#27, $col9#28, $col10#29, $col11#30, $col12#31, $col13#32]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(INT32 -> STRING)
     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-Cast(INT64 -> STRING)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col3#21 :=
+    | +-$col3#22 :=
     | | +-Cast(UINT32 -> STRING)
     | |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-    | +-$col4#22 :=
+    | +-$col4#23 :=
     | | +-Cast(UINT64 -> STRING)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-Cast(FLOAT -> STRING)
     | |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-    | +-$col6#24 :=
+    | +-$col6#25 :=
     | | +-Cast(DOUBLE -> STRING)
     | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-    | +-separator#25 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col8#26 :=
+    | +-separator#26 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col8#27 :=
     | | +-Cast(STRING -> INT32)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col9#27 :=
+    | +-$col9#28 :=
     | | +-Cast(STRING -> INT64)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col10#28 :=
+    | +-$col10#29 :=
     | | +-Cast(STRING -> UINT32)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col11#29 :=
+    | +-$col11#30 :=
     | | +-Cast(STRING -> UINT64)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col12#30 :=
+    | +-$col12#31 :=
     | | +-Cast(STRING -> FLOAT)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col13#31 :=
+    | +-$col13#32 :=
     |   +-Cast(STRING -> DOUBLE)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     +-input_scan=
@@ -202,12 +202,12 @@ select cast(`string` as bytes format 'hex') from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -222,12 +222,12 @@ select cast(`string` as bytes format CAST(NULL as STRING)) from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -242,12 +242,12 @@ select cast(`string` as bytes format NULL) from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -290,12 +290,12 @@ ALTERNATION GROUP: cast
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -307,12 +307,12 @@ ALTERNATION GROUP: safe_cast
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-return_null_on_error=TRUE
@@ -328,12 +328,12 @@ select cast(`string` as bytes format CAST(123 as STRING(MAX))) from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -350,12 +350,12 @@ select cast(`string` as BYTES(10) format 'hex') from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -388,12 +388,12 @@ select cast(`string` as timestamp format 'yyyy' at time zone 'UTC') from SimpleT
 
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -432,12 +432,12 @@ ALTERNATION GROUP: at time zone 'UTC'
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -451,12 +451,12 @@ ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -596,12 +596,12 @@ select cast(`string` as timestamp format 'yyyy' at time zone CAST(NULL as STRING
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -618,12 +618,12 @@ select cast(`string` as timestamp format 'yyyy' at time zone NULL) from SimpleTy
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -650,12 +650,12 @@ select cast(`string` as timestamp format 'yyyy' at time zone 'xyz') from SimpleT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -672,12 +672,12 @@ select safe_cast(`string` as timestamp format 'yyyy' at time zone 'xyz') from Si
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-return_null_on_error=TRUE
@@ -1108,40 +1108,40 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRING]
-| +-$query.$col2#20 AS `$col2` [STRING]
-| +-$query.separator#21 AS separator [STRING]
-| +-$query.$col4#22 AS `$col4` [DATE]
-| +-$query.$col5#23 AS `$col5` [TIMESTAMP]
-| +-$query.separator2#24 AS separator2 [STRING]
-| +-$query.$col7#25 AS `$col7` [STRING]
-| +-$query.$col8#26 AS `$col8` [STRING]
-| +-$query.separator3#27 AS separator3 [STRING]
-| +-$query.$col10#28 AS `$col10` [DATE]
-| +-$query.$col11#29 AS `$col11` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [STRING]
+| +-$query.$col2#21 AS `$col2` [STRING]
+| +-$query.separator#22 AS separator [STRING]
+| +-$query.$col4#23 AS `$col4` [DATE]
+| +-$query.$col5#24 AS `$col5` [TIMESTAMP]
+| +-$query.separator2#25 AS separator2 [STRING]
+| +-$query.$col7#26 AS `$col7` [STRING]
+| +-$query.$col8#27 AS `$col8` [STRING]
+| +-$query.separator3#28 AS separator3 [STRING]
+| +-$query.$col10#29 AS `$col10` [DATE]
+| +-$query.$col11#30 AS `$col11` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, separator#21, $col4#22, $col5#23, separator2#24, $col7#25, $col8#26, separator3#27, $col10#28, $col11#29]
+    +-column_list=$query.[$col1#20, $col2#21, separator#22, $col4#23, $col5#24, separator2#25, $col7#26, $col8#27, separator3#28, $col10#29, $col11#30]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(DATE -> STRING)
     | |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-Cast(TIMESTAMP -> STRING)
     | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-    | +-separator#21 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col4#22 :=
+    | +-separator#22 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col4#23 :=
     | | +-Cast(STRING -> DATE)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-Cast(STRING -> TIMESTAMP)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-separator2#24 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col7#25 := Literal(type=STRING, value="2012-02-29 01:23:45-08", has_explicit_type=TRUE)
-    | +-$col8#26 := Literal(type=STRING, value="2012-02-29", has_explicit_type=TRUE)
-    | +-separator3#27 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col10#28 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
-    | +-$col11#29 := Literal(type=TIMESTAMP, value=2012-02-29 09:23:45+00, has_explicit_type=TRUE)
+    | +-separator2#25 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col7#26 := Literal(type=STRING, value="2012-02-29 01:23:45-08", has_explicit_type=TRUE)
+    | +-$col8#27 := Literal(type=STRING, value="2012-02-29", has_explicit_type=TRUE)
+    | +-separator3#28 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col10#29 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
+    | +-$col11#30 := Literal(type=TIMESTAMP, value=2012-02-29 09:23:45+00, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[string#5, date#10, timestamp#15], table=SimpleTypes, column_index_list=[4, 9, 14])
 ==
@@ -1161,44 +1161,44 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRING]
-| +-$query.$col2#20 AS `$col2` [STRING]
-| +-$query.separator#21 AS separator [STRING]
-| +-$query.$col4#22 AS `$col4` [DATE]
-| +-$query.$col5#23 AS `$col5` [TIMESTAMP]
-| +-$query.separator2#24 AS separator2 [STRING]
-| +-$query.$col7#25 AS `$col7` [STRING]
-| +-$query.$col8#26 AS `$col8` [STRING]
-| +-$query.separator3#27 AS separator3 [STRING]
-| +-$query.$col10#28 AS `$col10` [DATE]
-| +-$query.$col11#29 AS `$col11` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [STRING]
+| +-$query.$col2#21 AS `$col2` [STRING]
+| +-$query.separator#22 AS separator [STRING]
+| +-$query.$col4#23 AS `$col4` [DATE]
+| +-$query.$col5#24 AS `$col5` [TIMESTAMP]
+| +-$query.separator2#25 AS separator2 [STRING]
+| +-$query.$col7#26 AS `$col7` [STRING]
+| +-$query.$col8#27 AS `$col8` [STRING]
+| +-$query.separator3#28 AS separator3 [STRING]
+| +-$query.$col10#29 AS `$col10` [DATE]
+| +-$query.$col11#30 AS `$col11` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, separator#21, $col4#22, $col5#23, separator2#24, $col7#25, $col8#26, separator3#27, $col10#28, $col11#29]
+    +-column_list=$query.[$col1#20, $col2#21, separator#22, $col4#23, $col5#24, separator2#25, $col7#26, $col8#27, separator3#28, $col10#29, $col11#30]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(DATE -> STRING)
     | |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
     | |   +-return_null_on_error=TRUE
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-Cast(TIMESTAMP -> STRING)
     | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
     | |   +-return_null_on_error=TRUE
-    | +-separator#21 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col4#22 :=
+    | +-separator#22 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col4#23 :=
     | | +-Cast(STRING -> DATE)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     | |   +-return_null_on_error=TRUE
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-Cast(STRING -> TIMESTAMP)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     | |   +-return_null_on_error=TRUE
-    | +-separator2#24 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col7#25 := Literal(type=STRING, value="2012-02-29 01:23:45-08", has_explicit_type=TRUE)
-    | +-$col8#26 := Literal(type=STRING, value="2012-02-29", has_explicit_type=TRUE)
-    | +-separator3#27 := Literal(type=STRING, value="-------------------------------------------")
-    | +-$col10#28 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
-    | +-$col11#29 := Literal(type=TIMESTAMP, value=2012-02-29 09:23:45+00, has_explicit_type=TRUE)
+    | +-separator2#25 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col7#26 := Literal(type=STRING, value="2012-02-29 01:23:45-08", has_explicit_type=TRUE)
+    | +-$col8#27 := Literal(type=STRING, value="2012-02-29", has_explicit_type=TRUE)
+    | +-separator3#28 := Literal(type=STRING, value="-------------------------------------------")
+    | +-$col10#29 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
+    | +-$col11#30 := Literal(type=TIMESTAMP, value=2012-02-29 09:23:45+00, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[string#5, date#10, timestamp#15], table=SimpleTypes, column_index_list=[4, 9, 14])
 ==
@@ -1265,16 +1265,16 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
-| +-$query.$col2#20 AS `$col2` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
+| +-$query.$col2#21 AS `$col2` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20]
+    +-column_list=$query.[$col1#20, $col2#21]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-FunctionCall(ZetaSQL:timestamp(STRING, optional(0) STRING) -> TIMESTAMP)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     |   +-FunctionCall(ZetaSQL:timestamp(STRING, optional(1) STRING) -> TIMESTAMP)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
@@ -1292,24 +1292,24 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
-| +-$query.$col2#20 AS `$col2` [TIMESTAMP]
+| +-$query.$col1#20 AS `$col1` [TIMESTAMP]
+| +-$query.$col2#21 AS `$col2` [TIMESTAMP]
 | +-SimpleTypes.date#10 AS `$col3` [DATE]
-| +-$query.$col4#21 AS `$col4` [DATE]
-| +-$query.$col5#22 AS `$col5` [DATE]
+| +-$query.$col4#22 AS `$col4` [DATE]
+| +-$query.$col5#23 AS `$col5` [DATE]
 | +-SimpleTypes.timestamp#15 AS `$col6` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19, $query.$col2#20, SimpleTypes.date#10, $query.$col4#21, $query.$col5#22, SimpleTypes.timestamp#15]
+    +-column_list=[$query.$col1#20, $query.$col2#21, SimpleTypes.date#10, $query.$col4#22, $query.$col5#23, SimpleTypes.timestamp#15]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(DATE -> TIMESTAMP)
     | |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
-    | +-$col2#20 := Literal(type=TIMESTAMP, value=2014-01-01 08:00:00+00, has_explicit_type=TRUE)
-    | +-$col4#21 :=
+    | +-$col2#21 := Literal(type=TIMESTAMP, value=2014-01-01 08:00:00+00, has_explicit_type=TRUE)
+    | +-$col4#22 :=
     | | +-Cast(TIMESTAMP -> DATE)
     | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-    | +-$col5#22 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
+    | +-$col5#23 := Literal(type=DATE, value=2012-02-29, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[date#10, timestamp#15], table=SimpleTypes, column_index_list=[9, 14])
 ==
@@ -5322,64 +5322,64 @@ ALTERNATION GROUP: preserve_unnecessary_cast
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT32]
-| +-$query.$col2#20 AS `$col2` [INT64]
-| +-$query.$col3#21 AS `$col3` [UINT32]
-| +-$query.$col4#22 AS `$col4` [UINT64]
-| +-$query.$col5#23 AS `$col5` [STRING]
-| +-$query.$col6#24 AS `$col6` [BYTES]
-| +-$query.$col7#25 AS `$col7` [BOOL]
-| +-$query.$col8#26 AS `$col8` [FLOAT]
-| +-$query.$col9#27 AS `$col9` [DOUBLE]
-| +-$query.$col10#28 AS `$col10` [DATE]
-| +-$query.$col11#29 AS `$col11` [TIMESTAMP]
-| +-$query.$col12#30 AS `$col12` [NUMERIC]
-| +-$query.$col13#31 AS `$col13` [BIGNUMERIC]
-| +-$query.$col14#32 AS `$col14` [JSON]
+| +-$query.$col1#20 AS `$col1` [INT32]
+| +-$query.$col2#21 AS `$col2` [INT64]
+| +-$query.$col3#22 AS `$col3` [UINT32]
+| +-$query.$col4#23 AS `$col4` [UINT64]
+| +-$query.$col5#24 AS `$col5` [STRING]
+| +-$query.$col6#25 AS `$col6` [BYTES]
+| +-$query.$col7#26 AS `$col7` [BOOL]
+| +-$query.$col8#27 AS `$col8` [FLOAT]
+| +-$query.$col9#28 AS `$col9` [DOUBLE]
+| +-$query.$col10#29 AS `$col10` [DATE]
+| +-$query.$col11#30 AS `$col11` [TIMESTAMP]
+| +-$query.$col12#31 AS `$col12` [NUMERIC]
+| +-$query.$col13#32 AS `$col13` [BIGNUMERIC]
+| +-$query.$col14#33 AS `$col14` [JSON]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32]
+    +-column_list=$query.[$col1#20, $col2#21, $col3#22, $col4#23, $col5#24, $col6#25, $col7#26, $col8#27, $col9#28, $col10#29, $col11#30, $col12#31, $col13#32, $col14#33]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-Cast(INT32 -> INT32)
     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-Cast(INT64 -> INT64)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col3#21 :=
+    | +-$col3#22 :=
     | | +-Cast(UINT32 -> UINT32)
     | |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-    | +-$col4#22 :=
+    | +-$col4#23 :=
     | | +-Cast(UINT64 -> UINT64)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-Cast(STRING -> STRING)
     | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-    | +-$col6#24 :=
+    | +-$col6#25 :=
     | | +-Cast(BYTES -> BYTES)
     | |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-    | +-$col7#25 :=
+    | +-$col7#26 :=
     | | +-Cast(BOOL -> BOOL)
     | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-    | +-$col8#26 :=
+    | +-$col8#27 :=
     | | +-Cast(FLOAT -> FLOAT)
     | |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-    | +-$col9#27 :=
+    | +-$col9#28 :=
     | | +-Cast(DOUBLE -> DOUBLE)
     | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-    | +-$col10#28 :=
+    | +-$col10#29 :=
     | | +-Cast(DATE -> DATE)
     | |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
-    | +-$col11#29 :=
+    | +-$col11#30 :=
     | | +-Cast(TIMESTAMP -> TIMESTAMP)
     | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-    | +-$col12#30 :=
+    | +-$col12#31 :=
     | | +-Cast(NUMERIC -> NUMERIC)
     | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-    | +-$col13#31 :=
+    | +-$col13#32 :=
     | | +-Cast(BIGNUMERIC -> BIGNUMERIC)
     | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
-    | +-$col14#32 :=
+    | +-$col14#33 :=
     |   +-Cast(JSON -> JSON)
     |     +-ColumnRef(type=JSON, column=SimpleTypes.json#18)
     +-input_scan=
@@ -5557,6 +5557,97 @@ ERROR: Invalid cast from zetasql.functions.RoundingMode to ROUNDING_MODE [at 1:1
 select CAST(CAST(1 as `zetasql.functions.RoundingMode`) as ROUNDING_MODE);
             ^
 
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS STRING) AS UUID);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UUID]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=UUID, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS UUID) AS STRING);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS BYTES) AS UUID);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UUID]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=UUID, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS UUID) AS BYTES);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=BYTES, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS INT64) AS UUID);
+--
+ERROR: Invalid cast from INT64 to UUID [at 1:13]
+SELECT CAST(CAST(NULL AS INT64) AS UUID);
+            ^
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST(NULL AS UUID) AS INT64);
+--
+ERROR: Invalid cast from UUID to INT64 [at 1:13]
+SELECT CAST(CAST(NULL AS UUID) AS INT64);
+            ^
+==
+
+[language_features=V_1_4_UUID_TYPE]
+SELECT CAST(CAST("00000000000040008000000000000000" AS STRING) AS UUID);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UUID]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=UUID, value=00000000-0000-4000-8000-000000000000, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=V_1_2_CIVIL_TIME]

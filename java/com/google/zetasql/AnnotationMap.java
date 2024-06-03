@@ -132,9 +132,34 @@ public class AnnotationMap {
     return Objects.hashCode(annotations);
   }
 
-  /** Returns true if this {@link AnnotationMap} and all nested {@link AnnotationMap} is empty. */
+  /**
+   * Returns true if this and all the nested {@link AnnotationMap} are empty.
+   *
+   * <p>Compare to isTopLevelColumnAnnotationEmpty, which only checks the top level AnnotationMap.
+   *
+   * <p>For example, the SQL array [COLLATE('s', 'und:ci')] itself does not have annotations, but
+   * its elements have the collation annotation. isEmpty() will return false because the nested
+   * annotation map, i.e. the element annotation map is not empty, but
+   * isTopLevelColumnAnnotationEmpty() will return true because the array itself does not have
+   * annotations.
+   */
   public boolean isEmpty() {
     return isEmptyInternal(/* annotationSpecId= */ Optional.empty());
+  }
+
+  /**
+   * Returns true if the top level {@link AnnotationMap} is empty, ignoring nested annotation maps.
+   *
+   * <p>Compare to `isEmpty()`, which also considers the nested annotation maps.
+   *
+   * <p>For example, the SQL array [COLLATE('s', 'und:ci')] itself does not have annotations, but
+   * its elements have the collation annotation. isEmpty() will return false because the nested
+   * annotation map, i.e. the element annotation map is not empty, but
+   * isTopLevelColumnAnnotationEmpty() will return true because the array itself does not have
+   * annotations.
+   */
+  public boolean isTopLevelColumnAnnotationEmpty() {
+    return annotations.isEmpty();
   }
 
   // TODO: Add an AnnotationSpec templated has method

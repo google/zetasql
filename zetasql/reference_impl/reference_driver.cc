@@ -30,6 +30,7 @@
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/evaluator_registration_utils.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -143,6 +144,21 @@ ReferenceDriver::ReferenceDriver(
 }
 
 ReferenceDriver::~ReferenceDriver() = default;
+
+// static
+std::unique_ptr<ReferenceDriver> ReferenceDriver::CreateFromTestDriver(
+    TestDriver* test_driver) {
+  if (test_driver->IsReferenceImplementation()) {
+    auto* ref_driver = static_cast<ReferenceDriver*>(test_driver);
+    ABSL_CHECK(ref_driver != nullptr);
+    return std::make_unique<ReferenceDriver>(
+        ref_driver->GetSupportedLanguageOptions(),
+        ref_driver->enabled_rewrites());
+  } else {
+    return std::make_unique<ReferenceDriver>(
+        test_driver->GetSupportedLanguageOptions());
+  }
+}
 
 // static
 bool ReferenceDriver::UsesUnsupportedType(const LanguageOptions& options,
@@ -296,6 +312,7 @@ absl::StatusOr<AnalyzerOptions> ReferenceDriver::GetAnalyzerOptions(
   analyzer_options.set_enabled_rewrites(enabled_rewrites_);
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+  analyzer_options.set_show_function_signature_mismatch_details(true);
   analyzer_options.set_default_time_zone(default_time_zone_);
 
   for (const auto& p : parameters) {
@@ -453,6 +470,8 @@ ReferenceDriver::AnalyzeStatement(
   std::unique_ptr<const AnalyzerOutput> analyzed;
   ZETASQL_RETURN_IF_ERROR(zetasql::AnalyzeStatement(sql, analyzer_options, catalog,
                                               type_factory, &analyzed));
+  // TODO: Remove this once the aggregation threshold rewriter and
+  // anonymization rewriter are updated to follow the correct pattern.
   if (analyzed->analyzer_output_properties().IsRelevant(
           REWRITE_ANONYMIZATION)) {
     ZETASQL_ASSIGN_OR_RETURN(

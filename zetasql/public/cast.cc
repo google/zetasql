@@ -16,6 +16,7 @@
 
 #include "zetasql/public/cast.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -46,6 +47,7 @@
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
@@ -269,6 +271,11 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRUCT,     STRUCT,     IMPLICIT);
   ADD_TO_MAP(RANGE,      RANGE,      IMPLICIT);
   ADD_TO_MAP(MAP,        MAP,        IMPLICIT);
+  ADD_TO_MAP(UUID,       UUID,       IMPLICIT);
+  ADD_TO_MAP(UUID,       STRING,     EXPLICIT);
+  ADD_TO_MAP(UUID,       BYTES,      EXPLICIT);
+  ADD_TO_MAP(STRING,     UUID,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
+  ADD_TO_MAP(BYTES,      UUID,       EXPLICIT);
   // clang-format on
 
   return map;
@@ -1304,6 +1311,43 @@ absl::StatusOr<Value> CastContext::CastValue(
       }
       return Value::String(absl::StrFormat("[%s, %s)", ValueOrUnbounded(start),
                                            ValueOrUnbounded(end)));
+    }
+    case FCT(TYPE_UUID, TYPE_STRING): {
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid, v.uuid_value());
+      return Value::String(uuid.ToString());
+    }
+    case FCT(TYPE_STRING, TYPE_UUID): {
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid, UuidValue::FromString(v.string_value()));
+      return Value::Uuid(uuid);
+    }
+    case FCT(TYPE_UUID, TYPE_BYTES): {
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid, v.uuid_value());
+      std::string uuid_bytes;
+      __int128 packed_int = uuid.as_packed_int();
+      uuid_bytes.append(reinterpret_cast<const char*>(&packed_int),
+                        sizeof(UuidValue));
+
+#if defined(ABSL_IS_LITTLE_ENDIAN)
+      // The packed_int is in little endian format, so we need to reverse the
+      // bytes to get the correct byte order.
+      std::reverse(uuid_bytes.begin(), uuid_bytes.end());
+#endif
+      return Value::Bytes(uuid_bytes);
+    }
+    case FCT(TYPE_BYTES, TYPE_UUID): {
+      if (v.bytes_value().size() != sizeof(UuidValue)) {
+        return MakeSqlError()
+               << "Invalid bytes value size, expected " << sizeof(UuidValue)
+               << " bytes, but got " << v.bytes_value().size() << " bytes.";
+      }
+      std::string uuid_bytes = v.bytes_value();
+#if defined(ABSL_IS_LITTLE_ENDIAN)
+      // If the UUID is stored in little endian format, then we need to reverse
+      // the bytes order before casting to __int128.
+      std::reverse(uuid_bytes.begin(), uuid_bytes.end());
+#endif
+      return Value::Uuid(UuidValue::FromPackedInt(
+          *reinterpret_cast<const __int128*>(uuid_bytes.data())));
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

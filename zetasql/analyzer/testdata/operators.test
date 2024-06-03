@@ -1,5 +1,6 @@
 [default also_show_signature_mismatch_details]
 
+[default language_features=V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
 select 1 from SimpleTypes
 where int32 = 5
    or int64 = 6
@@ -15,12 +16,12 @@ where int32 = 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -81,74 +82,74 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BOOL]
-| +-$query.$col2#20 AS `$col2` [BOOL]
-| +-$query.$col3#21 AS `$col3` [BOOL]
-| +-$query.$col4#22 AS `$col4` [BOOL]
-| +-$query.$col5#23 AS `$col5` [BOOL]
-| +-$query.$col6#24 AS `$col6` [BOOL]
-| +-$query.$col7#25 AS `$col7` [STRING]
-| +-$query.$col8#26 AS `$col8` [BOOL]
-| +-$query.$col9#27 AS `$col9` [BOOL]
-| +-$query.$col10#28 AS `$col10` [BOOL]
-| +-$query.$col11#29 AS `$col11` [BOOL]
-| +-$query.$col12#30 AS `$col12` [BOOL]
-| +-$query.$col13#31 AS `$col13` [BOOL]
+| +-$query.$col1#20 AS `$col1` [BOOL]
+| +-$query.$col2#21 AS `$col2` [BOOL]
+| +-$query.$col3#22 AS `$col3` [BOOL]
+| +-$query.$col4#23 AS `$col4` [BOOL]
+| +-$query.$col5#24 AS `$col5` [BOOL]
+| +-$query.$col6#25 AS `$col6` [BOOL]
+| +-$query.$col7#26 AS `$col7` [STRING]
+| +-$query.$col8#27 AS `$col8` [BOOL]
+| +-$query.$col9#28 AS `$col9` [BOOL]
+| +-$query.$col10#29 AS `$col10` [BOOL]
+| +-$query.$col11#30 AS `$col11` [BOOL]
+| +-$query.$col12#31 AS `$col12` [BOOL]
+| +-$query.$col13#32 AS `$col13` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31]
+    +-column_list=$query.[$col1#20, $col2#21, $col3#22, $col4#23, $col5#24, $col6#25, $col7#26, $col8#27, $col9#28, $col10#29, $col11#30, $col12#31, $col13#32]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     | | +-FunctionCall(ZetaSQL:$equal(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col2#20 :=
+    | +-$col2#21 :=
     | | +-FunctionCall(ZetaSQL:$greater(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-Cast(INT32 -> INT64)
     | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col3#21 :=
+    | +-$col3#22 :=
     | | +-FunctionCall(ZetaSQL:$greater_or_equal(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col4#22 :=
+    | +-$col4#23 :=
     | | +-FunctionCall(ZetaSQL:$less_or_equal(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-Cast(INT32 -> INT64)
     | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col5#23 :=
+    | +-$col5#24 :=
     | | +-FunctionCall(ZetaSQL:$less(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col6#24 :=
+    | +-$col6#25 :=
     | | +-FunctionCall(ZetaSQL:$not_equal(UINT64, INT64) -> BOOL)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-Cast(INT32 -> INT64)
     | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col7#25 := Literal(type=STRING, value="------------------------------")
-    | +-$col8#26 :=
+    | +-$col7#26 := Literal(type=STRING, value="------------------------------")
+    | +-$col8#27 :=
     | | +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col9#27 :=
+    | +-$col9#28 :=
     | | +-FunctionCall(ZetaSQL:$greater(INT64, UINT64) -> BOOL)
     | |   +-Cast(INT32 -> INT64)
     | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col10#28 :=
+    | +-$col10#29 :=
     | | +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, UINT64) -> BOOL)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col11#29 :=
+    | +-$col11#30 :=
     | | +-FunctionCall(ZetaSQL:$less_or_equal(INT64, UINT64) -> BOOL)
     | |   +-Cast(INT32 -> INT64)
     | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col12#30 :=
+    | +-$col12#31 :=
     | | +-FunctionCall(ZetaSQL:$less(INT64, UINT64) -> BOOL)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-    | +-$col13#31 :=
+    | +-$col13#32 :=
     |   +-FunctionCall(ZetaSQL:$not_equal(INT64, UINT64) -> BOOL)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -178,6 +179,14 @@ select KitchenSink = KitchenSink from ComplexTypes;
 --
 ERROR: Equality is not defined for arguments of type PROTO<zetasql_test__.KitchenSinkPB> [at 1:8]
 select KitchenSink = KitchenSink from ComplexTypes;
+       ^
+==
+
+[language_features={{|TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS}}]
+select NULL = KitchenSink from ComplexTypes;
+--
+ERROR: Equality is not defined for arguments of type PROTO<zetasql_test__.KitchenSinkPB> [at 1:8]
+select NULL = KitchenSink from ComplexTypes;
        ^
 ==
 
@@ -419,12 +428,12 @@ where int32 != 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -549,12 +558,12 @@ where int32 < 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -650,12 +659,12 @@ where int32 <= 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -751,12 +760,12 @@ where int32 >= 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -852,12 +861,12 @@ where int32 > 5
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 := Literal(type=INT64, value=1)
+    | +-$col1#20 := Literal(type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15]
@@ -1611,26 +1620,26 @@ QueryStmt
 | +-SimpleTypes.uint64#4 AS `$col4` [UINT64]
 | +-SimpleTypes.float#8 AS `$col5` [FLOAT]
 | +-SimpleTypes.double#9 AS `$col6` [DOUBLE]
-| +-$query.separator#19 AS separator [STRING]
-| +-$query.$col8#20 AS `$col8` [INT32]
-| +-$query.$col9#21 AS `$col9` [INT64]
-| +-$query.$col10#22 AS `$col10` [FLOAT]
-| +-$query.$col11#23 AS `$col11` [DOUBLE]
+| +-$query.separator#20 AS separator [STRING]
+| +-$query.$col8#21 AS `$col8` [INT32]
+| +-$query.$col9#22 AS `$col9` [INT64]
+| +-$query.$col10#23 AS `$col10` [FLOAT]
+| +-$query.$col11#24 AS `$col11` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.float#8, SimpleTypes.double#9, $query.separator#19, $query.$col8#20, $query.$col9#21, $query.$col10#22, $query.$col11#23]
+    +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.float#8, SimpleTypes.double#9, $query.separator#20, $query.$col8#21, $query.$col9#22, $query.$col10#23, $query.$col11#24]
     +-expr_list=
-    | +-separator#19 := Literal(type=STRING, value="------------------------")
-    | +-$col8#20 :=
+    | +-separator#20 := Literal(type=STRING, value="------------------------")
+    | +-$col8#21 :=
     | | +-FunctionCall(ZetaSQL:$unary_minus(INT32) -> INT32)
     | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    | +-$col9#21 :=
+    | +-$col9#22 :=
     | | +-FunctionCall(ZetaSQL:$unary_minus(INT64) -> INT64)
     | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-$col10#22 :=
+    | +-$col10#23 :=
     | | +-FunctionCall(ZetaSQL:$unary_minus(FLOAT) -> FLOAT)
     | |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-    | +-$col11#23 :=
+    | +-$col11#24 :=
     |   +-FunctionCall(ZetaSQL:$unary_minus(DOUBLE) -> DOUBLE)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
     +-input_scan=
@@ -1907,260 +1916,355 @@ select 'abc' {{<|<=|>|>=|=|!=|LIKE}} b'abc'
 --
 ALTERNATION GROUP: <
 --
-ERROR: No matching signature for operator < for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:8]
-select 'abc' < b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator < for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 < T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 < UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 < INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' < b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <=
 --
-ERROR: No matching signature for operator <= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
-select 'abc' <= b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator <= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 <= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 <= UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 <= INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' <= b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >
 --
-ERROR: No matching signature for operator > for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:8]
-select 'abc' > b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator > for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 > T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 > UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 > INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' > b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >=
 --
-ERROR: No matching signature for operator >= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
-select 'abc' >= b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator >= for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 >= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 >= UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 >= INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' >= b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: =
 --
-ERROR: No matching signature for operator = for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select 'abc' = b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator = for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 = T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 = UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 = INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' = b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: !=
 --
-ERROR: No matching signature for operator != for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
-select 'abc' != b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator != for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 != T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 != UINT64
-    Argument 1: Unable to coerce type STRING to expected type INT64
-  Signature: UINT64 != INT64
-    Argument 1: Unable to coerce type STRING to expected type UINT64 [at 1:8]
-select 'abc' != b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: LIKE
 --
-ERROR: No matching signature for operator LIKE for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
-select 'abc' LIKE b'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator LIKE for argument types: STRING, BYTES. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: STRING LIKE STRING
-    Argument 2: Unable to coerce type BYTES to expected type STRING
-  Signature: BYTES LIKE BYTES
-    Argument 1: Unable to coerce type STRING to expected type BYTES [at 1:8]
-select 'abc' LIKE b'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select b'abc' {{<|<=|>|>=|=|!=|LIKE}} 'abc'
 --
 ALTERNATION GROUP: <
 --
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:8]
-select b'abc' < 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 < T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 < UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 < INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' < 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <=
 --
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
-select b'abc' <= 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 <= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 <= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 <= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' <= 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >
 --
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:8]
-select b'abc' > 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 > T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 > UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 > INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' > 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >=
 --
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
-select b'abc' >= 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 >= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 >= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 >= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' >= 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: =
 --
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select b'abc' = 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 = T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 = UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 = INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' = 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: !=
 --
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
-select b'abc' != 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 != T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 != UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 != INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select b'abc' != 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: LIKE
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
-select b'abc' LIKE 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: STRING LIKE STRING
-    Argument 1: Unable to coerce type BYTES to expected type STRING
-  Signature: BYTES LIKE BYTES
-    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
-select b'abc' LIKE 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select bytes {{<|<=|>|>=|=|!=|LIKE}} 'abc' from SimpleTypes
 --
 ALTERNATION GROUP: <
 --
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$less(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: <=
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$less_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: >
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$greater(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: >=
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$greater_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: =
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: !=
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+--
+ALTERNATION GROUP: LIKE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+==
+
+# Characters in the STRING literal is >=128 and the implicit coercion should
+# fail.
+select bytes {{<|<=|>|>=|=|!=|LIKE}} '\x80' from SimpleTypes
+--
+ALTERNATION GROUP: <
+--
 ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:8]
-select bytes < 'abc' from SimpleTypes
+select bytes < '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2172,13 +2276,13 @@ ERROR: No matching signature for operator < for argument types: BYTES, STRING. S
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 < INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes < 'abc' from SimpleTypes
+select bytes < '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: <=
 --
 ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
-select bytes <= 'abc' from SimpleTypes
+select bytes <= '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2190,13 +2294,13 @@ ERROR: No matching signature for operator <= for argument types: BYTES, STRING. 
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 <= INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes <= 'abc' from SimpleTypes
+select bytes <= '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: >
 --
 ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:8]
-select bytes > 'abc' from SimpleTypes
+select bytes > '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2208,13 +2312,13 @@ ERROR: No matching signature for operator > for argument types: BYTES, STRING. S
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 > INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes > 'abc' from SimpleTypes
+select bytes > '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: >=
 --
 ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
-select bytes >= 'abc' from SimpleTypes
+select bytes >= '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2226,13 +2330,13 @@ ERROR: No matching signature for operator >= for argument types: BYTES, STRING. 
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 >= INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes >= 'abc' from SimpleTypes
+select bytes >= '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: =
 --
 ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select bytes = 'abc' from SimpleTypes
+select bytes = '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2244,13 +2348,13 @@ ERROR: No matching signature for operator = for argument types: BYTES, STRING. S
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 = INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes = 'abc' from SimpleTypes
+select bytes = '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: !=
 --
 ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
-select bytes != 'abc' from SimpleTypes
+select bytes != '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2262,13 +2366,13 @@ ERROR: No matching signature for operator != for argument types: BYTES, STRING. 
     Argument 1: Unable to coerce type BYTES to expected type INT64
   Signature: UINT64 != INT64
     Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select bytes != 'abc' from SimpleTypes
+select bytes != '\x80' from SimpleTypes
        ^
 --
 ALTERNATION GROUP: LIKE
 --
 ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
-select bytes LIKE 'abc' from SimpleTypes
+select bytes LIKE '\x80' from SimpleTypes
        ^
 --
 Signature Mismatch Details:
@@ -2277,7 +2381,7 @@ ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING
     Argument 1: Unable to coerce type BYTES to expected type STRING
   Signature: BYTES LIKE BYTES
     Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
-select bytes LIKE 'abc' from SimpleTypes
+select bytes LIKE '\x80' from SimpleTypes
        ^
 ==
 
@@ -2285,281 +2389,317 @@ select bytes from SimpleTypes where bytes {{<|<=|>|>=|=|!=|LIKE}} 'abc'
 --
 ALTERNATION GROUP: <
 --
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:37]
-select bytes from SimpleTypes where bytes < 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 < T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 < UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 < INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes < 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$less(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: <=
 --
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:37]
-select bytes from SimpleTypes where bytes <= 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 <= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 <= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 <= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes <= 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$less_or_equal(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: >
 --
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:37]
-select bytes from SimpleTypes where bytes > 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 > T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 > UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 > INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes > 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: >=
 --
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:37]
-select bytes from SimpleTypes where bytes >= 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 >= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 >= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 >= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes >= 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater_or_equal(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: =
 --
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:37]
-select bytes from SimpleTypes where bytes = 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 = T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 = UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 = INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes = 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: !=
 --
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:37]
-select bytes from SimpleTypes where bytes != 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 != T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 != UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 != INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:37]
-select bytes from SimpleTypes where bytes != 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 --
 ALTERNATION GROUP: LIKE
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:37]
-select bytes from SimpleTypes where bytes LIKE 'abc'
-                                    ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: STRING LIKE STRING
-    Argument 1: Unable to coerce type BYTES to expected type STRING
-  Signature: BYTES LIKE BYTES
-    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:37]
-select bytes from SimpleTypes where bytes LIKE 'abc'
-                                    ^
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.bytes#6 AS bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[SimpleTypes.bytes#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[SimpleTypes.bytes#6]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.bytes#6], table=SimpleTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+            +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+            +-Literal(type=BYTES, value=b"abc")
 ==
 
 select @test_param_bytes {{<|<=|>|>=|=|!=|LIKE}} 'abc'
 --
 ALTERNATION GROUP: <
 --
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY < ANY; INT64 < UINT64; UINT64 < INT64 [at 1:8]
-select @test_param_bytes < 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator < for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 < T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 < UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 < INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes < 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <=
 --
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY <= ANY; INT64 <= UINT64; UINT64 <= INT64 [at 1:8]
-select @test_param_bytes <= 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator <= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 <= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 <= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 <= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes <= 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$less_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >
 --
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY > ANY; INT64 > UINT64; UINT64 > INT64 [at 1:8]
-select @test_param_bytes > 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator > for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 > T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 > UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 > INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes > 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: >=
 --
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY >= ANY; INT64 >= UINT64; UINT64 >= INT64 [at 1:8]
-select @test_param_bytes >= 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator >= for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 >= T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 >= UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 >= INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes >= 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$greater_or_equal(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: =
 --
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-select @test_param_bytes = 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator = for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 = T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 = UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 = INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes = 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: !=
 --
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: ANY != ANY; INT64 != UINT64; UINT64 != INT64 [at 1:8]
-select @test_param_bytes != 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator != for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: T1 != T1
-    Unable to find common supertype for templated argument <T1>
-      Input types for <T1>: {STRING, BYTES}
-  Signature: INT64 != UINT64
-    Argument 1: Unable to coerce type BYTES to expected type INT64
-  Signature: UINT64 != INT64
-    Argument 1: Unable to coerce type BYTES to expected type UINT64 [at 1:8]
-select @test_param_bytes != 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: LIKE
 --
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'. Supported signatures: STRING LIKE STRING; BYTES LIKE BYTES [at 1:8]
-select @test_param_bytes LIKE 'abc'
-       ^
---
-Signature Mismatch Details:
-ERROR: No matching signature for operator LIKE for argument types: BYTES, STRING. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value'
-  Signature: STRING LIKE STRING
-    Argument 1: Unable to coerce type BYTES to expected type STRING
-  Signature: BYTES LIKE BYTES
-    Argument 2: Unable to coerce type STRING to expected type BYTES [at 1:8]
-select @test_param_bytes LIKE 'abc'
-       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$like(BYTES, BYTES) -> BOOL)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select 'abc' IN (b'abc', b'abd')
 --
-ERROR: No matching signature for operator IN for argument types literal STRING and {BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN (b'abc', b'abd')
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abd")
+    +-input_scan=
+      +-SingleRowScan
 
 ==
 
 select 'abc' IN ('abc', b'abc')
 --
-ERROR: No matching signature for operator IN for argument types literal STRING and {STRING, BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN ('abc', b'abc')
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select 'abc' IN (@test_param_bytes, @test_param_bytes)
 --
-ERROR: No matching signature for operator IN for argument types literal STRING and {BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN (@test_param_bytes, @test_param_bytes)
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select b'abc' IN ('abc', 'abc')
 --
-ERROR: No matching signature for operator IN for argument types literal BYTES and {STRING}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:15]
-select b'abc' IN ('abc', 'abc')
-              ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select b'abc' IN (@test_param_string, @test_param_string)
@@ -2571,38 +2711,93 @@ select b'abc' IN (@test_param_string, @test_param_string)
 
 select b'abc' IN ('abc', b'abd')
 --
-ERROR: No matching signature for operator IN for argument types literal BYTES and {STRING, BYTES}. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:15]
-select b'abc' IN ('abc', b'abd')
-              ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(BYTES, repeated(2) BYTES) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=BYTES, value=b"abd")
+    +-input_scan=
+      +-SingleRowScan
 
 ==
 
 select 'abc' IN UNNEST([b'abc', b'abd'])
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<BYTES>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN UNNEST([b'abc', b'abd'])
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"abd"])
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select 'abc' IN UNNEST([@test_param_bytes, @test_param_bytes])
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<BYTES>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN UNNEST([@test_param_bytes, @test_param_bytes])
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) BYTES) -> ARRAY<BYTES>)
+    |       +-Parameter(type=BYTES, name="test_param_bytes")
+    |       +-Parameter(type=BYTES, name="test_param_bytes")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select 'abc' IN UNNEST([CAST('abc' AS BYTES), CAST('abd' AS BYTES)])
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<BYTES>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
-select 'abc' IN UNNEST([CAST('abc' AS BYTES), CAST('abd' AS BYTES)])
-             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"abd"], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select BytesArray from ArrayTypes where 'abc' IN UNNEST(BytesArray)
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<BYTES>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:47]
-select BytesArray from ArrayTypes where 'abc' IN UNNEST(BytesArray)
-                                              ^
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.BytesArray#6 AS BytesArray [ARRAY<BYTES>]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.BytesArray#6]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[ArrayTypes.BytesArray#6]
+        +-input_scan=
+        | +-TableScan(column_list=[ArrayTypes.BytesArray#6], table=ArrayTypes, column_index_list=[5])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+            +-Literal(type=BYTES, value=b"abc")
+            +-ColumnRef(type=ARRAY<BYTES>, column=ArrayTypes.BytesArray#6)
 ==
 
 select b'abc' IN UNNEST(['abc', 'abd'])
@@ -2635,16 +2830,36 @@ select StringArray from ArrayTypes where b'abc' IN UNNEST(StringArray)
 
 select b'abc' IN UNNEST(['abc', b'abd'])
 --
-ERROR: Array elements of types {STRING, BYTES} do not have a common supertype [at 1:25]
-select b'abc' IN UNNEST(['abc', b'abd'])
-                        ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"abd"])
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select 'abc' IN UNNEST(['abc', b'abd'])
 --
-ERROR: Array elements of types {STRING, BYTES} do not have a common supertype [at 1:24]
-select 'abc' IN UNNEST(['abc', b'abd'])
-                       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"abd"])
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test case from b/79755993 (now fixed).

@@ -208,15 +208,6 @@ SELECT INSTR(b"\xE2\x82\xAC", b"\x82"), INSTR(b"\xE2\x82\x82", b"\x82", 1, 2), I
 ARRAY<STRUCT<INT64, INT64, INT64>>[{2, 3, 3}]
 ==
 
-# LOWER(NULL) and UPPER(NULL) return STRING, even when compared to a BYTES. b/18823720
-[name=function_lower_upper_bytes]
-SELECT b"" = LOWER(NULL), b"" = UPPER(NULL)
---
-ERROR: generic::invalid_argument: No matching signature for operator = for argument types: BYTES, STRING. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
-SELECT b"" = LOWER(NULL), b"" = UPPER(NULL)
-       ^
-==
-
 [name=function_lower]
 SELECT LOWER(b"\xE2\x82\xAC"), LOWER(b"\xe2\x82\xac"), LOWER(b"A\123")
 --
@@ -477,14 +468,6 @@ select split(cast(null as bytes), b","), split(b"x", cast(null as bytes)), split
 ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
   {ARRAY<BYTES>(NULL), ARRAY<BYTES>(NULL), ARRAY<BYTES>(NULL)}
 ]
-==
-
-[name=split_default_delimiter_is_error]
-select split(b"x")
---
-ERROR: generic::invalid_argument: No matching signature for function SPLIT for argument types: BYTES. Supported signatures: SPLIT(STRING, [STRING]); SPLIT(BYTES, BYTES) [at 1:8]
-select split(b"x")
-       ^
 ==
 
 [name=split_custom_delimiter]

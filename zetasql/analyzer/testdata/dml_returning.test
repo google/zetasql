@@ -1134,8 +1134,8 @@ THEN RETURN WITH ACTION *
 --
 UpdateStmt
 +-table_scan=
-| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
-+-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
+| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
++-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
 +-returning=
 | +-ReturningClause
 |   +-output_column_list=
@@ -1157,13 +1157,14 @@ UpdateStmt
 |   | +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
 |   | +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
 |   | +-SimpleTypes.json#18 AS json [JSON]
-|   | +-$with_action.ACTION#21 AS ACTION [STRING]
+|   | +-SimpleTypes.uuid#19 AS uuid [UUID]
+|   | +-$with_action.ACTION#22 AS ACTION [STRING]
 |   +-action_column=
-|     +-ColumnHolder(column=$with_action.ACTION#21)
+|     +-ColumnHolder(column=$with_action.ACTION#22)
 +-where_expr=
 | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
 |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-|   +-ColumnRef(type=INT64, column=KeyValue.Key#19)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
 +-update_item_list=
 | +-UpdateItem
 |   +-target=
@@ -1173,7 +1174,7 @@ UpdateStmt
 |       +-value=
 |         +-Literal(type=INT64, value=1)
 +-from_scan=
-  +-TableScan(column_list=[KeyValue.Key#19], table=KeyValue, column_index_list=[0])
+  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
 
 ==
 
@@ -2491,4 +2492,30 @@ UpdateStmt
     | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.A#1)
     | +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.B#2)
     +-ColumnRef(type=INT64, column=TableWithGeneratedColumn.C#3)
+==
 
+INSERT INTO KeyValue (key, value) VALUES (1, "one")
+THEN RETURN WITH ACTION AS value *
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.value#3 AS value [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.value#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE

@@ -765,6 +765,25 @@ TEST(IntervalValueTest, Extract) {
   EXPECT_EQ(9, *YMDHMS(10, -1, 5000, 1000, 20, 30).Extract(YEAR));
   EXPECT_EQ(-9, *YMDHMS(-10, 1, -5000, -1000, -20, -30).Extract(YEAR));
 
+  EXPECT_EQ(0, *Years(0).Extract(MONTH));
+  EXPECT_EQ(0, *Days(10000).Extract(MONTH));
+  EXPECT_EQ(0, *Hours(1000000).Extract(MONTH));
+  EXPECT_EQ(0, *Nanos(1).Extract(MONTH));
+  EXPECT_EQ(0, *Years(5).Extract(MONTH));
+  EXPECT_EQ(0, *Years(-5).Extract(MONTH));
+  EXPECT_EQ(11, *Months(11).Extract(MONTH));
+  EXPECT_EQ(-11, *Months(-11).Extract(MONTH));
+  EXPECT_EQ(0, *Months(12).Extract(MONTH));
+  EXPECT_EQ(0, *Months(-12).Extract(MONTH));
+  EXPECT_EQ(1, *Months(13).Extract(MONTH));
+  EXPECT_EQ(-1, *Months(-13).Extract(MONTH));
+  EXPECT_EQ(4, *Months(10000).Extract(MONTH));
+  EXPECT_EQ(-4, *Months(-10000).Extract(MONTH));
+  EXPECT_EQ(11, *YMDHMS(10, -1, 5000, 1000, 20, 30).Extract(MONTH));
+  EXPECT_EQ(-11, *YMDHMS(-10, 1, -5000, -1000, -20, -30).Extract(MONTH));
+  EXPECT_EQ(1, *YMDHMS(10, 1, -5000, -1000, -20, -30).Extract(MONTH));
+  EXPECT_EQ(-1, *YMDHMS(-10, -1, -5000, -1000, -20, -30).Extract(MONTH));
+
   EXPECT_EQ(0, *Hours(0).Extract(HOUR));
   EXPECT_EQ(1, *Hours(1).Extract(HOUR));
   EXPECT_EQ(-1, *Hours(-1).Extract(HOUR));

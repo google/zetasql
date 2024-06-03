@@ -35,7 +35,6 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/common/unicode_utils.h"
-#include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
@@ -62,6 +61,7 @@
 #include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -152,8 +152,8 @@ static AllowedHintsAndOptions GetAllowedHintsAndOptions(
   AllowedHintsAndOptions allowed(kQualifier);
 
   const zetasql::Type* enum_type;
-  ZETASQL_CHECK_OK(type_factory->MakeEnumType(
-      zetasql_test__::TestEnum_descriptor(), &enum_type));
+  ZETASQL_CHECK_OK(type_factory->MakeEnumType(zetasql_test__::TestEnum_descriptor(),
+                                      &enum_type));
 
   const zetasql::Type* extra_proto_type;
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
@@ -163,8 +163,8 @@ static AllowedHintsAndOptions GetAllowedHintsAndOptions(
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(enum_type, &enum_array_type));
 
   const zetasql::Type* string_array_type;
-  ZETASQL_CHECK_OK(type_factory->MakeArrayType(types::StringType(),
-                                       &string_array_type));
+  ZETASQL_CHECK_OK(
+      type_factory->MakeArrayType(types::StringType(), &string_array_type));
 
   const zetasql::Type* struct_type;
   ZETASQL_CHECK_OK(type_factory->MakeStructType(
@@ -294,7 +294,7 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
 }  // namespace
 
 class AnalyzerTestRunner {
- public:   // Pointer-to-member-function usage requires public member functions
+ public:  // Pointer-to-member-function usage requires public member functions
   explicit AnalyzerTestRunner(TestDumperCallback test_dumper_callback)
       : test_dumper_callback_(std::move(test_dumper_callback)) {
     // The supported option definitions are in analyzer_test_options.h.
@@ -640,9 +640,9 @@ class AnalyzerTestRunner {
     if (const std::string flags = test_case_options_.GetString(kSetFlag);
         !flags.empty()) {
       if (test_case_options_.GetBool(kRunInJava)) {
-        FAIL() << "Tests with set_flag should also be marked with no_java, "
-               << "because set_flag is not implemented in the Java analyzer "
-               << "test.";
+        FAIL()
+            << "Tests with set_flag should also be marked with no_java, "
+               "because set_flag is not implemented in the Java analyzer test.";
       }
       for (const absl::string_view flag : absl::StrSplit(flags, ',')) {
         const std::pair<absl::string_view, absl::string_view> split =
@@ -665,8 +665,8 @@ class AnalyzerTestRunner {
         zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
     // Add some expression columns that can be used in AnalyzeStatement cases.
-    ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_int32",
-                                          type_factory.get_int32()));
+    ZETASQL_EXPECT_OK(
+        options.AddExpressionColumn("column_int32", type_factory.get_int32()));
     ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_KitchenSink", proto_type));
 
     // Add some pseudo-columns that can be used in DDL statements.
@@ -787,7 +787,7 @@ class AnalyzerTestRunner {
         test_case_options_.GetInt64(kDefaultAnonKappaValue)));
 
     const std::string& parse_location_record_type_value =
-            test_case_options_.GetString(kParseLocationRecordType);
+        test_case_options_.GetString(kParseLocationRecordType);
     if (!parse_location_record_type_value.empty()) {
       ParseLocationRecordType type;
       ASSERT_TRUE(ParseLocationRecordType_Parse(
@@ -940,9 +940,7 @@ class AnalyzerTestRunner {
 
       if (status.ok()) {
         CheckSupportedStatementKind(
-            test_case,
-            output->resolved_statement()->node_kind(),
-            options);
+            test_case, output->resolved_statement()->node_kind(), options);
 
         // Deep copy the AST and verify that it copies correctly.
         CheckDeepCopyAST(output.get());
@@ -955,8 +953,8 @@ class AnalyzerTestRunner {
         CheckValidatorCoverage(options, *output);
       }
     } else if (mode == "expression") {
-      status = AnalyzeExpression(test_case, options, catalog, type_factory,
-                                 &output);
+      status =
+          AnalyzeExpression(test_case, options, catalog, type_factory, &output);
       if (status.ok()) {
         ZETASQL_EXPECT_OK(output->resolved_expr()->CheckNoFieldsAccessed());
       }
@@ -1027,8 +1025,7 @@ class AnalyzerTestRunner {
       bool at_end_of_input;
       std::unique_ptr<const AnalyzerOutput> output;
 
-      const ResolvedNodeKind guessed_node_kind =
-          GetNextStatementKind(location);
+      const ResolvedNodeKind guessed_node_kind = GetNextStatementKind(location);
 
       // Ensure that we can get the properties as well, and that the node
       // kind is consistent with GetStatementKind().
@@ -1036,9 +1033,9 @@ class AnalyzerTestRunner {
       ZETASQL_ASSERT_OK(GetNextStatementProperties(location, options.language(),
                                            &extracted_statement_properties));
       EXPECT_EQ(guessed_node_kind, extracted_statement_properties.node_kind)
-        << "\nguessed_node_kind: " << ResolvedNodeKind_Name(guessed_node_kind)
-        << "\nstatement_properties node_kind: "
-        << ResolvedNodeKind_Name(extracted_statement_properties.node_kind);
+          << "\nguessed_node_kind: " << ResolvedNodeKind_Name(guessed_node_kind)
+          << "\nstatement_properties node_kind: "
+          << ResolvedNodeKind_Name(extracted_statement_properties.node_kind);
 
       const absl::Status status = AnalyzeNextStatement(
           &location, options, catalog, type_factory, &output, &at_end_of_input);
@@ -1051,8 +1048,8 @@ class AnalyzerTestRunner {
                       test_result);
 
       if (test_case_options_.GetBool(kTestExtractTableNames)) {
-        CheckExtractNextTableNames(&location_for_extract_table_names,
-                                   options, location, output.get());
+        CheckExtractNextTableNames(&location_for_extract_table_names, options,
+                                   location, output.get());
       }
 
       // Stop after EOF or error.
@@ -1235,12 +1232,11 @@ class AnalyzerTestRunner {
                                                  std::string* output) {
     std::unique_ptr<ParserOutput> parser_output;
     TableResolutionTimeInfoMap table_resolution_time_info_map;
-    const absl::Status status =
-        ExtractTableResolutionTimeFromStatement(
-            test_case, options, type_factory, catalog,
-            &table_resolution_time_info_map, &parser_output);
-    *output = FormatTableResolutionTimeInfoMap(
-        status, table_resolution_time_info_map);
+    const absl::Status status = ExtractTableResolutionTimeFromStatement(
+        test_case, options, type_factory, catalog,
+        &table_resolution_time_info_map, &parser_output);
+    *output = FormatTableResolutionTimeInfoMap(status,
+                                               table_resolution_time_info_map);
   }
 
   void ExtractTableResolutionTimeInfoMapFromASTAsString(
@@ -1282,8 +1278,8 @@ class AnalyzerTestRunner {
           status, table_resolution_time_info_map);
     } else {
       *output = *output_with_deferred_analysis =
-          FormatTableResolutionTimeInfoMap(
-              status, table_resolution_time_info_map);
+          FormatTableResolutionTimeInfoMap(status,
+                                           table_resolution_time_info_map);
     }
   }
 
@@ -1297,23 +1293,21 @@ class AnalyzerTestRunner {
     // the statement's ResolvedNodeKind (we assume that if the ResolvedNodeKind
     // matches, that the StatementCategory also matches.
     if (extracted_statement_properties.node_kind == RESOLVED_LITERAL) {
-    // RESOLVED_LITERAL indicates failure to identify a statement.
+      // RESOLVED_LITERAL indicates failure to identify a statement.
       test_result->AddTestOutput(AddFailure(
           "FAILED extracting statement kind. GetNextStatementProperties "
           "failed to find any possible kind."));
     } else if (resolved_statement->node_kind() !=
-                   extracted_statement_properties.node_kind
-               && resolved_statement->node_kind() !=
+                   extracted_statement_properties.node_kind &&
+               resolved_statement->node_kind() !=
                    RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT) {
       // TODO: AST_ALTER_TABLE_STATEMENT sometimes will return
       // RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT for backward compatibility.
       // Disable the resulting test failure for now.
-      test_result->AddTestOutput(AddFailure(
-          absl::StrCat("FAILED extracting statement kind. Extracted kind ",
-                       ResolvedNodeKindToString(
-                           extracted_statement_properties.node_kind),
-                       ", actual kind ",
-                       resolved_statement->node_kind_string())));
+      test_result->AddTestOutput(AddFailure(absl::StrCat(
+          "FAILED extracting statement kind. Extracted kind ",
+          ResolvedNodeKindToString(extracted_statement_properties.node_kind),
+          ", actual kind ", resolved_statement->node_kind_string())));
     }
 
     // Check whether the statement is CREATE TEMP matches the extracted
@@ -1324,33 +1318,30 @@ class AnalyzerTestRunner {
       if ((create_statement->create_scope() ==
            ResolvedCreateStatementEnums::CREATE_TEMP) !=
           extracted_statement_properties.is_create_temporary_object) {
-        test_result->AddTestOutput(AddFailure(
-            absl::StrCat(
-                "FAILED extracting whether statement is CREATE TEMP. "
-                "Extracted is_create_temporary_object: ",
-                extracted_statement_properties.is_create_temporary_object,
-                ", statement: ", create_statement->DebugString())));
+        test_result->AddTestOutput(AddFailure(absl::StrCat(
+            "FAILED extracting whether statement is CREATE TEMP. "
+            "Extracted is_create_temporary_object: ",
+            extracted_statement_properties.is_create_temporary_object,
+            ", statement: ", create_statement->DebugString())));
       }
     } else if (extracted_statement_properties.is_create_temporary_object) {
-      test_result->AddTestOutput(AddFailure(
-          absl::StrCat(
-              "FAILED extracting whether statement is CREATE TEMP. "
-              "Extracted is_create_temporary_object: ",
-              extracted_statement_properties.is_create_temporary_object,
-              ", statement: ", resolved_statement->DebugString())));
+      test_result->AddTestOutput(AddFailure(absl::StrCat(
+          "FAILED extracting whether statement is CREATE TEMP. "
+          "Extracted is_create_temporary_object: ",
+          extracted_statement_properties.is_create_temporary_object,
+          ", statement: ", resolved_statement->DebugString())));
     }
 
     // Check that the number of top level statement hints match the number of
     // extracted hints.
     if (resolved_statement->hint_list().size() !=
         extracted_statement_properties.statement_level_hints.size()) {
-      test_result->AddTestOutput(AddFailure(
-          absl::StrCat(
-              "FAILED extracting statement level hints.  Number of extracted "
-              "hints (",
-              extracted_statement_properties.statement_level_hints.size(),
-              "), actual number of hints(",
-              resolved_statement->hint_list().size(), ")")));
+      test_result->AddTestOutput(AddFailure(absl::StrCat(
+          "FAILED extracting statement level hints.  Number of extracted "
+          "hints (",
+          extracted_statement_properties.statement_level_hints.size(),
+          "), actual number of hints(", resolved_statement->hint_list().size(),
+          ")")));
     }
   }
 
@@ -1461,17 +1452,16 @@ class AnalyzerTestRunner {
 
     if (test_case_options_.GetBool(kShowTableResolutionTime)) {
       std::string table_resolution_time_str;
-      ExtractTableResolutionTimeInfoMapAsString(
-          test_case, options, type_factory, catalog,
-          &table_resolution_time_str);
+      ExtractTableResolutionTimeInfoMapAsString(test_case, options,
+                                                type_factory, catalog,
+                                                &table_resolution_time_str);
       std::string table_resolution_time_str_from_ast;
       std::string table_resolution_time_str_from_ast_with_deferred_analysis;
       ExtractTableResolutionTimeInfoMapFromASTAsString(
           test_case, options, type_factory, catalog,
           &table_resolution_time_str_from_ast,
           &table_resolution_time_str_from_ast_with_deferred_analysis);
-      EXPECT_EQ(table_resolution_time_str,
-                table_resolution_time_str_from_ast);
+      EXPECT_EQ(table_resolution_time_str, table_resolution_time_str_from_ast);
       EXPECT_EQ(table_resolution_time_str,
                 table_resolution_time_str_from_ast_with_deferred_analysis);
       test_result_string =
@@ -1711,11 +1701,10 @@ class AnalyzerTestRunner {
     {
       // For ExtractTableNamesFromStatement()
       std::set<std::vector<std::string>> extracted_table_names;
-      const absl::Status find_tables_status =
-          ExtractTableNamesFromStatement(test_case, options,
-                                         &extracted_table_names);
-      CheckExtractTableResult(
-          find_tables_status, extracted_table_names, analyzer_output);
+      const absl::Status find_tables_status = ExtractTableNamesFromStatement(
+          test_case, options, &extracted_table_names);
+      CheckExtractTableResult(find_tables_status, extracted_table_names,
+                              analyzer_output);
     }
     {
       // For ExtractTableNamesFromASTStatement()
@@ -1728,24 +1717,22 @@ class AnalyzerTestRunner {
             ExtractTableNamesFromASTStatement(*parser_output->statement(),
                                               options, test_case,
                                               &extracted_table_names);
-        CheckExtractTableResult(
-            find_tables_status, extracted_table_names, analyzer_output);
+        CheckExtractTableResult(find_tables_status, extracted_table_names,
+                                analyzer_output);
       }
     }
   }
 
   void CheckExtractNextTableNames(
-      ParseResumeLocation* location,
-      const AnalyzerOptions& options,
+      ParseResumeLocation* location, const AnalyzerOptions& options,
       const ParseResumeLocation& location_for_analysis,
       const AnalyzerOutput* analyzer_output) {
     std::set<std::vector<std::string>> extracted_table_names;
     bool at_end_of_input;
-    const absl::Status find_tables_status =
-        ExtractTableNamesFromNextStatement(
-            location, options, &extracted_table_names, &at_end_of_input);
-    CheckExtractTableResult(
-        find_tables_status, extracted_table_names, analyzer_output);
+    const absl::Status find_tables_status = ExtractTableNamesFromNextStatement(
+        location, options, &extracted_table_names, &at_end_of_input);
+    CheckExtractTableResult(find_tables_status, extracted_table_names,
+                            analyzer_output);
     EXPECT_EQ(location->byte_position(), location_for_analysis.byte_position());
   }
 
@@ -1797,17 +1784,19 @@ class AnalyzerTestRunner {
     // scanned.  So we expect that we did not find any actual table scans,
     // and do not try to match them against the exracted table names.
     if (analyzer_output->resolved_statement()->node_kind() ==
-          RESOLVED_CREATE_TABLE_FUNCTION_STMT &&
-        analyzer_output->resolved_statement()->
-          GetAs<ResolvedCreateTableFunctionStmt>()->
-            signature().IsTemplated()) {
+            RESOLVED_CREATE_TABLE_FUNCTION_STMT &&
+        analyzer_output->resolved_statement()
+            ->GetAs<ResolvedCreateTableFunctionStmt>()
+            ->signature()
+            .IsTemplated()) {
       EXPECT_TRUE(actual_tables_scanned.empty());
       return;
     } else if (analyzer_output->resolved_statement()->node_kind() ==
-                 RESOLVED_CREATE_FUNCTION_STMT &&
-               analyzer_output->resolved_statement()->
-                 GetAs<ResolvedCreateFunctionStmt>()->
-                   signature().IsTemplated()) {
+                   RESOLVED_CREATE_FUNCTION_STMT &&
+               analyzer_output->resolved_statement()
+                   ->GetAs<ResolvedCreateFunctionStmt>()
+                   ->signature()
+                   .IsTemplated()) {
       EXPECT_TRUE(actual_tables_scanned.empty());
       return;
     }
@@ -1844,8 +1833,8 @@ class AnalyzerTestRunner {
 
     // All of the single-part table names that we've extracted should match
     // actual tables scanned.
-    for (const std::vector<std::string>& extracted_name
-             : extracted_table_names_lower) {
+    for (const std::vector<std::string>& extracted_name :
+         extracted_table_names_lower) {
       if (extracted_name.size() == 1) {
         // If the statement has tables in a nested namespace (subcatalog),
         // then the equivalence check between an actual table scanned and
@@ -1874,9 +1863,8 @@ class AnalyzerTestRunner {
     strict_options.set_column_id_sequence_number(nullptr);
 
     std::unique_ptr<const AnalyzerOutput> strict_output;
-    const absl::Status strict_status =
-        AnalyzeStatement(test_case, strict_options, catalog,
-                         type_factory, &strict_output);
+    const absl::Status strict_status = AnalyzeStatement(
+        test_case, strict_options, catalog, type_factory, &strict_output);
     if (orig_status.ok() && strict_status.ok()) {
       // If column_id_sequence_number was set, we'll get different column_ids
       // in the new resolved tree, so skip the diff.
@@ -1972,8 +1960,8 @@ class AnalyzerTestRunner {
 
       ZETASQL_EXPECT_OK(stmt->CheckFieldsAccessed())
           << "ERROR: Validator did not traverse all fields in the resolved AST "
-          << "for this statement. Updates to validator.cc are probably "
-          << "required so it will traverse or ignore new nodes/fields.\n"
+             "for this statement. Updates to validator.cc are probably "
+             "required so it will traverse or ignore new nodes/fields.\n"
           << stmt->DebugString();
     }
   }
@@ -2052,8 +2040,8 @@ class AnalyzerTestRunner {
             unparsed_stmt->GetAs<ResolvedCreateIndexStmt>();
         return CompareIndexItemList(output_create_stmt->index_item_list(),
                                     unparsed_create_stmt->index_item_list()) &&
-            CompareOptionList(output_create_stmt->option_list(),
-                              unparsed_create_stmt->option_list());
+               CompareOptionList(output_create_stmt->option_list(),
+                                 unparsed_create_stmt->option_list());
       }
       case RESOLVED_CREATE_DATABASE_STMT: {
         const ResolvedCreateDatabaseStmt* output_create_stmt =
@@ -2112,8 +2100,9 @@ class AnalyzerTestRunner {
             output_stmt->GetAs<ResolvedCloneDataStmt>();
         const ResolvedCloneDataStmt* unparsed =
             unparsed_stmt->GetAs<ResolvedCloneDataStmt>();
-        return CompareNode(resolved->target_table(), unparsed->target_table())
-            && CompareNode(resolved->clone_from(), unparsed->clone_from());
+        return CompareNode(resolved->target_table(),
+                           unparsed->target_table()) &&
+               CompareNode(resolved->clone_from(), unparsed->clone_from());
       }
       case RESOLVED_EXPORT_DATA_STMT: {
         const ResolvedExportDataStmt* output_export_stmt =
@@ -2214,8 +2203,8 @@ class AnalyzerTestRunner {
         const ResolvedQueryStmt* unparsed_query_stmt =
             unparsed_stmt->GetAs<ResolvedQueryStmt>();
         return CompareOutputColumnList(
-                   output_query_stmt->output_column_list(),
-                   unparsed_query_stmt->output_column_list());
+            output_query_stmt->output_column_list(),
+            unparsed_query_stmt->output_column_list());
         // TODO This should also be checking is_ordered, but that
         // is always broken right now because of http://b/36682469.
         //   output_query_stmt->query()->is_ordered() ==
@@ -2228,8 +2217,8 @@ class AnalyzerTestRunner {
             unparsed_stmt->GetAs<ResolvedCreateIndexStmt>();
         return CompareIndexItemList(output_create_stmt->index_item_list(),
                                     unparsed_create_stmt->index_item_list()) &&
-            CompareOptionList(output_create_stmt->option_list(),
-                              unparsed_create_stmt->option_list());
+               CompareOptionList(output_create_stmt->option_list(),
+                                 unparsed_create_stmt->option_list());
       }
       case RESOLVED_CREATE_DATABASE_STMT: {
         const ResolvedCreateDatabaseStmt* output_create_stmt =
@@ -2420,9 +2409,9 @@ class AnalyzerTestRunner {
   // NOTE: We currently allow giving aliases to columns that were anonymous in
   // the original ResolvedAST, but may want to change that at some point.
   bool CompareOutputColumnList(
-      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_col_list,
-      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+      absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           unparsed_col_list) {
     if (output_col_list.size() != unparsed_col_list.size()) {
       return false;
@@ -2549,11 +2538,10 @@ class AnalyzerTestRunner {
     return true;
   }
 
-  bool CompareOptionList(
-      const std::vector<std::unique_ptr<const ResolvedOption>>&
-          output_option_list,
-      const std::vector<std::unique_ptr<const ResolvedOption>>&
-          unparsed_option_list) {
+  bool CompareOptionList(absl::Span<const std::unique_ptr<const ResolvedOption>>
+                             output_option_list,
+                         absl::Span<const std::unique_ptr<const ResolvedOption>>
+                             unparsed_option_list) {
     if (output_option_list.size() != unparsed_option_list.size()) {
       return false;
     }
@@ -2623,7 +2611,7 @@ class AnalyzerTestRunner {
   }
 
   // This method is executed to populate the output of parse_locations.test.
-  void TestLiteralReplacementInGoldens(const std::string& sql,
+  void TestLiteralReplacementInGoldens(absl::string_view sql,
                                        const AnalyzerOptions& analyzer_options,
                                        const AnalyzerOutput* analyzer_output,
                                        std::string* result_string) {
@@ -2646,10 +2634,10 @@ class AnalyzerTestRunner {
                                    AnalyzerOptions options) {
     // This is used so that we only test each statement kind once.
     static std::set<ResolvedNodeKind> statement_kinds_to_be_skipped = {
-      // Skip EXPLAIN statements, which fail the below checks because they also
-      // require the explained statement kind to be supported.
-      RESOLVED_EXPLAIN_STMT
-    };
+        // Skip EXPLAIN statements, which fail the below checks because they
+        // also
+        // require the explained statement kind to be supported.
+        RESOLVED_EXPLAIN_STMT};
 
     if (zetasql_base::ContainsKey(statement_kinds_to_be_skipped, kind)) return;
 
@@ -2685,7 +2673,7 @@ class AnalyzerTestRunner {
   // fails, be sure to add the query that caused the failure to
   // parse_locations.test.
   absl::Status CheckLiteralReplacement(
-      const std::string& sql, const AnalyzerOptions& original_options,
+      absl::string_view sql, const AnalyzerOptions& original_options,
       const AnalyzerOutput* original_analyzer_output) {
     // Do not attempt literal replacement, since query parameters are disallowed
     // in all of below cases.
@@ -2765,6 +2753,31 @@ class AnalyzerTestRunner {
       // Expected failure for NULL_OF_TYPE test function, ignore.
       return absl::OkStatus();
     }
+    // Another case includes functions that require expressions with values that
+    // can be known at compile time. Parameters do not satisfy this property.
+    // Approximate distance functions are one such example. This class of
+    // functions takes an optional third argument `options` of JSON or PROTO
+    // Type, and requires that `options` is a constant expression which can
+    // be evaluated at compile-time. Since the value of parameters is known
+    // execution time, they should be excluded. Thus, an error is correctly
+    // returned if a parameter is passed to one of these functions, and we
+    // should also disable literal to parameter replacement in analyzer tests
+    // that contain such function calls.
+    if (absl::StrContains(
+            status.message(),
+            "No matching signature for function APPROX_COSINE_DISTANCE")) {
+      return absl::OkStatus();
+    }
+    if (absl::StrContains(
+            status.message(),
+            "No matching signature for function APPROX_EUCLIDEAN_DISTANCE")) {
+      return absl::OkStatus();
+    }
+    if (absl::StrContains(
+            status.message(),
+            "No matching signature for function APPROX_DOT_PRODUCT")) {
+      return absl::OkStatus();
+    }
     ZETASQL_EXPECT_OK(status) << dbg_info;
     ZETASQL_RETURN_IF_ERROR(status);
     absl::StrAppend(&dbg_info, "\n New resolved AST:\n",
@@ -2773,21 +2786,21 @@ class AnalyzerTestRunner {
     // Check the return types of old and new output.
     if (analyzer_output->resolved_statement()->node_kind() ==
         RESOLVED_QUERY_STMT) {
-      const auto& columns =
-          analyzer_output->resolved_statement()->GetAs<ResolvedQueryStmt>()
-          ->output_column_list();
-      const auto& new_columns =
-          new_analyzer_output->resolved_statement()->GetAs<ResolvedQueryStmt>()
-          ->output_column_list();
+      const auto& columns = analyzer_output->resolved_statement()
+                                ->GetAs<ResolvedQueryStmt>()
+                                ->output_column_list();
+      const auto& new_columns = new_analyzer_output->resolved_statement()
+                                    ->GetAs<ResolvedQueryStmt>()
+                                    ->output_column_list();
       EXPECT_EQ(columns.size(), new_columns.size()) << dbg_info;
       for (int i = 0; i < std::min(columns.size(), new_columns.size()); i++) {
         EXPECT_EQ(columns[i]->column().type()->DebugString(),
                   new_columns[i]->column().type()->DebugString())
-            << "\ncolumns[" << i << "]: "
-            << columns[i]->column().type()->DebugString()
-            << "\nnew_columns[" << i << "]: "
-            << new_columns[i]->column().type()->DebugString()
-            << "\n" << dbg_info;
+            << "\ncolumns[" << i
+            << "]: " << columns[i]->column().type()->DebugString()
+            << "\nnew_columns[" << i
+            << "]: " << new_columns[i]->column().type()->DebugString() << "\n"
+            << dbg_info;
       }
     }
     // Replacing literals by parameters again should not change the output nor
@@ -2854,7 +2867,7 @@ class AnalyzerTestRunner {
     }
     ABSL_CHECK(ast != nullptr)
         << "ResolvedAST passed to SQLBuilder should be either a "
-        "ResolvedStatement or a ResolvedExpr";
+           "ResolvedStatement or a ResolvedExpr";
 
     SQLBuilderWithNestedCatalogSupport builder(builder_options);
     absl::Status visitor_status = builder.Process(*ast);
@@ -2862,8 +2875,7 @@ class AnalyzerTestRunner {
     if (!visitor_status.ok()) {
       if (test_case_options_.GetBool(kAllowInternalError)) {
         EXPECT_EQ(visitor_status.code(), absl::StatusCode::kInternal)
-            << "Query cannot return internal error without "
-               "["
+            << "Query cannot return internal error without ["
             << kAllowInternalError << "] option: " << visitor_status
             << "; input_ast: " << ast->DebugString();
       } else {
@@ -2893,11 +2905,11 @@ class AnalyzerTestRunner {
                                  << builder.sql() << "\nAST to unparse:\n"
                                  << ast->DebugString();
 
-    unparsed_tree_matches_original_tree = is_statement
-        ? CompareStatement(analyzer_output->resolved_statement(),
-                           unparsed_output->resolved_statement())
-        : CompareNode(analyzer_output->resolved_expr(),
-                      unparsed_output->resolved_expr());
+    unparsed_tree_matches_original_tree =
+        is_statement ? CompareStatement(analyzer_output->resolved_statement(),
+                                        unparsed_output->resolved_statement())
+                     : CompareNode(analyzer_output->resolved_expr(),
+                                   unparsed_output->resolved_expr());
 
     std::string query;
     if (is_statement) {
@@ -2932,11 +2944,12 @@ class AnalyzerTestRunner {
           analyzer_output->resolved_statement()->DebugString(), "\n");
     }
 
-    const bool shape_matches = is_statement
-        ? CompareStatementShape(analyzer_output->resolved_statement(),
-                                unparsed_output->resolved_statement())
-        : CompareExpressionShape(analyzer_output->resolved_expr(),
-                                 unparsed_output->resolved_expr());
+    const bool shape_matches =
+        is_statement
+            ? CompareStatementShape(analyzer_output->resolved_statement(),
+                                    unparsed_output->resolved_statement())
+            : CompareExpressionShape(analyzer_output->resolved_expr(),
+                                     unparsed_output->resolved_expr());
     if (!shape_matches) {
       if (!test_case_options_.GetBool(kShowUnparsed)) {
         absl::StrAppend(result_string, "[UNPARSED_SQL]\n", query, "\n\n");
@@ -3020,8 +3033,7 @@ bool RunAllTests(TestDumperCallback callback) {
   return result;
 }
 
-class RunAnalyzerTest : public ::testing::Test {
-};
+class RunAnalyzerTest : public ::testing::Test {};
 
 TEST_F(RunAnalyzerTest, AnalyzeQueries) {
   // Run all test files that matches the pattern flag.

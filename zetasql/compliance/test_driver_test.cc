@@ -31,6 +31,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 
@@ -156,7 +157,7 @@ TEST(TestDriverTest, SerializeDeserializeTableOptions) {
   std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
   descriptor_pools.push_back(&test_pool);
   std::vector<std::unique_ptr<const AnnotationMap>> annotation_maps;
-  SCOPED_TRACE(test_db_proto.DebugString());
+  SCOPED_TRACE(absl::StrCat(test_db_proto));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       TestDatabase deserialized_db,
       DeserializeTestDatabase(test_db_proto, &type_factory, descriptor_pools,

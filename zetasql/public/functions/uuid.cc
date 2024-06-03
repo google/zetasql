@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <string>
 
+#include "zetasql/public/uuid_value.h"
 #include "absl/random/bit_gen_ref.h"
 
 namespace zetasql {
@@ -74,6 +75,21 @@ std::string GenerateUuid(absl::BitGenRef gen) {
   high = (high & 0xffffffffffffbfffULL) | 0x8000ULL;
 
   return GenerateUuid(high, low);
+}
+
+UuidValue NewUuid(absl::BitGenRef gen) {
+  uint64_t high = absl::Uniform<uint64_t>(gen);
+  uint64_t low = absl::Uniform<uint64_t>(gen);
+  // The byte format for high and low uint64_t used by V4 Uuid for string form
+  // "AAAAAAAA-BBBB-4CCC-yDDD-EEEEEEEEEEEE" is specified as:
+  //  high: AAAAAAAABBBB4CCC
+  //  low: yDDDEEEEEEEEEEEE
+  //
+  // Use bit masks to fit the pattern described in the header file into the byte
+  // format above. All of instances of ABCDE can be filled with random bits.
+  high = (high & 0xffffffffffff0fffULL) | 0x4000ULL;
+  low = (low & 0xbfffffffffffffffULL) | 0x8000000000000000ULL;
+  return UuidValue::FromPackedInt((static_cast<__int128>(high) << 64) + low);
 }
 
 }  // namespace functions

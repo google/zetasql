@@ -17,6 +17,8 @@
 #ifndef ZETASQL_ANALYZER_REWRITERS_ANONYMIZATION_REWRITER_H_
 #define ZETASQL_ANALYZER_REWRITERS_ANONYMIZATION_REWRITER_H_
 
+#include <memory>
+
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"

@@ -200,18 +200,18 @@ py_library(
         if not native.existing_rule("com_google_differential_privacy"):
             http_archive(
                 name = "com_google_differential_privacy",
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v2.1.0.tar.gz",
-                sha256 = "b2e9afb2ea9337bb7c6302545b72e938707e8cdb3558ef38ce5cdd12fe2f182c",
-                strip_prefix = "differential-privacy-2.1.0",
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v3.0.0.tar.gz",
+                sha256 = "6e6e1cd7a819695caae408f4fa938129ab7a86e83fe2410137c85e50131abbe0",
+                strip_prefix = "differential-privacy-3.0.0",
             )
 
         # Differential Privacy - cc
         if not native.existing_rule("com_google_cc_differential_privacy"):
             http_archive(
                 name = "com_google_cc_differential_privacy",
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v2.0.0.tar.gz",
-                sha256 = "db54f30a4176a07543c54932690afa5932097203cb4be357e9310f99f624886c",
-                strip_prefix = "differential-privacy-2.0.0/cc",
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v3.0.0.tar.gz",
+                sha256 = "6e6e1cd7a819695caae408f4fa938129ab7a86e83fe2410137c85e50131abbe0",
+                strip_prefix = "differential-privacy-3.0.0/cc",
             )
 
         # Boringssl

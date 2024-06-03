@@ -380,7 +380,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   }
 
  private:
-  // Copies the WITH GROUP_ROWS parameter list from the original node to the
+  // Copies the WITH GROUP ROWS parameter list from the original node to the
   // copied node. This is required, as with_group_rows_parameter_list is not a
   // constructor arg, and the only way to transfer ownership is to explicitly
   // set it after constructing the copy.

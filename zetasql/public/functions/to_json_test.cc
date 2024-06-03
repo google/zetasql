@@ -31,10 +31,12 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 

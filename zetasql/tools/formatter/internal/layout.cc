@@ -506,7 +506,16 @@ std::string FileLayout::PrintableString() const {
             previous->RequiresBlankLineAfter()) {
           absl::StrAppend(&result, options_.NewLineType());
         } else {
-          if (layout->FirstKeyword() != previous->FirstKeyword()) {
+          // This prevents adding a new line between:
+          //
+          //   $GRANT_TEAM_ACCESS(to_one_thing);
+          //   $GRANT_CLIENTS_ACCESS(to_another_thing);
+          //
+          bool both_start_with_macro =
+              absl::StartsWith(layout->FirstKeyword(), "$") &&
+              absl::StartsWith(previous->FirstKeyword(), "$");
+          if (layout->FirstKeyword() != previous->FirstKeyword() &&
+              !both_start_with_macro) {
             absl::StrAppend(&result, options_.NewLineType());
           }
         }

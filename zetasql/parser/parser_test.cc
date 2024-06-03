@@ -54,6 +54,7 @@ ABSL_FLAG(std::string, parser_benchmark_query_file, "",
           "File containing sql to run in BM_ParseQueryFromFile benchmark");
 
 ABSL_DECLARE_FLAG(bool, zetasql_parser_strip_errors);
+ABSL_DECLARE_FLAG(bool, zetasql_redact_error_messages_for_tests);
 
 namespace zetasql {
 
@@ -65,6 +66,7 @@ using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::HasSubstr;
 using ::testing::Not;
+using ::testing::proto::IgnoringProtoDebugStringFormat;
 using ::zetasql_base::testing::StatusIs;
 
 MATCHER_P(StatusHasByteOffset, byte_offset, "") {
@@ -229,12 +231,14 @@ class ParseQueryEndingWithCommentTest : public ::testing::Test {
 
   absl::Status RunNextScriptStatementTest(
       absl::string_view test_case_input,
-      std::unique_ptr<ParserOutput>* parser_output) {
+      std::unique_ptr<ParserOutput>* parser_output,
+      const LanguageOptions& language_options = {}) {
     bool at_end_of_input;
     ParseResumeLocation resume_location =
         ParseResumeLocation::FromStringView(test_case_input);
     absl::Status status = ParseNextScriptStatement(
-        &resume_location, ParserOptions(), parser_output, &at_end_of_input);
+        &resume_location, ParserOptions(language_options), parser_output,
+        &at_end_of_input);
     return status;
   }
 
@@ -244,6 +248,15 @@ class ParseQueryEndingWithCommentTest : public ::testing::Test {
     LanguageOptions language_options;
     return ParseStatementKind(
         test_case_input, language_options, &is_ctas);
+  }
+
+  ASTNodeKind RunNextStatementKindTest(
+      absl::string_view test_case_input,
+      const LanguageOptions& language_options = {}) {
+    bool is_ctas;
+    ParseResumeLocation resume_location =
+        ParseResumeLocation::FromStringView(test_case_input);
+    return ParseNextStatementKind(resume_location, language_options, &is_ctas);
   }
 
   absl::Status RunScriptTest(
@@ -504,6 +517,51 @@ TEST_F(ParseQueryEndingWithCommentTest, IncompleteStmt) {
           testing::HasSubstr("Syntax error: Unexpected end of script")));
 }
 
+TEST_F(ParseQueryEndingWithCommentTest, ScriptLabelInNextScriptStatement) {
+  std::unique_ptr<ParserOutput> parser_output;
+  LanguageOptions options;
+  options.EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
+  {
+    absl::string_view query = "L1 : BEGIN END;";
+    EXPECT_THAT(RunNextScriptStatementTest(query, &parser_output, options),
+                zetasql_base::testing::IsOk());
+  }
+  {
+    absl::string_view query = "FULL : BEGIN END;";
+    EXPECT_THAT(
+        RunNextScriptStatementTest(query, &parser_output, options),
+        zetasql_base::testing::StatusIs(
+            absl::StatusCode::kInvalidArgument,
+            testing::HasSubstr("Reserved keyword 'FULL' may not be used as a "
+                               "label name without backticks")));
+  }
+}
+
+TEST_F(ParseQueryEndingWithCommentTest, ScriptLabelInNextStatementKind) {
+  LanguageOptions options;
+  options.EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
+  {
+    absl::string_view query = "@{a=1} L1 : BEGIN END;";
+    EXPECT_EQ(RunNextStatementKindTest(query, options),
+              ASTNodeKind::AST_BEGIN_STATEMENT);
+  }
+  {
+    absl::string_view query = "@{a=1} FULL : BEGIN END;";
+    EXPECT_EQ(RunNextStatementKindTest(query, options),
+              ASTNodeKind::kUnknownASTNodeKind);
+  }
+  {
+    absl::string_view query = "@1 L1 : BEGIN END;";
+    EXPECT_EQ(RunNextStatementKindTest(query, options),
+              ASTNodeKind::AST_BEGIN_STATEMENT);
+  }
+  {
+    absl::string_view query = "@1 FULL : BEGIN END;";
+    EXPECT_EQ(RunNextStatementKindTest(query, options),
+              ASTNodeKind::kUnknownASTNodeKind);
+  }
+}
+
 TEST_F(ParseQueryEndingWithCommentTest, ParseType) {
   absl::string_view type = "int64--comment";
   std::unique_ptr<ParserOutput> parser_output;
@@ -552,6 +610,20 @@ TEST_F(ParseQueryEndingWithCommentTest, ScriptPoundCommentWithWhitespace) {
 
 static int64_t TotalNanos(const google::protobuf::Duration duration) {
   return 1000 * duration.seconds() + duration.nanos();
+}
+
+TEST_F(ParseQueryEndingWithCommentTest, StableErrorsForParseScript) {
+  constexpr absl::string_view query = "select `";
+  std::unique_ptr<ParserOutput> parser_output;
+  EXPECT_THAT(
+      RunScriptTest(query, &parser_output),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("Unclosed")));
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, true);
+  EXPECT_THAT(
+      RunScriptTest(query, &parser_output),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")));
+
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, false);
 }
 
 class LanguageOptionsMigrationTest : public ::testing::Test {};

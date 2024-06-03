@@ -19,13 +19,20 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/errors.h"
+#include "zetasql/common/internal_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/map_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -40,41 +47,204 @@ class MapFromArrayFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(kind, output_type) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);
+    const Value& array_arg = args[0];
+
+    ZETASQL_RET_CHECK(array_arg.type()->IsArray());
+    const ArrayType* array_type = array_arg.type()->AsArray();
+
+    ZETASQL_RET_CHECK(array_type->element_type()->IsStruct());
+    const StructType* struct_type = array_type->element_type()->AsStruct();
+
+    ZETASQL_RET_CHECK_EQ(struct_type->fields().size(), 2);
+    TypeFactory type_factory;
+    ZETASQL_ASSIGN_OR_RETURN(const Type* map_type,
+                     type_factory.MakeMapType(struct_type->fields()[0].type,
+                                              struct_type->fields()[1].type));
+
+    if (array_arg.is_null()) {
+      return Value::Null(map_type);
+    }
+
+    std::vector<std::pair<const Value, const Value>> map_entries;
+    map_entries.reserve(array_arg.elements().size());
+    for (const auto& struct_val : array_arg.elements()) {
+      map_entries.push_back(
+          std::make_pair(struct_val.fields()[0], struct_val.fields()[1]));
+    }
+
+    return Value::MakeMap(map_type, std::move(map_entries));
+  }
 };
 
-absl::StatusOr<Value> MapFromArrayFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 1);
-  const Value& array_arg = args[0];
+// Defines implementation for kMapEntriesSorted and kMapEntriesUnsorted. The
+// functions are nearly identical, since the internal map representation in the
+// reference implementation is always sorted. The one differentiation is that
+// the kMapEntriesUnsorted output array does not preserve order.
+class MapEntriesFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapEntriesFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);
+    const Value& map_arg = args[0];
 
-  ZETASQL_RET_CHECK(array_arg.type()->IsArray());
-  const ArrayType* array_type = array_arg.type()->AsArray();
+    ZETASQL_RET_CHECK(map_arg.type()->IsMap());
+    ZETASQL_RET_CHECK(output_type()->IsArray());
+    const ArrayType* output_array_type = output_type()->AsArray();
 
-  ZETASQL_RET_CHECK(array_type->element_type()->IsStruct());
-  const StructType* struct_type = array_type->element_type()->AsStruct();
+    ZETASQL_RET_CHECK(output_array_type->element_type()->IsStruct());
+    const StructType* output_array_struct_element_type =
+        output_array_type->element_type()->AsStruct();
+    ZETASQL_RET_CHECK(output_array_struct_element_type->fields().size() == 2);
 
-  ZETASQL_RET_CHECK_EQ(struct_type->fields().size(), 2);
-  TypeFactory type_factory;
-  ZETASQL_ASSIGN_OR_RETURN(const Type* map_type,
-                   type_factory.MakeMapType(struct_type->fields()[0].type,
-                                            struct_type->fields()[1].type));
+    if (map_arg.is_null()) {
+      return Value::Null(output_array_type);
+    }
 
-  if (array_arg.is_null()) {
-    return Value::Null(map_type);
+    std::vector<Value> struct_array_entries;
+    struct_array_entries.reserve(map_arg.num_elements());
+
+    // No additional sorting necessary, since reference impl MAP<> data is
+    // sorted.
+    for (const auto& map_val : map_arg.map_entries()) {
+      ZETASQL_ASSIGN_OR_RETURN(const Value struct_val,
+                       Value::MakeStruct(output_array_struct_element_type,
+                                         {map_val.first, map_val.second}));
+      struct_array_entries.push_back(struct_val);
+    }
+
+    // Output array has a known order if:
+    //  - the function is sorted, or
+    //  - the array's order is unambiguous because it has 0 or 1 elements.
+    InternalValue::OrderPreservationKind array_order_kind;
+    switch (kind()) {
+      case FunctionKind::kMapEntriesUnsorted:
+        array_order_kind = map_arg.num_elements() > 1
+                               ? InternalValue::kIgnoresOrder
+                               : InternalValue::kPreservesOrder;
+        break;
+      case FunctionKind::kMapEntriesSorted:
+        array_order_kind = InternalValue::kPreservesOrder;
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unknown map function kind. Expected "
+                            "kMapEntriesSorted or kMapEntriesUnsorted.";
+    }
+
+    return InternalValue::MakeArray(output_array_type, array_order_kind,
+                                    std::move(struct_array_entries));
   }
+};
 
-  std::vector<std::pair<const Value, const Value>> map_entries;
-  map_entries.reserve(array_arg.elements().size());
-  for (const auto& struct_val : array_arg.elements()) {
-    map_entries.push_back(
-        std::make_pair(struct_val.fields()[0], struct_val.fields()[1]));
-  }
-
-  return Value::MakeMap(map_type, std::move(map_entries));
+// Checks that `type` is equivalent to the key type of `map_type`.
+inline absl::Status CheckTypeEquivalentToMapKeyType(const Type* type,
+                                                    const MapType* map_type) {
+  ZETASQL_RET_CHECK(type->Equivalent(map_type->key_type()))
+      << "Map key type mismatch. Expected: "
+      << map_type->key_type()->DebugString()
+      << " but got: " << type->DebugString();
+  return absl::OkStatus();
 }
 
+// Returns the value associated with `key` in `map`. If `key` is not present,
+// return `result_if_missing`, or error if `result_if_missing` is null.
+absl::StatusOr<Value> ValueLookupImpl(
+    const Value& map, const Value& key,
+    const Value* result_if_missing = nullptr) {
+  ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+  const MapType* map_type = map.type()->AsMap();
+
+  if (map.is_null()) {
+    return Value::Null(map_type->value_type());
+  }
+
+  ZETASQL_RETURN_IF_ERROR(CheckTypeEquivalentToMapKeyType(key.type(), map_type));
+  if (result_if_missing != nullptr) {
+    ZETASQL_RET_CHECK(result_if_missing->type()->Equivalent(map_type->value_type()))
+        << "Map value type mismatch. Expected: "
+        << map_type->value_type()->DebugString()
+        << " but got: " << result_if_missing->type()->DebugString();
+  }
+
+  auto it = map.map_entries().find(key);
+  if (it != map.map_entries().end()) {
+    return it->second;
+  }
+
+  if (result_if_missing == nullptr) {
+    return MakeEvalError() << "Key not found in map: "
+                           << key.Format(/*print_top_level_type=*/false);
+  }
+  return *result_if_missing;
+}
+
+class MapGetFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapGetFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3) << args.size();
+
+    const Value& result_if_missing =
+        args.size() == 3 ? args[2] : Value::Null(output_type());
+    return ValueLookupImpl(args[0], args[1], &result_if_missing);
+  }
+};
+
+class MapSubscriptFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit MapSubscriptFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 2);
+    const Value result_if_missing = Value::Null(output_type());
+    return ValueLookupImpl(args[0], args[1], &result_if_missing);
+  }
+};
+
+class MapSubscriptWithKeyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit MapSubscriptWithKeyFunction(FunctionKind kind,
+                                       const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 2);
+    return ValueLookupImpl(args[0], args[1]);
+  }
+};
+
+class MapContainsKeyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapContainsKeyFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 2) << args.size();
+    const Value& map = args[0];
+    const Value& key = args[1];
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+    const MapType* map_type = map.type()->AsMap();
+    ZETASQL_RETURN_IF_ERROR(CheckTypeEquivalentToMapKeyType(key.type(), map_type));
+
+    return Value::Bool(map.map_entries().contains(key));
+  }
+};
 }  // namespace
 
 void RegisterBuiltinMapFunctions() {
@@ -82,6 +252,30 @@ void RegisterBuiltinMapFunctions() {
       {FunctionKind::kMapFromArray},
       [](FunctionKind kind, const Type* output_type) {
         return new MapFromArrayFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapEntriesSorted, FunctionKind::kMapEntriesUnsorted},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapEntriesFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapGet}, [](FunctionKind kind, const Type* output_type) {
+        return new MapGetFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapSubscript},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapSubscriptFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapSubscriptWithKey},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapSubscriptWithKeyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapContainsKey},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapContainsKeyFunction(kind, output_type);
       });
 }
 }  // namespace zetasql

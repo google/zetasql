@@ -673,7 +673,8 @@ class AggregateArg final : public ExprArg {
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
       std::unique_ptr<ValueExpr> filter = nullptr,
-      const std::vector<ResolvedCollation>& collation_list = {});
+      const std::vector<ResolvedCollation>& collation_list = {},
+      const VariableId& side_effects_variable = VariableId());
 
   // Sets the schemas used in CreateAccumulator/EvalAgg.
   absl::Status SetSchemasForEvaluation(
@@ -696,6 +697,10 @@ class AggregateArg final : public ExprArg {
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
+  const VariableId& side_effects_variable() const {
+    return side_effects_variable_;
+  }
+
  private:
   AggregateArg(const VariableId& variable,
                std::unique_ptr<AggregateFunctionCallExpr> function,
@@ -706,7 +711,8 @@ class AggregateArg final : public ExprArg {
                std::unique_ptr<RelationalOp> group_rows_subquery,
                ResolvedFunctionCallBase::ErrorMode error_mode,
                std::unique_ptr<ValueExpr> filter,
-               const std::vector<ResolvedCollation>& collation_list);
+               const std::vector<ResolvedCollation>& collation_list,
+               const VariableId& side_effects_variable);
 
   AggregateArg(const AggregateArg&) = delete;
   AggregateArg& operator=(const AggregateArg&) = delete;
@@ -765,6 +771,7 @@ class AggregateArg final : public ExprArg {
   std::unique_ptr<const TupleSchema> group_schema_;
   std::unique_ptr<ValueExpr> filter_;
   const std::vector<ResolvedCollation> collation_list_;
+  const VariableId side_effects_variable_;
 };
 
 // Abstract expression argument class that specifies an analytic function and
@@ -1929,6 +1936,7 @@ class ArrayScanOp final : public RelationalOp {
   // Array zipping mode using ARRAY_ZIP_MODE enum. The default is nullptr which
   // will be interpreted as "PAD".
   const ValueExpr* zip_mode_expr() const;
+  ValueExpr* mutable_zip_mode_expr();
 };
 
 // Evaluates a set of keys for each row produced by an input iterator.
@@ -2074,7 +2082,9 @@ class LoopOp final : public RelationalOp {
   static absl::StatusOr<std::unique_ptr<LoopOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> initial_assign,
       std::unique_ptr<RelationalOp> body,
-      std::vector<std::unique_ptr<ExprArg>> loop_assign);
+      std::vector<std::unique_ptr<ExprArg>> loop_assign,
+      std::unique_ptr<ValueExpr> lower_bound,
+      std::unique_ptr<ValueExpr> upper_bound);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -2109,13 +2119,20 @@ class LoopOp final : public RelationalOp {
   // <initial_assign_expr()> to be unique.
   absl::StatusOr<int> GetVariableIndexFromLoopAssignIndex(int i) const;
 
+  ValueExpr* mutable_lower_bound();
+  ValueExpr* mutable_upper_bound();
+  const ValueExpr* lower_bound() const;
+  const ValueExpr* upper_bound() const;
+
  private:
-  enum ArgKind { kInitialAssign, kBody, kLoopAssign };
+  enum ArgKind { kInitialAssign, kBody, kLoopAssign, kLowerBound, kUpperBound };
 
   LoopOp(std::vector<std::unique_ptr<ExprArg>> initial_assign,
          std::unique_ptr<RelationalOp> body,
          std::vector<std::unique_ptr<ExprArg>> loop_assign,
-         std::vector<int> loop_assign_indexes);
+         std::vector<int> loop_assign_indexes,
+         std::unique_ptr<ValueExpr> lower_bound,
+         std::unique_ptr<ValueExpr> upper_bound);
 
   // For each value in loop_assign_expr(), stores the index in
   // initial_assign_expr() of the corresponding variable being assigned to.
@@ -3294,6 +3311,41 @@ class IsErrorExpr final : public ValueExpr {
 
   const ValueExpr* try_value() const;
   ValueExpr* mutable_try_value();
+};
+
+// Operator backing $with_side_effects(). If the second argument (the side
+// effect) is not NULL, then the side effect is applied (e.g. propagate the
+// error). Otherwise, the first argument is returned.
+class WithSideEffectsExpr final : public ValueExpr {
+ public:
+  WithSideEffectsExpr(const WithSideEffectsExpr&) = delete;
+  WithSideEffectsExpr& operator=(const WithSideEffectsExpr&) = delete;
+
+  static absl::StatusOr<std::unique_ptr<WithSideEffectsExpr>> Create(
+      std::unique_ptr<ValueExpr> target_value,
+      std::unique_ptr<ValueExpr> side_effect);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kTargetValue, kSideEffect };
+
+  explicit WithSideEffectsExpr(std::unique_ptr<ValueExpr> target_value,
+                               std::unique_ptr<ValueExpr> side_effect);
+
+  const ValueExpr* target_value() const;
+  ValueExpr* mutable_target_value();
+
+  const ValueExpr* side_effect() const;
+  ValueExpr* mutable_side_effect();
 };
 
 // Operator backing TYPEOF. This can't be a "normal" function because its

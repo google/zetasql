@@ -792,7 +792,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
   | min | percentile1 | median | percentile90 | max |
   +-----+-------------+--------+--------------+-----+
   | 0   | 0.03        | 1.5    | 2.7          | 3   |
-  *-----+-------------+--------+--------------+-----+
+  *-----+-------------+--------+--------------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -811,7 +811,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
  | min  | percentile1 | median | percentile90 | max |
  +------+-------------+--------+--------------+-----+
  | NULL | 0           | 1      | 2.6          | 3   |
- *------+-------------+--------+--------------+-----+
+ *------+-------------+--------+--------------+-----*/
 ```
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md

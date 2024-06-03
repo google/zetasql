@@ -476,7 +476,7 @@ class DebugStrings {
   static String getNameForDebugString(ResolvedDeferredComputedColumn node) {
     String name =
         node.getColumn().shortDebugString()
-            + " ["
+            + " [side_effect_column="
             + ((ResolvedDeferredComputedColumn) node).getSideEffectColumn().shortDebugString()
             + "]";
 

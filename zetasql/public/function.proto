@@ -172,6 +172,13 @@ enum SignatureArgumentKind {
   // Sequence type.
   ARG_TYPE_SEQUENCE = 22;
 
+  // Templated map type with a key field and a value field. This kind allows
+  // inference of the key and value field types from the map field type, as in
+  // this expression:
+  //
+  // ARG_MAP_TYPE_ANY_1_2[KEY(ARG_TYPE_ANY_1)] -> ARG_TYPE_ANY_2
+  ARG_MAP_TYPE_ANY_1_2 = 29;
+
   __SignatureArgumentKind__switch_must_have_a_default__ = -1;
 }
 

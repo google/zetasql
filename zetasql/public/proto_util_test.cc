@@ -30,6 +30,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/token_list.h"  
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
@@ -57,6 +58,7 @@ using zetasql_test__::KitchenSinkPB;
 using zetasql_test__::Proto3KitchenSink;
 using zetasql_test__::ProtoWithIntervalField;
 using zetasql_test__::ProtoWithRangeFields;
+using zetasql_test__::ProtoWithTokenListField;
 
 using zetasql::testing::EqualsProto;
 
@@ -1089,6 +1091,18 @@ TEST(GetProtoFieldDefault, Interval) {
   ZETASQL_ASSERT_OK(GetProtoFieldDefault(options, interval_field, types::IntervalType(),
                                  &default_value));
   ASSERT_EQ(default_value.interval_value().ToString(), "0-0 0 0:0:0");
+}
+
+TEST(GetProtoFieldDefault, TokenList) {
+  ProtoWithTokenListField proto;
+  ProtoFieldDefaultOptions options;
+  const google::protobuf::FieldDescriptor* tokenlist_field =
+      proto.GetDescriptor()->FindFieldByName("tokenlist_value");
+  Value default_value;
+  ZETASQL_ASSERT_OK(GetProtoFieldDefault(options, tokenlist_field,
+                                 types::TokenListType(), &default_value));
+  ASSERT_TRUE(
+      default_value.tokenlist_value().EquivalentTo(tokens::TokenList()));
 }
 
 INSTANTIATE_TEST_SUITE_P(ReadProtoFieldsTestInstantiation, ReadProtoFieldsTest,

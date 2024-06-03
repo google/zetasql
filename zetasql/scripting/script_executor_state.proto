@@ -20,8 +20,8 @@ package zetasql;
 
 import "google/protobuf/any.proto";
 import "zetasql/proto/function.proto";
+import "zetasql/proto/script_exception.proto";
 import "zetasql/scripting/procedure_extension.proto";
-import "zetasql/scripting/script_exception.proto";
 import "zetasql/scripting/variable.proto";
 
 // Next id: 8

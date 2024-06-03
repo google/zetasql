@@ -272,7 +272,7 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
     const ASTNode* sql_function_body_location,
     const ExprResolutionInfo* expr_info, QueryResolutionInfo* query_info) {
   if (expr_info->has_aggregation) {
-    ZETASQL_RET_CHECK(query_info->group_by_columns_to_compute().empty());
+    ZETASQL_RET_CHECK(query_info->group_by_column_state_list().empty());
     ZETASQL_RET_CHECK(!query_info->aggregate_columns_to_compute().empty());
 
     // TODO: If we have an aggregate with ORDER BY inside, we normally
@@ -330,7 +330,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     absl::string_view function_name, const FunctionSignature& signature,
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
-    const std::vector<NamedArgumentInfo>& named_arguments,
+    absl::Span<const NamedArgumentInfo> named_arguments,
     int num_repeated_args_repetitions,
     bool always_include_omitted_named_arguments_in_index_mapping,
     bool show_mismatch_details,
@@ -340,30 +340,6 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
     return named_arguments[0].MakeSQLError()
            << "Named arguments are not supported";
-  }
-
-  // Build a map from all argument names in the function signature argument
-  // options to the options of the associated argument.
-  absl::flat_hash_map<absl::string_view, const FunctionArgumentTypeOptions*,
-                      zetasql_base::StringViewCaseHash,
-                      zetasql_base::StringViewCaseEqual>
-      argument_names_from_signature_options;
-  int last_arg_index_with_default = -1;
-  int last_named_arg_index = -1;
-  for (int i = 0; i < signature.arguments().size(); ++i) {
-    const FunctionArgumentType& arg_type = signature.arguments()[i];
-    if (arg_type.options().has_argument_name()) {
-      ZETASQL_RET_CHECK(argument_names_from_signature_options
-                    .try_emplace(arg_type.options().argument_name(),
-                                 &arg_type.options())
-                    .second)
-          << "Duplicate named argument " << arg_type.options().argument_name()
-          << " found in signature for function " << function_name;
-      last_named_arg_index = i;
-    }
-    if (arg_type.GetDefault().has_value()) {
-      last_arg_index_with_default = i;
-    }
   }
 
   // Make the reservation for the largest number of arguments that are possibly
@@ -378,6 +354,9 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       argument_names_to_indexes;
   int first_named_arg_index_in_call = std::numeric_limits<int>::max();
   int last_named_arg_index_in_call = -1;
+  // Sanity check that the named argument map initialization in the signature is
+  // ok.
+  ZETASQL_RETURN_IF_ERROR(signature.init_status());
   for (const auto& named_argument : named_arguments) {
     // Map the argument name to the index in which it appears in the function
     // call. If the name already exists in the map, this is a duplicate named
@@ -390,7 +369,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
              << " found in call to function " << function_name;
     }
     // Make sure the provided argument name exists in the function signature.
-    if (!argument_names_from_signature_options.contains(provided_arg_name)) {
+    if (!signature.HasNamedArgument(provided_arg_name)) {
       if (show_mismatch_details) {
         return absl::StrCat("Named argument ",
                             ToAlwaysQuotedIdentifierLiteral(provided_arg_name),
@@ -405,7 +384,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     }
     // Make sure the argument name is allowed in function calls.
     const FunctionArgumentTypeOptions* argument_options =
-        argument_names_from_signature_options[provided_arg_name];
+        signature.FindNamedArgumentOptions(provided_arg_name);
     ZETASQL_RET_CHECK(argument_options != nullptr);
     if (argument_options->named_argument_kind() == kPositionalOnly) {
       if (show_mismatch_details) {
@@ -511,9 +490,9 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       if (call_arg_index < num_provided_args) {
         index_mapping->push_back({.signature_arg_index = sig_index,
                                   .call_arg_index = call_arg_index++});
-      } else if (sig_index <= last_arg_index_with_default ||
+      } else if (sig_index <= signature.last_arg_index_with_default() ||
                  (always_include_omitted_named_arguments_in_index_mapping &&
-                  sig_index <= last_named_arg_index)) {
+                  sig_index <= signature.last_named_arg_index())) {
         // If the current argument was omitted but it or an argument after it
         // has a default value in function signature, then add an entry to the
         // index_mapping.
@@ -564,7 +543,7 @@ FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       if (arg_type.optional() &&
           (always_include_omitted_named_arguments_in_index_mapping ||
            !named_arguments.empty() ||
-           sig_index <= last_arg_index_with_default)) {
+           sig_index <= signature.last_arg_index_with_default())) {
         index_mapping->push_back(
             {.signature_arg_index = sig_index, .call_arg_index = -1});
       }
@@ -909,6 +888,26 @@ FunctionResolver::FindMatchingSignature(
       }
       continue;
     }
+
+    // Prioritize named argument not found error, which is better than a general
+    // "argument count does not match".
+    if (show_mismatch_details && !named_arguments.empty()) {
+      bool error_found = false;
+      for (const NamedArgumentInfo& named_argument : named_arguments) {
+        absl::string_view name = named_argument.name().ToStringView();
+        if (!signature.HasNamedArgument(name)) {
+          mismatch_errors->push_back(absl::StrCat(
+              "Named argument ", ToAlwaysQuotedIdentifierLiteral(name),
+              " does not exist in signature"));
+          error_found = true;
+          break;
+        }
+      }
+      if (error_found) {
+        continue;
+      }
+    }
+
     SignatureMatchResult signature_match_result;
     signature_match_result.set_allow_mismatch_message(mismatch_errors !=
                                                       nullptr);
@@ -2004,112 +2003,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       continue;
     }
     ABSL_DCHECK(arguments[idx] != nullptr);
-
-    if (concrete_argument.options().must_support_equality() &&
-        !concrete_argument.type()->SupportsEquality(resolver_->language())) {
-      return MakeSqlErrorAt(arg_locations[idx])
-             << BadArgErrorPrefix(idx) << " must support equality; Type "
-             << concrete_argument.type()->ShortTypeName(product_mode)
-             << " does not";
-    }
-    if (concrete_argument.options().must_support_ordering() &&
-        !concrete_argument.type()->SupportsOrdering(
-            resolver_->language(), /*type_description=*/nullptr)) {
-      return MakeSqlErrorAt(arg_locations[idx])
-             << BadArgErrorPrefix(idx) << " must support ordering; Type "
-             << concrete_argument.type()->ShortTypeName(product_mode)
-             << " does not";
-    }
-    if (concrete_argument.options().must_support_grouping() &&
-        !concrete_argument.type()->SupportsGrouping(resolver_->language())) {
-      return MakeSqlErrorAt(arg_locations[idx])
-             << BadArgErrorPrefix(idx) << " must support grouping; Type "
-             << concrete_argument.type()->ShortTypeName(product_mode)
-             << " does not";
-    }
-
-    // Constraint which requires argument type to be array type and its element
-    // type to support comparison (ordering, grouping, or equality).
-    if (concrete_argument.options().array_element_must_support_equality()) {
-      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
-          << BadArgErrorPrefix(idx)
-          << " must be array type with element type that supports "
-             "equality. Type "
-          << concrete_argument.type()->ShortTypeName(product_mode)
-          << " is not an array type";
-      const ArrayType* array_type = concrete_argument.type()->AsArray();
-      ZETASQL_RET_CHECK_NE(array_type, nullptr);
-      if (!array_type->element_type()->SupportsEquality(
-              resolver_->language())) {
-        return MakeSqlErrorAt(ast_location)
-               << function->SQLName() << " cannot be used on argument of type "
-               << array_type->ShortTypeName(product_mode)
-               << " because the array's element type does not support equality";
-      }
-    }
-    if (concrete_argument.options().array_element_must_support_ordering()) {
-      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
-          << BadArgErrorPrefix(idx)
-          << " must be array type with element type that supports "
-             "ordering. Type "
-          << concrete_argument.type()->ShortTypeName(product_mode)
-          << " is not an array type";
-
-      const ArrayType* array_type = concrete_argument.type()->AsArray();
-      ZETASQL_RET_CHECK_NE(array_type, nullptr);
-      if (!array_type->element_type()->SupportsOrdering(
-              resolver_->language(), /*type_description=*/nullptr)) {
-        return MakeSqlErrorAt(ast_location)
-               << function->SQLName() << " cannot be used on argument of type "
-               << array_type->ShortTypeName(product_mode)
-               << " because the array's element type does not support ordering";
-      }
-    }
-    if (concrete_argument.options().array_element_must_support_grouping()) {
-      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
-          << BadArgErrorPrefix(idx)
-          << " must be array type with element type that supports "
-             "grouping. Type "
-          << concrete_argument.type()->ShortTypeName(product_mode)
-          << " is not an array type";
-
-      const ArrayType* array_type = concrete_argument.type()->AsArray();
-      ZETASQL_RET_CHECK_NE(array_type, nullptr);
-      if (!array_type->element_type()->SupportsGrouping(
-              resolver_->language())) {
-        return MakeSqlErrorAt(ast_location)
-               << function->SQLName() << " cannot be used on argument of type "
-               << array_type->ShortTypeName(product_mode)
-               << " because the array's element type does not support grouping";
-      }
-    }
-
-    if (concrete_argument.must_be_constant_expression()) {
-      ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
-                       IsConstantExpression(arguments[idx].get()));
-      if (!arg_is_constant_expr) {
-        return MakeSqlErrorAt(arg_locations[idx])
-               << BadArgErrorPrefix(idx) << " must be a constant expression";
-      }
-    }
-
-    bool satisfies_non_aggregate_requirement = true;
-    if (concrete_argument.options().is_not_aggregate()) {
-      ZETASQL_ASSIGN_OR_RETURN(satisfies_non_aggregate_requirement,
-                       IsNonAggregateFunctionArg(arguments[idx].get()));
-    }
-    bool satisfies_constant_requirement = true;
-    if (concrete_argument.must_be_constant()) {
-      ZETASQL_ASSIGN_OR_RETURN(satisfies_constant_requirement,
-                       IsConstantFunctionArg(arguments[idx].get()));
-    }
-    // TODO: b/323602106 - Improve correctness of error message
-    if (!satisfies_constant_requirement ||
-        !satisfies_non_aggregate_requirement) {
-      return MakeSqlErrorAt(arg_locations[idx])
-             << BadArgErrorPrefix(idx)
-             << " must be a literal or query parameter";
-    }
+    ZETASQL_RETURN_IF_ERROR(CheckArgumentConstraints(
+        ast_location, function->SQLName(), /*is_tvf=*/false, arg_locations[idx],
+        idx, concrete_argument, arguments[idx].get(), BadArgErrorPrefix));
 
     const Type* target_type = concrete_argument.type();
     if (!(arguments[idx])->type()->Equals(target_type)) {
@@ -2127,8 +2023,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       input_argument_types[idx] = GetInputArgumentTypeForExpr(
           arguments[idx].get(),
           /*pick_default_type_for_untyped_expr=*/
-          resolver_->language().LanguageFeatureEnabled(
-              FEATURE_TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS));
+          function->Is<TemplatedSQLFunction>() &&
+              resolver_->language().LanguageFeatureEnabled(
+                  FEATURE_TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS));
     }
 
     // If we have a literal argument value, check it against the value
@@ -2495,14 +2392,13 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   auto query_resolution_info =
       std::make_unique<QueryResolutionInfo>(resolver.get());
   auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
-      &empty_name_scope, &empty_name_scope, &empty_name_scope,
-      /*allows_aggregation_in=*/function.IsAggregate(),
-      /*allows_analytic_in=*/false,
-      /*use_post_grouping_columns_in=*/false,
-      /*clause_name_in=*/function.IsAggregate()
-          ? "templated SQL aggregate function call"
-          : "templated SQL function call",
-      query_resolution_info.get());
+      query_resolution_info.get(), &empty_name_scope,
+      ExprResolutionInfoOptions{
+          .allows_aggregation = function.IsAggregate(),
+          .allows_analytic = false,
+          .clause_name = function.IsAggregate()
+                             ? "templated SQL aggregate function call"
+                             : "templated SQL function call"});
 
   std::unique_ptr<const ResolvedExpr> resolved_sql_body;
   ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
@@ -2553,9 +2449,21 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     }
   }
 
+  auto aggregate_base_columns =
+      query_resolution_info->release_aggregate_columns_to_compute();
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> aggregate_columns;
+  aggregate_columns.reserve(aggregate_base_columns.size());
+  for (auto& column : aggregate_base_columns) {
+    if (!column->Is<ResolvedComputedColumn>()) {
+      // TODO: support conditional evaluation for UDAs.
+      return MakeSqlErrorAt(ast_location)
+             << "Conditional evaluation is not yet supported for UDAs.";
+    }
+    aggregate_columns.push_back(absl::WrapUnique(
+        static_cast<const ResolvedComputedColumn*>(column.release())));
+  }
   function_call_info_out->reset(new TemplatedSQLFunctionCall(
-      std::move(resolved_sql_body),
-      query_resolution_info->release_aggregate_columns_to_compute()));
+      std::move(resolved_sql_body), std::move(aggregate_columns)));
 
   return absl::OkStatus();
 }
@@ -2596,6 +2504,125 @@ absl::Status CheckRange(
   return absl::OkStatus();
 }
 }  // namespace
+
+absl::Status FunctionResolver::CheckArgumentConstraints(
+    const ASTNode* function_location, absl::string_view function_name,
+    bool is_tvf, const ASTNode* arg_location, int idx,
+    const FunctionArgumentType& concrete_argument, const ResolvedExpr* arg_expr,
+    const std::function<std::string(int)>& BadArgErrorPrefix) const {
+  ZETASQL_RET_CHECK(concrete_argument.IsConcrete());
+  const FunctionArgumentTypeOptions& options = concrete_argument.options();
+  const LanguageOptions& language_options = resolver_->language();
+  const ProductMode product_mode = resolver_->product_mode();
+  if (options.must_support_equality() &&
+      !concrete_argument.type()->SupportsEquality(language_options)) {
+    return MakeSqlErrorAt(arg_location)
+           << BadArgErrorPrefix(idx) << " must support equality; Type "
+           << concrete_argument.type()->ShortTypeName(product_mode)
+           << " does not";
+  }
+  if (options.must_support_ordering() &&
+      !concrete_argument.type()->SupportsOrdering(
+          language_options, /*type_description=*/nullptr)) {
+    return MakeSqlErrorAt(arg_location)
+           << BadArgErrorPrefix(idx) << " must support ordering; Type "
+           << concrete_argument.type()->ShortTypeName(product_mode)
+           << " does not";
+  }
+  if (options.must_support_grouping() &&
+      !concrete_argument.type()->SupportsGrouping(language_options)) {
+    return MakeSqlErrorAt(arg_location)
+           << BadArgErrorPrefix(idx) << " must support grouping; Type "
+           << concrete_argument.type()->ShortTypeName(product_mode)
+           << " does not";
+  }
+
+  auto get_function_display_name = [function_name, is_tvf]() {
+    return absl::StrCat(is_tvf ? "Table-valued function " : "", function_name);
+  };
+
+  // Constraint which requires argument type to be array type and its element
+  // type to support comparison (ordering, grouping, or equality).
+  if (options.array_element_must_support_equality()) {
+    ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+        << BadArgErrorPrefix(idx)
+        << " must be array type with element type that supports "
+           "equality. Type "
+        << concrete_argument.type()->ShortTypeName(product_mode)
+        << " is not an array type";
+    const ArrayType* array_type = concrete_argument.type()->AsArray();
+    ZETASQL_RET_CHECK_NE(array_type, nullptr);
+    if (!array_type->element_type()->SupportsEquality(language_options)) {
+      return MakeSqlErrorAt(function_location)
+             << get_function_display_name()
+             << " cannot be used on argument of type "
+             << array_type->ShortTypeName(product_mode)
+             << " because the array's element type does not support equality";
+    }
+  }
+  if (options.array_element_must_support_ordering()) {
+    ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+        << BadArgErrorPrefix(idx)
+        << " must be array type with element type that supports "
+           "ordering. Type "
+        << concrete_argument.type()->ShortTypeName(product_mode)
+        << " is not an array type";
+
+    const ArrayType* array_type = concrete_argument.type()->AsArray();
+    ZETASQL_RET_CHECK_NE(array_type, nullptr);
+    if (!array_type->element_type()->SupportsOrdering(
+            language_options, /*type_description=*/nullptr)) {
+      return MakeSqlErrorAt(function_location)
+             << get_function_display_name()
+             << " cannot be used on argument of type "
+             << array_type->ShortTypeName(product_mode)
+             << " because the array's element type does not support ordering";
+    }
+  }
+  if (options.array_element_must_support_grouping()) {
+    ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+        << BadArgErrorPrefix(idx)
+        << " must be array type with element type that supports "
+           "grouping. Type "
+        << concrete_argument.type()->ShortTypeName(product_mode)
+        << " is not an array type";
+
+    const ArrayType* array_type = concrete_argument.type()->AsArray();
+    ZETASQL_RET_CHECK_NE(array_type, nullptr);
+    if (!array_type->element_type()->SupportsGrouping(language_options)) {
+      return MakeSqlErrorAt(function_location)
+             << get_function_display_name()
+             << " cannot be used on argument of type "
+             << array_type->ShortTypeName(product_mode)
+             << " because the array's element type does not support grouping";
+    }
+  }
+
+  if (concrete_argument.must_be_constant_expression()) {
+    ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr, IsConstantExpression(arg_expr));
+    if (!arg_is_constant_expr) {
+      return MakeSqlErrorAt(arg_location)
+             << BadArgErrorPrefix(idx) << " must be a constant expression";
+    }
+  }
+
+  bool satisfies_non_aggregate_requirement = true;
+  if (options.is_not_aggregate()) {
+    ZETASQL_ASSIGN_OR_RETURN(satisfies_non_aggregate_requirement,
+                     IsNonAggregateFunctionArg(arg_expr));
+  }
+  bool satisfies_constant_requirement = true;
+  if (concrete_argument.must_be_constant()) {
+    ZETASQL_ASSIGN_OR_RETURN(satisfies_constant_requirement,
+                     IsConstantFunctionArg(arg_expr));
+  }
+  // TODO: b/323602106 - Improve correctness of error message
+  if (!satisfies_constant_requirement || !satisfies_non_aggregate_requirement) {
+    return MakeSqlErrorAt(arg_location)
+           << BadArgErrorPrefix(idx) << " must be a literal or query parameter";
+  }
+  return absl::OkStatus();
+}
 
 absl::Status FunctionResolver::CheckArgumentValueConstraints(
     const ASTNode* arg_location, int idx, const Value& value,

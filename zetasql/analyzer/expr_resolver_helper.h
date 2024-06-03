@@ -18,6 +18,7 @@
 #define ZETASQL_ANALYZER_EXPR_RESOLVER_HELPER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -150,18 +151,82 @@ class FlattenState {
   ResolvedFlatten* active_flatten_ = nullptr;
 };
 
+// These are options for field values that can be overridden when constructing
+// an initial ExprResolutionInfo, or creating a child ExprResolutionInfo
+// with these fields overridden.
+// Default values here indicate no-change. The class below has the field
+// defaults.
+struct ExprResolutionInfoOptions {
+  // Normally, when creating a child ExprResolutionInfo, name_scope is
+  // only allowed to be overridden to the value of the parent's
+  // `aggregate_name_scope` or `analytic_name_scope`, and those scopes cannot
+  // be changed.  Unusual cases where setting brand new scopes is required are
+  // supported if this is set to true.
+  bool allow_new_scopes = false;
+
+  // When constructing a new ExprResolutionInfo without a parent, set this
+  // in the constructor arg rather than by using options.
+  // For ExprResolutionInfo derived from a parent, these update the name scopes.
+  // Normally, the only allowed update is to replace `name_scope` with
+  // the parent's `aggregate_name_scope` or `analytic_name_scope`.
+  const NameScope* name_scope = nullptr;
+  const NameScope* aggregate_name_scope = nullptr;
+  const NameScope* analytic_name_scope = nullptr;
+
+  std::optional<bool> allows_aggregation;
+  std::optional<bool> allows_analytic;
+
+  std::optional<bool> use_post_grouping_columns;
+
+  const char* clause_name = nullptr;
+
+  // These two should only be set together.
+  const ASTExpression* top_level_ast_expr = nullptr;
+  IdString column_alias = IdString();
+};
+
 // This contains common info needed to resolve and validate an expression.
 // It includes both the constant info describing what is allowed while
 // resolving the expression and mutable info that returns what it actually
 // has. It is passed recursively down through all expressions.
 struct ExprResolutionInfo {
-  // Construct an ExprResolutionInfo with given resolution context and
-  // constraints.  Takes a <name_scope_in> that is used to resolve the
-  // expression against, and an <aggregate_name_scope_in> that is used
-  // to resolve any expression that is an aggregate function argument, and
-  // likewise <analytic_name_scope_in> with analytic function arguments. Does
-  // not take ownership of <select_column_state_list_in>,
-  // <query_resolution_info_in>, or <top_level_ast_expr_in>.
+  // Generic constructor for any unusual combinations of options.
+  ExprResolutionInfo(const NameScope* name_scope_in,
+                     ExprResolutionInfoOptions options);
+
+  // Construct a simple ExprResolutionInfo for resolving scalar expressions.
+  // Aggregation and window functions are not allowed.
+  // `clause_name_in` will be used in error messages.
+  ExprResolutionInfo(const NameScope* name_scope_in,
+                     const char* clause_name_in);
+
+  // Construct an ExprResolutionInfo for expressions in
+  // `query_resolution_info`, setting the initial NameScope.
+  // Everything else gets defaults other than what's set in `options`.
+  ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
+                     const NameScope* name_scope_in);
+  ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
+                     const NameScope* name_scope_in,
+                     ExprResolutionInfoOptions options);
+  // This constructor allows setting alternate aggregate and analytic scopes.
+  ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
+                     const NameScope* name_scope_in,
+                     const NameScope* aggregate_name_scope_in,
+                     const NameScope* analyic_name_scope_in,
+                     ExprResolutionInfoOptions options);
+
+  // Construct an ExprResolutionInfo inheriting default options from
+  // a parent expression, with overrides in `options`.
+  // has_aggregation and has_analytic will be updated in parent on destruction.
+  explicit ExprResolutionInfo(ExprResolutionInfo* parent);
+  explicit ExprResolutionInfo(ExprResolutionInfo* parent,
+                              ExprResolutionInfoOptions options);
+
+  // Construct an ExprResolutionInfo with this common set of args, used
+  // for resolving clauses in many places is resolver_query.cc.
+  // We have this shorthand rather than using the Options object because
+  // this exact set of options is very common.
+  // Prefer using Options rather than adding more optional args here.
   ExprResolutionInfo(const NameScope* name_scope_in,
                      const NameScope* aggregate_name_scope_in,
                      const NameScope* analytic_name_scope_in,
@@ -172,6 +237,11 @@ struct ExprResolutionInfo {
                      const ASTExpression* top_level_ast_expr_in = nullptr,
                      IdString column_alias_in = IdString());
 
+  // TODO This constructor is bad and should be removed.
+  // It's too subtle that landing on this constructor with the args in this
+  // particular order results in different implicit behavior for
+  // allows_analytic, allows_aggregation, etc.
+  //
   // Construct an ExprResolutionInfo that allows analytic expressions.
   // Aggregation is allowed unless <clause_name_in> is passed in.
   // Does not take ownership of <query_resolution_info_in>.
@@ -183,26 +253,6 @@ struct ExprResolutionInfo {
                      const ASTExpression* top_level_ast_expr_in = nullptr,
                      IdString column_alias_in = IdString(),
                      const char* clause_name_in = nullptr);
-
-  // Construct an ExprResolutionInfo that disallows aggregation and analytic
-  // expressions.
-  ExprResolutionInfo(const NameScope* name_scope_in,
-                     const char* clause_name_in);
-
-  // Construct an ExprResolutionInfo that initializes itself from another
-  // ExprResolutionInfo.
-  // has_aggregation and has_analytic will be updated in parent on destruction.
-  // can_flatten does not propagate.
-  // Does not take ownership of <parent>.
-  explicit ExprResolutionInfo(ExprResolutionInfo* parent);
-
-  // Construct an ExprResolutionInfo that initializes itself from another
-  // ExprResolutionInfo, overriding <name_scope>, <clause_name>, and
-  // <allows_analytic>.
-  // has_aggregation and has_analytic will be updated in parent on destruction.
-  // Does not take ownership of <parent>. <can_flatten> does not propagate.
-  ExprResolutionInfo(ExprResolutionInfo* parent, const NameScope* name_scope_in,
-                     const char* clause_name_in, bool allows_analytic_in);
 
   ExprResolutionInfo(const ExprResolutionInfo&) = delete;
   ExprResolutionInfo& operator=(const ExprResolutionInfo&) = delete;
@@ -221,22 +271,22 @@ struct ExprResolutionInfo {
 
   ExprResolutionInfo* const parent = nullptr;
 
-  // NameScope to use while resolving this expression.
+  // NameScope to use while resolving this expression.  Never NULL.
   const NameScope* const name_scope = nullptr;
 
   // NameScope to use while resolving any aggregate function arguments that
-  // are in this expression.
+  // are in this expression.  Never NULL.
   const NameScope* const aggregate_name_scope = nullptr;
 
   // NameScope to use while resolving any analytic function arguments that
-  // are in this expression.
+  // are in this expression.  Never NULL.
   const NameScope* const analytic_name_scope = nullptr;
 
   // Indicates whether this expression allows aggregations.
-  const bool allows_aggregation;
+  const bool allows_aggregation = false;
 
   // Indicates whether this expression allows analytic functions.
-  const bool allows_analytic;
+  const bool allows_analytic = false;
 
   // <clause_name> is used to generate an error saying aggregation/analytic
   // functions are not allowed in this clause, e.g. "WHERE clause".  It is
@@ -249,15 +299,13 @@ struct ExprResolutionInfo {
   // query's ORDER BY clause).
   const char* const clause_name = "";
 
-  // Mutable info.
-
   // Must be non-NULL if <allows_aggregation> or <allows_analytic>.
   // If non-NULL, <query_resolution_info> gets updated during expression
   // resolution with aggregate and analytic function information present
   // in the expression.  It is unused if aggregate and analytic functions
   // are not allowed in the expression.
   // Not owned.
-  QueryResolutionInfo* const query_resolution_info;
+  QueryResolutionInfo* const query_resolution_info = nullptr;
 
   // True if this expression contains an aggregation function.
   bool has_aggregation = false;
@@ -271,7 +319,7 @@ struct ExprResolutionInfo {
   // True if this expression should be resolved against post-grouping
   // columns.  Gets set to false when resolving arguments of aggregation
   // functions.
-  bool use_post_grouping_columns = false;
+  const bool use_post_grouping_columns = false;
 
   // The top-level AST expression being resolved in the current context. This
   // field is set only when resolving SELECT columns. Not owned.

@@ -21,26 +21,26 @@ order by afn_agg() over (partition by `bool`,
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#25 AS `$col1` [INT64]
+| +-$query.$col1#26 AS `$col1` [INT64]
 +-query=
   +-OrderByScan
-    +-column_list=[$query.$col1#25]
+    +-column_list=[$query.$col1#26]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AnalyticScan
-    |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20, $query.$col1#25, $analytic.$analytic1#26]
+    |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21, $query.$col1#26, $analytic.$analytic1#27]
     |   +-input_scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20, $query.$col1#25]
+    |   |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21, $query.$col1#26]
     |   |   +-expr_list=
-    |   |   | +-$col1#25 := Literal(type=INT64, value=1)
+    |   |   | +-$col1#26 := Literal(type=INT64, value=1)
     |   |   +-input_scan=
     |   |     +-JoinScan
-    |   |       +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20]
+    |   |       +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21]
     |   |       +-left_scan=
     |   |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, date#10, timestamp#15], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 9, 14])
     |   |       +-right_scan=
-    |   |         +-TableScan(column_list=[ComplexTypes.TestEnum#20], table=ComplexTypes, column_index_list=[1])
+    |   |         +-TableScan(column_list=[ComplexTypes.TestEnum#21], table=ComplexTypes, column_index_list=[1])
     |   +-function_group_list=
     |     +-AnalyticFunctionGroup
     |       +-partition_by=
@@ -55,9 +55,9 @@ QueryStmt
     |       |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
     |       |     +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
     |       |     +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-    |       |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
+    |       |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#21)
     |       +-analytic_function_list=
-    |         +-$analytic1#26 :=
+    |         +-$analytic1#27 :=
     |           +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
     |             +-window_frame=
     |               +-WindowFrame(frame_unit=ROWS)
@@ -68,7 +68,7 @@ QueryStmt
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$analytic.$analytic1#26)
+          +-ColumnRef(type=INT64, column=$analytic.$analytic1#27)
 ==
 
 Select 1
@@ -182,26 +182,26 @@ order by afn_agg() over (order by `bool`,
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#25 AS `$col1` [INT64]
+| +-$query.$col1#26 AS `$col1` [INT64]
 +-query=
   +-OrderByScan
-    +-column_list=[$query.$col1#25]
+    +-column_list=[$query.$col1#26]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AnalyticScan
-    |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20, $query.$col1#25, $analytic.$analytic1#26]
+    |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21, $query.$col1#26, $analytic.$analytic1#27]
     |   +-input_scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20, $query.$col1#25]
+    |   |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21, $query.$col1#26]
     |   |   +-expr_list=
-    |   |   | +-$col1#25 := Literal(type=INT64, value=1)
+    |   |   | +-$col1#26 := Literal(type=INT64, value=1)
     |   |   +-input_scan=
     |   |     +-JoinScan
-    |   |       +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20]
+    |   |       +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21]
     |   |       +-left_scan=
     |   |       | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14])
     |   |       +-right_scan=
-    |   |         +-TableScan(column_list=[ComplexTypes.TestEnum#20], table=ComplexTypes, column_index_list=[1])
+    |   |         +-TableScan(column_list=[ComplexTypes.TestEnum#21], table=ComplexTypes, column_index_list=[1])
     |   +-function_group_list=
     |     +-AnalyticFunctionGroup
     |       +-order_by=
@@ -242,9 +242,9 @@ QueryStmt
     |       |     |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
     |       |     +-OrderByItem
     |       |       +-column_ref=
-    |       |         +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
+    |       |         +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#21)
     |       +-analytic_function_list=
-    |         +-$analytic1#26 :=
+    |         +-$analytic1#27 :=
     |           +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
     |             +-window_frame=
     |               +-WindowFrame(frame_unit=RANGE)
@@ -255,7 +255,7 @@ QueryStmt
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT64, column=$analytic.$analytic1#26)
+          +-ColumnRef(type=INT64, column=$analytic.$analytic1#27)
 ==
 
 [language_features=ANALYTIC_FUNCTIONS{{|,V_1_3_ARRAY_ORDERING}}]

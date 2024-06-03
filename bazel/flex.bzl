@@ -121,7 +121,6 @@ genlex = rule(
         FLEX_TOOLCHAIN_TYPE,
         M4_TOOLCHAIN_TYPE,
     ],
-    output_to_genfiles = True,
 )
 
 def _flex_header(ctx):
@@ -136,7 +135,6 @@ def _flex_header(ctx):
 
 flex_header = rule(
     implementation = _flex_header,
-    output_to_genfiles = True,
     toolchains = [
         FLEX_TOOLCHAIN_TYPE,
         M4_TOOLCHAIN_TYPE,

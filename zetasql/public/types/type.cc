@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -47,7 +48,6 @@
 #include "zetasql/public/value_content.h"
 #include "absl/base/macros.h"
 #include "absl/base/optimization.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -62,7 +62,8 @@ namespace zetasql {
 
 namespace {
 struct TypeKindInfo {
-  const char* const name;
+  // Nonexisting type kinds have NULL name pointer.
+  const char* name = nullptr;
 
   // This is used to determine the cost of coercing from one type to another,
   // computed as the difference in the two type values.  Note that this is
@@ -72,99 +73,225 @@ struct TypeKindInfo {
   // rather than any of the legacy timestamp types (TIMESTAMP_MICROS, etc.).
   // Date/time related types can only be coerced from STRING, we prefer coercing
   // from STRING to the closest of these date/time types before coercing to
-  // date/time types that are earlier in the list.
-  const int cost;
+  // date/time types that are earlier in the list. When
+  // FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, STRING
+  // literals can also coerce to BYTES, at a lower precedence than to other
+  // related types.
+  int cost = 0;
 
   // Type specificity is used for Supertype analysis.  To evaluate the
   // Supertype of multiple types, we get the sets of supertypes associated
   // with each type, and the common supertype is the most specific type
   // in their intersection.
-  const int specificity;
+  int specificity = 0;
 
-  const bool simple;
+  bool simple = false;
 };
-}  // namespace
 
-static const auto& GetTypeKindInfoMap() {
+using TypeKindInfoList = std::array<TypeKindInfo, TYPE_UUID + 1>;
+constexpr TypeKindInfoList MakeTypeKindInfoList() {
+  TypeKindInfoList kinds = {};
+
   // None of the built-in type names/aliases should start with "[a-zA-Z]_",
   // which is reserved for user-defined objects.
-  static const auto& kTypeKindInfo =
-      *new absl::flat_hash_map<TypeKind, TypeKindInfo>({
-          // clang-format off
-          // {TYPE_KIND,
-          // { name,            cost, specificity,  simple }},
-          {TYPE_UNKNOWN,
-           {"UNKNOWN",             0,           0,   false }},
-          {TYPE_INT32,
-           {"INT32",              12,          12,    true }},
-          {TYPE_INT64,
-           {"INT64",              14,          14,    true }},
-          {TYPE_UINT32,
-           {"UINT32",             11,          11,    true }},
-          {TYPE_UINT64,
-           {"UINT64",             13,          13,    true }},
-          {TYPE_BOOL,
-           {"BOOL",               10,          10,    true }},
-          {TYPE_FLOAT,
-           {"FLOAT",              18,          17,    true }},
-          {TYPE_DOUBLE,
-           {"DOUBLE",             17,          18,    true }},
-          {TYPE_STRING,
-           {"STRING",             19,          19,    true }},
-          {TYPE_BYTES,
-           {"BYTES",              20,          20,    true }},
-          {TYPE_DATE,
-           {"DATE",                9,           7,    true }},
-          {TYPE_ENUM,
-           {"ENUM",                1,           1,   false }},
-          {TYPE_ARRAY,
-           {"ARRAY",              23,          23,   false }},
-          {TYPE_STRUCT,
-           {"STRUCT",             22,          22,   false }},
-          {TYPE_PROTO,
-           {"PROTO",              21,          21,   false }},
-          {TYPE_TIMESTAMP,
-           {"TIMESTAMP",           8,           2,    true }},
-          {TYPE_TIME,
-           {"TIME",                2,           8,    true }},
-          {TYPE_DATETIME,
-           {"DATETIME",            3,           9,    true }},
-          {TYPE_GEOGRAPHY,
-           {"GEOGRAPHY",          24,          24,    true }},
-          {TYPE_NUMERIC,
-           {"NUMERIC",            15,          15,    true }},
-          {TYPE_BIGNUMERIC,
-           {"BIGNUMERIC",         16,          16,    true }},
-          {TYPE_EXTENDED,
-           {"EXTENDED",           25,          25,   false }},
-          {TYPE_JSON,
-           {"JSON",               26,          26,    true }},
-          {TYPE_INTERVAL,
-           {"INTERVAL",           27,          27,    true }},
-          {TYPE_TOKENLIST,
-           {"TOKENLIST",          28,          28,    true }},
-          {TYPE_RANGE,
-           {"RANGE",              29,          29,   false }},
-          {TYPE_MAP,
-           {"MAP",                31,          31,   false }},
-          // clang-format on
-          // When a new entry is added here, update
-          // TypeTest::VerifyCostAndSpecificity.
-      });
-  return kTypeKindInfo;
+  kinds[TYPE_UNKNOWN] = {
+      .name = "UNKNOWN",
+      .cost = 0,
+      .specificity = 0,
+      .simple = false,
+  };
+  kinds[TYPE_INT32] = {
+      .name = "INT32",
+      .cost = 12,
+      .specificity = 12,
+      .simple = true,
+  };
+  kinds[TYPE_INT64] = {
+      .name = "INT64",
+      .cost = 14,
+      .specificity = 14,
+      .simple = true,
+  };
+  kinds[TYPE_UINT32] = {
+      .name = "UINT32",
+      .cost = 11,
+      .specificity = 11,
+      .simple = true,
+  };
+  kinds[TYPE_UINT64] = {
+      .name = "UINT64",
+      .cost = 13,
+      .specificity = 13,
+      .simple = true,
+  };
+  kinds[TYPE_BOOL] = {
+      .name = "BOOL",
+      .cost = 10,
+      .specificity = 10,
+      .simple = true,
+  };
+  kinds[TYPE_FLOAT] = {
+      .name = "FLOAT",
+      .cost = 18,
+      .specificity = 17,
+      .simple = true,
+  };
+  kinds[TYPE_DOUBLE] = {
+      .name = "DOUBLE",
+      .cost = 17,
+      .specificity = 18,
+      .simple = true,
+  };
+  kinds[TYPE_STRING] = {
+      .name = "STRING",
+      .cost = 19,
+      .specificity = 19,
+      .simple = true,
+  };
+  kinds[TYPE_BYTES] = {
+      .name = "BYTES",
+      .cost = 38,
+      .specificity = 20,
+      .simple = true,
+  };
+  kinds[TYPE_DATE] = {
+      .name = "DATE",
+      .cost = 9,
+      .specificity = 7,
+      .simple = true,
+  };
+
+  kinds[TYPE_ENUM] = {
+      .name = "ENUM",
+      .cost = 1,
+      .specificity = 1,
+      .simple = false,
+  };
+  kinds[TYPE_ARRAY] = {
+      .name = "ARRAY",
+      .cost = 23,
+      .specificity = 23,
+      .simple = false,
+  };
+  kinds[TYPE_STRUCT] = {
+      .name = "STRUCT",
+      .cost = 22,
+      .specificity = 22,
+      .simple = false,
+  };
+  kinds[TYPE_PROTO] = {
+      .name = "PROTO",
+      .cost = 21,
+      .specificity = 21,
+      .simple = false,
+  };
+  kinds[TYPE_TIMESTAMP] = {
+      .name = "TIMESTAMP",
+      .cost = 8,
+      .specificity = 2,
+      .simple = true,
+  };
+  kinds[TYPE_TIME] = {
+      .name = "TIME",
+      .cost = 2,
+      .specificity = 8,
+      .simple = true,
+  };
+  kinds[TYPE_DATETIME] = {
+      .name = "DATETIME",
+      .cost = 3,
+      .specificity = 9,
+      .simple = true,
+  };
+  kinds[TYPE_GEOGRAPHY] = {
+      .name = "GEOGRAPHY",
+      .cost = 24,
+      .specificity = 24,
+      .simple = true,
+  };
+  kinds[TYPE_NUMERIC] = {
+      .name = "NUMERIC",
+      .cost = 15,
+      .specificity = 15,
+      .simple = true,
+  };
+  kinds[TYPE_BIGNUMERIC] = {
+      .name = "BIGNUMERIC",
+      .cost = 16,
+      .specificity = 16,
+      .simple = true,
+  };
+  kinds[TYPE_EXTENDED] = {
+      .name = "EXTENDED",
+      .cost = 25,
+      .specificity = 25,
+      .simple = false,
+  };
+  kinds[TYPE_JSON] = {
+      .name = "JSON",
+      .cost = 26,
+      .specificity = 26,
+      .simple = true,
+  };
+  kinds[TYPE_INTERVAL] = {
+      .name = "INTERVAL",
+      .cost = 27,
+      .specificity = 27,
+      .simple = true,
+  };
+  kinds[TYPE_TOKENLIST] = {
+      .name = "TOKENLIST",
+      .cost = 28,
+      .specificity = 28,
+      .simple = true,
+  };
+  kinds[TYPE_RANGE] = {
+      .name = "RANGE",
+      .cost = 29,
+      .specificity = 29,
+      .simple = false,
+  };
+  kinds[TYPE_MAP] = {
+      .name = "MAP",
+      .cost = 31,
+      .specificity = 31,
+      .simple = false,
+  };
+  kinds[TYPE_UUID] = {
+      .name = "UUID",
+      .cost = 32,
+      .specificity = 32,
+      .simple = true,
+  };
+
+  return kinds;
 }
+
+// Global static to avoid overhead of thread-safe local statics initialization.
+constexpr TypeKindInfoList kTypeKindInfoList = MakeTypeKindInfoList();
+
+// Returns NULL if TypeKindInfo is not defined for the given `kind`.
+const TypeKindInfo* FindTypeKindInfo(TypeKind kind) {
+  if (ABSL_PREDICT_FALSE(kind >= kTypeKindInfoList.size())) {
+    return nullptr;
+  }
+  if (ABSL_PREDICT_FALSE(kTypeKindInfoList[kind].name == nullptr)) {
+    return nullptr;
+  }
+  return &kTypeKindInfoList[kind];
+}
+
+}  // namespace
 
 Type::Type(const TypeFactory* factory, TypeKind kind)
     : type_store_(internal::TypeStoreHelper::GetTypeStore(factory)),
       kind_(kind) {}
 
-Type::~Type() {
-}
-
 // static
 bool Type::IsSimpleType(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
-    return GetTypeKindInfoMap().at(kind).simple;
+  const TypeKindInfo* info = FindTypeKindInfo(kind);
+  if (ABSL_PREDICT_TRUE(info != nullptr)) {
+    return info->simple;
   }
   return false;
 }
@@ -195,14 +322,15 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode,
   // we want error messages to indicate what the unsupported type actually
   // is as an aid in debugging.  When used in production in external mode,
   // those internal names should never actually be reachable.
-  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
+  const TypeKindInfo* info = FindTypeKindInfo(kind);
+  if (ABSL_PREDICT_TRUE(info != nullptr)) {
     if (mode == PRODUCT_EXTERNAL && kind == TYPE_DOUBLE) {
       return "FLOAT64";
     } else if (mode == PRODUCT_EXTERNAL && use_external_float32 &&
                kind == TYPE_FLOAT) {
       return "FLOAT32";
     }
-    return GetTypeKindInfoMap().at(kind).name;
+    return info->name;
   }
   return absl::StrCat("INVALID_TYPE_KIND(", kind, ")");
 }
@@ -238,16 +366,18 @@ Type::FormatValueContentOptions::IncreaseIndent() {
 }
 
 int Type::KindSpecificity(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
-    return GetTypeKindInfoMap().at(kind).specificity;
+  const TypeKindInfo* info = FindTypeKindInfo(kind);
+  if (ABSL_PREDICT_TRUE(info != nullptr)) {
+    return info->specificity;
   }
 
   ABSL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 static int KindCost(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
-    return GetTypeKindInfoMap().at(kind).cost;
+  const TypeKindInfo* info = FindTypeKindInfo(kind);
+  if (ABSL_PREDICT_TRUE(info != nullptr)) {
+    return info->cost;
   }
 
   ABSL_LOG(FATAL) << "Out of range: " << kind;
@@ -450,6 +580,8 @@ std::string Type::CapitalizedName() const {
     case TYPE_PROTO:
       ABSL_CHECK(AsProto()->descriptor() != nullptr);
       return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
+    case TYPE_UUID:
+      return "Uuid";
     case TYPE_EXTENDED:
       // TODO: move this logic into an appropriate function of
       // Type's interface.
@@ -575,6 +707,11 @@ bool Type::SupportsReturning(const LanguageOptions& language_options,
         }
       }
       return true;
+    case TYPE_MAP:
+      return GetMapKeyType(this)->SupportsReturning(language_options,
+                                                    type_description) &&
+             GetMapValueType(this)->SupportsReturning(language_options,
+                                                      type_description);
     default:
       return true;
   }
@@ -639,13 +776,13 @@ absl::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << "Type " << ShortTypeName(mode)
-                        << "does not support type parameters";
+                        << " does not support type parameters";
 }
 
 absl::Status Type::ValidateResolvedTypeParameters(
     const TypeParameters& type_parameters, ProductMode mode) const {
   ZETASQL_RET_CHECK(type_parameters.IsEmpty())
-      << "Type " << ShortTypeName(mode) << "does not support type parameters";
+      << "Type " << ShortTypeName(mode) << " does not support type parameters";
   return absl::OkStatus();
 }
 

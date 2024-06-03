@@ -44,8 +44,8 @@ class EvaluatorTestTable : public SimpleTable {
   // 'values[i][j]' is the value of 'columns[j]' in the i-th row.
   EvaluatorTestTable(
       absl::string_view name,
-      const std::vector<std::pair<std::string, const Type*>>& columns,
-      const std::vector<std::vector<Value>>& values,
+      absl::Span<const std::pair<std::string, const Type*>> columns,
+      absl::Span<const std::vector<Value>> values,
       const absl::Status& end_status,
       const absl::flat_hash_set<int>& column_filter_idxs = {},
       const std::function<void()>& cancel_cb = [] {},

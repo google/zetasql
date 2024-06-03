@@ -179,7 +179,7 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_T
   Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [format_string=>]STRING)
     Signature requires at least 3 arguments, found 2 arguments
   Signature: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, [date_string=>]STRING)
-    Signature requires at least 3 arguments, found 2 arguments [at 1:8]
+    Named argument `format_string` does not exist in signature [at 1:8]
 select fn_three_named_args_two_signatures(
        ^
 ==
@@ -1128,7 +1128,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: bad_name => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
-    Signature requires at least 2 arguments, found 1 argument [at 1:8]
+    Named argument `bad_name` does not exist in signature [at 1:8]
 select fn_named_args(bad_name => "12/25/08")
        ^
 ==
@@ -1146,7 +1146,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS
   Argument types: format_string => STRING, date_string => STRING, bad_name => STRING
   Signature: FN_NAMED_ARGS([format_string=>]STRING, [date_string=>]STRING)
-    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+    Named argument `bad_name` does not exist in signature [at 1:8]
 select fn_named_args(
        ^
 ==
@@ -1312,7 +1312,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES
   Argument types: STRING, STRING, date_string => STRING
   Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING])
-    Signature accepts at most 2 arguments, found 3 arguments
+    Named argument `date_string` does not exist in signature
   Signature: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING])
     Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
 select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
@@ -2724,7 +2724,7 @@ QueryStmt
               +-Literal(type=BOOL, value=false)
 
 With Templated SQL function call:
-  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {is_not_aggregate: true} delta, optional(1) BOOL {is_not_aggregate: true} allow_nulls) -> STRING
 containing resolved templated expression:
 FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
@@ -2790,7 +2790,7 @@ QueryStmt
               +-Literal(type=BOOL, value=true)
 
 With Templated SQL function call:
-  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {is_not_aggregate: true} delta, optional(1) BOOL {is_not_aggregate: true} allow_nulls) -> STRING
 containing resolved templated expression:
 FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
@@ -2856,7 +2856,7 @@ QueryStmt
               +-Literal(type=BOOL, value=false)
 
 With Templated SQL function call:
-  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {default_value: 0, is_not_aggregate: true} delta, optional(1) BOOL {default_value: false, is_not_aggregate: true} allow_nulls) -> STRING
+  Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 {is_not_aggregate: true} delta, optional(1) BOOL {is_not_aggregate: true} allow_nulls) -> STRING
 containing resolved templated expression:
 FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
 +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
@@ -2946,3 +2946,546 @@ QueryStmt
     |         +-Literal(type=ARRAY<STRING>, value=[""], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
+==
+
+# TVF with constraints - all constraints are satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3  -- must_be_non_null with default
+)) from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#22 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#22]
+    +-expr_list=
+    | +-$col1#22 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |         +-input_scan=
+    |           +-TVFScan
+    |             +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |             +-tvf=tvf_named_scalar_args_with_constraints((optional INT64 {must_be_non_null: true} arg_1, optional STRING {must_be_constant: true} arg_2, optional DOUBLE {must_be_constant_expression: true} arg_3, optional <struct> arg_4, optional <T1> arg_5, optional <T2> arg_6, optional <array<T3>> arg_7, optional <array<T4>> arg_8, optional <array<T5>> arg_9, optional DOUBLE {must_be_non_null: true, default_value: 3.14} arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+    |             +-signature=(literal INT64, literal STRING, DOUBLE, STRUCT<INT64, STRING>, STRING, DOUBLE, ARRAY<INT64>, ARRAY<STRING>, ARRAY<DOUBLE>, literal DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
+    |             +-argument_list=
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=INT64, value=7)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=STRING, value="test string")
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:cos(DOUBLE) -> DOUBLE)
+    |             | |     +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |             | |       +-Literal(type=DOUBLE, value=2)
+    |             | |       +-Literal(type=DOUBLE, value=3.14)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-MakeStruct
+    |             | |     +-type=STRUCT<INT64, STRING>
+    |             | |     +-field_list=
+    |             | |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+    |             | |       +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) INT64) -> ARRAY<INT64>)
+    |             | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    |             | |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) DOUBLE) -> ARRAY<DOUBLE>)
+    |             | |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             |   +-expr=
+    |             |     +-Literal(type=DOUBLE, value=15.3)
+    |             +-column_index_list=[0]
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
+==
+
+# TVF with constraints - all constraints are satisfied with omitted arguments.
+# There is currently a bug (b/330392311) which leads to confusing error message
+# in this scenario.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints()) from SimpleTypes;
+--
+ERROR: No matching signature for tvf_named_scalar_args_with_constraints for argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE. Supported signature: TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS([INT64], [STRING], [DOUBLE], [STRUCT], [ANY], [ANY], [ARRAY], [ARRAY], [ARRAY], [DOUBLE]) [at 2:3]
+  tvf_named_scalar_args_with_constraints()) from SimpleTypes;
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for tvf_named_scalar_args_with_constraints
+  Argument types: INT64, STRING, DOUBLE, NULL, NULL, NULL, NULL, NULL, NULL, DOUBLE
+  Signature: TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS([arg_1 => INT64], [arg_2 => STRING], [arg_3 => DOUBLE], [arg_4 => STRUCT], [arg_5 => T1], [arg_6 => T2], [arg_7 => ARRAY<T3>], [arg_8 => ARRAY<T4>], [arg_9 => ARRAY<T5>], [arg_10 => DOUBLE])
+    Unable to determine type for untyped null for argument kind <struct> [at 2:3]
+  tvf_named_scalar_args_with_constraints()) from SimpleTypes;
+  ^
+==
+
+# TVF with constraints - all constraints are satisfied with omitted (except the
+# default) arguments.
+# There is currently a bug (b/330392311) which leads to confusing error message
+# in this scenario.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_4 => (int64, string)  -- must_support_equality
+)) from SimpleTypes;
+--
+ERROR: Argument 1 to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 2:3]
+  tvf_named_scalar_args_with_constraints(
+  ^
+==
+
+# TVF with constraints - all constraints are satisfied with partially omitted
+# arguments.
+# There is currently a bug (b/330392311) which leads to confusing error message
+# in this scenario, therefore we need to explicly specify arg_1.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_4 => (int64, string)  -- must_support_equality
+)) from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#22 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#22]
+    +-expr_list=
+    | +-$col1#22 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |         +-input_scan=
+    |           +-TVFScan
+    |             +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |             +-tvf=tvf_named_scalar_args_with_constraints((optional INT64 {must_be_non_null: true} arg_1, optional STRING {must_be_constant: true} arg_2, optional DOUBLE {must_be_constant_expression: true} arg_3, optional <struct> arg_4, optional <T1> arg_5, optional <T2> arg_6, optional <array<T3>> arg_7, optional <array<T4>> arg_8, optional <array<T5>> arg_9, optional DOUBLE {must_be_non_null: true, default_value: 3.14} arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+    |             +-signature=(literal INT64, null STRING, null DOUBLE, STRUCT<INT64, STRING>, null INT64, null INT64, null ARRAY<INT64>, null ARRAY<INT64>, null ARRAY<INT64>, literal DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
+    |             +-argument_list=
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=INT64, value=7)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=STRING, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=DOUBLE, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-MakeStruct
+    |             | |     +-type=STRUCT<INT64, STRING>
+    |             | |     +-field_list=
+    |             | |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+    |             | |       +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=INT64, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=INT64, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=ARRAY<INT64>, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=ARRAY<INT64>, value=NULL)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=ARRAY<INT64>, value=NULL)
+    |             | +-FunctionArgument
+    |             |   +-expr=
+    |             |     +-Literal(type=DOUBLE, value=3.14)
+    |             +-column_index_list=[0]
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
+==
+
+# TVF with constraints - must_be_non_null is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_1 => NULL  -- must_be_non_null
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+    arg_1 => NULL  -- must_be_non_null
+    ^
+==
+
+# TVF with constraints - must_be_non_null is not satisfied (with CAST).
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_1 => CAST(NULL AS int64)  -- must_be_non_null
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+    arg_1 => CAST(NULL AS int64)  -- must_be_non_null
+    ^
+==
+
+# TVF with constraints - must_be_non_null (with default) is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => NULL  -- must_be_non_null with default
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_10' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+    arg_10 => NULL  -- must_be_non_null with default
+    ^
+==
+
+# TVF with constraints - must_be_non_null (with default omitted) is satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double]  -- array_element_must_support_grouping
+)) from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#22 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#22]
+    +-expr_list=
+    | +-$col1#22 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     | +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |         +-input_scan=
+    |           +-TVFScan
+    |             +-column_list=[tvf_named_scalar_args_with_constraints.column_bool#20]
+    |             +-tvf=tvf_named_scalar_args_with_constraints((optional INT64 {must_be_non_null: true} arg_1, optional STRING {must_be_constant: true} arg_2, optional DOUBLE {must_be_constant_expression: true} arg_3, optional <struct> arg_4, optional <T1> arg_5, optional <T2> arg_6, optional <array<T3>> arg_7, optional <array<T4>> arg_8, optional <array<T5>> arg_9, optional DOUBLE {must_be_non_null: true, default_value: 3.14} arg_10) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+    |             +-signature=(literal INT64, literal STRING, DOUBLE, STRUCT<INT64, STRING>, STRING, DOUBLE, ARRAY<INT64>, ARRAY<STRING>, ARRAY<DOUBLE>, literal DOUBLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
+    |             +-argument_list=
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=INT64, value=7)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-Literal(type=STRING, value="test string")
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:cos(DOUBLE) -> DOUBLE)
+    |             | |     +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |             | |       +-Literal(type=DOUBLE, value=2)
+    |             | |       +-Literal(type=DOUBLE, value=3.14)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-MakeStruct
+    |             | |     +-type=STRUCT<INT64, STRING>
+    |             | |     +-field_list=
+    |             | |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+    |             | |       +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) INT64) -> ARRAY<INT64>)
+    |             | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    |             | |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             | | +-expr=
+    |             | |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) DOUBLE) -> ARRAY<DOUBLE>)
+    |             | |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9, is_correlated=TRUE)
+    |             | +-FunctionArgument
+    |             |   +-expr=
+    |             |     +-Literal(type=DOUBLE, value=3.14)
+    |             +-column_index_list=[0]
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int64#2, string#5, double#9], table=SimpleTypes, column_index_list=[1, 4, 8])
+==
+
+# TVF with constraints - must_be_constant is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_2 => CONCAT("test", "string")  -- must_be_constant
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_2' to table-valued function tvf_named_scalar_args_with_constraints must be a literal or query parameter [at 12:5]
+    arg_2 => CONCAT("test", "string")  -- must_be_constant
+    ^
+==
+
+# TVF with constraints - must_be_constant_expression is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_3 => COS(double * 3.14) -- must_be_constant_expression
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_3' to table-valued function tvf_named_scalar_args_with_constraints must be a constant expression [at 12:5]
+    arg_3 => COS(double * 3.14) -- must_be_constant_expression
+    ^
+==
+
+# TVF with constraints - must_support_equality is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_4 => (int64, json)  -- must_support_equality
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_4' to table-valued function tvf_named_scalar_args_with_constraints must support equality; Type STRUCT<INT64, JSON> does not [at 12:5]
+    arg_4 => (int64, json)  -- must_support_equality
+    ^
+==
+
+# TVF with constraints - must_support_ordering is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_5 => [string] -- must_support_ordering
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_5' to table-valued function tvf_named_scalar_args_with_constraints must support ordering; Type ARRAY<STRING> does not [at 12:5]
+    arg_5 => [string] -- must_support_ordering
+    ^
+==
+
+# TVF with constraints - must_support_grouping is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => CAST(7.0 AS int64),  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_7 => [123],  -- array_element_must_support_equality
+    arg_8 => ["abc"],  -- array_element_must_support_ordering
+    arg_9 => [213.0],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_6 => [double]  -- must_support_grouping
+)) from SimpleTypes;
+--
+
+ERROR: Argument 'arg_6' to table-valued function tvf_named_scalar_args_with_constraints must support grouping; Type ARRAY<DOUBLE> does not [at 12:5]
+    arg_6 => [double]  -- must_support_grouping
+    ^
+==
+
+# TVF with constraints - array_element_must_support_equality is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => int64,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_7 => [json]  -- array_element_must_support_equality
+)) from SimpleTypes;
+--
+
+ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 2:3]
+  tvf_named_scalar_args_with_constraints(
+  ^
+==
+
+# TVF with constraints - array_element_must_support_ordering is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => int32,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3,  -- must_be_non_null with default
+    arg_8 => [(9, [string])]  -- array_element_must_support_ordering
+)) from SimpleTypes;
+--
+
+ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<INT64, ARRAY<STRING>>> because the array's element type does not support ordering [at 2:3]
+  tvf_named_scalar_args_with_constraints(
+  ^
+==
+
+# TVF with constraints - array_element_must_support_grouping is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => @test_param_int64,  -- must_be_non_null
+    arg_2 => @test_param_string,  -- must_be_constant
+    arg_3 => @test_param_double, -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_10 => @test_param_double,  -- must_be_non_null with default
+    arg_9 => [([double], 12)]  -- array_element_must_support_grouping
+)) from SimpleTypes;
+--
+
+ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<ARRAY<DOUBLE>, INT64>> because the array's element type does not support grouping [at 2:3]
+  tvf_named_scalar_args_with_constraints(
+  ^
+==
+
+# TVF with constraints - min_value is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 2,  -- min_value = 3
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => COS(2 * 3.14), -- must_be_constant_expression
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3  -- must_be_non_null with default
+)) from SimpleTypes;
+--
+ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be at least 3 [at 3:5]
+    arg_1 => 2,  -- min_value = 3
+    ^
+==
+
+# TVF with constraints - max_value is not satisfied.
+select (select column_bool from
+  tvf_named_scalar_args_with_constraints(
+    arg_1 => 7,  -- must_be_non_null
+    arg_2 => "test string",  -- must_be_constant
+    arg_3 => 500, -- max_value = 100
+    arg_4 => (int64, string),  -- must_support_equality
+    arg_5 => string, -- must_support_ordering
+    arg_6 => double,  -- must_support_grouping
+    arg_7 => [int64],  -- array_element_must_support_equality
+    arg_8 => [string],  -- array_element_must_support_ordering
+    arg_9 => [double],  -- array_element_must_support_grouping
+    arg_10 => 15.3  -- must_be_non_null with default
+)) from SimpleTypes;
+--
+ERROR: Argument 'arg_3' to table-valued function tvf_named_scalar_args_with_constraints must be at most 100 [at 5:5]
+    arg_3 => 500, -- max_value = 100
+    ^

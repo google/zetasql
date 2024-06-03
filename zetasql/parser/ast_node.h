@@ -53,12 +53,6 @@ class ParseTreeVisitor;
 class NonRecursiveParseTreeVisitor;
 class VisitResult;
 
-namespace parser {
-
-class BisonParser;
-
-}  // namespace parser
-
 // Converts a SchemaObjectKind to the SQL name of that kind.
 absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
 
@@ -327,7 +321,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       return absl::OkStatus();
     }
 
-    // Gets the next child element into *v, if it's node_kind is
+    // Gets the next child element into *v, if its node_kind is
     // <expected_node_kind>.
     template <typename T>
     void AddOptional(const T** v, int expected_node_kind) {
@@ -430,8 +424,6 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   };
 
  private:
-  friend class ::zetasql::parser::BisonParser;
-
   // Helper class for DebugString().
   class Dumper {
    public:

@@ -139,6 +139,13 @@ ERROR: Table not found: nonexistent_table [at 1:67]
 
 ==
 
+ALTER TABLE TwoIntegers ADD FOREIGN KEY (key) REFERENCES DuplicateColumns(DuplicateColumn);
+--
+ERROR: Column name DuplicateColumn found more than once in DuplicateColumns [at 1:75]
+...ADD FOREIGN KEY (key) REFERENCES DuplicateColumns(DuplicateColumn);
+                                                     ^
+==
+
 [language_features=]
 ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
 --

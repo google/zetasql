@@ -152,14 +152,9 @@ SELECT {{*|original_alias}} FROM (
 --
 [UNPARSED_SQL]
 SELECT
-  projectscan_3.a_2 AS original_alias
+  a_2 AS original_alias
 FROM
-  (
-    SELECT
-      a_2 AS a_2
-    FROM
-      TestTable.KitchenSink.repeated_int32_val AS a_2
-  ) AS projectscan_3;
+  TestTable.KitchenSink.repeated_int32_val AS a_2;
 ==
 
 # This is to demontrate that this feature does not work with correlated subquery.
@@ -172,29 +167,24 @@ from (select KitchenSink from TestTable) subq
 SELECT
   (
     SELECT
-      a_6 AS a_6
+      a_5 AS a_5
     FROM
       (
         SELECT
           NULL
         FROM
           KeyValue
-      ) AS keyvalue_5
+      ) AS keyvalue_4
       JOIN
-      UNNEST(FLATTEN((projectscan_3.a_1.nested_repeated_value).nested_repeated_int64)) AS a_6
-  ) AS a_4
+      UNNEST(FLATTEN((projectscan_2.a_1.nested_repeated_value).nested_repeated_int64)) AS a_5
+  ) AS a_3
 FROM
   (
     SELECT
-      testtable_2.a_1 AS a_1
+      TestTable.KitchenSink AS a_1
     FROM
-      (
-        SELECT
-          TestTable.KitchenSink AS a_1
-        FROM
-          TestTable
-      ) AS testtable_2
-  ) AS projectscan_3;
+      TestTable
+  ) AS projectscan_2;
 ==
 
 # This is to demonstrate that this feature does not work with correlated subquery.

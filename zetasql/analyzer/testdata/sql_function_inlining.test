@@ -1373,7 +1373,7 @@ QueryStmt
 ==
 
 # Using an aggregate function in the arguments.
-[default enabled_ast_rewrites=ALL|ALL,-WITH_EXPR]
+[enabled_ast_rewrites=ALL|ALL,-WITH_EXPR]
 SELECT UnaryIncrement{{|RefArg}}(SUM(a){{|+SUM(b)}})
 FROM (SELECT 1 AS a, 2 AS b)
 --
@@ -1947,6 +1947,10 @@ QueryStmt
 
 ==
 
+################################################################################
+## Bug Repros
+################################################################################
+
 SELECT *
 FROM (SELECT 1 AS thing_id)
 WHERE b290673529(thing_id);
@@ -1991,59 +1995,6 @@ SubqueryExpr
         +-input_scan=
           +-SingleRowScan
 
-[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$subquery1.thing_id#1 AS thing_id [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$subquery1.thing_id#1]
-    +-input_scan=
-      +-FilterScan
-        +-column_list=[$subquery1.thing_id#1]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[$subquery1.thing_id#1]
-        |   +-expr_list=
-        |   | +-thing_id#1 := Literal(type=INT64, value=1)
-        |   +-input_scan=
-        |     +-SingleRowScan
-        +-filter_expr=
-          +-SubqueryExpr
-            +-type=BOOL
-            +-subquery_type=SCALAR
-            +-parameter_list=
-            | +-ColumnRef(type=INT64, column=$subquery1.thing_id#1)
-            +-subquery=
-              +-ProjectScan
-                +-column_list=[$with_expr.injected#4]
-                +-expr_list=
-                | +-injected#4 :=
-                |   +-SubqueryExpr
-                |     +-type=BOOL
-                |     +-subquery_type=IN
-                |     +-in_expr=
-                |     | +-ColumnRef(type=INT64, column=$inlined_b290673529.thing_id#3)
-                |     +-subquery=
-                |       +-ProjectScan
-                |         +-column_list=[$subquery1.thing_id#2]
-                |         +-input_scan=
-                |           +-ProjectScan
-                |             +-column_list=[$subquery1.thing_id#2]
-                |             +-expr_list=
-                |             | +-thing_id#2 := Literal(type=INT64, value=1)
-                |             +-input_scan=
-                |               +-SingleRowScan
-                +-input_scan=
-                  +-ProjectScan
-                    +-column_list=[$inlined_b290673529.thing_id#3]
-                    +-expr_list=
-                    | +-thing_id#3 := ColumnRef(type=INT64, column=$subquery1.thing_id#1, is_correlated=TRUE)
-                    +-input_scan=
-                      +-SingleRowScan
-
-[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-WITH_EXPR' ]]
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -2082,3 +2033,56 @@ QueryStmt
                         | +-thing_id#2 := Literal(type=INT64, value=1)
                         +-input_scan=
                           +-SingleRowScan
+
+==
+
+# Repros b/327662731
+[language_features=TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS]
+SELECT template_with_typed_arg("foo", NULL);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Templated_SQL_Function:template_with_typed_arg(STRING arg_any, STRING arg_string) -> BOOL)
+    |     +-Literal(type=STRING, value="foo")
+    |     +-Literal(type=STRING, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:template_with_typed_arg(STRING arg_any, STRING arg_string) -> BOOL
+containing resolved templated expression:
+FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
++-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+| +-ArgumentRef(type=STRING, name="arg_any")
++-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+  +-ArgumentRef(type=STRING, name="arg_string")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-WithExpr
+    |     +-type=BOOL
+    |     +-assignment_list=
+    |     | +-arg_any#2 := Literal(type=STRING, value="foo")
+    |     | +-arg_string#3 := Literal(type=STRING, value=NULL)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         | +-ColumnRef(type=STRING, column=$inlined_template_with_typed_arg.arg_any#2)
+    |         +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |           +-ColumnRef(type=STRING, column=$inlined_template_with_typed_arg.arg_string#3)
+    +-input_scan=
+      +-SingleRowScan
+

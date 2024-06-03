@@ -102,25 +102,6 @@ static std::string SignatureTextForAnonFunction(
       (is_function_name_quantiles ? "" : "]"), ")");
 }
 
-static std::string SupportedSignaturesForAnonFunction(
-    const std::string& function_name, const LanguageOptions& language_options,
-    const Function& function) {
-  std::string upper_case_function_name = absl::AsciiStrToUpper(function_name);
-  std::string supported_signatures;
-  for (const FunctionSignature& signature : function.signatures()) {
-    if (signature.IsInternal()) {
-      continue;
-    }
-    if (!supported_signatures.empty()) {
-      absl::StrAppend(&supported_signatures, ", ");
-    }
-    absl::StrAppend(&supported_signatures,
-                    SignatureTextForAnonFunction(
-                        function_name, language_options, function, signature));
-  }
-  return supported_signatures;
-}
-
 static std::string AnonFunctionBadArgumentErrorPrefix(
     absl::string_view display_name, const FunctionSignature& signature,
     int idx) {
@@ -172,10 +153,6 @@ static const FunctionOptions AddDefaultFunctionOptions(
   if (options.get_sql_callback == nullptr) {
     options.set_get_sql_callback(
         absl::bind_front(&AnonFunctionSQL, std::string(name)));
-  }
-  if (options.supported_signatures_callback == nullptr) {
-    options.set_supported_signatures_callback(absl::bind_front(
-        &SupportedSignaturesForAnonFunction, std::string(name)));
   }
   options.set_hide_supported_signatures(options.hide_supported_signatures);
   if (options.signature_text_callback == nullptr) {

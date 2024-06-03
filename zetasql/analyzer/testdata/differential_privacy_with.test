@@ -268,10 +268,10 @@ from (select * from t1);
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#55 AS `$col1` [INT64]
+| +-$aggregate.$agg1#56 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$aggregate.$agg1#55]
+    +-column_list=[$aggregate.$agg1#56]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -291,32 +291,32 @@ QueryStmt
     |   +-with_query_name="t3"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42]
+    |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-ProjectScan
-        +-column_list=[$aggregate.$agg1#55]
+        +-column_list=[$aggregate.$agg1#56]
         +-input_scan=
           +-DifferentialPrivacyAggregateScan
-            +-column_list=[$aggregate.$agg1#55]
+            +-column_list=[$aggregate.$agg1#56]
             +-input_scan=
             | +-ProjectScan
-            |   +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+            |   +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
             |   +-input_scan=
-            |     +-WithRefScan(column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54], with_query_name="t1")
+            |     +-WithRefScan(column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55], with_query_name="t1")
             +-aggregate_list=
-              +-$agg1#55 :=
+              +-$agg1#56 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
                   +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#55 AS `$col1` [INT64]
+| +-$aggregate.$agg1#56 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$aggregate.$agg1#55]
+    +-column_list=[$aggregate.$agg1#56]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -336,38 +336,38 @@ QueryStmt
     |   +-with_query_name="t3"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42]
+    |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-ProjectScan
-        +-column_list=[$aggregate.$agg1#55]
+        +-column_list=[$aggregate.$agg1#56]
         +-input_scan=
           +-DifferentialPrivacyAggregateScan
-            +-column_list=[$aggregate.$agg1#55]
+            +-column_list=[$aggregate.$agg1#56]
             +-input_scan=
             | +-AggregateScan
-            |   +-column_list=[$aggregate.$agg1_partial#57, $group_by.$uid#58]
+            |   +-column_list=[$aggregate.$agg1_partial#58, $group_by.$uid#59]
             |   +-input_scan=
             |   | +-ProjectScan
-            |   |   +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+            |   |   +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
             |   |   +-input_scan=
-            |   |     +-WithRefScan(column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54], with_query_name="t1")
+            |   |     +-WithRefScan(column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55], with_query_name="t1")
             |   +-group_by_list=
-            |   | +-$uid#58 := ColumnRef(type=INT64, column=t1.uid#53)
+            |   | +-$uid#59 := ColumnRef(type=INT64, column=t1.uid#54)
             |   +-aggregate_list=
-            |     +-$agg1_partial#57 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |     +-$agg1_partial#58 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
             +-aggregate_list=
-            | +-$agg1#55 :=
+            | +-$agg1#56 :=
             | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-            | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#57)
+            | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#58)
             | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
-            | +-$group_selection_threshold_col#61 :=
+            | +-$group_selection_threshold_col#62 :=
             |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
             |     +-Literal(type=INT64, value=1)
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
-              +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#61)
+              +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#62)
 ==
 
 # Reject recursive with clauses referenced from within the anonymization clause
@@ -724,10 +724,10 @@ select 1 from t2;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#49 AS `$col1` [INT64]
+| +-$query.$col1#51 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$query.$col1#49]
+    +-column_list=[$query.$col1#51]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -740,16 +740,16 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30]
+    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-ProjectScan
-        +-column_list=[$query.$col1#49]
+        +-column_list=[$query.$col1#51]
         +-expr_list=
-        | +-$col1#49 := Literal(type=INT64, value=1)
+        | +-$col1#51 := Literal(type=INT64, value=1)
         +-input_scan=
-          +-WithRefScan(column_list=t2.[int32#31, int64#32, uint32#33, uint64#34, string#35, bytes#36, bool#37, float#38, double#39, date#40, timestamp_seconds#41, timestamp_millis#42, timestamp_micros#43, timestamp_nanos#44, timestamp#45, numeric#46, bignumeric#47, json#48], with_query_name="t2")
+          +-WithRefScan(column_list=t2.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, timestamp_seconds#42, timestamp_millis#43, timestamp_micros#44, timestamp_nanos#45, timestamp#46, numeric#47, bignumeric#48, json#49, uuid#50], with_query_name="t2")
 ==
 
 # Extraneous with clauses
@@ -760,10 +760,10 @@ select 1 from t2;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#50 AS `$col1` [INT64]
+| +-$query.$col1#52 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$query.$col1#50]
+    +-column_list=[$query.$col1#52]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -783,24 +783,24 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31]
+    |       +-column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31, uuid#32]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31, uuid#32], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-ProjectScan
-        +-column_list=[$query.$col1#50]
+        +-column_list=[$query.$col1#52]
         +-expr_list=
-        | +-$col1#50 := Literal(type=INT64, value=1)
+        | +-$col1#52 := Literal(type=INT64, value=1)
         +-input_scan=
-          +-WithRefScan(column_list=t2.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, timestamp_seconds#42, timestamp_millis#43, timestamp_micros#44, timestamp_nanos#45, timestamp#46, numeric#47, bignumeric#48, json#49], with_query_name="t2")
+          +-WithRefScan(column_list=t2.[int32#33, int64#34, uint32#35, uint64#36, string#37, bytes#38, bool#39, float#40, double#41, date#42, timestamp_seconds#43, timestamp_millis#44, timestamp_micros#45, timestamp_nanos#46, timestamp#47, numeric#48, bignumeric#49, json#50, uuid#51], with_query_name="t2")
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#50 AS `$col1` [INT64]
+| +-$query.$col1#52 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$query.$col1#50]
+    +-column_list=[$query.$col1#52]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -812,38 +812,38 @@ QueryStmt
     | |         +-column_list=[$aggregate.$agg1#13]
     | |         +-input_scan=
     | |         | +-AggregateScan
-    | |         |   +-column_list=[$aggregate.$agg1_partial#53, $group_by.$uid#54]
+    | |         |   +-column_list=[$aggregate.$agg1_partial#55, $group_by.$uid#56]
     | |         |   +-input_scan=
-    | |         |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#51], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+    | |         |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#53], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
     | |         |   +-group_by_list=
-    | |         |   | +-$uid#54 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#51)
+    | |         |   | +-$uid#56 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#53)
     | |         |   +-aggregate_list=
-    | |         |     +-$agg1_partial#53 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    | |         |     +-$agg1_partial#55 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     | |         +-aggregate_list=
     | |         | +-$agg1#13 :=
     | |         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-    | |         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#53)
+    | |         | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#55)
     | |         | |   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
-    | |         | +-$group_selection_threshold_col#57 :=
+    | |         | +-$group_selection_threshold_col#59 :=
     | |         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
     | |         |     +-Literal(type=INT64, value=1)
     | |         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
     | |         +-group_selection_threshold_expr=
-    | |           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#57)
+    | |           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#59)
     | +-WithEntry
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31]
+    |       +-column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31, uuid#32]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#14, int64#15, uint32#16, uint64#17, string#18, bytes#19, bool#20, float#21, double#22, date#23, timestamp_seconds#24, timestamp_millis#25, timestamp_micros#26, timestamp_nanos#27, timestamp#28, numeric#29, bignumeric#30, json#31, uuid#32], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-ProjectScan
-        +-column_list=[$query.$col1#50]
+        +-column_list=[$query.$col1#52]
         +-expr_list=
-        | +-$col1#50 := Literal(type=INT64, value=1)
+        | +-$col1#52 := Literal(type=INT64, value=1)
         +-input_scan=
-          +-WithRefScan(column_list=t2.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, timestamp_seconds#42, timestamp_millis#43, timestamp_micros#44, timestamp_nanos#45, timestamp#46, numeric#47, bignumeric#48, json#49], with_query_name="t2")
+          +-WithRefScan(column_list=t2.[int32#33, int64#34, uint32#35, uint64#36, string#37, bytes#38, bool#39, float#40, double#41, date#42, timestamp_seconds#43, timestamp_millis#44, timestamp_micros#45, timestamp_nanos#46, timestamp#47, numeric#48, bignumeric#49, json#50, uuid#51], with_query_name="t2")
 ==
 
 
@@ -858,10 +858,10 @@ SELECT count(*) from t2;
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.$col1#63 AS `$col1` [INT64]
+| +-$union_all.$col1#65 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$union_all.$col1#63]
+    +-column_list=[$union_all.$col1#65]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -874,51 +874,51 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30]
+    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-SetOperationScan
-        +-column_list=[$union_all.$col1#63]
+        +-column_list=[$union_all.$col1#65]
         +-op_type=UNION_ALL
         +-input_item_list=
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[$aggregate.$agg1#43]
+          | |   +-column_list=[$aggregate.$agg1#44]
           | |   +-input_scan=
           | |     +-DifferentialPrivacyAggregateScan
-          | |       +-column_list=[$aggregate.$agg1#43]
+          | |       +-column_list=[$aggregate.$agg1#44]
           | |       +-input_scan=
           | |       | +-ProjectScan
-          | |       |   +-column_list=t1.[int32#31, int64#32, uint32#33, uint64#34, string#35, bytes#36, bool#37, float#38, double#39, date#40, uid#41, numeric#42]
+          | |       |   +-column_list=t1.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, uid#42, numeric#43]
           | |       |   +-input_scan=
-          | |       |     +-WithRefScan(column_list=t1.[int32#31, int64#32, uint32#33, uint64#34, string#35, bytes#36, bool#37, float#38, double#39, date#40, uid#41, numeric#42], with_query_name="t1")
+          | |       |     +-WithRefScan(column_list=t1.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, uid#42, numeric#43], with_query_name="t1")
           | |       +-aggregate_list=
-          | |         +-$agg1#43 :=
+          | |         +-$agg1#44 :=
           | |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
           | |             +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
-          | +-output_column_list=[$aggregate.$agg1#43]
+          | +-output_column_list=[$aggregate.$agg1#44]
           +-SetOperationItem
             +-scan=
             | +-ProjectScan
-            |   +-column_list=[$aggregate.$agg1#62]
+            |   +-column_list=[$aggregate.$agg1#64]
             |   +-input_scan=
             |     +-AggregateScan
-            |       +-column_list=[$aggregate.$agg1#62]
+            |       +-column_list=[$aggregate.$agg1#64]
             |       +-input_scan=
-            |       | +-WithRefScan(column_list=t2.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, timestamp_seconds#54, timestamp_millis#55, timestamp_micros#56, timestamp_nanos#57, timestamp#58, numeric#59, bignumeric#60, json#61], with_query_name="t2")
+            |       | +-WithRefScan(column_list=t2.[int32#45, int64#46, uint32#47, uint64#48, string#49, bytes#50, bool#51, float#52, double#53, date#54, timestamp_seconds#55, timestamp_millis#56, timestamp_micros#57, timestamp_nanos#58, timestamp#59, numeric#60, bignumeric#61, json#62, uuid#63], with_query_name="t2")
             |       +-aggregate_list=
-            |         +-$agg1#62 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
-            +-output_column_list=[$aggregate.$agg1#62]
+            |         +-$agg1#64 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            +-output_column_list=[$aggregate.$agg1#64]
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$union_all.$col1#63 AS `$col1` [INT64]
+| +-$union_all.$col1#65 AS `$col1` [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$union_all.$col1#63]
+    +-column_list=[$union_all.$col1#65]
     +-with_entry_list=
     | +-WithEntry
     | | +-with_query_name="t1"
@@ -931,57 +931,57 @@ QueryStmt
     |   +-with_query_name="t2"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30]
+    |       +-column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31]
     |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    |         +-TableScan(column_list=SimpleTypes.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, timestamp_seconds#23, timestamp_millis#24, timestamp_micros#25, timestamp_nanos#26, timestamp#27, numeric#28, bignumeric#29, json#30, uuid#31], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-query=
       +-SetOperationScan
-        +-column_list=[$union_all.$col1#63]
+        +-column_list=[$union_all.$col1#65]
         +-op_type=UNION_ALL
         +-input_item_list=
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[$aggregate.$agg1#43]
+          | |   +-column_list=[$aggregate.$agg1#44]
           | |   +-input_scan=
           | |     +-DifferentialPrivacyAggregateScan
-          | |       +-column_list=[$aggregate.$agg1#43]
+          | |       +-column_list=[$aggregate.$agg1#44]
           | |       +-input_scan=
           | |       | +-AggregateScan
-          | |       |   +-column_list=[$aggregate.$agg1_partial#65, $group_by.$uid#66]
+          | |       |   +-column_list=[$aggregate.$agg1_partial#67, $group_by.$uid#68]
           | |       |   +-input_scan=
           | |       |   | +-ProjectScan
-          | |       |   |   +-column_list=t1.[int32#31, int64#32, uint32#33, uint64#34, string#35, bytes#36, bool#37, float#38, double#39, date#40, uid#41, numeric#42]
+          | |       |   |   +-column_list=t1.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, uid#42, numeric#43]
           | |       |   |   +-input_scan=
-          | |       |   |     +-WithRefScan(column_list=t1.[int32#31, int64#32, uint32#33, uint64#34, string#35, bytes#36, bool#37, float#38, double#39, date#40, uid#41, numeric#42], with_query_name="t1")
+          | |       |   |     +-WithRefScan(column_list=t1.[int32#32, int64#33, uint32#34, uint64#35, string#36, bytes#37, bool#38, float#39, double#40, date#41, uid#42, numeric#43], with_query_name="t1")
           | |       |   +-group_by_list=
-          | |       |   | +-$uid#66 := ColumnRef(type=INT64, column=t1.uid#41)
+          | |       |   | +-$uid#68 := ColumnRef(type=INT64, column=t1.uid#42)
           | |       |   +-aggregate_list=
-          | |       |     +-$agg1_partial#65 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          | |       |     +-$agg1_partial#67 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
           | |       +-aggregate_list=
-          | |       | +-$agg1#43 :=
+          | |       | +-$agg1#44 :=
           | |       | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-          | |       | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#65)
+          | |       | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#67)
           | |       | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
-          | |       | +-$group_selection_threshold_col#69 :=
+          | |       | +-$group_selection_threshold_col#71 :=
           | |       |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
           | |       |     +-Literal(type=INT64, value=1)
           | |       |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
           | |       +-group_selection_threshold_expr=
-          | |         +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#69)
-          | +-output_column_list=[$aggregate.$agg1#43]
+          | |         +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#71)
+          | +-output_column_list=[$aggregate.$agg1#44]
           +-SetOperationItem
             +-scan=
             | +-ProjectScan
-            |   +-column_list=[$aggregate.$agg1#62]
+            |   +-column_list=[$aggregate.$agg1#64]
             |   +-input_scan=
             |     +-AggregateScan
-            |       +-column_list=[$aggregate.$agg1#62]
+            |       +-column_list=[$aggregate.$agg1#64]
             |       +-input_scan=
-            |       | +-WithRefScan(column_list=t2.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, timestamp_seconds#54, timestamp_millis#55, timestamp_micros#56, timestamp_nanos#57, timestamp#58, numeric#59, bignumeric#60, json#61], with_query_name="t2")
+            |       | +-WithRefScan(column_list=t2.[int32#45, int64#46, uint32#47, uint64#48, string#49, bytes#50, bool#51, float#52, double#53, date#54, timestamp_seconds#55, timestamp_millis#56, timestamp_micros#57, timestamp_nanos#58, timestamp#59, numeric#60, bignumeric#61, json#62, uuid#63], with_query_name="t2")
             |       +-aggregate_list=
-            |         +-$agg1#62 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
-            +-output_column_list=[$aggregate.$agg1#62]
+            |         +-$agg1#64 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            +-output_column_list=[$aggregate.$agg1#64]
 ==
 
 
@@ -1234,10 +1234,10 @@ cross join SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.count#43 AS count [INT64]
+| +-$aggregate.count#44 AS count [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$aggregate.count#43]
+    +-column_list=[$aggregate.count#44]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t1"
@@ -1248,10 +1248,10 @@ QueryStmt
     |         +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
     +-query=
       +-ProjectScan
-        +-column_list=[$aggregate.count#43]
+        +-column_list=[$aggregate.count#44]
         +-input_scan=
           +-DifferentialPrivacyAggregateScan
-            +-column_list=[$aggregate.count#43]
+            +-column_list=[$aggregate.count#44]
             +-input_scan=
             | +-JoinScan
             |   +-column_list=t1.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24]
@@ -1260,17 +1260,17 @@ QueryStmt
             |   +-right_scan=
             |     +-TableScan(table=SimpleTypes)
             +-aggregate_list=
-              +-count#43 :=
+              +-count#44 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
                   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.count#43 AS count [INT64]
+| +-$aggregate.count#44 AS count [INT64]
 +-query=
   +-WithScan
-    +-column_list=[$aggregate.count#43]
+    +-column_list=[$aggregate.count#44]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t1"
@@ -1281,13 +1281,13 @@ QueryStmt
     |         +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
     +-query=
       +-ProjectScan
-        +-column_list=[$aggregate.count#43]
+        +-column_list=[$aggregate.count#44]
         +-input_scan=
           +-DifferentialPrivacyAggregateScan
-            +-column_list=[$aggregate.count#43]
+            +-column_list=[$aggregate.count#44]
             +-input_scan=
             | +-AggregateScan
-            |   +-column_list=[$aggregate.count_partial#45, $group_by.$uid#46]
+            |   +-column_list=[$aggregate.count_partial#46, $group_by.$uid#47]
             |   +-input_scan=
             |   | +-JoinScan
             |   |   +-column_list=t1.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24]
@@ -1296,20 +1296,20 @@ QueryStmt
             |   |   +-right_scan=
             |   |     +-TableScan(table=SimpleTypes)
             |   +-group_by_list=
-            |   | +-$uid#46 := ColumnRef(type=INT64, column=t1.uid#23)
+            |   | +-$uid#47 := ColumnRef(type=INT64, column=t1.uid#23)
             |   +-aggregate_list=
-            |     +-count_partial#45 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+            |     +-count_partial#46 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
             +-aggregate_list=
-            | +-count#43 :=
+            | +-count#44 :=
             | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-            | |   +-ColumnRef(type=INT64, column=$aggregate.count_partial#45)
+            | |   +-ColumnRef(type=INT64, column=$aggregate.count_partial#46)
             | |   +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
-            | +-$group_selection_threshold_col#49 :=
+            | +-$group_selection_threshold_col#50 :=
             |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
             |     +-Literal(type=INT64, value=1)
             |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
             +-group_selection_threshold_expr=
-              +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#49)
+              +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#50)
 ==
 
 # Join non-user data with and user data table
@@ -2204,16 +2204,16 @@ from (
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#55 AS `$col1` [INT64]
+| +-$aggregate.$agg1#56 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#55]
+    +-column_list=[$aggregate.$agg1#56]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#55]
+        +-column_list=[$aggregate.$agg1#56]
         +-input_scan=
         | +-WithScan
-        |   +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+        |   +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
         |   +-with_entry_list=
         |   | +-WithEntry
         |   | | +-with_query_name="t1"
@@ -2233,35 +2233,35 @@ QueryStmt
         |   |   +-with_query_name="t3"
         |   |   +-with_subquery=
         |   |     +-ProjectScan
-        |   |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42]
+        |   |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43]
         |   |       +-input_scan=
-        |   |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+        |   |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         |   +-query=
         |     +-ProjectScan
-        |       +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+        |       +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
         |       +-input_scan=
-        |         +-WithRefScan(column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54], with_query_name="t1")
+        |         +-WithRefScan(column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55], with_query_name="t1")
         +-aggregate_list=
-          +-$agg1#55 :=
+          +-$agg1#56 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
               +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#55 AS `$col1` [INT64]
+| +-$aggregate.$agg1#56 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#55]
+    +-column_list=[$aggregate.$agg1#56]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#55]
+        +-column_list=[$aggregate.$agg1#56]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.$agg1_partial#57, $group_by.$uid#58]
+        |   +-column_list=[$aggregate.$agg1_partial#58, $group_by.$uid#59]
         |   +-input_scan=
         |   | +-WithScan
-        |   |   +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+        |   |   +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
         |   |   +-with_entry_list=
         |   |   | +-WithEntry
         |   |   | | +-with_query_name="t1"
@@ -2281,29 +2281,29 @@ QueryStmt
         |   |   |   +-with_query_name="t3"
         |   |   |   +-with_subquery=
         |   |   |     +-ProjectScan
-        |   |   |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42]
+        |   |   |       +-column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43]
         |   |   |       +-input_scan=
-        |   |   |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+        |   |   |         +-TableScan(column_list=SimpleTypes.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, timestamp_seconds#35, timestamp_millis#36, timestamp_micros#37, timestamp_nanos#38, timestamp#39, numeric#40, bignumeric#41, json#42, uuid#43], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         |   |   +-query=
         |   |     +-ProjectScan
-        |   |       +-column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54]
+        |   |       +-column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55]
         |   |       +-input_scan=
-        |   |         +-WithRefScan(column_list=t1.[int32#43, int64#44, uint32#45, uint64#46, string#47, bytes#48, bool#49, float#50, double#51, date#52, uid#53, numeric#54], with_query_name="t1")
+        |   |         +-WithRefScan(column_list=t1.[int32#44, int64#45, uint32#46, uint64#47, string#48, bytes#49, bool#50, float#51, double#52, date#53, uid#54, numeric#55], with_query_name="t1")
         |   +-group_by_list=
-        |   | +-$uid#58 := ColumnRef(type=INT64, column=t1.uid#53)
+        |   | +-$uid#59 := ColumnRef(type=INT64, column=t1.uid#54)
         |   +-aggregate_list=
-        |     +-$agg1_partial#57 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |     +-$agg1_partial#58 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
-        | +-$agg1#55 :=
+        | +-$agg1#56 :=
         | | +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#57)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#58)
         | |   +-Literal(type=STRUCT<INT64, INT64>, value={0, 100})
-        | +-$group_selection_threshold_col#61 :=
+        | +-$group_selection_threshold_col#62 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=INT64, value=1)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#61)
+          +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#62)
 ==
 
 # Extraneous WithScan inside SELECT WITH DIFFERENTIAL_PRIVACY trigger validation

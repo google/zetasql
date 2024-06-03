@@ -19,23 +19,26 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_JSON_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_JSON_H_
 
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/functions/json_internal.h"
-#include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/value.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/base/attributes.h"
-#include "absl/memory/memory.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace functions {
@@ -601,8 +604,8 @@ absl::Status JsonInsertArrayElement(
 //                        /*append_each_element=*/true)
 // -> JSON '[]'
 //
-// If `path_iterator` doesn`t point to an array or JSON null, or if the path
-// doesn`t exist, the function does nothing.
+// If `path_iterator` doesn't point to an array or JSON null, or if the path
+// doesn't exist, the function does nothing.
 //
 // If `append_each_element` is true and `value` is an array, then each element
 // of the array is appended at in the same order as their position in the
@@ -812,6 +815,81 @@ absl::Status JsonStripNulls(
 absl::StatusOr<JSONValue> JsonQueryLax(
     JSONValueConstRef input,
     json_internal::StrictJSONPathIterator& path_iterator);
+
+// Options for JsonKeys functions.
+//
+struct JSONKeysOptions {
+  json_internal::JsonPathOptions path_options;
+  int64_t max_depth = std::numeric_limits<int64_t>::max();
+};
+
+// Returns all keys in a given JSON `input` based on `options`.
+// Keys are deduplicated and sorted alphabetically.
+//
+// Parameter: `options.path_options`
+//
+// If `path_options.kLax` is enabled, descends through the json_doc in a 'lax'
+// interpretation which includes objects and an auto unwrap of a single level of
+// arrays.
+//
+// If `path_options.kLaxRecursive` is enabled, descends through the json_doc in
+// a 'lax recursive' interpretation which auto unwraps arrays until a non-array
+// type is encountered.
+//
+// Parameter: `options.max_depth`
+// A limit to the max depth descended in the `input` json_doc. Each object
+// descent increments the current depth by 1. If the depth limit is reached, the
+// descension of the current branch ends and the current path key is added to
+// the result. If no limit is provided, there is no depth enforcement.
+//
+// Example 1:
+// JsonKeys(JSON '{"a":{"b":1}}',
+//   {.path_options = AnyOf(kNone, kLax, kLaxRecursive}))
+// Result: ["a", "a.b"]
+//
+// Example 2:
+// JsonKeys(JSON '{"a":[{"b":1}, {"c":2}]}',
+//   {.path_options = AnyOf(kLax, kLaxRecursive})
+// Result: ["a", "a.b", "a.c"]
+//
+// Example 2a:
+// JsonKeys(JSON '{"a":[{"b":1}, {"c":2}]}', {.path_options = kNone})
+// Result: ["a"]
+// Reasoning: Because `lax` is false, there is no descention through arrays.
+//
+// Example 3:
+// JsonKeys(JSON '{"a":[[{"b":1}]]}', {.path_options = kLaxRecursive})
+// Result: ["a", "a.b"]
+// Reasoning: Because `kLaxRecursive` is enabled, auto unwraps nested arrays.
+//
+// Example 3a:
+// JsonKeys(JSON '{"a":[[{"b":1}]]}', .path_options = AnyOf(kNone, kLax})
+// Result: ["a"]
+// Reasoning: Because `kLaxRecursive` is not enabled, nested arrays are NOT
+// unwrapped.
+//
+// Example 4:
+// JsonKeys(JSON '{"a":{"b":1}}',
+//   AnyOf({.path_options = kNone, .max_depth = 1},
+//         {.path_options = kLax, .max_depth = 1},
+//         {.path_options = kLaxRecursive, .max_depth = 1}))
+// Result: ["a"]
+// Reasoning: Because `max_depth` = 1 only top level keys are returned and "a.b"
+// is not included in the result.
+//
+// Example 5:
+// JsonKeys(JSON '{"a":[{"b":1}]}',
+//   AnyOf({.path_options = kLax, .max_depth = 2},
+//         {.path_options = kLaxRecursive, .max_depth = 2}))
+// Result: ["a", "a.b"]
+// Reasoning: Only encountered objects increment depth, therefore "a.b" is
+// included in the result.
+//
+// Invalid inputs:
+// If `options.max_depth` <= 0, returns an error.
+//
+absl::StatusOr<std::vector<std::string>> JsonKeys(
+    JSONValueConstRef input, const JSONKeysOptions& options);
 
 }  // namespace functions
 }  // namespace zetasql

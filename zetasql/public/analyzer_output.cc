@@ -17,17 +17,28 @@
 #include "zetasql/public/analyzer_output.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/base/enum_utils.h"
 #include "zetasql/common/timer_util.h"
+#include "zetasql/parser/parser.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/proto/logging.pb.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 

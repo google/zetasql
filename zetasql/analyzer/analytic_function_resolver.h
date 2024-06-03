@@ -95,11 +95,11 @@ class AnalyticFunctionResolver {
     // clauses. Inherited clauses must be populated by calling
     // ExtractWindowInfoFromReferencedWindow().
     explicit FlattenedWindowInfo(
-        const ASTWindowSpecification* ast_window_spec_in) :
-        ast_window_spec(ast_window_spec_in),
-        ast_partition_by(ast_window_spec->partition_by()),
-        ast_order_by(ast_window_spec->order_by()),
-        ast_window_frame(ast_window_spec->window_frame()) {
+        const ASTWindowSpecification* ast_window_spec_in)
+        : ast_window_spec(ast_window_spec_in),
+          ast_partition_by(ast_window_spec->partition_by()),
+          ast_order_by(ast_window_spec->order_by()),
+          ast_window_frame(ast_window_spec->window_frame()) {
       if (ast_partition_by != nullptr || ast_order_by != nullptr) {
         ast_grouping_window_spec = ast_window_spec;
       }
@@ -179,9 +179,8 @@ class AnalyticFunctionResolver {
   // reference columns created for partitioning or ordering expressions by
   // the wrapper ProjectScan if the partitioning or ordering expressions
   // originally reference SELECT-list columns.
-  absl::Status CreateAnalyticScan(
-      QueryResolutionInfo* query_resolution_info,
-      std::unique_ptr<const ResolvedScan>* scan);
+  absl::Status CreateAnalyticScan(QueryResolutionInfo* query_resolution_info,
+                                  std::unique_ptr<const ResolvedScan>* scan);
 
   // Returns true if the analytic function resolver has resolved at least one
   // analytic function.

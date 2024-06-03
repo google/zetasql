@@ -226,7 +226,16 @@ drop table function ;
 ==
 
 # simple name.
+[language_features={{|CREATE_TABLE_FUNCTION}}]
 drop table function foo ;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Dropping table-valued functions is not supported [at 1:1]
+drop table function foo ;
+^
+--
+ALTERNATION GROUP: CREATE_TABLE_FUNCTION
 --
 DropTableFunctionStmt(is_if_exists=FALSE, name_path=foo)
 ==

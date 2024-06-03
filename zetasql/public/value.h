@@ -44,6 +44,7 @@
 #include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
@@ -208,6 +209,9 @@ class Value {
   std::string json_string() const;
 
   const tokens::TokenList& tokenlist_value() const;  // REQUIRES: tokenlist type
+
+  // REQUIRES: uuid type
+  const absl::StatusOr<UuidValue> uuid_value() const;
 
   // Returns the value content of extended type.
   // REQUIRES: type_kind() == TYPE_EXTENDED
@@ -457,7 +461,7 @@ class Value {
   static Value Time(TimeValue time);
   static Value Datetime(DatetimeValue datetime);
 
-  // Creates a Value from an bitwise encoded int64_t at micros precision.
+  // Creates a Value from a bitwise encoded int64_t at micros precision.
   // see public/civil_time.h for the encoding.
   static Value TimeFromPacked64Micros(int64_t v);
   static Value DatetimeFromPacked64Micros(int64_t v);
@@ -483,9 +487,12 @@ class Value {
   // Creates a value of extended type with the given content.
   static Value Extended(const ExtendedType* type, const ValueContent& value);
 
+  // Creates a Value storing UUID value.
+  static Value Uuid(UuidValue v);
+
   // Generic factory for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
-  // string, NumericValue, BigNumericValue, IntervalValue,
+  // string, NumericValue, BigNumericValue, IntervalValue, UuidValue,
   template <typename T>
   inline static Value Make(T value) {
     if constexpr (std::is_same_v<T, NumericValue>) {
@@ -502,6 +509,8 @@ class Value {
       return Value::Double(value);
     } else if constexpr (std::is_same_v<T, std::string>) {
       return Value::String(value);
+    } else if constexpr (std::is_same_v<T, UuidValue>) {
+      return Value::Uuid(value);
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -539,6 +548,8 @@ class Value {
       return Value::NullDouble();
     } else if constexpr (std::is_same_v<T, std::string>) {
       return Value::NullString();
+    } else if constexpr (std::is_same_v<T, UuidValue>) {
+      return Value::NullUuid();
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -579,6 +590,7 @@ class Value {
   static Value NullBigNumeric();
   static Value NullJson();
   static Value NullTokenList();
+  static Value NullUuid();
 
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
@@ -858,6 +870,8 @@ class Value {
   // Constructs a TOKENLIST value.
   explicit Value(tokens::TokenList tokenlist);
 
+  explicit Value(const UuidValue& uuid);
+
   // Constructs an enum.
   Value(const EnumType* enum_type, int64_t value,
         bool allow_unknown_enum_values);
@@ -1078,7 +1092,7 @@ class Value {
     int32_t enum_value_;          // Used for TYPE_ENUM.
     internal::StringRef*
         string_ptr_;  // Reffed. Used for TYPE_STRING and TYPE_BYTES.
-    internal::ValueContentContainerRef*
+    internal::ValueContentOrderedListRef*
         container_ptr_;  // Reffed. Used for arrays, structs, and RANGE.
     internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
     internal::GeographyRef* geography_ptr_;  // Owned. Used for geographies.
@@ -1093,6 +1107,7 @@ class Value {
         tokenlist_ptr_;  // Owned. Used for values of TYPE_TOKENLIST.
     internal::ValueContentMapRef*
         map_ptr_;  // Owned. Used for values of TYPE_MAP.
+    internal::UuidRef* uuid_ptr_;  // Owned. Used for values of TYPE_UUID.
   };
   // Intentionally copyable.
 };
@@ -1148,6 +1163,7 @@ Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG
 Value UnsafeStruct(const StructType* type, std::vector<Value>&& values);
 #endif
+Value Uuid(UuidValue v);
 Value Proto(const ProtoType* proto_type, absl::Cord value);
 Value Proto(const ProtoType* proto_type, const google::protobuf::Message& msg);
 Value EmptyArray(const ArrayType* type);
@@ -1175,6 +1191,7 @@ Value NullDatetime();
 Value NullInterval();
 Value NullNumeric();
 Value NullBigNumeric();
+Value NullUuid();
 Value Null(const Type* type);
 
 // Constructor for an invalid value.

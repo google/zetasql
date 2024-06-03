@@ -220,11 +220,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
                                      ast_order_by, ast_window_frame));
 
   // Resolve PARTITION BY and ORDER BY.
-  ExprResolutionInfo over_expr_resolution_info(
-      expr_resolution_info,
-      expr_resolution_info->name_scope,
-      expr_resolution_info->clause_name,
-      /*allows_analytic_in=*/false);
+  ExprResolutionInfo over_expr_resolution_info(expr_resolution_info,
+                                               {.allows_analytic = false});
   WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
   if (ast_partition_by != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
@@ -403,8 +400,8 @@ absl::Status AnalyticFunctionResolver::CheckWindowSupport(
     for (const std::unique_ptr<const ResolvedExpr>& argument :
              resolved_function_call->argument_list()) {
       std::string no_grouping_type;
-      if (!resolver_->TypeSupportsGrouping(argument->type(),
-                                           &no_grouping_type)) {
+      if (!argument->type()->SupportsGrouping(resolver_->language(),
+                                              &no_grouping_type)) {
         return MakeSqlErrorAt(ast_function_call)
                << "Analytic aggregate functions with DISTINCT cannot be used "
                   "with arguments of type "
@@ -448,8 +445,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
        ast_partition_by->partitioning_expressions()) {
     static const char clause_name[] = "PARTITION BY";
     ExprResolutionInfo partitioning_resolution_info(
-        expr_resolution_info, expr_resolution_info->name_scope, clause_name,
-        expr_resolution_info->allows_analytic);
+        expr_resolution_info, {.clause_name = clause_name});
     std::unique_ptr<WindowExprInfo> partitioning_expr_info;
     const Type* partitioning_expr_type;
 
@@ -496,9 +492,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     std::unique_ptr<WindowExprInfo> ordering_expr_info;
     const Type* ordering_expr_type = nullptr;
 
-    ExprResolutionInfo ordering_resolution_info(
-        expr_resolution_info, expr_resolution_info->name_scope, clause_name,
-        expr_resolution_info->allows_analytic);
+    ExprResolutionInfo ordering_resolution_info(expr_resolution_info,
+                                                {.clause_name = clause_name});
     ZETASQL_RETURN_IF_ERROR(ResolveWindowExpression(
         clause_name, ast_ordering_expr->expression(),
         &ordering_resolution_info, &ordering_expr_info, &ordering_expr_type));
@@ -727,8 +722,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
   ZETASQL_RET_CHECK(ast_frame_expr->expression() != nullptr);
   static const char window_frame_clause_name[] = "window frame";
   ExprResolutionInfo frame_expr_resolution_info(
-      expr_resolution_info, expr_resolution_info->name_scope,
-      window_frame_clause_name, expr_resolution_info->allows_analytic);
+      expr_resolution_info, {.clause_name = window_frame_clause_name});
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveExpr(ast_frame_expr->expression(),
                                          &frame_expr_resolution_info,
                                          resolved_offset_expr));

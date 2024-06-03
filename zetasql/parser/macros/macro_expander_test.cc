@@ -17,7 +17,9 @@
 #include "zetasql/parser/macros/macro_expander.h"
 
 #include <cctype>
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -27,20 +29,21 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/quoting.h"
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
 #include "zetasql/parser/macros/token_with_location.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -51,6 +54,8 @@
 namespace zetasql {
 namespace parser {
 namespace macros {
+
+using Location = ParseLocationRange;
 
 using ::testing::_;
 using ::testing::AllOf;
@@ -63,6 +68,7 @@ using ::testing::ExplainMatchResult;
 using ::testing::FieldsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Pair;
 using ::testing::Pointwise;
 using ::testing::SizeIs;
 using ::testing::Values;
@@ -73,8 +79,11 @@ using ::zetasql_base::testing::StatusIs;
 // Template specializations to print tokens & warnings in failed test messages.
 static void PrintTo(const TokenWithLocation& token, std::ostream* os) {
   *os << absl::StrFormat(
-      "(kind: %i, location: %s, text: '%s', prev_spaces: '%s')", token.kind,
-      token.location.GetString(), token.text, token.preceding_whitespaces);
+      "(kind: %i, location: %s, topmost_invocation_location: %s, text: '%s', "
+      "prev_spaces: '%s')",
+      token.kind, token.location.GetString(),
+      token.topmost_invocation_location.GetString(), token.text,
+      token.preceding_whitespaces);
 }
 
 template <typename T>
@@ -114,7 +123,8 @@ static void PrintTo(const ExpansionOutput& expansion_output, std::ostream* os) {
 MATCHER_P(TokenIs, expected, "") {
   return ExplainMatchResult(
       FieldsAre(Eq(expected.kind), Eq(expected.location), Eq(expected.text),
-                Eq(expected.preceding_whitespaces)),
+                Eq(expected.preceding_whitespaces),
+                Eq(expected.topmost_invocation_location)),
       arg, result_listener);
 }
 
@@ -161,6 +171,7 @@ static Location MakeLocation(absl::string_view filename, int start_offset,
 }
 
 static absl::string_view kTopFileName = "top_file.sql";
+static absl::string_view kDefsFileName = "defs.sql";
 
 static Location MakeLocation(int start_offset, int end_offset) {
   return MakeLocation(kTopFileName, start_offset, end_offset);
@@ -168,15 +179,42 @@ static Location MakeLocation(int start_offset, int end_offset) {
 
 static absl::StatusOr<ExpansionOutput> ExpandMacros(
     const absl::string_view text, const MacroCatalog& macro_catalog,
-    const LanguageOptions& language_options) {
+    const LanguageOptions& language_options,
+    ErrorMessageOptions error_message_options = {
+        .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}) {
   return MacroExpander::ExpandMacros(
-      kTopFileName, text, macro_catalog, language_options,
-      {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE});
+      std::make_unique<FlexTokenProvider>(
+          kTopFileName, text, /*preserve_comments=*/false, /*start_offset=*/0,
+          /*end_offset=*/std::nullopt),
+      language_options, macro_catalog, error_message_options);
+}
+
+// This function needs to return void due to the assertions.
+static void RegisterMacros(absl::string_view source,
+                           MacroCatalog& macro_catalog) {
+  ParseResumeLocation location =
+      ParseResumeLocation::FromStringView(kDefsFileName, source);
+  bool at_end_of_input = false;
+  while (!at_end_of_input) {
+    std::unique_ptr<ParserOutput> output;
+    ZETASQL_ASSERT_OK(ParseNextStatement(
+        &location, ParserOptions(GetLanguageOptions(/*is_strict=*/false)),
+        &output, &at_end_of_input));
+    ASSERT_TRUE(output->statement() != nullptr);
+    auto def_macro_stmt =
+        output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
+    ASSERT_TRUE(def_macro_stmt != nullptr);
+    ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro(
+        {.source_text = source,
+         .location = def_macro_stmt->GetParseLocationRange(),
+         .name_location = def_macro_stmt->name()->GetParseLocationRange(),
+         .body_location = def_macro_stmt->body()->GetParseLocationRange()}));
+  }
 }
 
 TEST(MacroExpanderTest, ExpandsEmptyMacros) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", ""});
+  RegisterMacros("DEFINE MACRO empty", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("\t$empty\r\n$empty$empty", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -186,7 +224,6 @@ TEST(MacroExpanderTest, ExpandsEmptyMacros) {
 
 TEST(MacroExpanderTest, TrailingWhitespaceIsMovedToEofToken) {
   MacroCatalog macro_catalog;
-
   EXPECT_THAT(ExpandMacros(";\t", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
@@ -196,7 +233,7 @@ TEST(MacroExpanderTest, TrailingWhitespaceIsMovedToEofToken) {
 
 TEST(MacroExpanderTest, ErrorsCanPrintLocation) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "$unknown"});
+  RegisterMacros("DEFINE MACRO m $unknown", macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("\t$empty\r\n$empty$empty", macro_catalog,
@@ -204,18 +241,91 @@ TEST(MacroExpanderTest, ErrorsCanPrintLocation) {
       StatusIs(_, Eq("Macro 'empty' not found. [at top_file.sql:1:9]")));
 }
 
+TEST(MacroExpanderTest, ErrorsCanPrintLocation_EmptyFileNames) {
+  MacroCatalog macro_catalog;
+  ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro({
+      .source_text = "DEFINE MACRO m $unknown",
+      .location = MakeLocation("", 0, 23),
+      .name_location = MakeLocation("", 13, 14),
+      .body_location = MakeLocation("", 14, 23),
+  }));
+  ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro({
+      .source_text = "DEFINE MACRO m2 $m()",
+      .location = MakeLocation("", 0, 20),
+      .name_location = MakeLocation("", 13, 15),
+      .body_location = MakeLocation("", 15, 20),
+  }));
+
+  auto options = GetLanguageOptions(/*is_strict=*/true);
+  EXPECT_THAT(MacroExpander::ExpandMacros(
+                  std::make_unique<FlexTokenProvider>(
+                      "", "$m2()",
+                      /*preserve_comments=*/false,
+                      /*start_offset=*/0, /*end_offset=*/std::nullopt),
+                  options, macro_catalog,
+                  {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}),
+              StatusIs(_, Eq("Macro 'unknown' not found. [at 1:16]; "
+                             "Expanded from macro:m [at 1:17]; "
+                             "Expanded from macro:m2 [at 1:1]")));
+}
+
+TEST(MacroExpanderTest, ErrorsOrWarningsDoNotTruncateCaretContext) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO one 1;\n"
+      "DEFINE MACRO two 2;\n"
+      "DEFINE MACRO add $1 + $2;\n"
+      "DEFINE MACRO outer $add($one, $two);  # Extra comment",
+      macro_catalog);
+
+  EXPECT_THAT(
+      ExpandMacros(
+          "$outer()", macro_catalog, GetLanguageOptions(/*is_strict=*/false),
+          {.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}),
+      IsOkAndHolds(HasWarnings(ElementsAre(
+          StatusIs(_,
+                   Eq("Invocation of macro 'one' missing argument list. [at "
+                      "defs.sql:4:29]\n"
+                      "DEFINE MACRO outer $add($one, $two);  # Extra comment\n"
+                      "                            ^\n"
+                      "Expanded from macro:outer [at top_file.sql:1:1]\n"
+                      "$outer()\n"
+                      "^")),
+          StatusIs(_,
+                   Eq("Invocation of macro 'two' missing argument list. [at "
+                      "defs.sql:4:35]\n"
+                      "DEFINE MACRO outer $add($one, $two);  # Extra comment\n"
+                      "                                  ^\n"
+                      "Expanded from macro:outer [at top_file.sql:1:1]\n"
+                      "$outer()\n"
+                      "^"))))));
+
+  EXPECT_THAT(
+      ExpandMacros(
+          "$outer()", macro_catalog, GetLanguageOptions(/*is_strict=*/true),
+          {.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}),
+      StatusIs(_, Eq("Invocation of macro 'one' missing argument list. [at "
+                     "defs.sql:4:29]\n"
+                     "DEFINE MACRO outer $add($one, $two);  # Extra comment\n"
+                     "                            ^\n"
+                     "Expanded from macro:outer [at top_file.sql:1:1]\n"
+                     "$outer()\n"
+                     "^")));
+}
+
 TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", ""});
+  RegisterMacros("DEFINE MACRO empty", macro_catalog);
 
   LanguageOptions options = GetLanguageOptions(/*is_strict=*/false);
 
   auto token_provider = std::make_unique<FlexTokenProvider>(
-      BisonParserMode::kTokenizer, kTopFileName, "\t$empty\r\n$empty$empty",
-      /*start_offset=*/0, options);
+      kTopFileName, "\t$empty\r\n$empty$empty", /*preserve_comments=*/false,
+      /*start_offset=*/0, /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
-  MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
-                         ErrorMessageOptions{}, /*parent_location=*/nullptr);
+  MacroExpander expander(std::move(token_provider), options, macro_catalog,
+                         arena.get(), ErrorMessageOptions{},
+                         /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
               IsOkAndHolds(TokenIs(TokenWithLocation{
@@ -226,26 +336,30 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
 TEST(MacroExpanderTest,
      TracksCountOfUnexpandedTokensConsumedButNotFromDefinitions) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "1 2 3"});
+  RegisterMacros("DEFINE MACRO m 1 2 3", macro_catalog);
 
   LanguageOptions options = GetLanguageOptions(/*is_strict=*/false);
 
   auto token_provider = std::make_unique<FlexTokenProvider>(
-      BisonParserMode::kTokenizer, kTopFileName, "$m", /*start_offset=*/0,
-      options);
+      kTopFileName, "$m", /*preserve_comments=*/false, /*start_offset=*/0,
+      /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
-  MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
-                         ErrorMessageOptions{}, /*parent_location=*/nullptr);
+  MacroExpander expander(std::move(token_provider), options, macro_catalog,
+                         arena.get(), ErrorMessageOptions{},
+                         /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
               IsOkAndHolds(TokenIs(TokenWithLocation{
-                  INTEGER_LITERAL, MakeLocation("macro:m", 0, 1), "1", ""})));
+                  DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 15, 16),
+                  "1", "", MakeLocation(0, 2)})));
   ASSERT_THAT(expander.GetNextToken(),
               IsOkAndHolds(TokenIs(TokenWithLocation{
-                  INTEGER_LITERAL, MakeLocation("macro:m", 2, 3), "2", " "})));
+                  DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 17, 18),
+                  "2", " ", MakeLocation(0, 2)})));
   ASSERT_THAT(expander.GetNextToken(),
               IsOkAndHolds(TokenIs(TokenWithLocation{
-                  INTEGER_LITERAL, MakeLocation("macro:m", 4, 5), "3", " "})));
+                  DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 19, 20),
+                  "3", " ", MakeLocation(0, 2)})));
   ASSERT_THAT(expander.GetNextToken(),
               IsOkAndHolds(TokenIs(
                   TokenWithLocation{YYEOF, MakeLocation(2, 2), "", ""})));
@@ -257,44 +371,48 @@ TEST(MacroExpanderTest,
 
 TEST(MacroExpanderTest, ExpandsEmptyMacrosSplicedWithIntLiterals) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", ""});
-  macro_catalog.insert({"int", "123"});
+  RegisterMacros(
+      "DEFINE MACRO empty ;\n"
+      "DEFINE MACRO int 123;\n",
+      macro_catalog);
 
   EXPECT_THAT(ExpandMacros("\n$empty()1", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {INTEGER_LITERAL, MakeLocation(9, 10), "1", "\n"},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(9, 10), "1", "\n"},
                   {YYEOF, MakeLocation(10, 10), "", ""}})));
 
-  EXPECT_THAT(
-      ExpandMacros("\n$empty()$int", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/false)),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          // Location is from the macro it was pulled from.
-          // We can stack it later for nested invocations.
-          {INTEGER_LITERAL, MakeLocation("macro:int", 0, 3), "123", "\n"},
-          {YYEOF, MakeLocation(13, 13), "", ""}})));
+  EXPECT_THAT(ExpandMacros("\n$empty()$int", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/false)),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  // Location is from the macro it was pulled from.
+                  // We can stack it later for nested invocations.
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 38, 41),
+                   "123", "\n", MakeLocation(9, 13)},
+                  {YYEOF, MakeLocation(13, 13), "", ""}})));
 
   EXPECT_THAT(ExpandMacros("\n1$empty()", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {INTEGER_LITERAL, MakeLocation(1, 2), "1", "\n"},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(1, 2), "1", "\n"},
                   {YYEOF, MakeLocation(10, 10), "", ""}})));
 
-  EXPECT_THAT(
-      ExpandMacros("\n$int()$empty", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/false)),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          {INTEGER_LITERAL, MakeLocation("macro:int", 0, 3), "123", "\n"},
-          {YYEOF, MakeLocation(13, 13), "", ""}})));
+  EXPECT_THAT(ExpandMacros("\n$int()$empty", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/false)),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 38, 41),
+                   "123", "\n", MakeLocation(1, 7)},
+                  {YYEOF, MakeLocation(13, 13), "", ""}})));
 }
 
 TEST(MacroExpanderTest,
      ExpandsIdentifiersSplicedWithEmptyMacrosAndIntLiterals) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"identifier", "abc"});
-  macro_catalog.insert({"empty", ""});
-  macro_catalog.insert({"int", "123"});
+  RegisterMacros(
+      "DEFINE MACRO identifier abc;\n"
+      "DEFINE MACRO empty;\n"
+      "DEFINE MACRO int 123;\n",
+      macro_catalog);
 
   EXPECT_THAT(ExpandMacros("\na$empty()1", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -308,27 +426,29 @@ TEST(MacroExpanderTest,
                   {IDENTIFIER, MakeLocation(1, 2), "a123", "\n"},
                   {YYEOF, MakeLocation(14, 14), "", ""}})));
 
-  EXPECT_THAT(
-      ExpandMacros("\n$identifier$empty()1", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/false)),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          {IDENTIFIER, MakeLocation("macro:identifier", 0, 3), "abc1", "\n"},
-          {YYEOF, MakeLocation(21, 21), "", ""}})));
+  EXPECT_THAT(ExpandMacros("\n$identifier$empty()1", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/false)),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  {IDENTIFIER, MakeLocation(kDefsFileName, 24, 27), "abc1",
+                   "\n", MakeLocation(1, 12)},
+                  {YYEOF, MakeLocation(21, 21), "", ""}})));
 
-  EXPECT_THAT(
-      ExpandMacros("\n$identifier$empty()$int", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/false)),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          {IDENTIFIER, MakeLocation("macro:identifier", 0, 3), "abc123", "\n"},
-          {YYEOF, MakeLocation(24, 24), "", ""}})));
+  EXPECT_THAT(ExpandMacros("\n$identifier$empty()$int", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/false)),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  {IDENTIFIER, MakeLocation(kDefsFileName, 24, 27), "abc123",
+                   "\n", MakeLocation(1, 12)},
+                  {YYEOF, MakeLocation(24, 24), "", ""}})));
 }
 
 TEST(MacroExpanderTest, CanExpandWithoutArgsAndNoSplicing) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"prefix", "xyz"});
-  macro_catalog.insert({"suffix1", "123"});
-  macro_catalog.insert({"suffix2", "456 abc"});
-  macro_catalog.insert({"empty", ""});
+  RegisterMacros(
+      "DEFINE MACRO prefix xyz;\n"
+      "DEFINE MACRO suffix1 123;\n"
+      "DEFINE MACRO suffix2 456 abc;\n"
+      "DEFINE MACRO empty ;\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("select abc tbl_\t$empty+ $suffix1 $suffix2 $prefix\t",
@@ -338,19 +458,25 @@ TEST(MacroExpanderTest, CanExpandWithoutArgsAndNoSplicing) {
           {IDENTIFIER, MakeLocation(7, 10), "abc", " "},
           {IDENTIFIER, MakeLocation(11, 15), "tbl_", " "},
           {'+', MakeLocation(22, 23), "+", "\t"},
-          {INTEGER_LITERAL, MakeLocation("macro:suffix1", 0, 3), "123", " "},
-          {INTEGER_LITERAL, MakeLocation("macro:suffix2", 0, 3), "456", " "},
-          {IDENTIFIER, MakeLocation("macro:suffix2", 4, 7), "abc", " "},
-          {IDENTIFIER, MakeLocation("macro:prefix", 0, 3), "xyz", " "},
+          {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 46, 49), "123",
+           " ", MakeLocation(24, 32)},
+          {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 72, 75), "456",
+           " ", MakeLocation(33, 41)},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 76, 79), "abc", " ",
+           MakeLocation(33, 41)},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 20, 23), "xyz", " ",
+           MakeLocation(42, 49)},
           {YYEOF, MakeLocation(50, 50), "", "\t"}})));
 }
 
 TEST(MacroExpanderTest, CanExpandWithoutArgsWithSplicing) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"identifier", "xyz"});
-  macro_catalog.insert({"numbers", "123"});
-  macro_catalog.insert({"multiple_tokens", "456 pq abc"});
-  macro_catalog.insert({"empty", "  "});
+  RegisterMacros(
+      "DEFINE MACRO identifier xyz;\n"
+      "DEFINE MACRO numbers 123;\n"
+      "DEFINE MACRO multiple_tokens 456 pq abc;\n"
+      "DEFINE MACRO empty  ;\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("select tbl_$numbers$multiple_tokens$empty$identifier "
@@ -359,10 +485,12 @@ TEST(MacroExpanderTest, CanExpandWithoutArgsWithSplicing) {
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {KW_SELECT, MakeLocation(0, 6), "select", ""},
           {IDENTIFIER, MakeLocation(7, 11), "tbl_123456", " "},
-          {IDENTIFIER, MakeLocation("macro:multiple_tokens", 4, 6), "pq", " "},
-          {IDENTIFIER, MakeLocation("macro:multiple_tokens", 7, 10), "abcxyz",
-           " "},
-          {IDENTIFIER, MakeLocation("macro:identifier", 0, 3), "xyz123", " "},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 88, 90), "pq", " ",
+           MakeLocation(19, 35)},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 91, 94), "abcxyz", " ",
+           MakeLocation(19, 35)},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 24, 27), "xyz123", " ",
+           MakeLocation(59, 70)},
           {IDENTIFIER, MakeLocation(85, 86), "a", " "},
           {'+', MakeLocation(86, 87), "+", ""},
           {IDENTIFIER, MakeLocation(87, 88), "b", ""},
@@ -372,8 +500,10 @@ TEST(MacroExpanderTest, CanExpandWithoutArgsWithSplicing) {
 
 TEST(MacroExpanderTest, KeywordsCanSpliceToFormIdentifiers) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"suffix", "123"});
-  macro_catalog.insert({"empty", "    "});
+  RegisterMacros(
+      "DEFINE MACRO suffix 123;\n"
+      "DEFINE MACRO empty    ;\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("FROM$suffix  $empty()FROM$suffix  FROM$empty$suffix  "
@@ -390,14 +520,15 @@ TEST(MacroExpanderTest, KeywordsCanSpliceToFormIdentifiers) {
 
 TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Lenient) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "  a  "});
+  RegisterMacros("DEFINE MACRO m  a  ", macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("$m()b", macro_catalog,
                    GetLanguageOptions(/*is_strict=*/false)),
       IsOkAndHolds(AllOf(
           TokensEq(std::vector<TokenWithLocation>{
-              {IDENTIFIER, MakeLocation("macro:m", 2, 3), "ab", ""},
+              {IDENTIFIER, MakeLocation(kDefsFileName, 16, 17), "ab", "",
+               MakeLocation(0, 4)},
               {YYEOF, MakeLocation(5, 5), "", ""}}),
           HasWarnings(ElementsAre(StatusIs(
               _, Eq("Splicing tokens (a) and (b) [at top_file.sql:1:5]")))))));
@@ -405,7 +536,7 @@ TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Lenient) {
 
 TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Strict) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "  a  "});
+  RegisterMacros("DEFINE MACRO m  a  ", macro_catalog);
 
   std::vector<absl::Status> warnings;
   EXPECT_THAT(
@@ -416,7 +547,7 @@ TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Strict) {
 
 TEST(MacroExpanderTest, StrictProducesErrorOnIncompatibleQuoting) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"single_quoted", "'sq'"});
+  RegisterMacros("DEFINE MACRO single_quoted 'sq'", macro_catalog);
 
   ASSERT_THAT(ExpandMacros("select `ab$single_quoted`", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/true)),
@@ -429,7 +560,7 @@ TEST(MacroExpanderTest, StrictProducesErrorOnIncompatibleQuoting) {
 
 TEST(MacroExpanderTest, LenientCanHandleMixedQuoting) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"single_quoted", "'sq'"});
+  RegisterMacros("DEFINE MACRO single_quoted 'sq'", macro_catalog);
 
   ASSERT_THAT(
       ExpandMacros("select `ab$single_quoted`", macro_catalog,
@@ -441,7 +572,7 @@ TEST(MacroExpanderTest, LenientCanHandleMixedQuoting) {
 
 TEST(MacroExpanderTest, CanHandleUnicode) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"unicode", "'😀'"});
+  RegisterMacros("DEFINE MACRO unicode '😀'", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("'$😀$unicode'", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -453,10 +584,12 @@ TEST(MacroExpanderTest, CanHandleUnicode) {
 
 TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"identifier", "xyz"});
-  macro_catalog.insert({"numbers", "456"});
-  macro_catalog.insert({"inner_quoted_id", "`bq`"});
-  macro_catalog.insert({"empty", "     "});
+  RegisterMacros(
+      "DEFINE MACRO identifier xyz;\n"
+      "DEFINE MACRO numbers 456;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n"
+      "DEFINE MACRO empty     ",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("select `ab$identifier$numbers$empty$inner_quoted_id`",
@@ -470,10 +603,12 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken) {
 
 TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken_WithSpaces) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"identifier", "xyz"});
-  macro_catalog.insert({"numbers", "456"});
-  macro_catalog.insert({"inner_quoted_id", "`bq`"});
-  macro_catalog.insert({"empty", "     "});
+  RegisterMacros(
+      "DEFINE MACRO identifier xyz;\n"
+      "DEFINE MACRO numbers 456;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n"
+      "DEFINE MACRO empty     ",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("select `  ab$identifier$numbers$empty$inner_quoted_id  `\n",
@@ -487,10 +622,12 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_SingleToken_WithSpaces) {
 
 TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_MultipleTokens) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"identifier", "xyz"});
-  macro_catalog.insert({"numbers", "123 456"});
-  macro_catalog.insert({"inner_quoted_id", "`bq`"});
-  macro_catalog.insert({"empty", "     "});
+  RegisterMacros(
+      "DEFINE MACRO identifier xyz;\n"
+      "DEFINE MACRO numbers 123 456;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n"
+      "DEFINE MACRO empty     ",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros(
@@ -506,7 +643,7 @@ TEST(MacroExpanderTest, ExpandsWithinQuotedIdentifiers_MultipleTokens) {
 
 TEST(MacroExpanderTest, UnknownMacrosAreLeftUntouched) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"ints", "\t\t\t1 2\t\t\t"});
+  RegisterMacros("DEFINE MACRO ints\t\t\t1 2\t\t\t", macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("  $x$y(a\n,\t$ints\n\t,\t$z,\n$w(\t\tb\n\n,\t\r)\t\n)   ",
@@ -517,8 +654,10 @@ TEST(MacroExpanderTest, UnknownMacrosAreLeftUntouched) {
           {'(', MakeLocation(6, 7), "(", ""},
           {IDENTIFIER, MakeLocation(7, 8), "a", ""},
           {',', MakeLocation(9, 10), ",", "\n"},
-          {INTEGER_LITERAL, MakeLocation("macro:ints", 3, 4), "1", "\t"},
-          {INTEGER_LITERAL, MakeLocation("macro:ints", 5, 6), "2", " "},
+          {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 20, 21), "1",
+           "\t", MakeLocation(11, 16)},
+          {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 22, 23), "2",
+           " ", MakeLocation(11, 16)},
           {',', MakeLocation(18, 19), ",", "\n\t"},
           {MACRO_INVOCATION, MakeLocation(20, 22), "$z", "\t"},
           {',', MakeLocation(22, 23), ",", ""},
@@ -583,7 +722,7 @@ TEST(MacroExpanderTest, SkipsQuotesInLiterals) {
 
 TEST(MacroExpanderTest, SeparateParenthesesAreNotArgLists) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "   bc   "});
+  RegisterMacros("DEFINE MACRO m   bc   ;", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("a$m (x, y)", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -630,7 +769,7 @@ TEST(MacroExpanderTest, ArgsNotAllowedInsideLiterals) {
           StatusIs(_, Eq("Argument lists are not allowed inside "
                          "literals [at top_file.sql:1:4]")),
           StatusIs(_,
-                   HasSubstr("Macro 'a' not found. [at top_file.sql:1:1]"))))));
+                   HasSubstr("Macro 'a' not found. [at top_file.sql:1:2]"))))));
 
   EXPECT_THAT(ExpandMacros("'$a('", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -640,25 +779,28 @@ TEST(MacroExpanderTest, ArgsNotAllowedInsideLiterals) {
 
 TEST(MacroExpanderTest, SpliceArgWithIdentifier) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "$1a"});
+  RegisterMacros("DEFINE MACRO m $1a;", macro_catalog);
 
-  EXPECT_THAT(ExpandMacros("$m(x)", macro_catalog,
-                           GetLanguageOptions(/*is_strict=*/false)),
-              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-                  {IDENTIFIER, MakeLocation(3, 4), "xa", ""},
-                  {YYEOF, MakeLocation(5, 5), "", ""},
-              })));
+  EXPECT_THAT(
+      ExpandMacros("$m(x)", macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/false)),
+      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+          {IDENTIFIER, MakeLocation(3, 4), "xa", "", MakeLocation(0, 5)},
+          {YYEOF, MakeLocation(5, 5), "", ""},
+      })));
 }
 
 TEST(MacroExpanderTest, ExpandsArgs) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"select_list", "a , $1, $2  "});
-  macro_catalog.insert({"from_clause", "FROM tbl_$1$empty"});
-  macro_catalog.insert({"splice", "   $1$2   "});
-  macro_catalog.insert({"numbers", "123 456"});
-  macro_catalog.insert({"inner_quoted_id", "`bq`"});
-  macro_catalog.insert({"empty", "     "});
-  macro_catalog.insert({"MakeLiteral", "'$1'"});
+  RegisterMacros(
+      "DEFINE MACRO select_list a , $1, $2  ;\n"
+      "DEFINE MACRO from_clause FROM tbl_$1$empty;\n"
+      "DEFINE MACRO splice    $1$2   ;\n"
+      "DEFINE MACRO numbers 123 456;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n"
+      "DEFINE MACRO empty      ;\n"
+      "DEFINE MACRO MakeLiteral '$1';",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("select $MakeLiteral(  x  ) $splice(  b  ,   89  ), "
@@ -666,49 +808,64 @@ TEST(MacroExpanderTest, ExpandsArgs) {
                    macro_catalog, GetLanguageOptions(/*is_strict=*/false)),
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           {KW_SELECT, MakeLocation(0, 6), "select", ""},
-          {STRING_LITERAL, MakeLocation("macro:MakeLiteral", 0, 4), "'x'", " "},
-          {IDENTIFIER, MakeLocation(37, 38), "b89", " "},
+          {STRING_LITERAL, MakeLocation(kDefsFileName, 231, 235), "'x'", " ",
+           MakeLocation(7, 26)},
+          {IDENTIFIER, MakeLocation(37, 38), "b89", " ", MakeLocation(27, 49)},
           {',', MakeLocation(49, 50), ",", ""},
-          {IDENTIFIER, MakeLocation("macro:select_list", 0, 1), "a", " "},
-          {',', MakeLocation("macro:select_list", 2, 3), ",", " "},
-          {IDENTIFIER, MakeLocation(66, 67), "b", " "},
-          {',', MakeLocation("macro:select_list", 6, 7), ",", ""},
-          {IDENTIFIER, MakeLocation(69, 70), "c123", " "},
-          {KW_FROM, MakeLocation("macro:from_clause", 0, 4), "FROM", " "},
-          {IDENTIFIER, MakeLocation("macro:from_clause", 5, 9), "tbl_123", " "},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 25, 26), "a", " ",
+           MakeLocation(51, 72)},
+          {',', MakeLocation(kDefsFileName, 27, 28), ",", " ",
+           MakeLocation(51, 72)},
+          {IDENTIFIER, MakeLocation(66, 67), "b", " ", MakeLocation(51, 72)},
+          {',', MakeLocation(kDefsFileName, 31, 32), ",", "",
+           MakeLocation(51, 72)},
+          {IDENTIFIER, MakeLocation(69, 70), "c123", " ", MakeLocation(51, 72)},
+          {KW_FROM, MakeLocation(kDefsFileName, 64, 68), "FROM", " ",
+           MakeLocation(76, 97)},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 69, 73), "tbl_123", " ",
+           MakeLocation(76, 97)},
           {YYEOF, MakeLocation(98, 98), "", " "},
       })));
 }
 
 TEST(MacroExpanderTest, ExpandsArgsThatHaveParensAndCommas) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"repeat", "$1, $1, $2, $2"});
+  RegisterMacros("DEFINE MACRO repeat $1, $1, $2, $2;", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("select $repeat(1, (2,3))", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/true)),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
                   {KW_SELECT, MakeLocation(0, 6), "select", ""},
-                  {INTEGER_LITERAL, MakeLocation(15, 16), "1", " "},
-                  {',', MakeLocation("macro:repeat", 2, 3), ",", ""},
-                  {INTEGER_LITERAL, MakeLocation(15, 16), "1", " "},
-                  {',', MakeLocation("macro:repeat", 6, 7), ",", ""},
-                  {'(', MakeLocation(18, 19), "(", " "},
-                  {INTEGER_LITERAL, MakeLocation(19, 20), "2", ""},
-                  {',', MakeLocation(20, 21), ",", ""},
-                  {INTEGER_LITERAL, MakeLocation(21, 22), "3", ""},
-                  {')', MakeLocation(22, 23), ")", ""},
-                  {',', MakeLocation("macro:repeat", 10, 11), ",", ""},
-                  {'(', MakeLocation(18, 19), "(", " "},
-                  {INTEGER_LITERAL, MakeLocation(19, 20), "2", ""},
-                  {',', MakeLocation(20, 21), ",", ""},
-                  {INTEGER_LITERAL, MakeLocation(21, 22), "3", ""},
-                  {')', MakeLocation(22, 23), ")", ""},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(15, 16), "1", " ",
+                   MakeLocation(7, 24)},
+                  {',', MakeLocation(kDefsFileName, 22, 23), ",", "",
+                   MakeLocation(7, 24)},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(15, 16), "1", " ",
+                   MakeLocation(7, 24)},
+                  {',', MakeLocation(kDefsFileName, 26, 27), ",", "",
+                   MakeLocation(7, 24)},
+                  {'(', MakeLocation(18, 19), "(", " ", MakeLocation(7, 24)},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(19, 20), "2", "",
+                   MakeLocation(7, 24)},
+                  {',', MakeLocation(20, 21), ",", "", MakeLocation(7, 24)},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(21, 22), "3", "",
+                   MakeLocation(7, 24)},
+                  {')', MakeLocation(22, 23), ")", "", MakeLocation(7, 24)},
+                  {',', MakeLocation(kDefsFileName, 30, 31), ",", "",
+                   MakeLocation(7, 24)},
+                  {'(', MakeLocation(18, 19), "(", " ", MakeLocation(7, 24)},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(19, 20), "2", "",
+                   MakeLocation(7, 24)},
+                  {',', MakeLocation(20, 21), ",", "", MakeLocation(7, 24)},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(21, 22), "3", "",
+                   MakeLocation(7, 24)},
+                  {')', MakeLocation(22, 23), ")", "", MakeLocation(7, 24)},
                   {YYEOF, MakeLocation(24, 24), "", ""}})));
 }
 
 TEST(MacroExpanderTest, ExtraArgsProduceWarningOrError) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", ""});
+  RegisterMacros("DEFINE MACRO empty;", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("$empty(x)", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -730,9 +887,13 @@ TEST(MacroExpanderTest, ExtraArgsProduceWarningOrError) {
 
 TEST(MacroExpanderTest, UnknownArgsAreLeftUntouched) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", ""});
-  macro_catalog.insert({"unknown_not_in_a_literal", "\nx$3\n"});
-  macro_catalog.insert({"unknown_inside_literal", "'\ty$3\t'"});
+  RegisterMacros(
+      "DEFINE MACRO empty;\n"
+      "DEFINE MACRO unknown_not_in_a_literal\n"
+      "x$3\n"
+      ";\n"
+      "DEFINE MACRO unknown_inside_literal'\ty$3\t';\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros(
@@ -743,53 +904,46 @@ TEST(MacroExpanderTest, UnknownArgsAreLeftUntouched) {
           TokensEq(std::vector<TokenWithLocation>{
               {IDENTIFIER, MakeLocation(2, 3), "a", "  "},
               {MACRO_ARGUMENT_REFERENCE, MakeLocation(11, 13), "$1", ""},
-              {IDENTIFIER, MakeLocation("macro:unknown_not_in_a_literal", 1, 2),
-               "x", ""},
+              {IDENTIFIER, MakeLocation(kDefsFileName, 58, 59), "x", "",
+               MakeLocation(13, 38)},
               {STRING_LITERAL, MakeLocation(40, 67), "'x'", "  "},
-              {STRING_LITERAL,
-               MakeLocation("macro:unknown_inside_literal", 0, 7), "'\ty\t'",
-               " "},
+              {STRING_LITERAL, MakeLocation(kDefsFileName, 99, 106), "'\ty\t'",
+               " ", MakeLocation(68, 91)},
               {MACRO_ARGUMENT_REFERENCE, MakeLocation(92, 94), "$1", "\t"},
               {STRING_LITERAL, MakeLocation(95, 99), "'$2'", "\n"},
               {YYEOF, MakeLocation(99, 99), "", ""}}),
           HasWarnings(ElementsAre(
-              StatusIs(_, Eq("Macro invocation missing argument list. "
-                             "[at top_file.sql:1:39]")),
+              StatusIs(_, Eq("Invocation of macro 'unknown_not_in_a_literal' "
+                             "missing argument list. [at top_file.sql:1:39]")),
               StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
-                             "provided only 1 arguments. [at "
-                             "macro:unknown_not_in_a_literal:2:2]; Expanded "
-                             "from top_file.sql [at top_file.sql:1:14]")),
-              StatusIs(_, Eq("Macro invocation missing argument list. [at "
-                             "top_file.sql:1:26]; Expanded from top_file.sql "
-                             "[at top_file.sql:1:42]")),
-              StatusIs(_,
-                       Eq("Argument index $3 out of range. Invocation was "
-                          "provided only 1 arguments. [at "
-                          "macro:unknown_not_in_a_literal:2:2]; Expanded from "
-                          "top_file.sql [at top_file.sql:1:42]; Expanded from "
-                          "top_file.sql [at top_file.sql:1:1]")),
-              StatusIs(_, Eq("Macro invocation missing argument list. "
-                             "[at top_file.sql:1:92]")),
-              StatusIs(
-                  _,
-                  Eq("Argument index $3 out of range. Invocation was provided "
-                     "only 1 arguments. [at macro:unknown_inside_literal:1:1]; "
-                     "Expanded from top_file.sql [at top_file.sql:1:69]; "
-                     "Expanded from macro:unknown_inside_literal [at "
-                     "macro:unknown_inside_literal:1:10]")))))));
+                             "provided only 1 arguments. [at defs.sql:3:2]; "
+                             "Expanded from macro:unknown_not_in_a_literal [at "
+                             "top_file.sql:1:14]")),
+              StatusIs(_, Eq("Invocation of macro 'unknown_not_in_a_literal' "
+                             "missing argument list. [at top_file.sql:1:67]")),
+              StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
+                             "provided only 1 arguments. [at defs.sql:3:2]; "
+                             "Expanded from macro:unknown_not_in_a_literal [at "
+                             "top_file.sql:1:42]")),
+              StatusIs(_, Eq("Invocation of macro 'unknown_inside_literal' "
+                             "missing argument list. [at top_file.sql:1:92]")),
+              StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
+                             "provided only 1 arguments. [at defs.sql:5:42]; "
+                             "Expanded from macro:unknown_inside_literal [at "
+                             "top_file.sql:1:69]")))))));
 
   EXPECT_THAT(
       ExpandMacros("unknown_inside_literal() $unknown_not_in_a_literal()",
                    macro_catalog, GetLanguageOptions(/*is_strict=*/true)),
-      StatusIs(_,
-               Eq("Argument index $3 out of range. Invocation was provided "
-                  "only 1 arguments. [at macro:unknown_not_in_a_literal:2:2]; "
-                  "Expanded from top_file.sql [at top_file.sql:1:26]")));
+      StatusIs(_, Eq("Argument index $3 out of range. Invocation was provided "
+                     "only 1 arguments. [at defs.sql:3:2]; "
+                     "Expanded from macro:unknown_not_in_a_literal [at "
+                     "top_file.sql:1:26]")));
 }
 
 TEST(MacroExpanderTest, ExpandsStandaloneDollarSignsAtTopLevel) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"empty", "\n\n"});
+  RegisterMacros("DEFINE MACRO empty\n\n;", macro_catalog);
 
   EXPECT_THAT(ExpandMacros("\t\t$empty${a}   \n$$$empty${b}$", macro_catalog,
                            GetLanguageOptions(/*is_strict=*/false)),
@@ -810,22 +964,60 @@ TEST(MacroExpanderTest, ExpandsStandaloneDollarSignsAtTopLevel) {
 
 TEST(MacroExpanderTest, ProducesWarningOrErrorOnMissingArgumentLists) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "1"});
+  RegisterMacros("DEFINE MACRO m 1;", macro_catalog);
 
-  EXPECT_THAT(ExpandMacros("$m", macro_catalog,
-                           GetLanguageOptions(/*is_strict=*/false)),
-              IsOkAndHolds(AllOf(
-                  TokensEq(std::vector<TokenWithLocation>{
-                      {INTEGER_LITERAL, MakeLocation("macro:m", 0, 1), "1", ""},
-                      {YYEOF, MakeLocation(2, 2), "", ""}}),
-                  HasWarnings(ElementsAre(
-                      StatusIs(_, Eq("Macro invocation missing argument "
-                                     "list. [at top_file.sql:1:3]")))))));
+  EXPECT_THAT(
+      ExpandMacros("$m", macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/false)),
+      IsOkAndHolds(AllOf(
+          TokensEq(std::vector<TokenWithLocation>{
+              {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 15, 16),
+               "1", "", MakeLocation(0, 2)},
+              {YYEOF, MakeLocation(2, 2), "", ""}}),
+          HasWarnings(ElementsAre(
+              StatusIs(_, Eq("Invocation of macro 'm' missing argument list. "
+                             "[at top_file.sql:1:3]")))))));
 
   EXPECT_THAT(
       ExpandMacros("$m", macro_catalog, GetLanguageOptions(/*is_strict=*/true)),
-      StatusIs(_, Eq("Macro invocation missing argument list. [at "
+      StatusIs(_, Eq("Invocation of macro 'm' missing argument list. [at "
                      "top_file.sql:1:3]")));
+}
+
+TEST(MacroExpanderTest, WarningsAndErrorsAccountForExternalOffsets) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(R"(   #line 1
+   -- line 2
+DEFINE MACRO one 1;
+DEFINE MACRO repeat $1, $1;
+# extra line
+/*indent a bit*/ DEFINE MACRO m $repeat( /*stuff*/ $one  --more stuff
+  );
+)",
+                 macro_catalog);
+
+  EXPECT_THAT(
+      ExpandMacros("$m()", macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/false)),
+      IsOkAndHolds(AllOf(
+          TokensEq(std::vector<TokenWithLocation>{
+              {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 41, 42),
+               "1", "", MakeLocation(0, 4)},
+              {',', MakeLocation(kDefsFileName, 66, 67), ",", "",
+               MakeLocation(0, 4)},
+              {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 41, 42),
+               "1", " ", MakeLocation(0, 4)},
+              {YYEOF, MakeLocation(4, 4), "", ""}}),
+          HasWarnings(ElementsAre(StatusIs(
+              _, Eq("Invocation of macro 'one' missing argument list. [at "
+                    "defs.sql:6:56]; "
+                    "Expanded from macro:m [at top_file.sql:1:1]")))))));
+
+  EXPECT_THAT(ExpandMacros("$m()", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/true)),
+              StatusIs(_, Eq("Invocation of macro 'one' missing argument list. "
+                             "[at defs.sql:6:56]; "
+                             "Expanded from macro:m [at top_file.sql:1:1]")));
 }
 
 TEST(MacroExpanderTest, ExpandsAllFormsOfLiterals) {
@@ -866,7 +1058,7 @@ static int FinalTokenKind(const QuotingSpec quoting_spec) {
   switch (quoting_spec.literal_kind()) {
     case LiteralTokenKind::kNonLiteral:
       // Tests using this helper only use int literals
-      return INTEGER_LITERAL;
+      return DECIMAL_INTEGER_LITERAL;
     case LiteralTokenKind::kBacktickedIdentifier:
       return IDENTIFIER;
     case LiteralTokenKind::kStringLiteral:
@@ -884,16 +1076,19 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
   const QuotingSpec outer_quoting = std::get<0>(GetParam());
   const QuotingSpec inner_quoting = std::get<1>(GetParam());
 
-  MacroCatalog catalog;
   std::string macro_def = QuoteText("1", inner_quoting);
-  catalog.insert({"a", macro_def});
-  std::string unexpanded_sql = QuoteText("$a", outer_quoting);
+  MacroCatalog catalog;
+  absl::string_view macro_prefix = "DEFINE MACRO a ";
+  std::string macro_def_source = absl::StrCat(macro_prefix, macro_def);
+  RegisterMacros(macro_def_source, catalog);
+
+  absl::string_view invocation = "$a";
+  std::string unexpanded_sql = QuoteText(invocation, outer_quoting);
   int unexpanded_length = static_cast<int>(unexpanded_sql.length());
 
   std::string expanded = QuoteText("1", outer_quoting);
 
   int final_token_kind = FinalTokenKind(outer_quoting);
-
   if (inner_quoting.literal_kind() == LiteralTokenKind::kNonLiteral ||
       (outer_quoting.quote_kind() == inner_quoting.quote_kind() &&
        outer_quoting.prefix().length() == inner_quoting.prefix().length())) {
@@ -907,6 +1102,11 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
         })));
   } else {
     ASSERT_TRUE(outer_quoting.literal_kind() == inner_quoting.literal_kind());
+    size_t outer_quote_length = (unexpanded_sql.length() - invocation.length() -
+                                 outer_quoting.prefix().length()) /
+                                2;
+    int unexpanded_start_offset =
+        static_cast<int>(outer_quoting.prefix().length() + outer_quote_length);
     EXPECT_THAT(
         ExpandMacros(unexpanded_sql, catalog,
                      GetLanguageOptions(/*is_strict=*/false)),
@@ -914,8 +1114,13 @@ TEST_P(PositiveNestedLiteralTest, PositiveNestedLiteralTestParameterized) {
             {final_token_kind, MakeLocation(0, unexpanded_length),
              QuoteText("", outer_quoting), ""},
             {final_token_kind,
-             MakeLocation("macro:a", 0, static_cast<int>(macro_def.length())),
-             macro_def, " "},
+             MakeLocation(kDefsFileName,
+                          static_cast<int>(macro_prefix.length()),
+                          static_cast<int>(macro_def_source.length())),
+             macro_def, " ",
+             MakeLocation(unexpanded_start_offset,
+                          unexpanded_start_offset +
+                              static_cast<int>(invocation.length()))},
             {final_token_kind, MakeLocation(0, unexpanded_length),
              QuoteText("", outer_quoting), " "},
             {YYEOF, MakeLocation(unexpanded_length, unexpanded_length), "", ""},
@@ -931,8 +1136,11 @@ TEST_P(NegativeNestedLiteralTest, NegativeNestedLiteralTestParameterized) {
   const QuotingSpec outer_quoting = std::get<0>(GetParam());
   const QuotingSpec inner_quoting = std::get<1>(GetParam());
 
+  std::string macro_def =
+      absl::StrCat("DEFINE MACRO a ", QuoteText("1", inner_quoting));
   MacroCatalog catalog;
-  catalog.insert({"a", QuoteText("1", inner_quoting)});
+  RegisterMacros(macro_def, catalog);
+
   std::string unexpanded_sql = QuoteText("$a", outer_quoting);
 
   EXPECT_THAT(ExpandMacros(unexpanded_sql, catalog,
@@ -1056,11 +1264,13 @@ INSTANTIATE_TEST_SUITE_P(BytesLiteralsCanExpandInAnyBytesLiteral,
                                  ValuesIn(AllBytesLiteralQuotingSpecs())));
 
 TEST(MacroExpanderTest, DoesNotReexpand) {
-  absl::flat_hash_map<std::string, std::string> macro_catalog;
-  macro_catalog.insert({"select_list", "a , $1, $2  "});
-  macro_catalog.insert({"splice_invoke", "   $$1$2   "});
-  macro_catalog.insert({"inner_quoted_id", "`bq`"});
-  macro_catalog.insert({"empty", "     "});
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO select_list a , $1, $2  ;\n"
+      "DEFINE MACRO splice_invoke    $$1$2   ;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n"
+      "DEFINE MACRO empty      ;\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("$splice_invoke(  inner_\t,\t\tquoted_id   ), "
@@ -1069,16 +1279,21 @@ TEST(MacroExpanderTest, DoesNotReexpand) {
       IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
           // Note: the dollar sign is not spliced with the identifier into a new
           // macro invocation token, because we do not reexpand.
-          {DOLLAR_SIGN, MakeLocation("macro:splice_invoke", 3, 4), "$", ""},
-          {IDENTIFIER, MakeLocation(17, 23), "inner_quoted_id", ""},
+          {DOLLAR_SIGN, MakeLocation(kDefsFileName, 69, 70), "$", "",
+           MakeLocation(0, 40)},
+          {IDENTIFIER, MakeLocation(17, 23), "inner_quoted_id", "",
+           MakeLocation(0, 40)},
           {',', MakeLocation(40, 41), ",", ""},
           {DOLLAR_SIGN, MakeLocation(42, 43), "$", " "},
-          {IDENTIFIER, MakeLocation("macro:select_list", 0, 1), "a", ""},
-          {',', MakeLocation("macro:select_list", 2, 3), ",", " "},
-          {IDENTIFIER, MakeLocation(58, 59), "b", " "},
-          {',', MakeLocation("macro:select_list", 6, 7), ",",
-           ""},  // Comes from the macro def
-          {IDENTIFIER, MakeLocation(61, 62), "c123", " "},
+          {IDENTIFIER, MakeLocation(kDefsFileName, 25, 26), "a", "",
+           MakeLocation(43, 65)},
+          {',', MakeLocation(kDefsFileName, 27, 28), ",", " ",
+           MakeLocation(43, 65)},
+          {IDENTIFIER, MakeLocation(58, 59), "b", " ", MakeLocation(43, 65)},
+          // The next comma originates from the macro def
+          {',', MakeLocation(kDefsFileName, 31, 32), ",", "",
+           MakeLocation(43, 65)},
+          {IDENTIFIER, MakeLocation(61, 62), "c123", " ", MakeLocation(43, 65)},
           {YYEOF, MakeLocation(69, 69), "", "\t"},
       })));
 }
@@ -1094,15 +1309,15 @@ TEST(MacroExpanderTest,
                    GetLanguageOptions(/*is_strict=*/false)));
 
   // Add 1 for the YYEOF
-  EXPECT_EQ(result.expanded_tokens.size(), num_slashes + 1);
+  ASSERT_EQ(result.expanded_tokens.size(), num_slashes + 1);
   for (int i = 0; i < num_slashes - 1; ++i) {
     EXPECT_EQ(result.expanded_tokens[i].kind, TokenKinds::BACKSLASH);
   }
   EXPECT_EQ(result.expanded_tokens.back().kind, YYEOF);
 
-  // The number of warnings is the cap (20) + 1 for the sentinel indicating that
+  // The number of warnings is the cap (5) + 1 for the sentinel indicating that
   // more warnings were truncated.
-  EXPECT_EQ(result.warnings.size(), 21);
+  EXPECT_EQ(result.warnings.size(), 6);
   absl::Status sentinel_status = std::move(result.warnings.back());
   result.warnings.pop_back();
   EXPECT_THAT(
@@ -1133,29 +1348,27 @@ TEST(TokensToStringTest, CanGenerateStringFromTokens) {
                                            MakeToken(YYEOF, "", "\n")};
 
   // Note the forced space between `a` and `FROM`.
-  EXPECT_EQ(TokensToString(tokens, /*force_single_whitespace=*/false),
-            "\ta FROM\n");
-  EXPECT_EQ(TokensToString(tokens, /*force_single_whitespace=*/true), "a FROM");
+  EXPECT_EQ(TokensToString(tokens), "\ta FROM\n");
 }
 
 TEST(TokensToStringTest, DoesNotSpliceTokensEvenWhenNoOriginalSpacesExist) {
   std::vector<TokenWithLocation> tokens = {
       MakeToken(IDENTIFIER, "a", "\t"),
       MakeToken(KW_FROM, "FROM"),
-      MakeToken(INTEGER_LITERAL, "0x1A"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "0x1A"),
       MakeToken(IDENTIFIER, "b", "\t"),
       MakeToken(KW_FROM, "FROM"),
       MakeToken(FLOATING_POINT_LITERAL, "1."),
       MakeToken(IDENTIFIER, "x", "\t"),
       MakeToken(MACRO_INVOCATION, "$a"),
-      MakeToken(INTEGER_LITERAL, "123"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "123"),
       MakeToken(MACRO_INVOCATION, "$1"),
-      MakeToken(INTEGER_LITERAL, "23"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "23"),
       MakeToken('*', "*"),
       MakeToken(YYEOF, "", "\n")};
 
   // Note the forced spaces
-  EXPECT_EQ(TokensToString(tokens, /*force_single_whitespace=*/false),
+  EXPECT_EQ(TokensToString(tokens),
             "\ta FROM 0x1A\tb FROM 1.\tx$a 123$1 23*\n");
 }
 
@@ -1166,59 +1379,35 @@ TEST(TokensToStringTest, DoesNotCauseCommentOuts) {
       MakeToken(YYEOF, "")};
 
   // Note the forced spaces, except for -/
-  EXPECT_EQ(TokensToString(tokens, /*standardize_to_single_whitespace=*/false),
-            "- -/ / / *");
+  EXPECT_EQ(TokensToString(tokens), "- -/ / / *");
 }
 
 TEST(TokensToStringTest, AlwaysSeparatesNumericLiterals) {
   std::vector<TokenWithLocation> tokens = {
-      MakeToken(INTEGER_LITERAL, "0x1"),
-      MakeToken(INTEGER_LITERAL, "2"),
-      MakeToken(INTEGER_LITERAL, "3"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "0x1"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "2"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "3"),
       MakeToken(FLOATING_POINT_LITERAL, "4."),
-      MakeToken(INTEGER_LITERAL, "5"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "5"),
       MakeToken(FLOATING_POINT_LITERAL, ".6"),
-      MakeToken(INTEGER_LITERAL, "7"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "7"),
       MakeToken(FLOATING_POINT_LITERAL, ".8e9"),
-      MakeToken(INTEGER_LITERAL, "10"),
+      MakeToken(DECIMAL_INTEGER_LITERAL, "10"),
       MakeToken(STRING_LITERAL, "'11'"),
       MakeToken(YYEOF, "")};
 
   // Note the forced spaces
-  EXPECT_EQ(TokensToString(tokens, /*standardize_to_single_whitespace=*/false),
-            "0x1 2 3 4. 5 .6 7 .8e9 10'11'");
+  EXPECT_EQ(TokensToString(tokens), "0x1 2 3 4. 5 .6 7 .8e9 10'11'");
 }
-
-class MacroExpanderLenientTokensInStrictModeTest
-    : public ::testing::TestWithParam<absl::string_view> {};
-
-TEST_P(MacroExpanderLenientTokensInStrictModeTest,
-       LenientTokensDisallowedInStrictMode) {
-  absl::string_view text = GetParam();
-  MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", std::string(text)});
-
-  EXPECT_THAT(
-      ExpandMacros(text, macro_catalog, GetLanguageOptions(/*is_strict=*/true)),
-      StatusIs(_, HasSubstr("Syntax error")));
-
-  EXPECT_THAT(ExpandMacros("$m()", macro_catalog,
-                           GetLanguageOptions(/*is_strict=*/true)),
-              StatusIs(_, HasSubstr("Syntax error")));
-}
-
-INSTANTIATE_TEST_SUITE_P(LenientTokensDisallowedInStrictMode,
-                         MacroExpanderLenientTokensInStrictModeTest,
-                         Values("\\", "3d", "12abc", "0x123xyz", "3.4dab",
-                                ".4dab", "1.2e3ab", "1.2e-3ab"));
 
 class MacroExpanderLenientTokensTest
     : public ::testing::TestWithParam<absl::string_view> {};
 
 TEST_P(MacroExpanderLenientTokensTest, LenientTokensAllowedOnlyWhenLenient) {
   absl::string_view text = GetParam();
+  std::string macro_def = absl::StrCat("DEFINE MACRO m ", text);
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", std::string(text)});
+  RegisterMacros(macro_def, macro_catalog);
 
   int expected_token_count = 2;  // One token + YYEOF
   if (absl::StrContains(text, '.')) {
@@ -1250,8 +1439,161 @@ TEST_P(MacroExpanderLenientTokensTest, LenientTokensAllowedOnlyWhenLenient) {
 }
 
 INSTANTIATE_TEST_SUITE_P(LenientTokens, MacroExpanderLenientTokensTest,
-                         Values("\\", "3d", "12abc", "0x123xyz", "3.4dab",
-                                ".4dab", "1.2e3ab", "1.2e-3ab"));
+                         Values("\\"));
+
+struct LiteralsFollowedByAdjacentIdentifiersTestCase {
+  // The macro body text, for example ".123a".
+  absl::string_view text;
+  // Whether to enable the STRICT macro mode.
+  bool is_strict;
+  // The expected number of tokens corresponding to `text`.
+  int token_count;
+  // The expected number of tokens corresponding to `absl::StrCat("a", text)`.
+  // This is to test the identifier splicing during macro expansions.
+  int token_count_after_splicing;
+};
+
+class LiteralsFollowedByAdjacentIdentifiersTest
+    : public ::testing::TestWithParam<
+          LiteralsFollowedByAdjacentIdentifiersTestCase> {};
+
+TEST_P(LiteralsFollowedByAdjacentIdentifiersTest,
+       LiteralsFollowedByAdjacentIdentifiers) {
+  absl::string_view text = GetParam().text;
+  bool is_strict = GetParam().is_strict;
+  int expected_token_count = GetParam().token_count;
+  int expected_token_count_after_splicing =
+      GetParam().token_count_after_splicing;
+
+  MacroCatalog macro_catalog;
+  std::string macro_def = absl::StrCat("DEFINE MACRO m ", text);
+  RegisterMacros(macro_def, macro_catalog);
+  LanguageOptions language_options = GetLanguageOptions(is_strict);
+
+  EXPECT_THAT(ExpandMacros(text, macro_catalog, language_options),
+              IsOkAndHolds(HasTokens(SizeIs(expected_token_count))));
+
+  EXPECT_THAT(ExpandMacros("$m()", macro_catalog, language_options),
+              IsOkAndHolds(HasTokens(SizeIs(expected_token_count))));
+
+  // Test identifier splicing.
+  EXPECT_THAT(
+      ExpandMacros("a$m()", macro_catalog, language_options),
+      IsOkAndHolds(HasTokens(SizeIs(expected_token_count_after_splicing))));
+}
+
+std::vector<LiteralsFollowedByAdjacentIdentifiersTestCase>
+GetLiteralsFollowedByAdjacentIdentifiersTestCases() {
+  std::vector<LiteralsFollowedByAdjacentIdentifiersTestCase> cases;
+  for (bool is_strict : {false, true}) {
+    cases.push_back({
+        .text = ".4dab",
+        .is_strict = is_strict,
+        // Tokens are: . 4 dab YYEOF
+        .token_count = 4,
+        // After prepending "a", tokens are: a . 4 dab YYEOF
+        .token_count_after_splicing = 5,
+    });
+  }
+  // Identifier splicing is only allowed under lenient mode.
+  cases.push_back({
+      .text = "3d",
+      .is_strict = false,
+      // Tokens are: 3 d YYEOF
+      .token_count = 3,
+      // After prepending "a", tokens are: a3 d YYEOF
+      .token_count_after_splicing = 3,
+  });
+  cases.push_back({
+      .text = "12abc",
+      .is_strict = false,
+      // Tokens are: 12 abc YYEOF
+      .token_count = 3,
+      // After prepending "a", tokens are: a12 abc YYEOF
+      .token_count_after_splicing = 3,
+  });
+  cases.push_back({
+      .text = "0x123xyz",
+      .is_strict = false,
+      // Tokens are: 0x123 xyz YYEOF
+      .token_count = 3,
+      // After prepending "a", tokens are: a0x123 xyz YYEOF
+      .token_count_after_splicing = 3,
+  });
+  cases.push_back({
+      .text = "3.4dab",
+      .is_strict = false,
+      // Tokens are: 3 . 4 dab YYEOF
+      .token_count = 5,
+      // After prepending "a", tokens are: a3 . 4 dab YYEOF
+      .token_count_after_splicing = 5,
+  });
+  cases.push_back({
+      .text = "1.2e3ab",
+      .is_strict = false,
+      // Tokens are: 1 . 2 e3ab YYEOF
+      .token_count = 5,
+      // After prepending "a", tokens are: a1 . 2e3 ab YYEOF
+      .token_count_after_splicing = 5,
+  });
+  cases.push_back({
+      .text = "1.2e-3ab",
+      .is_strict = false,
+      // Tokens are: 1 . 2 e - 3 ab YYEOF
+      .token_count = 8,
+      // After prepending "a", tokens are: a1 . 2 e - 3 ab YYEOF
+      .token_count_after_splicing = 8,
+  });
+  return cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    LiteralsFollowedByAdjacentIdentifiers,
+    LiteralsFollowedByAdjacentIdentifiersTest,
+    ValuesIn(GetLiteralsFollowedByAdjacentIdentifiersTestCases()));
+
+struct SplicingNotAllowedTestCase {
+  absl::string_view macro_def;
+  absl::string_view text;
+  absl::string_view error_message;
+};
+
+std::vector<SplicingNotAllowedTestCase> GetSplicingNotAllowedTestCases() {
+  return {
+      {
+          .macro_def = "DEFINE MACRO m 3d",
+          .text = "a$m()",
+          .error_message = "Splicing tokens (a) and (3)",
+      },
+      {
+          .macro_def = "DEFINE MACRO m 12abc",
+          .text = "a$m()",
+          .error_message = "Splicing tokens (a) and (12)",
+      },
+      {
+          .macro_def = "DEFINE MACRO m 0x123xyz",
+          .text = "a$m()",
+          .error_message = "Splicing tokens (a) and (0x123)",
+      },
+  };
+}
+
+class SplicingNotAllowedUnderStrictModeTest
+    : public ::testing::TestWithParam<SplicingNotAllowedTestCase> {};
+
+TEST_P(SplicingNotAllowedUnderStrictModeTest,
+       SplicingNotAllowedUnderStrictMode) {
+  LanguageOptions language_options = GetLanguageOptions(/*is_strict=*/true);
+  MacroCatalog macro_catalog;
+  RegisterMacros(GetParam().macro_def, macro_catalog);
+  EXPECT_THAT(ExpandMacros(GetParam().text, macro_catalog, language_options),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(GetParam().error_message)));
+}
+
+INSTANTIATE_TEST_SUITE_P(SplicingNotAllowedUnderStrictMode,
+                         SplicingNotAllowedUnderStrictModeTest,
+                         ValuesIn(GetSplicingNotAllowedTestCases()));
 
 TEST(MacroExpanderTest, ProducesWarningOnLenientTokens) {
   MacroCatalog macro_catalog;
@@ -1267,8 +1609,10 @@ class MacroExpanderParameterizedTest : public ::testing::TestWithParam<bool> {};
 
 TEST_P(MacroExpanderParameterizedTest, DoesNotExpandDefineMacroStatements) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"x", "a"});
-  macro_catalog.insert({"y", "b"});
+  RegisterMacros(
+      "DEFINE MACRO x a;\n"
+      "DEFINE MACRO y b;\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("DEFINE MACRO $x $y; DEFINE MACRO $y $x", macro_catalog,
@@ -1292,7 +1636,7 @@ TEST_P(MacroExpanderParameterizedTest, DoesNotExpandDefineMacroStatements) {
 TEST_P(MacroExpanderParameterizedTest,
        DefineStatementsAreNotSpecialExceptAtTheStart) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"x", "a"});
+  RegisterMacros("DEFINE MACRO x a;\n", macro_catalog);
 
   // This will expand the definition, but it will be a syntax error when sent
   // to the parser, because the KW_DEFINE has not been marked as the special
@@ -1305,8 +1649,9 @@ TEST_P(MacroExpanderParameterizedTest,
                       {KW_SELECT, MakeLocation(0, 6), "SELECT", ""},
                       {KW_DEFINE, MakeLocation(7, 13), "DEFINE", " "},
                       {KW_MACRO, MakeLocation(14, 19), "MACRO", " "},
-                      {IDENTIFIER, MakeLocation("macro:x", 0, 1), "a", " "},
-                      {INTEGER_LITERAL, MakeLocation(25, 26), "1", " "},
+                      {IDENTIFIER, MakeLocation(kDefsFileName, 15, 16), "a",
+                       " ", MakeLocation(20, 24)},
+                      {DECIMAL_INTEGER_LITERAL, MakeLocation(25, 26), "1", " "},
                       {YYEOF, MakeLocation(26, 26), "", ""},
                   }),
                   HasWarnings(IsEmpty()))));
@@ -1315,34 +1660,153 @@ TEST_P(MacroExpanderParameterizedTest,
 TEST_P(MacroExpanderParameterizedTest,
        DoesNotRecognizeGeneratedDefineMacroStatements) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"def", "DEFINE MACRO"});
+  RegisterMacros("DEFINE MACRO def DEFINE MACRO;\n", macro_catalog);
 
-  EXPECT_THAT(
-      ExpandMacros("$def() a 1", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/GetParam())),
-      IsOkAndHolds(
-          AllOf(TokensEq(std::vector<TokenWithLocation>{
-                    // Note that the first token is KW_DEFINE, not
-                    // KW_DEFINE_FOR_MACROS
-                    {KW_DEFINE, MakeLocation("macro:def", 0, 6), "DEFINE", ""},
-                    {KW_MACRO, MakeLocation("macro:def", 7, 12), "MACRO", " "},
-                    {IDENTIFIER, MakeLocation(7, 8), "a", " "},
-                    {INTEGER_LITERAL, MakeLocation(9, 10), "1", " "},
-                    {YYEOF, MakeLocation(10, 10), "", ""},
-                }),
-                HasWarnings(IsEmpty()))));
+  EXPECT_THAT(ExpandMacros("$def() a 1", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/GetParam())),
+              IsOkAndHolds(AllOf(
+                  TokensEq(std::vector<TokenWithLocation>{
+                      // Note that the first token is KW_DEFINE, not
+                      // KW_DEFINE_FOR_MACROS
+                      {KW_DEFINE, MakeLocation(kDefsFileName, 17, 23), "DEFINE",
+                       "", MakeLocation(0, 6)},
+                      {KW_MACRO, MakeLocation(kDefsFileName, 24, 29), "MACRO",
+                       " ", MakeLocation(0, 6)},
+                      {IDENTIFIER, MakeLocation(7, 8), "a", " "},
+                      {DECIMAL_INTEGER_LITERAL, MakeLocation(9, 10), "1", " "},
+                      {YYEOF, MakeLocation(10, 10), "", ""},
+                  }),
+                  HasWarnings(IsEmpty()))));
 }
 
 TEST_P(MacroExpanderParameterizedTest, HandlesInfiniteRecursion) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"a", "$b()"});
-  macro_catalog.insert({"b", "$a()"});
+  RegisterMacros(
+      "DEFINE MACRO a $b();\n"
+      "DEFINE MACRO b $a();\n",
+      macro_catalog);
 
   EXPECT_THAT(
       ExpandMacros("$a()", macro_catalog,
                    GetLanguageOptions(/*is_strict=*/GetParam())),
       StatusIs(absl::StatusCode::kResourceExhausted,
                Eq("Out of stack space due to deeply nested macro calls.")));
+}
+
+static void PrintTo(const Expansion& expansion, std::ostream* os) {
+  *os << absl::StrFormat("{macro_name: %s, invocation: %s, expansion: %s}",
+                         expansion.macro_name, expansion.full_match,
+                         expansion.expansion);
+}
+
+TEST_P(MacroExpanderParameterizedTest, GeneratesCorrectLocationMap) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO a\n"
+      "$b(  /*nothing*/  )\n"
+      ";\n"
+      "DEFINE MACRO b\n"
+      "1;\n",
+      macro_catalog);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("\t\t$a( /*just a comment*/  )\t\t", macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/GetParam())));
+  EXPECT_THAT(output,
+              TokensEq(std::vector<TokenWithLocation>{
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 52, 53),
+                   "1", "\t\t", MakeLocation(2, 27)},
+                  {YYEOF, MakeLocation(29, 29), "", "\t\t"}}));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), "\t\t1\t\t");
+
+  // Only the top-level expansions are stored in the map.
+  EXPECT_THAT(
+      output.location_map,
+      ElementsAre(Pair(2, FieldsAre("a", "$a( /*just a comment*/  )", "1"))));
+}
+
+TEST_P(MacroExpanderParameterizedTest, TokensToStringTwoGreaterThanSymbols) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO gt >;\n"
+      "DEFINE MACRO right_shift >>;\n"
+      "DEFINE MACRO splice $1$2;\n"
+      "DEFINE MACRO repeat $1 $1\n",
+      macro_catalog);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("1 $gt()$gt() 2 $right_shift() 3 $splice(>,>) 4 $repeat(>>)",
+                   macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/GetParam())));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), "1 > > 2 >> 3 > > 4 >> >>");
+}
+
+TEST_P(MacroExpanderParameterizedTest, TokensToStringAdjacentTokens) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m a+b;", macro_catalog);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("$m()", macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/GetParam())));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), "a+b");
+}
+
+TEST_P(MacroExpanderParameterizedTest, GeneratesCorrectLocationMap_Multiple) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO macro xyz;\n"
+      "DEFINE MACRO macrowithargs $3, $2, $1, $2;\n"
+      "DEFINE MACRO macrowithmacro owner.$macro();\n"
+      "DEFINE MACRO limit 10;\n",
+      macro_catalog);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("select $macro(), $macrowithargs(a, b, c) from "
+                   "$macrowithmacro() limit $limit()",
+                   macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/GetParam())));
+  EXPECT_EQ(TokensToString(output.expanded_tokens),
+            "select xyz, c, b, a, b from owner.xyz limit 10");
+
+  // Only the top-level expansions are stored in the map.
+  EXPECT_THAT(
+      output.location_map,
+      ElementsAre(Pair(7, FieldsAre("macro", "$macro()", "xyz")),
+                  Pair(17, FieldsAre("macrowithargs", "$macrowithargs(a, b, c)",
+                                     "c, b, a, b")),
+                  Pair(46, FieldsAre("macrowithmacro", "$macrowithmacro()",
+                                     "owner.xyz")),
+                  Pair(70, FieldsAre("limit", "$limit()", "10"))));
+}
+
+TEST_P(MacroExpanderParameterizedTest,
+       TokensToStringForcesSpaceToAvoidCommentOuts) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO forward_slash /;\n"
+      "DEFINE MACRO star *;\n",
+      macro_catalog);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ExpansionOutput output,
+                       ExpandMacros("$forward_slash()$star()", macro_catalog,
+                                    GetLanguageOptions(GetParam())));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), "/ *");
+}
+
+TEST_P(MacroExpanderParameterizedTest, RightShift) {
+  MacroCatalog macro_catalog;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros(">>", macro_catalog, GetLanguageOptions(GetParam())));
+  EXPECT_THAT(output, TokensEq(std::vector<TokenWithLocation>{
+                          {'>', MakeLocation(0, 1), ">", ""},
+                          {'>', MakeLocation(1, 2), ">", ""},
+                          {YYEOF, MakeLocation(2, 2), "", ""},
+                      }));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), ">>");
 }
 
 INSTANTIATE_TEST_SUITE_P(MacroExpanderParameterizedTest,

@@ -206,7 +206,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
             {bool_type, FunctionArgumentTypeOptions(OPTIONAL).set_default(
                             Value::Bool(true))}},
            FN_GENERATE_DATETIME_RANGE_ARRAY,
-           FunctionSignatureOptions().add_required_language_feature(
+           FunctionSignatureOptions().AddRequiredLanguageFeature(
                FEATURE_V_1_2_CIVIL_TIME),
        }},
       FunctionOptions().set_pre_resolution_argument_constraint(

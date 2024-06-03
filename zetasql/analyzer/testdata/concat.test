@@ -34,8 +34,26 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_3_CONCAT_MIXED_TYPES]
+[language_features={{V_1_3_CONCAT_MIXED_TYPES,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES|V_1_3_CONCAT_MIXED_TYPES}}]
 select concat("a", b"b");
+--
+ALTERNATION GROUP: V_1_3_CONCAT_MIXED_TYPES,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:concat(BYTES, repeated(1) BYTES) -> BYTES)
+    |     +-Literal(type=BYTES, value=b"a")
+    |     +-Literal(type=BYTES, value=b"b")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_3_CONCAT_MIXED_TYPES
 --
 ERROR: No matching signature for function CONCAT for argument types: STRING, BYTES. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
 select concat("a", b"b");

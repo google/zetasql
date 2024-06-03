@@ -486,7 +486,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BadTableFromProto) {
   ASSERT_FALSE(status.ok());
   EXPECT_EQ("Proto type name not found: zetasql_test__.KitchenSinkPB",
             status.message());
-  EXPECT_TRUE(response.DebugString().empty());
+  EXPECT_EQ(response.ByteSizeLong(), 0);
 
   request.mutable_proto()->set_proto_file_name("unmatched_file_name");
   *request.mutable_file_descriptor_set() = descriptor_set;
@@ -2183,8 +2183,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BuildSqlStatement) {
   ZETASQL_EXPECT_OK(BuildSql(request, &response));
 
   BuildSqlResponse expectedResponse;
-  expectedResponse.set_sql(
-      "SELECT bar_2.a_1 AS baz FROM (SELECT bar.baz AS a_1 FROM bar) AS bar_2");
+  expectedResponse.set_sql("SELECT bar.baz AS baz FROM bar");
 
   EXPECT_THAT(response, EqualsProto(expectedResponse));
 }
@@ -2482,10 +2481,10 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
 
   ZETASQL_ASSERT_OK(GetBuiltinFunctions(proto, &response));
   EXPECT_EQ(response.function_size(), 2);
-  std::vector<std::string> responses = {response.function(0).DebugString(),
-                                        response.function(1).DebugString()};
-  EXPECT_THAT(responses, UnorderedElementsAre(Eq(function1.DebugString()),
-                                              Eq(function2.DebugString())));
+  std::vector<std::string> responses = {absl::StrCat(response.function(0)),
+                                        absl::StrCat(response.function(1))};
+  EXPECT_THAT(responses, UnorderedElementsAre(Eq(absl::StrCat(function1)),
+                                              Eq(absl::StrCat(function2))));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctionsReturnsTypes) {

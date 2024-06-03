@@ -6,20 +6,20 @@ ALTERNATION GROUP: V_1_1_FOR_SYSTEM_TIME_AS_OF
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
         |   +-for_system_time_expr=
         |     +-Literal(type=TIMESTAMP, value=2000-01-01 09:01:01.001+00, has_explicit_type=TRUE)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -36,20 +36,20 @@ ALTERNATION GROUP: V_1_1_FOR_SYSTEM_TIME_AS_OF
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
         |   +-for_system_time_expr=
         |     +-Literal(type=TIMESTAMP, value=2000-01-01 09:01:01.001+00, has_explicit_type=TRUE)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -63,20 +63,20 @@ SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP
 
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
         |   +-for_system_time_expr=
         |     +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 # String literal coercion to TIMESTAMP
@@ -84,20 +84,20 @@ SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF '2000-01-01 01:01:01'
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
         |   +-for_system_time_expr=
         |     +-Literal(type=TIMESTAMP, value=2000-01-01 09:01:01+00)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 # String literal coercion to TIMESTAMP
@@ -105,20 +105,20 @@ SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF '2000-01-01'
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
         |   +-for_system_time_expr=
         |     +-Literal(type=TIMESTAMP, value=2000-01-01 08:00:00+00)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 MINUTE)
@@ -126,13 +126,13 @@ SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIM
 
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
@@ -142,7 +142,7 @@ QueryStmt
         |       +-Literal(type=INT64, value=30)
         |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 SELECT COUNT(*) FROM ComplexTypes t FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP, t.Int32Array
@@ -180,10 +180,10 @@ SELECT * FROM MyTable
 --
 QueryStmt
 +-output_column_list=
-| +-MyTable.int32#19 AS int32 [INT32]
+| +-MyTable.int32#20 AS int32 [INT32]
 +-query=
   +-WithScan
-    +-column_list=[MyTable.int32#19]
+    +-column_list=[MyTable.int32#20]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="MyTable"
@@ -199,22 +199,22 @@ QueryStmt
     |           +-column_index_list=[0]
     +-query=
       +-ProjectScan
-        +-column_list=[MyTable.int32#19]
+        +-column_list=[MyTable.int32#20]
         +-input_scan=
-          +-WithRefScan(column_list=[MyTable.int32#19], with_query_name="MyTable")
+          +-WithRefScan(column_list=[MyTable.int32#20], with_query_name="MyTable")
 ==
 
 SELECT COUNT(*) FROM SimpleTypes FOR SYSTEM_TIME AS OF CAST(@test_param_string AS TIMESTAMP)
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan
         |   +-table=SimpleTypes
@@ -222,7 +222,7 @@ QueryStmt
         |     +-Cast(STRING -> TIMESTAMP)
         |       +-Parameter(type=STRING, name="test_param_string")
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 [language_features=V_1_1_FOR_SYSTEM_TIME_AS_OF,TABLESAMPLE]

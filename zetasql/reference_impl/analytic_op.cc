@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -98,7 +99,8 @@ absl::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
         boundary_offset_expr_->SetSchemasForEvaluation(params_schemas));
   }
 
-  params_schemas_.reserve(params_schemas_.size());
+  params_schemas_.clear();
+  params_schemas_.reserve(params_schemas.size());
   for (const TupleSchema* schema : params_schemas) {
     params_schemas_.push_back(
         std::make_unique<const TupleSchema>(schema->variables()));

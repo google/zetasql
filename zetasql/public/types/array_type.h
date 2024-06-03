@@ -23,7 +23,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
-#include "zetasql/public/types/container_type.h"
+#include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -40,7 +40,7 @@ class TypeParameters;
 class ValueContent;
 class ValueProto;
 
-class ArrayType : public ContainerType {
+class ArrayType : public ListBackedType {
  public:
 #ifndef SWIG
   ArrayType(const ArrayType&) = delete;

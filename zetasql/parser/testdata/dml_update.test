@@ -483,7 +483,7 @@ set x=default+1
 update T
 set default=y
 --
-ERROR: Syntax error: Unexpected keyword DEFAULT [at 2:5]
+ERROR: Syntax error: Expected "(" but got keyword DEFAULT [at 2:5]
 set default=y
     ^
 ==
@@ -500,7 +500,7 @@ update T
 set
 where true
 --
-ERROR: Syntax error: Unexpected keyword WHERE [at 3:1]
+ERROR: Syntax error: Expected "(" but got keyword WHERE [at 3:1]
 where true
 ^
 ==
@@ -518,7 +518,7 @@ update T
 set a=1,
 set b=2
 --
-ERROR: Syntax error: Unexpected keyword SET [at 3:1]
+ERROR: Syntax error: Expected "(" but got keyword SET [at 3:1]
 set b=2
 ^
 ==
@@ -544,7 +544,7 @@ update Set
 update T SET
 SET x=y
 --
-ERROR: Syntax error: Unexpected keyword SET [at 2:1]
+ERROR: Syntax error: Expected "(" but got keyword SET [at 2:1]
 SET x=y
 ^
 ==
@@ -552,12 +552,11 @@ SET x=y
 # SET is a reserved keyword and cannot be used as an identifier.
 update T SET set = 5
 --
-ERROR: Syntax error: Unexpected keyword SET [at 1:14]
+ERROR: Syntax error: Expected "(" but got keyword SET [at 1:14]
 update T SET set = 5
              ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 update a-100.b.c
 set x=y
@@ -1465,13 +1464,13 @@ set (insert a.x {{AS|}} na values (5))
 --
 ALTERNATION GROUP: AS
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 2:16]
+ERROR: Syntax error: Unexpected keyword AS [at 2:17]
 set (insert a.x AS na values (5))
-               ^
+                ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 2:18]
+ERROR: Syntax error: Unexpected identifier "na" [at 2:18]
 set (insert a.x  na values (5))
                  ^
 ==

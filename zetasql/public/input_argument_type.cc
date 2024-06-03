@@ -88,6 +88,7 @@ InputArgumentType::InputArgumentType(const Value& literal_value,
       type_(literal_value.type()),
       literal_value_(literal_value),
       is_default_argument_value_(is_default_argument_value) {
+  is_literal_for_constness_ = true;
   if (literal_value.type()->IsStruct()) {
     if (literal_value.is_null()) {
       // This is a NULL struct, so its field InputArgumentTypes are the
@@ -104,9 +105,11 @@ InputArgumentType::InputArgumentType(const Value& literal_value,
   }
 }
 
-InputArgumentType::InputArgumentType(const Type* type, bool is_query_parameter)
+InputArgumentType::InputArgumentType(const Type* type, bool is_query_parameter,
+                                     bool is_literal_for_constness)
     : category_(is_query_parameter ? kTypedParameter : kTypedExpression),
-      type_(type) {
+      type_(type),
+      is_literal_for_constness_(is_literal_for_constness) {
   ABSL_DCHECK(type != nullptr);
   if (type->IsStruct()) {
     for (const StructType::StructField& struct_field :

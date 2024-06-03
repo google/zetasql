@@ -371,8 +371,7 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
   EXPECT_TRUE(
       types::ArrayFindModeEnumType()->IsSupportedType(proto_base_enabled));
 
-  EXPECT_FALSE(
-      types::ArrayZipModeEnumType()->IsSupportedType(product_external));
+  EXPECT_TRUE(types::ArrayZipModeEnumType()->IsSupportedType(product_external));
   EXPECT_TRUE(types::ArrayZipModeEnumType()->IsSupportedType(product_internal));
   EXPECT_TRUE(
       types::ArrayZipModeEnumType()->IsSupportedType(proto_base_enabled));

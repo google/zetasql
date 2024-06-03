@@ -20,6 +20,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -28,6 +29,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
@@ -70,6 +72,8 @@
 #include "google/protobuf/dynamic_message.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
+#include "google/rpc/status.pb.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -641,6 +645,8 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
   std::unique_ptr<ProtoFieldValueList> value_list_owner;
   std::shared_ptr<TupleSlot::SharedProtoState>& shared_state =
       *proto_slot.mutable_shared_proto_state();
+  ABSL_DCHECK(shared_state != nullptr)  // Crash OK
+      << "Invariant: shared_state must be non null if the value has proto type";
   const std::unique_ptr<ProtoFieldValueList>* existing_value_list =
       shared_state->has_value()
           ? zetasql_base::FindOrNull(shared_state->value(), value_map_key)
@@ -1483,6 +1489,87 @@ const ValueExpr* IsErrorExpr::try_value() const {
 
 ValueExpr* IsErrorExpr::mutable_try_value() {
   return GetMutableArg(kTryValue)->mutable_node()->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// WithSideEffectsExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<WithSideEffectsExpr>>
+WithSideEffectsExpr::Create(std::unique_ptr<ValueExpr> target_value,
+                            std::unique_ptr<ValueExpr> side_effect) {
+  return absl::WrapUnique(
+      new WithSideEffectsExpr(std::move(target_value), std::move(side_effect)));
+}
+
+absl::Status WithSideEffectsExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  ZETASQL_RETURN_IF_ERROR(
+      mutable_target_value()->SetSchemasForEvaluation(params_schemas));
+  return mutable_side_effect()->SetSchemasForEvaluation(params_schemas);
+}
+
+bool WithSideEffectsExpr::Eval(absl::Span<const TupleData* const> params,
+                               EvaluationContext* context,
+                               VirtualTupleSlot* result,
+                               absl::Status* status) const {
+  if (!side_effect()->Eval(params, context, result, status)) {
+    return false;
+  }
+
+  ZETASQL_DCHECK_OK(*status)
+      << "side_effect.Eval() returned true but status is not OK.";
+  if (result->mutable_value()->is_null()) {
+    bool success = target_value()->Eval(params, context, result, status);
+    ABSL_DCHECK(success) << "Computation should have already succeeded because there"
+                       "were no side effects.";
+    return success;
+  }
+
+  ::google::rpc::Status status_proto;
+  bool success =
+      status_proto.ParseFromString(result->mutable_value()->bytes_value());
+  ABSL_DCHECK(success);
+  *status = internal::MakeStatusFromProto(status_proto);
+
+  // In the future, if we have other side effects such as writing to a log,
+  // we should instead return true and populate result with the actual value.
+  // For now, all we have is errors, so exposing the side effect simply means
+  // propagating that error.
+  ABSL_DCHECK(!status->ok());
+  return false;
+}
+
+std::string WithSideEffectsExpr::DebugInternal(const std::string& indent,
+                                               bool verbose) const {
+  return absl::StrCat("WithSideEffectsExpr(",
+                      ArgDebugString({"target_value"}, {k1}, indent, verbose),
+                      ArgDebugString({"side_effect"}, {k1}, indent, verbose),
+                      ")");
+}
+
+WithSideEffectsExpr::WithSideEffectsExpr(
+    std::unique_ptr<ValueExpr> target_value,
+    std::unique_ptr<ValueExpr> side_effect)
+    : ValueExpr(target_value->output_type()) {
+  SetArg(kTargetValue, std::make_unique<ExprArg>(std::move(target_value)));
+  SetArg(kSideEffect, std::make_unique<ExprArg>(std::move(side_effect)));
+}
+
+const ValueExpr* WithSideEffectsExpr::target_value() const {
+  return GetArg(kTargetValue)->node()->AsValueExpr();
+}
+
+ValueExpr* WithSideEffectsExpr::mutable_target_value() {
+  return GetMutableArg(kTargetValue)->mutable_node()->AsMutableValueExpr();
+}
+
+const ValueExpr* WithSideEffectsExpr::side_effect() const {
+  return GetArg(kSideEffect)->node()->AsValueExpr();
+}
+
+ValueExpr* WithSideEffectsExpr::mutable_side_effect() {
+  return GetMutableArg(kSideEffect)->mutable_node()->AsMutableValueExpr();
 }
 
 // -------------------------------------------------------

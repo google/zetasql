@@ -562,14 +562,14 @@ see [Datetime literals][datetime-literals].
 </table>
 
 An enum is a named type that enumerates a list of possible values, each of which
-has:
+contains:
 
-+ An integer value. Integers are used for comparison and ordering enum values.
++ An integer value: Integers are used for comparison and ordering enum values.
 There is no requirement that these integers start at zero or that they be
 contiguous.
-+ A string value for its name. Strings are case sensitive. In the case of
++ A string value for its name: Strings are case sensitive. In the case of
 protocol buffer open enums, this name is optional.
-+ Optional alias values. One or more additional string values that act as
++ Optional alias values: One or more additional string values that act as
 aliases.
 
 Enum values are referenced using their integer value or their string value.
@@ -1203,17 +1203,26 @@ Floating point values are approximate numeric values with fractional components.
 </thead>
 <tbody>
 
-<tr>
-<td><code>FLOAT</code></td>
-<td>Single precision (approximate) numeric values.</td>
+<tr id="float_type">
+  <td id="float-type" style="vertical-align:middle"><code>FLOAT</code>
+    <br><code>FLOAT32</code></td>
+<td>
+  
+  Single precision (approximate) numeric values.
+</td>
 </tr>
 
-<tr>
-<td><code>DOUBLE</code></td>
+<tr id="double_type">
+  <td id="double-type" style="vertical-align:middle"><code>DOUBLE</code>
+    <br><code>FLOAT64</code></td>
 <td>Double precision (approximate) numeric values.</td>
 </tr>
 </tbody>
 </table>
+
+`FLOAT32` is an alias for `FLOAT`.
+
+`FLOAT64` is an alias for `DOUBLE`.
 
 To learn more about the literal representation of a floating point type,
 see [Floating point literals][floating-point-literals].
@@ -1388,19 +1397,19 @@ see [Ordering floating point values][orderable-floating-points].
 
 Protocol buffers provide structured data types with a defined serialization
 format and cross-language support libraries. Protocol buffer message types can
-contain optional, required or repeated fields, including nested messages. See
-the [Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more
-detail.
+contain optional, required, or repeated fields, including nested messages. For
+more information, see the [Protocol Buffers Developer Guide][protocol-buffers-dev-guide].
 
-Protocol buffer message types behave similarly to struct types, and support
-similar operations like reading field values by name. Protocol buffer types are
-always named types, and can be referred to by their fully-qualified protocol
-buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
-behavior beyond structs, like default field values, and checking for the
-presence of optional fields.
+Protocol buffer message types behave similarly to [struct types](#struct_type),
+and support similar operations like reading field values by name. Protocol
+buffer types are always named types, and can be referred to by their
+fully-qualified protocol buffer name (i.e. `package.ProtoName`). Protocol
+buffers support some additional behavior beyond structs, like default field
+values, defining a column type, and checking for the presence of
+optional fields.
 
-Protocol buffer enum types are also available and can be referenced using the
-fully-qualified enum type name.
+Protocol buffer [enum types](#enum_type) are also available and can be
+referenced using the fully-qualified enum type name.
 
 To learn more about using protocol buffers in ZetaSQL, see
 [Work with protocol buffers][protocol-buffers].
@@ -1416,10 +1425,6 @@ method that you choose, the resulting protocol buffer is the same.
 
 You can create a protocol buffer using the [`NEW`][new-operator]
 operator with a map constructor:
-
-<section class="tabs">
-
-#### Format
 
 ```sql
 NEW protocol_buffer {
@@ -1441,7 +1446,7 @@ Where:
 +  `extension_name`: The name of the proto extension, including the package
    name.
 
-#### Example
+**Example**
 
 ```sql
 NEW zetasql.examples.astronomy.Planet {
@@ -1483,8 +1488,6 @@ NEW zetasql.examples.astronomy.Planet {
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-</section>
-
 > NOTE: The syntax is very similar to the Protocol Buffer Text Format
 >  syntax.
 > The differences are:
@@ -1496,7 +1499,7 @@ NEW zetasql.examples.astronomy.Planet {
 
 <!-- mdlint on -->
 
-When using this syntax:
+When using this syntax, the following rules apply:
 
 +   The field values must be expressions that are implicitly coercible or
     literal-coercible to the type of the corresponding protocol buffer field.
@@ -1554,7 +1557,7 @@ SELECT
   }
 ```
 
-Examples of the type protocol buffer being inferred from context:
+The following examples infers the protocol buffer data type from context:
 
 +   From `ARRAY` constructor:
 
@@ -1569,7 +1572,7 @@ Examples of the type protocol buffer being inferred from context:
     ```sql
     SELECT
       STRUCT<STRING, zetasql.examples.music.Chart, INT64>(
-        'foo', { rank: 1 chart_name: '2' }, 7)
+        'foo', { rank: 1 chart_name: '2' }, 7)[1]
     ```
 +   From column names through `SET`:
 
@@ -1616,11 +1619,6 @@ Examples of the type protocol buffer being inferred from context:
       { rank: 1 chart_name: '2' }
     )
     ```
-+   From system variable type:
-
-    ```sql
-    SET @@proto_system_variable = { rank: 1 chart_name: '2' }
-    ```
 
 #### `NEW protocol_buffer (...)` 
 <a id="using_new"></a>
@@ -1628,15 +1626,11 @@ Examples of the type protocol buffer being inferred from context:
 You can create a protocol buffer using the [`NEW`][new-operator] operator with a
 parenthesized list of arguments and aliases to specify field names:
 
-<section class="tabs">
-
-#### Format
-
 ```sql
 NEW protocol_buffer(field [AS alias], ...)
 ```
 
-#### Example
+**Example**
 
 ```sql
 SELECT
@@ -1649,9 +1643,7 @@ FROM
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-</section>
-
-When using this syntax:
+When using this syntax, the following rules apply:
 
 +   All field expressions must have an [explicit alias][explicit-alias] or end
     with an identifier. For example, the expression `a.b.c` has the [implicit
@@ -1735,10 +1727,10 @@ SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...
 
 ### Limited comparisons for protocol buffer values
 
-No direct comparison of protocol buffer values is supported. There are a couple
-possible workarounds:
+Direct comparison of protocol buffers isn't supported. There are a few
+alternative solutions:
 
-+ The most accurate way to compare protocol buffers is to do a pair-wise
++ One way to compare protocol buffers is to do a pair-wise
   comparison between the fields of the protocol buffers. This can also be used
   to `GROUP BY` or `ORDER BY` protocol buffer fields.
 + To get a simple approximation comparison, cast protocol buffer to

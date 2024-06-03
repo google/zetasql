@@ -36,30 +36,41 @@
 #include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/script_exception.pb.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/error_helpers.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/time_zone_util.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/collation.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/parsed_script.h"
-#include "zetasql/scripting/script_exception.pb.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/script_segment.h"
 #include "zetasql/scripting/serialization_helpers.h"
+#include "zetasql/scripting/stack_frame.h"
+#include "zetasql/scripting/type_aliases.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -118,14 +129,14 @@ absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
   if (ast_script != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(parsed_script, ParsedScript::Create(
                                         script, ast_script, error_message_mode,
-                                        options.script_variables()));
+                                        options.parsed_script_options()));
   } else {
     ParserOptions parser_options;
     parser_options.set_language_options(options.language_options());
     ZETASQL_ASSIGN_OR_RETURN(
         parsed_script,
         ParsedScript::Create(script, parser_options, error_message_mode,
-                             options.script_variables()));
+                             options.parsed_script_options()));
   }
   if (!options.dry_run()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -133,8 +144,8 @@ absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
   }
   std::unique_ptr<ScriptExecutorImpl> script_executor(
       new ScriptExecutorImpl(options, std::move(parsed_script), evaluator));
-  ZETASQL_RETURN_IF_ERROR(
-      script_executor->SetPredefinedVariables(options.script_variables()));
+  ZETASQL_RETURN_IF_ERROR(script_executor->SetPredefinedVariables(
+      options.parsed_script_options().predefined_variables));
   return absl::WrapUnique<ScriptExecutor>(script_executor.release());
 }
 
@@ -1424,7 +1435,8 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ParsedScript> parsed_script,
                    ParsedScript::CreateForRoutine(
                        procedure_definition->body(), GetParserOptions(),
-                       options_.error_message_mode(), arguments_map));
+                       options_.error_message_mode(), arguments_map,
+                       options_.parsed_script_options()));
   const ControlFlowNode* start_node =
       parsed_script->control_flow_graph().start_node();
   // For empty procedure, we don't have to create a stack frame, only assign
@@ -1730,10 +1742,9 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
   auto procedure_definition =
       std::make_unique<ProcedureDefinition>(signature, sql_string);
   absl::StatusOr<std::unique_ptr<ParsedScript>> parsed_script_or_error =
-      ParsedScript::Create(
-          procedure_definition->body(), GetParserOptions(),
-          options_.error_message_mode(),
-          /*predefined_variable_names=*/options_.script_variables());
+      ParsedScript::Create(procedure_definition->body(), GetParserOptions(),
+                           options_.error_message_mode(),
+                           options_.parsed_script_options());
   if (!parsed_script_or_error.ok()) {
     return MakeScriptExceptionAt(execute_immediate_statement->sql())
            << "Invalid EXECUTE IMMEDIATE sql string `" << sql_string << "`, "
@@ -1958,7 +1969,8 @@ absl::Status ScriptExecutorImpl::SetState(
       ZETASQL_ASSIGN_OR_RETURN(parsed_script,
                        ParsedScript::CreateForRoutine(
                            procedure_definition->body(), GetParserOptions(),
-                           options_.error_message_mode(), arguments_map));
+                           options_.error_message_mode(), arguments_map,
+                           options_.parsed_script_options()));
     } else {
       ZETASQL_RET_CHECK_EQ(new_callstack.size(), 0)
           << "Procedure definition is missing";

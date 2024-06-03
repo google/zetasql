@@ -26,13 +26,6 @@ FROM
   a.b.c.T
 ==
 
-# The bison parser is correct here. The JavaCC parser implements generalized
-# identifiers in path expressions by reinterpreting floating point literals in
-# the parser. That breaks if the floating point literals contain exponents.
-# (b/29625001)
-# Disabling GetParseTokens() testing here, because GetParseTokens() still uses
-# the JavaCC implementation, and this fails in the bison case.
-[no_test_get_parse_tokens]
 select x.1e+5;
 --
 QueryStatement [0-13] [select x.1e+5]
@@ -65,12 +58,6 @@ SELECT
   x.`1e`
 ==
 
-# The bison parser is correct here. The JavaCC parser implements generalized
-# identifiers in path expressions by reinterpreting floating point literals in
-# the parser. That breaks if there is whitespace after the dot. (b/29625001)
-# Disabling GetParseTokens() testing here, because GetParseTokens() still uses
-# the JavaCC implementation, and this fails in the bison case.
-[no_test_get_parse_tokens]
 select x. 1e+5;
 --
 QueryStatement [0-14] [select x. 1e+5]
@@ -374,13 +361,61 @@ SELECT
   ARRAY[1, 2].`1dayago`
 ==
 
-# The bison parser detects missing whitespace between a literal and an alias at
-# the tokenizer level, and that gets triggered before the parser rules.
 select .1dayago;
 --
 ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
 select .1dayago;
          ^
+==
+
+select .2m;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+select .2m;
+         ^
+==
+
+select .2E10m;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+select .2E10m;
+         ^
+==
+
+select 2.2E-10m;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+select 2.2E-10m;
+              ^
+==
+
+select 2.2m;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+select 2.2m;
+          ^
+==
+
+select 2E10m;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+select 2E10m;
+        ^
+==
+
+select 2.m;
+--
+QueryStatement [0-10] [select 2.m]
+  Query [0-10] [select 2.m]
+    Select [0-10] [select 2.m]
+      SelectList [7-10] [2.m]
+        SelectColumn [7-10] [2.m]
+          FloatLiteral(2.) [7-9] [2.]
+          Alias [9-10] [m]
+            Identifier(m) [9-10] [m]
+--
+SELECT
+  2.AS m
 ==
 
 select null from x.y. 2. z;
@@ -3419,7 +3454,6 @@ SELECT
 # query didn't.
 # TODO: Consider making invalid identifiers after dots a
 # tokenizer-level error.
-[no_test_get_parse_tokens]
 select abc..1e5;
 --
 ERROR: Syntax error: Unexpected floating point literal ".1e5" [at 1:12]
@@ -3480,4 +3514,301 @@ SELECT
   call
 FROM
   T
+==
 
+SELECT 1BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+SELECT 1BEGIN;
+        ^
+==
+
+SELECT .1BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1BEGIN;
+         ^
+==
+
+SELECT .1E10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1E10BEGIN;
+         ^
+==
+
+SELECT .1E+10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:14]
+SELECT .1E+10BEGIN;
+             ^
+==
+
+SELECT .1E-10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:14]
+SELECT .1E-10BEGIN;
+             ^
+==
+
+SELECT 1.BEGIN;
+--
+QueryStatement [0-14] [SELECT 1.BEGIN]
+  Query [0-14] [SELECT 1.BEGIN]
+    Select [0-14] [SELECT 1.BEGIN]
+      SelectList [7-14] [1.BEGIN]
+        SelectColumn [7-14] [1.BEGIN]
+          FloatLiteral(1.) [7-9] [1.]
+          Alias [9-14] [BEGIN]
+            Identifier(BEGIN) [9-14] [BEGIN]
+--
+SELECT
+  1.AS BEGIN
+==
+
+SELECT 1.1BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1BEGIN;
+          ^
+==
+
+SELECT 1.1E10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1E10BEGIN;
+          ^
+==
+
+SELECT 1.1E+10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+SELECT 1.1E+10BEGIN;
+              ^
+==
+
+SELECT 1.1E-10BEGIN;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+SELECT 1.1E-10BEGIN;
+              ^
+==
+
+SELECT 1FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+SELECT 1FULL;
+        ^
+==
+
+SELECT .1FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1FULL;
+         ^
+==
+
+SELECT .1E10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1E10FULL;
+         ^
+==
+
+SELECT .1E+10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:14]
+SELECT .1E+10FULL;
+             ^
+==
+
+SELECT .1E-10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:14]
+SELECT .1E-10FULL;
+             ^
+==
+
+SELECT 1.FULL;
+--
+ERROR: Syntax error: Expected end of input but got keyword FULL [at 1:10]
+SELECT 1.FULL;
+         ^
+==
+
+SELECT 1.1FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1FULL;
+          ^
+==
+
+SELECT 1.1E10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1E10FULL;
+          ^
+==
+
+SELECT 1.1E+10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+SELECT 1.1E+10FULL;
+              ^
+==
+
+SELECT 1.1E-10FULL;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+SELECT 1.1E-10FULL;
+              ^
+==
+
+SELECT 1`FULL`;
+--
+QueryStatement [0-14] [SELECT 1`FULL`]
+  Query [0-14] [SELECT 1`FULL`]
+    Select [0-14] [SELECT 1`FULL`]
+      SelectList [7-14] [1`FULL`]
+        SelectColumn [7-14] [1`FULL`]
+          IntLiteral(1) [7-8] [1]
+          Alias [8-14] [`FULL`]
+            Identifier(`FULL`) [8-14] [`FULL`]
+--
+SELECT
+  1 AS `FULL`
+==
+
+SELECT .1`FULL`;
+--
+QueryStatement [0-15] [SELECT .1`FULL`]
+  Query [0-15] [SELECT .1`FULL`]
+    Select [0-15] [SELECT .1`FULL`]
+      SelectList [7-15] [.1`FULL`]
+        SelectColumn [7-15] [.1`FULL`]
+          FloatLiteral(.1) [7-9] [.1]
+          Alias [9-15] [`FULL`]
+            Identifier(`FULL`) [9-15] [`FULL`]
+--
+SELECT
+  .1 AS `FULL`
+==
+
+SELECT .1E10`FULL`;
+--
+QueryStatement [0-18] [SELECT .1E10`FULL`]
+  Query [0-18] [SELECT .1E10`FULL`]
+    Select [0-18] [SELECT .1E10`FULL`]
+      SelectList [7-18] [.1E10`FULL`]
+        SelectColumn [7-18] [.1E10`FULL`]
+          FloatLiteral(.1E10) [7-12] [.1E10]
+          Alias [12-18] [`FULL`]
+            Identifier(`FULL`) [12-18] [`FULL`]
+--
+SELECT
+  .1E10 AS `FULL`
+==
+
+SELECT .1E+10`FULL`;
+--
+QueryStatement [0-19] [SELECT .1E+10`FULL`]
+  Query [0-19] [SELECT .1E+10`FULL`]
+    Select [0-19] [SELECT .1E+10`FULL`]
+      SelectList [7-19] [.1E+10`FULL`]
+        SelectColumn [7-19] [.1E+10`FULL`]
+          FloatLiteral(.1E+10) [7-13] [.1E+10]
+          Alias [13-19] [`FULL`]
+            Identifier(`FULL`) [13-19] [`FULL`]
+--
+SELECT
+  .1E+10 AS `FULL`
+==
+
+SELECT .1E-10`FULL`;
+--
+QueryStatement [0-19] [SELECT .1E-10`FULL`]
+  Query [0-19] [SELECT .1E-10`FULL`]
+    Select [0-19] [SELECT .1E-10`FULL`]
+      SelectList [7-19] [.1E-10`FULL`]
+        SelectColumn [7-19] [.1E-10`FULL`]
+          FloatLiteral(.1E-10) [7-13] [.1E-10]
+          Alias [13-19] [`FULL`]
+            Identifier(`FULL`) [13-19] [`FULL`]
+--
+SELECT
+  .1E-10 AS `FULL`
+==
+
+SELECT 1.`FULL`;
+--
+QueryStatement [0-15] [SELECT 1.`FULL`]
+  Query [0-15] [SELECT 1.`FULL`]
+    Select [0-15] [SELECT 1.`FULL`]
+      SelectList [7-15] [1.`FULL`]
+        SelectColumn [7-15] [1.`FULL`]
+          FloatLiteral(1.) [7-9] [1.]
+          Alias [9-15] [`FULL`]
+            Identifier(`FULL`) [9-15] [`FULL`]
+--
+SELECT
+  1.AS `FULL`
+==
+
+SELECT 1.1`FULL`;
+--
+QueryStatement [0-16] [SELECT 1.1`FULL`]
+  Query [0-16] [SELECT 1.1`FULL`]
+    Select [0-16] [SELECT 1.1`FULL`]
+      SelectList [7-16] [1.1`FULL`]
+        SelectColumn [7-16] [1.1`FULL`]
+          FloatLiteral(1.1) [7-10] [1.1]
+          Alias [10-16] [`FULL`]
+            Identifier(`FULL`) [10-16] [`FULL`]
+--
+SELECT
+  1.1 AS `FULL`
+==
+
+SELECT 1.1E10`FULL`;
+--
+QueryStatement [0-19] [SELECT 1.1E10`FULL`]
+  Query [0-19] [SELECT 1.1E10`FULL`]
+    Select [0-19] [SELECT 1.1E10`FULL`]
+      SelectList [7-19] [1.1E10`FULL`]
+        SelectColumn [7-19] [1.1E10`FULL`]
+          FloatLiteral(1.1E10) [7-13] [1.1E10]
+          Alias [13-19] [`FULL`]
+            Identifier(`FULL`) [13-19] [`FULL`]
+--
+SELECT
+  1.1E10 AS `FULL`
+==
+
+SELECT 1.1E+10`FULL`;
+--
+QueryStatement [0-20] [SELECT 1.1E+10`FULL`]
+  Query [0-20] [SELECT 1.1E+10`FULL`]
+    Select [0-20] [SELECT 1.1E+10`FULL`]
+      SelectList [7-20] [1.1E+10`FULL`]
+        SelectColumn [7-20] [1.1E+10`FULL`]
+          FloatLiteral(1.1E+10) [7-14] [1.1E+10]
+          Alias [14-20] [`FULL`]
+            Identifier(`FULL`) [14-20] [`FULL`]
+--
+SELECT
+  1.1E+10 AS `FULL`
+==
+
+SELECT 1.1E-10`FULL`;
+--
+QueryStatement [0-20] [SELECT 1.1E-10`FULL`]
+  Query [0-20] [SELECT 1.1E-10`FULL`]
+    Select [0-20] [SELECT 1.1E-10`FULL`]
+      SelectList [7-20] [1.1E-10`FULL`]
+        SelectColumn [7-20] [1.1E-10`FULL`]
+          FloatLiteral(1.1E-10) [7-14] [1.1E-10]
+          Alias [14-20] [`FULL`]
+            Identifier(`FULL`) [14-20] [`FULL`]
+--
+SELECT
+  1.1E-10 AS `FULL`

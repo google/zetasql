@@ -64,6 +64,7 @@
 #include "zetasql/testing/type_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_set.h"
@@ -267,8 +268,7 @@ class Stats {
 
   // The failed statement will be put into to-be-added-to-known-errors list
   // with `new_mode`. The statement was in `was_mode`.
-  void RecordFailedStatement(const std::string& msg,
-                             const std::string& location,
+  void RecordFailedStatement(absl::string_view msg, const std::string& location,
                              const std::string& full_name,
                              KnownErrorMode was_mode, KnownErrorMode new_mode);
 
@@ -288,8 +288,8 @@ class Stats {
                                 const std::string& full_name,
                                 KnownErrorMode was_mode,
                                 KnownErrorMode new_mode,
-                                const std::string& reason,
-                                const std::string& detail);
+                                absl::string_view reason,
+                                absl::string_view detail);
 
   // Records a known error statement with its mode and the set of labels that
   // caused it to fail.
@@ -393,11 +393,11 @@ class Stats {
   // batches.
   template <class Iterable>
   void LogBatches(const Iterable& iterable, const std::string& title,
-                  const std::string& delimiter) const;
+                  absl::string_view delimiter) const;
 
   // Composes the following string.
   //   "label: <label>    # was: <was_mode> - new mode: <new_mode>"
-  std::string LabelString(const std::string& label, KnownErrorMode was_mode,
+  std::string LabelString(absl::string_view label, KnownErrorMode was_mode,
                           KnownErrorMode new_mode) const;
 
   int num_executed_ = 0;
@@ -426,7 +426,7 @@ Stats::Stats()
 
 void Stats::RecordExecutedStatement() { num_executed_++; }
 
-std::string Stats::LabelString(const std::string& label,
+std::string Stats::LabelString(absl::string_view label,
                                const KnownErrorMode was_mode,
                                const KnownErrorMode new_mode) const {
   std::string label_string = absl::StrCat("  label: \"", label, "\"");
@@ -453,7 +453,7 @@ void Stats::RecordToBeUpgradedStatement(const std::string& full_name,
   to_be_upgraded_.insert(LabelString(full_name, was_mode, new_mode));
 }
 
-void Stats::RecordFailedStatement(const std::string& msg,
+void Stats::RecordFailedStatement(absl::string_view msg,
                                   const std::string& location,
                                   const std::string& full_name,
                                   const KnownErrorMode was_mode,
@@ -470,8 +470,8 @@ void Stats::RecordCancelledStatement(const std::string& location,
                                      const std::string& full_name,
                                      const KnownErrorMode was_mode,
                                      const KnownErrorMode new_mode,
-                                     const std::string& reason,
-                                     const std::string& detail) {
+                                     absl::string_view reason,
+                                     absl::string_view detail) {
   ++num_executed_;
   std::string report =
       absl::StrCat("Location: ", location, "\n", "    Name: ", full_name, "\n",
@@ -509,12 +509,12 @@ void Stats::LogGoogletestProperties() const {
 
 template <class Iterable>
 void Stats::LogBatches(const Iterable& iterable, const std::string& title,
-                       const std::string& delimiter) const {
+                       absl::string_view delimiter) const {
   std::vector<std::string> batch;
   int batch_string_size = 0;
   int batch_count = 0;
 
-  auto LogOneBatch = [&title, &delimiter, &batch_count, &batch,
+  auto LogOneBatch = [&title, delimiter, &batch_count, &batch,
                       &batch_string_size] {
     ++batch_count;
     // Always "====" to the beginning and "==== End " to the end so
@@ -859,15 +859,27 @@ class KnownErrorFilter
   bool MatchAndExplain(
       const ResultsType& result,
       ::testing::MatchResultListener* listener) const override {
+    // Matchers are meant to be idempotent and can be called multiple times by
+    // gtest in the case of failures. Side effects like recording stats need to
+    // be guarded so that we don't record multiple failures for a single query.
+    if (cached_match_result_.has_value()) {
+      if (listener->IsInterested()) {
+        *listener->stream() << cached_match_result_string_;
+      }
+      return cached_match_result_.value();
+    }
+
     const KnownErrorMode from_mode = sql_test_->known_error_mode();
     // CRASHES_DO_NOT_RUN is always skipped, return here.
     if (KnownErrorMode::CRASHES_DO_NOT_RUN == from_mode ||
         absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output)) {
       LogToCSV(/*passed=*/false, from_mode);
+      cached_match_result_ = true;
       return true;
     }
 
     const bool passed = matcher_.MatchAndExplain(result, listener);
+    cached_match_result_ = passed;
     LogToCSV(passed, from_mode);
 
     // Gets the right known_error mode for the statement.
@@ -899,17 +911,28 @@ class KnownErrorFilter
       // In either case, log it as a failed statement.
       std::stringstream describe;
       matcher_.DescribeTo(&describe);
-      std::stringstream extra;
-      if (listener->stream() != nullptr) {
-        // When a listener is not-interested, then its stream pointer may be
-        // nullptr.
-        // TODO: the correct way to guard against this is to add a
-        // check for listener->IsInterested() that gates all generation of debug
-        // output.
-        extra << listener->stream()->rdbuf();
+      // If listener->IsInterested() is false, there is no explanation of the
+      // failure and the report will have missing info since we cache the
+      // results of this call so that this matcher is idempotent. We create our
+      // own listener and call MatchAndExplain a second time to ensure we have
+      // the failure info in the initial report we record and in the cached
+      // value used for future calls.
+      //
+      // Note that this only happens for real failures so we will rarely need
+      // to copy large match result strings around.
+      std::string extra;
+      if (listener->IsInterested()) {
+        std::stringstream ss;
+        ss << listener->stream()->rdbuf();
+        extra = ss.str();
+      } else {
+        ::testing::StringMatchResultListener string_listener;
+        matcher_.MatchAndExplain(result, &string_listener);
+        extra = string_listener.str();
       }
       std::string report = sql_test_->GenerateFailureReport(
-          describe.str(), SQLTestBase::ToString(result), extra.str());
+          describe.str(), SQLTestBase::ToString(result), extra);
+      cached_match_result_string_ = std::move(extra);
       sql_test_->stats_->RecordFailedStatement(report, sql_test_->location_,
                                                sql_test_->full_name_, from_mode,
                                                to_mode, check_only_);
@@ -929,10 +952,11 @@ class KnownErrorFilter
             sql_test_->full_name_, from_mode, check_only_);
         if (!absl::GetFlag(
                 FLAGS_zetasql_compliance_allow_removable_known_errors)) {
-          sql_test_->stats_->RecordFailure(
+          cached_match_result_string_ =
               absl::StrCat("A known error rule applies to a passing test '",
                            sql_test_->full_name_,
-                           "'. Remove or refine the known error entry."));
+                           "'. Remove or refine the known error entry.");
+          sql_test_->stats_->RecordFailure(cached_match_result_string_);
           return false;
         }
       } else if (to_mode < from_mode) {
@@ -941,9 +965,10 @@ class KnownErrorFilter
             sql_test_->full_name_, from_mode, to_mode, check_only_);
         if (!absl::GetFlag(
                 FLAGS_zetasql_compliance_allow_upgradable_known_errors)) {
-          sql_test_->stats_->RecordFailure(
+          cached_match_result_string_ =
               absl::StrCat("A known error rule should be upgraded for '",
-                           sql_test_->full_name_, "'."));
+                           sql_test_->full_name_, "'.");
+          sql_test_->stats_->RecordFailure(cached_match_result_string_);
           return false;
         }
       }
@@ -969,6 +994,8 @@ class KnownErrorFilter
   ::testing::Matcher<const ResultsType&> matcher_;
   absl::Status expected_status_;  // used for logging compliance labels
   bool check_only_;
+  mutable std::optional<bool> cached_match_result_;
+  mutable std::string cached_match_result_string_;
 };
 
 std::string SQLTestBase::GenerateFailureReport(const std::string& expected,
@@ -1078,6 +1105,7 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "analytic_row_number_test:row_number_3",
         "analytic_sum_test:analytic_sum_range_orderby_bool_",
         "anonymization_test:",
+        "aggregation_threshold_test:",
         "arithmetic_functions_test:arithmetic_functions_3",
         "array_aggregation_test:array_concat_agg_array",
         "array_joins_test:array_",
@@ -1301,14 +1329,14 @@ static void ExtractComplianceLabelsFromResolvedAST(
       to_report.Update(product_external_analyzer_options_or_err.status());
       to_report.Update(product_external_analyze_status);
       ADD_FAILURE()
-          << "Test '" << test_name << "' does not successfully compile for "
+          << "Test '" << test_name << "' does not successfully compile "
           << "with maximum features plus required less forbidden. This test is "
-          << "unhealthy. Probably it represents and analyzer failure test. "
+          << "unhealthy. Probably it represents an analyzer failure test. "
           << "Analyzer failures should be tested in the analyzer tests, not "
           << "compliance tests, please move the test there. Another less "
-          << "common possibility, is that the test case should have forbidden "
+          << "common possibility is that the test case should have forbidden "
           << "features that aren't currently explicit. In that case, "
-          << "annotate the test with the apporpriate forbidden feature.\n"
+          << "annotate the test with the appropriate forbidden feature.\n"
           << to_report << "\n";
     }
   } else if (internal_compiles && external_compiles) {
@@ -1502,7 +1530,7 @@ SQLTestBase::SQLTestBase()
       test_driver_owner_(GetComplianceTestDriver()),
       test_driver_(test_driver_owner_.get()),
       reference_driver_owner_(
-          new ReferenceDriver(test_driver_->GetSupportedLanguageOptions())),
+          ReferenceDriver::CreateFromTestDriver(test_driver_).release()),
       reference_driver_(reference_driver_owner_.get()),
       execute_statement_type_factory_(std::make_unique<TypeFactory>()) {
   std::vector<std::string> known_error_files =
@@ -1590,8 +1618,6 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
     AutoLanguageOptions options_cleanup(reference_driver());
     LanguageOptions options_with_shadow_parsing =
         reference_driver_->language_options();
-    options_with_shadow_parsing.EnableLanguageFeature(
-        FEATURE_TEXTMAPPER_PARSER);
     options_with_shadow_parsing.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
     reference_driver()->SetLanguageOptions(options_with_shadow_parsing);
     if (script_mode_) {
@@ -1912,7 +1938,10 @@ void SQLTestBase::StepCheckKnownErrors() {
 
   if (!absl::GetFlag(FLAGS_query_name_pattern).empty()) {
     const RE2 regex(absl::GetFlag(FLAGS_query_name_pattern));
-    if (!RE2::FullMatch(name, regex)) {
+    ABSL_CHECK(regex.ok()) << "Invalid regex: "  // Crash OK
+                      << absl::GetFlag(FLAGS_query_name_pattern)
+                      << "; error: " << regex.error();
+    if (!RE2::FullMatch(full_name_, regex)) {
       test_result_->set_ignore_test_output(true);
       statement_workflow_ = SKIPPED;
       return;
@@ -2393,7 +2422,7 @@ void SQLTestBase::SetNamePrefix(absl::string_view name_prefix,
   result_type_name_.clear();
 }
 
-void SQLTestBase::SetResultTypeName(const std::string& result_type_name) {
+void SQLTestBase::SetResultTypeName(absl::string_view result_type_name) {
   result_type_name_ = result_type_name;
 }
 

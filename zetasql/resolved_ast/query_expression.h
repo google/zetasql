@@ -86,11 +86,11 @@ class QueryExpression {
       const std::map<int, std::string>& group_by_list,
       absl::string_view group_by_hints);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
-                           const std::string& order_by_hints);
+                           absl::string_view order_by_hints);
   bool TrySetLimitClause(absl::string_view limit);
   bool TrySetOffsetClause(absl::string_view offset);
   bool TrySetWithAnonymizationClause(absl::string_view anonymization_options);
-  bool TrySetPivotClause(const std::string& pivot);
+  bool TrySetPivotClause(absl::string_view pivot);
   bool TrySetUnpivotClause(absl::string_view unpivot);
 
   // The below CanSet... methods return true if filling in the concerned clause

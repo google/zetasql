@@ -89,6 +89,9 @@ GetFunctionTestsCastString();  // string/bytes
 // Casts between strings and numeric types
 std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString();
 
+// Casts between uuid and other types
+std::vector<QueryParamsWithResult> GetFunctionTestsCastUuid();
+
 // All SAFE_CAST tests.
 std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast();
 
@@ -317,6 +320,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet();
 std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend();
+std::vector<FunctionTestCall> GetFunctionTestsJsonKeys();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

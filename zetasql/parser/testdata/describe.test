@@ -257,7 +257,6 @@ describe foo.bar FROM ;
                       ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 DESCRIBE my-project.dataset.table;
 --
@@ -278,7 +277,6 @@ DescribeStatement [0-33] [DESCRIBE my...dataset.table]
 DESCRIBE `my-project`.dataset.table
 ==
 
-[no_test_get_parse_tokens]
 [language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME{{|,V_1_3_ALLOW_SLASH_PATHS}}]
 DESCRIBE /span/db/my-mdb-grp:my_db.Table
 --

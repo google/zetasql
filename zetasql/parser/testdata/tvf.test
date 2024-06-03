@@ -1134,7 +1134,7 @@ select * from (mytvf((select * from keyvalue)))
 # Parenthesized joins are not supported as TVF arguments.
 select * from mytvf((keyvalue join keyvalue on true))
 --
-ERROR: Syntax error: Unexpected keyword JOIN [at 1:31]
+ERROR: Syntax error: Expected "," but got keyword JOIN [at 1:31]
 select * from mytvf((keyvalue join keyvalue on true))
                               ^
 ==
@@ -1550,6 +1550,30 @@ SELECT
   *
 FROM
   tvf_one_relation_arg_with_fixed_output(MODEL keyvalue)
+
+==
+
+# Valid "CONNECTION DEFAULT" syntax for table-valued function arguments.
+select * from tvf_one_relation_arg_with_fixed_output(connection default)
+--
+QueryStatement [0-72] [select * from...ction default)]
+  Query [0-72] [select * from...ction default)]
+    Select [0-72] [select * from...ction default)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-72] [from tvf_one_rela...n default)]
+        TVF [14-72] [tvf_one_relation_...n default)]
+          PathExpression [14-52] [tvf_one_relation_...xed_output]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52] [tvf_one_relation_...xed_output]
+          TVFArgument [53-71] [connection default]
+            ConnectionClause [53-71] [connection default]
+              DefaultLiteral [64-71] [default]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(CONNECTION DEFAULT)
 
 ==
 

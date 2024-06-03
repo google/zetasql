@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/functions/uuid.h"
 
 #include "zetasql/public/functions/uuid.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
 #include "absl/status/statusor.h"
@@ -41,6 +42,24 @@ absl::StatusOr<Value> GenerateUuidFunction::Eval(
       functions::GenerateUuid(*(context->GetRandomNumberGenerator())));
 }
 
+class NewUuidFunction : public SimpleBuiltinScalarFunction {
+ public:
+  NewUuidFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kGenerateUuid,
+                                    types::UuidType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+absl::StatusOr<Value> NewUuidFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK(args.empty());
+  return Value::Uuid(
+      functions::NewUuid(*(context->GetRandomNumberGenerator())));
+}
+
 }  // namespace
 
 void RegisterBuiltinUuidFunctions() {
@@ -48,6 +67,10 @@ void RegisterBuiltinUuidFunctions() {
       {FunctionKind::kGenerateUuid},
       [](FunctionKind kind, const Type* output_type) {
         return new GenerateUuidFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kNewUuid}, [](FunctionKind kind, const Type* output_type) {
+        return new NewUuidFunction();
       });
 }
 

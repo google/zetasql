@@ -93,17 +93,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_count_distinct(ARRAY<STRING>) -> INT64)
               +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
                 +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
@@ -162,17 +162,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_count_distinct(STRUCT<INT64, STRING>) -> INT64)
               +-MakeStruct
                 +-type=STRUCT<INT64, STRING>
@@ -468,17 +468,17 @@ select approx_top_count(int64, 10) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value INT64, count INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value INT64, count INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_count(INT64, INT64) -> ARRAY<STRUCT<value INT64, count INT64>>)
               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
               +-Literal(type=INT64, value=10)
@@ -488,17 +488,17 @@ select approx_top_count(string, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value STRING, count INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value STRING, count INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_count(STRING, INT64) -> ARRAY<STRUCT<value STRING, count INT64>>)
               +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
               +-Parameter(type=INT64, name="test_param_int64")
@@ -662,17 +662,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value ARRAY<STRING>, count INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value ARRAY<STRING>, count INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_count(ARRAY<STRING>, INT64) -> ARRAY<STRUCT<value ARRAY<STRING>, count INT64>>)
               +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
               | +-Literal(type=STRING, value="a")
@@ -733,17 +733,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value STRUCT<INT64, STRING>, count INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value STRUCT<INT64, STRING>, count INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_count(STRUCT<INT64, STRING>, INT64) -> ARRAY<STRUCT<value STRUCT<INT64, STRING>, count INT64>>)
               +-MakeStruct
               | +-type=STRUCT<INT64, STRING>
@@ -766,17 +766,17 @@ select approx_top_sum(int64, int64, 10) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value INT64, sum INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value INT64, sum INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(INT64, INT64, INT64) -> ARRAY<STRUCT<value INT64, sum INT64>>)
               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -787,17 +787,17 @@ select approx_top_sum(bytes, double, 10) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value BYTES, sum DOUBLE>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value BYTES, sum DOUBLE>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[bytes#6, double#9], table=SimpleTypes, column_index_list=[5, 8])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(BYTES, DOUBLE, INT64) -> ARRAY<STRUCT<value BYTES, sum DOUBLE>>)
               +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
               +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
@@ -946,17 +946,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_ARRAY
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value ARRAY<STRING>, sum INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value ARRAY<STRING>, sum INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(ARRAY<STRING>, INT64, INT64) -> ARRAY<STRUCT<value ARRAY<STRING>, sum INT64>>)
               +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
               | +-Literal(type=STRING, value="a")
@@ -1020,17 +1020,17 @@ ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<STRUCT<value STRUCT<INT64, STRING>, sum INT64>>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<STRUCT<value STRUCT<INT64, STRING>, sum INT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(STRUCT<INT64, STRING>, INT64, INT64) -> ARRAY<STRUCT<value STRUCT<INT64, STRING>, sum INT64>>)
               +-MakeStruct
               | +-type=STRUCT<INT64, STRING>
@@ -1145,17 +1145,17 @@ select hll_count.merge(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.merge(BYTES) -> INT64)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -1164,12 +1164,12 @@ select hll_count.extract(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:hll_count.extract(BYTES) -> INT64)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     +-input_scan=
@@ -1180,17 +1180,17 @@ select hll_count.init(@test_param_int64, 10) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Literal(type=INT64, value=10)
@@ -1200,17 +1200,17 @@ select hll_count.init(@test_param_int64, 24) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Literal(type=INT64, value=24)
@@ -1220,17 +1220,17 @@ select hll_count.init(@test_param_int64, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1279,17 +1279,17 @@ select hll_count.init(@test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
 ==
@@ -1299,17 +1299,17 @@ select hll_count.init(@test_param_int32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(INT64, optional(0) INT64) -> BYTES)
               +-Cast(INT32 -> INT64)
                 +-Parameter(type=INT32, name="test_param_int32")
@@ -1319,17 +1319,17 @@ select hll_count.init(@test_param_uint64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
 ==
@@ -1339,17 +1339,17 @@ select hll_count.init(@test_param_uint32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(UINT64, optional(0) INT64) -> BYTES)
               +-Cast(UINT32 -> UINT64)
                 +-Parameter(type=UINT32, name="test_param_uint32")
@@ -1359,17 +1359,17 @@ select hll_count.init(@test_param_string) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(STRING, optional(0) INT64) -> BYTES)
               +-Parameter(type=STRING, name="test_param_string")
 ==
@@ -1378,17 +1378,17 @@ select hll_count.init(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.init(BYTES, optional(0) INT64) -> BYTES)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -1418,17 +1418,17 @@ select hll_count.merge_partial(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:hll_count.merge_partial(BYTES) -> BYTES)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -1437,17 +1437,17 @@ select d3a_count.merge(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.merge(BYTES) -> INT64)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -1456,12 +1456,12 @@ select d3a_count.extract(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:d3a_count.extract(BYTES) -> INT64)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     +-input_scan=
@@ -1472,12 +1472,12 @@ select d3a_count.to_hll(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:d3a_count.to_hll(BYTES) -> BYTES)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     +-input_scan=
@@ -1488,17 +1488,17 @@ select d3a_count.init(@test_param_int64, @test_param_int64 * 2, 10) from SimpleT
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
@@ -1511,17 +1511,17 @@ select d3a_count.init(@test_param_int64, @test_param_int64, 24) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1532,17 +1532,17 @@ select d3a_count.init(@test_param_int64, @test_param_int64, @test_param_int64) f
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1574,17 +1574,17 @@ select d3a_count.init(NULL, @test_param_int64, @test_param_int64) from SimpleTyp
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
               +-Literal(type=INT64, value=NULL)
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1595,17 +1595,17 @@ select d3a_count.init("ABC", @test_param_int64, @test_param_int64) from SimpleTy
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(STRING, INT64, optional(1) INT64) -> BYTES)
               +-Literal(type=STRING, value="ABC")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1616,17 +1616,17 @@ select d3a_count.init(@test_param_int64, 123, @test_param_int64) from SimpleType
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Literal(type=INT64, value=123)
@@ -1704,17 +1704,17 @@ select d3a_count.init(@test_param_int64, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1725,17 +1725,17 @@ select d3a_count.init(@test_param_int32, @test_param_int32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(0) INT64) -> BYTES)
               +-Cast(INT32 -> INT64)
               | +-Parameter(type=INT32, name="test_param_int32")
@@ -1770,17 +1770,17 @@ select d3a_count.init(@test_param_uint64, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(UINT64, INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1793,17 +1793,17 @@ select d3a_count.init(@test_param_uint32, @test_param_uint32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(UINT64, INT64, optional(0) INT64) -> BYTES)
               +-Cast(UINT32 -> UINT64)
               | +-Parameter(type=UINT32, name="test_param_uint32")
@@ -1815,17 +1815,17 @@ select d3a_count.init(@test_param_string, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(STRING, INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=STRING, name="test_param_string")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1835,17 +1835,17 @@ select d3a_count.init(@test_param_bytes, @test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.init(BYTES, INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -1883,17 +1883,17 @@ select d3a_count.merge_partial(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:d3a_count.merge_partial(BYTES) -> BYTES)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -1902,17 +1902,17 @@ select kll_quantiles.init_int64(@test_param_int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_int64(INT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
 ==
@@ -1921,17 +1921,17 @@ select kll_quantiles.init_uint64(@test_param_uint64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
 ==
@@ -1940,17 +1940,17 @@ select kll_quantiles.init_double(@test_param_double) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(0) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
 ==
@@ -1959,17 +1959,17 @@ select kll_quantiles.init_int64(@test_param_int64, 100) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_int64(INT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=INT64, name="test_param_int64")
               +-Literal(type=INT64, value=100)
@@ -1979,17 +1979,17 @@ select kll_quantiles.init_double(@test_param_double, 10000) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(1) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Literal(type=INT64, value=10000)
@@ -2014,17 +2014,17 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(1) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Parameter(type=INT64, name="test_param_int64")
@@ -2063,17 +2063,17 @@ select kll_quantiles.init_int64(@test_param_int32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_int64(INT64, optional(0) INT64) -> BYTES)
               +-Cast(INT32 -> INT64)
                 +-Parameter(type=INT32, name="test_param_int32")
@@ -2084,17 +2084,17 @@ select kll_quantiles.init_uint64(@test_param_uint32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Cast(UINT32 -> UINT64)
                 +-Parameter(type=UINT32, name="test_param_uint32")
@@ -2120,17 +2120,17 @@ select kll_quantiles.merge_partial(@test_param_bytes) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_partial(BYTES) -> BYTES)
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
@@ -2139,17 +2139,17 @@ select kll_quantiles.merge_int64(@test_param_bytes, 5) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<INT64>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_int64(BYTES, INT64) -> ARRAY<INT64>)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=5)
@@ -2159,17 +2159,17 @@ select kll_quantiles.merge_uint64(@test_param_bytes, 2) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<UINT64>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<UINT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_uint64(BYTES, INT64) -> ARRAY<UINT64>)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=2)
@@ -2179,17 +2179,17 @@ select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [ARRAY<DOUBLE>]
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_double(BYTES, INT64) -> ARRAY<DOUBLE>)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=50)
@@ -2228,12 +2228,12 @@ select kll_quantiles.extract_int64(@test_param_bytes, 10) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<INT64>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_int64(BYTES, INT64) -> ARRAY<INT64>)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=INT64, value=10)
@@ -2245,12 +2245,12 @@ select kll_quantiles.extract_uint64(@test_param_bytes, 20) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<UINT64>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<UINT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_uint64(BYTES, INT64) -> ARRAY<UINT64>)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=INT64, value=20)
@@ -2262,12 +2262,12 @@ select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<DOUBLE>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_double(BYTES, INT64) -> ARRAY<DOUBLE>)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=INT64, value=5)
@@ -2313,17 +2313,17 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_int64(BYTES, DOUBLE) -> INT64)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=0.99)
@@ -2334,17 +2334,17 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [UINT64]
+| +-$aggregate.$agg1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_uint64(BYTES, DOUBLE) -> UINT64)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=0.5)
@@ -2355,17 +2355,17 @@ select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
 
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_double(BYTES, DOUBLE) -> DOUBLE)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=1)
@@ -2408,12 +2408,12 @@ select kll_quantiles.extract_point_int64(@test_param_bytes, 0) from SimpleTypes
 
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_int64(BYTES, DOUBLE) -> INT64)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=DOUBLE, value=0)
@@ -2426,12 +2426,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_uint64(BYTES, DOUBLE) -> UINT64)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=DOUBLE, value=0.75)
@@ -2444,12 +2444,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_double(BYTES, DOUBLE) -> DOUBLE)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-Literal(type=DOUBLE, value=0.995)
@@ -2461,12 +2461,12 @@ select kll_quantiles.extract_point_double(@test_param_bytes, 0.5+0.1) from Simpl
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_double(BYTES, DOUBLE) -> DOUBLE)
     |     +-Parameter(type=BYTES, name="test_param_bytes")
     |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
@@ -2520,17 +2520,17 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
 --
@@ -2538,17 +2538,17 @@ ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=1000)
@@ -2565,17 +2565,17 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=100)
@@ -2584,17 +2584,17 @@ ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=100)
@@ -2656,7 +2656,7 @@ Signature Mismatch Details:
 ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
   Argument types: UINT64, INT64, weight => INT64
   Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64])
-    Signature accepts at most 2 arguments, found 3 arguments [at 1:8]
+    Named argument `weight` does not exist in signature [at 1:8]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
@@ -2664,17 +2664,17 @@ ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=100)
@@ -2698,6 +2698,14 @@ ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 --
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_UINT64
+  Argument types: UINT64, weight => INT64
+  Signature: KLL_QUANTILES.INIT_UINT64(UINT64, [INT64])
+    Named argument `weight` does not exist in signature [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64,
+       ^
+--
 ALTERNATION GROUP: NAMED_ARGUMENTS
 --
 ERROR: Named argument `weight` not found in signature for call to function ZetaSQL:kll_quantiles.init_uint64 [at 2:34]
@@ -2716,17 +2724,17 @@ ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(table=SimpleTypes)
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=1000)
@@ -2748,3 +2756,37 @@ from SimpleTypes;
 ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
+==
+
+# Test that the `must_be_constant` arguments work as expected for an AGGREGATE
+# function, as should be the case for the `frequencies` argument of
+# XCF_COUNT_FREQUENCY.MERGE_BY_* functions. This is tested by providing a
+# `RESOLVED_ARGUMENT_REF` to the `frequencies` argument (via
+# `CREATE AGGREGATE FUNCTION`), which is valid for `is_not_aggregate` arguments,
+# but is invalid for `must_be_constant` arguments.
+[language_features=CREATE_AGGREGATE_FUNCTION,NAMED_ARGUMENTS]
+CREATE TEMPORARY AGGREGATE FUNCTION TestAggFunc(
+  sketch BYTES,
+  frequencies ARRAY<INT64> NOT AGGREGATE)
+RETURNS ARRAY<INT64>
+AS (
+  XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ(sketch, frequencies => frequencies)
+);
+--
+ERROR: Argument 'frequencies' to XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ must be a literal or query parameter [at 6:51]
+  XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ(sketch, frequencies => frequencies)
+                                                  ^
+==
+
+[language_features=CREATE_AGGREGATE_FUNCTION,NAMED_ARGUMENTS]
+CREATE TEMPORARY AGGREGATE FUNCTION TestAggFunc(
+  sketch BYTES,
+  frequencies ARRAY<INT64> NOT AGGREGATE)
+RETURNS ARRAY<INT64>
+AS (
+  XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ(sketch, frequencies => frequencies)
+);
+--
+ERROR: Argument 'frequencies' to XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ must be a literal or query parameter [at 6:49]
+  XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ(sketch, frequencies => frequencies)
+                                                ^

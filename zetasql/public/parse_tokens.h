@@ -20,11 +20,12 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -83,6 +84,9 @@ class ParseToken {
   // True if this token is a comment.
   bool IsComment() const { return kind_ == COMMENT; }
 
+  // True if there is no whitespace between this token and the previous token.
+  bool IsAdjacentToPreviousToken() const { return adjacent_to_prior_token_; }
+
   // Get the keyword, or "".  Returns the keyword in upper case.
   std::string GetKeyword() const;
 
@@ -136,12 +140,14 @@ class ParseToken {
   ParseToken();
 
   // <image> and <value> are passed by value so they can be moved into place.
-  ParseToken(ParseLocationRange location_range, std::string image, Kind kind);
-  ParseToken(ParseLocationRange location_range, std::string image, Kind kind,
-             Value value);
+  ParseToken(ParseLocationRange location_range, bool adjacent_to_prior_token,
+             std::string image, Kind kind);
+  ParseToken(ParseLocationRange location_range, bool adjacent_to_prior_token,
+             std::string image, Kind kind, Value value);
 
  private:
   Kind kind_;
+  bool adjacent_to_prior_token_;
   std::string image_;
   ParseLocationRange location_range_;
   Value value_;

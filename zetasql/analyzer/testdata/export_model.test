@@ -25,6 +25,20 @@ export model with connection connection1 options(uri="destination")
              ^
 ==
 
+export model model.name with connection ``
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:41]
+export model model.name with connection ``
+                                        ^
+==
+
+export model model.name with connection default
+--
+ERROR: CONNECTION DEFAULT is not supported [at 1:41]
+export model model.name with connection default
+                                        ^
+==
+
 # Export Model without any options. (Most engines probably reject this.)
 export model model.name with connection connection1
 --
@@ -40,4 +54,3 @@ export model model.name options(uri="destination") AS
 ERROR: Syntax error: Expected end of input but got keyword AS [at 1:52]
 export model model.name options(uri="destination") AS
                                                    ^
-==

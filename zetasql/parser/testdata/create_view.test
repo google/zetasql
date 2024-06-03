@@ -1234,7 +1234,6 @@ FROM
   t1
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 create view p-g-123.d456.v1 as select * from t2;
 --
@@ -1268,7 +1267,6 @@ FROM
   t2
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 create materialized view p-b-c.d_123.mv1 as select sum(m1) from t2 group by d1, d2;
 --

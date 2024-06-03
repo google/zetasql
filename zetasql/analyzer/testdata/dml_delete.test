@@ -72,9 +72,9 @@ DeleteStmt
     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     +-subquery=
       +-ProjectScan
-        +-column_list=[KeyValue.Key#19]
+        +-column_list=[KeyValue.Key#20]
         +-input_scan=
-          +-TableScan(column_list=[KeyValue.Key#19], table=KeyValue, column_index_list=[0])
+          +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
 ==
 
 DELETE TestTable
@@ -452,9 +452,9 @@ DeleteStmt
     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     +-subquery=
       +-ProjectScan
-        +-column_list=[KeyValue.Key#19]
+        +-column_list=[KeyValue.Key#20]
         +-input_scan=
-          +-TableScan(column_list=[KeyValue.Key#19], table=KeyValue, column_index_list=[0])
+          +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
 ==
 
 DELETE SimpleTypes {{AS|}} S

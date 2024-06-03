@@ -429,3 +429,40 @@ DO
     (1, 2),
     (3, 4) ;
 END FOR ;
+==
+
+# Currently hints before labeled statements are not supported in script mode.
+@1 L1 : BEGIN END;
+--
+ERROR: Syntax error: Unexpected identifier "L1" [at 1:4]
+@1 L1 : BEGIN END;
+   ^
+==
+
+# Currently hints before labeled statements are not supported in script mode.
+@{a=1} L1 : WHILE TRUE DO
+SELECT 1
+END WHILE;
+--
+ERROR: Syntax error: Unexpected identifier "L1" [at 1:8]
+@{a=1} L1 : WHILE TRUE DO
+       ^
+==
+
+# Currently hints before statements are not supported in script mode.
+@{a=1} IF true then
+  select 9;
+  select 10;
+end if;
+--
+ERROR: Syntax error: Unexpected keyword IF [at 1:8]
+@{a=1} IF true then
+       ^
+==
+
+# Currently hints before statements are not supported in script mode.
+@1 BEGIN END;
+--
+ERROR: Syntax error: Expected end of input but got keyword END [at 1:10]
+@1 BEGIN END;
+         ^

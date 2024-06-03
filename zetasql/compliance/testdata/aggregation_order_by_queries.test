@@ -461,8 +461,6 @@ SELECT STRING_AGG(x ORDER BY x)
 FROM ((SELECT "abc" x) UNION ALL (SELECT "def") UNION ALL (SELECT "xyz"))
 --
 ARRAY<STRUCT<STRING>>[{"abc,def,xyz"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=aggregation_order_by_string_agg_delimiter]
@@ -470,8 +468,6 @@ SELECT STRING_AGG(x, "|" ORDER BY x)
 FROM ((SELECT "xyz" x) UNION ALL (SELECT "def") UNION ALL(SELECT "abc"))
 --
 ARRAY<STRUCT<STRING>>[{"abc|def|xyz"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=aggregation_order_by_test_table]
@@ -508,8 +504,6 @@ ARRAY<STRUCT<int64_val INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
   {3, ARRAY<BOOL>[true], ARRAY<UINT64>[1], ARRAY<DOUBLE>[2.5], "goo"},
   {4, ARRAY<BOOL>[true], ARRAY<UINT64>[2], ARRAY<DOUBLE>[-1.5], "ijk"}
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=aggregation_order_by_array_asc]
@@ -1198,8 +1192,6 @@ ARRAY<STRUCT<INT64, ARRAY<>, ARRAY<>, ARRAY<>, STRING>>[unknown order:
     "abc,def,goo,zyx"
   }
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,NUMERIC_TYPE]
@@ -1320,8 +1312,6 @@ ARRAY<STRUCT<ARRAY<>,
   ],
   ARRAY<INT64>[unknown order:4, 5, 6, 22, 23, 24, NULL],
   "def,foo,jkl"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE,BIGNUMERIC_TYPE]
@@ -1446,8 +1436,6 @@ ARRAY<STRUCT<ARRAY<>,
     "def,foo,jkl"
   }
 ]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=RANGE_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]

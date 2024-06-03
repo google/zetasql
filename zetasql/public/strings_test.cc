@@ -41,6 +41,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
+using testing::Eq;
 using testing::HasSubstr;
 using zetasql_base::testing::StatusIs;
 
@@ -1405,6 +1406,54 @@ TEST(StringsTest, ParseIdentifierPathWithSlashes) {
             << " ERROR: unexpected failure status without null terminator";
       }
     }
+  }
+}
+
+TEST(StingsTest, IsValidUnquotedIdentifier) {
+  LanguageOptions language_options_default;
+  LanguageOptions language_options_all_on;
+  language_options_all_on.EnableMaximumLanguageFeaturesForDevelopment();
+
+  for (bool allow_reserved_keywords : {true, false}) {
+    // Keywords.
+    EXPECT_THAT(IsValidUnquotedIdentifier("select", language_options_default,
+                                          allow_reserved_keywords),
+                Eq(allow_reserved_keywords));
+    EXPECT_THAT(IsValidUnquotedIdentifier("sElEcT", language_options_default,
+                                          allow_reserved_keywords),
+                Eq(allow_reserved_keywords));
+    EXPECT_TRUE(IsValidUnquotedIdentifier("row", language_options_default,
+                                          allow_reserved_keywords));
+    EXPECT_TRUE(IsValidUnquotedIdentifier("QUALIFY", language_options_default,
+                                          allow_reserved_keywords));
+    EXPECT_TRUE(IsValidUnquotedIdentifier("qualify", language_options_default,
+                                          allow_reserved_keywords));
+
+    // Quoted.
+    EXPECT_FALSE(IsValidUnquotedIdentifier("`abc`", language_options_all_on,
+                                           allow_reserved_keywords));
+    EXPECT_FALSE(IsValidUnquotedIdentifier("`abc", language_options_all_on,
+                                           allow_reserved_keywords));
+    EXPECT_FALSE(IsValidUnquotedIdentifier("abc`", language_options_all_on,
+                                           allow_reserved_keywords));
+    EXPECT_FALSE(IsValidUnquotedIdentifier("'a'", language_options_all_on,
+                                           allow_reserved_keywords));
+
+    // Invalid characters.
+    EXPECT_FALSE(IsValidUnquotedIdentifier("3", language_options_default,
+                                           allow_reserved_keywords));
+    EXPECT_FALSE(IsValidUnquotedIdentifier("abc,", language_options_default,
+                                           allow_reserved_keywords));
+
+    // Others.
+    EXPECT_TRUE(IsValidUnquotedIdentifier("selected", language_options_all_on,
+                                          allow_reserved_keywords));
+    EXPECT_TRUE(IsValidUnquotedIdentifier("_", language_options_all_on,
+                                          allow_reserved_keywords));
+    EXPECT_TRUE(IsValidUnquotedIdentifier("_1", language_options_all_on,
+                                          allow_reserved_keywords));
+    EXPECT_FALSE(IsValidUnquotedIdentifier("", language_options_all_on,
+                                           allow_reserved_keywords));
   }
 }
 

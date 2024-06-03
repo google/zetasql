@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTION_H_
 #define ZETASQL_PUBLIC_FUNCTION_H_
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <set>
@@ -25,6 +26,7 @@
 #include <vector>
 
 
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/input_argument_type.h"
@@ -35,6 +37,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -405,15 +408,27 @@ struct FunctionOptions {
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
   // be loaded in GetBuiltinFunctionsAndTypes.
-  FunctionOptions& add_required_language_feature(LanguageFeature feature) {
+  ABSL_DEPRECATED("Inline me!")
+  inline FunctionOptions& add_required_language_feature(
+      LanguageFeature feature) {
+    return AddRequiredLanguageFeature(feature);
+  }
+
+  // Add a LanguageFeature that must be enabled for this function to be enabled.
+  // This is used only on built-in functions, and determines whether they will
+  // be loaded in GetBuiltinFunctionsAndTypes.
+  FunctionOptions& AddRequiredLanguageFeature(LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&required_language_features, feature);
     return *this;
   }
 
   // Returns whether or not all language features required by a function is
   // enabled.
-  ABSL_MUST_USE_RESULT bool check_all_required_features_are_enabled(
+  ABSL_MUST_USE_RESULT bool CheckAllRequiredFeaturesAreEnabled(
       const LanguageOptions::LanguageFeatureSet& enabled_features) const;
+
+  // Returns whether the given feature is required.
+  ABSL_MUST_USE_RESULT bool RequiresFeature(LanguageFeature feature) const;
 
   // Sets the evaluator factory used to associate a concrete signature of this
   // function with a FunctionEvaluator. This method is used only for evaluating
@@ -644,15 +659,31 @@ class Function {
   // * Scalar functions cannot support the OVER clause.
   // * Analytic functions must support OVER clause.
   // * Signatures must satisfy FunctionSignature::IsValidForFunction().
+  ABSL_DEPRECATED("Inline me!")
   Function(absl::string_view name, absl::string_view group, Mode mode,
-           FunctionOptions function_options = {});
+           FunctionOptions function_options = {})
+      : Function(std::vector<std::string>{std::string(name)}, group, mode,
+                 /*function_signatures=*/{}, std::move(function_options)) {}
+
+  Function(absl::string_view name, absl::string_view group, Mode mode,
+           std::vector<FunctionSignature> function_signatures)
+      : Function(std::vector<std::string>{std::string(name)}, group, mode,
+                 std::move(function_signatures), /*function_options=*/{}) {}
+
   Function(absl::string_view name, absl::string_view group, Mode mode,
            std::vector<FunctionSignature> function_signatures,
-           FunctionOptions function_options = {});
+           FunctionOptions function_options)
+      : Function(std::vector<std::string>{std::string(name)}, group, mode,
+                 std::move(function_signatures), std::move(function_options)) {}
+
+  Function(std::vector<std::string> name_path, absl::string_view group,
+           Mode mode, std::vector<FunctionSignature> function_signatures)
+      : Function(std::move(name_path), group, mode,
+                 std::move(function_signatures), /*function_options=*/{}) {}
 
   Function(std::vector<std::string> name_path, absl::string_view group,
            Mode mode, std::vector<FunctionSignature> function_signatures,
-           FunctionOptions function_options = {});
+           FunctionOptions function_options);
 
   Function(const Function&) = delete;
   Function& operator=(const Function&) = delete;
@@ -716,6 +747,16 @@ class Function {
     return group_ == kZetaSQLFunctionGroupName;
   }
 
+  // Returns true if this function is a builtin and any of its signatures match
+  // the given `signature_id`.
+  bool IsZetaSQLBuiltin(FunctionSignatureId signature_id) const {
+    return IsZetaSQLBuiltin() &&
+           std::any_of(function_signatures_.begin(), function_signatures_.end(),
+                       [&signature_id](const FunctionSignature& signature) {
+                         return signature.context_id() == signature_id;
+                       });
+  }
+
   // Returns whether or not this Function is a specific function
   // interface or implementation.
   template<class FunctionSubclass>
@@ -749,7 +790,7 @@ class Function {
   // Helper function to add function signatures with simple argument and
   // result types.
   absl::Status AddSignature(TypeKind result_kind,
-                            const std::vector<TypeKind>& input_kinds,
+                            absl::Span<const TypeKind> input_kinds,
                             void* context, TypeFactory* factory);
   // Convenience function that returns the same Function object so that
   // calls can be chained.
@@ -818,7 +859,7 @@ class Function {
   // error condition.
   static const std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
       absl::string_view qualified_function_name,
-      const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+      absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
       absl::Span<const absl::string_view> argument_names = {},
       bool argument_types_on_new_line = false);
 

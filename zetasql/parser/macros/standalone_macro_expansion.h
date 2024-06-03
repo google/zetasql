@@ -21,18 +21,16 @@
 #include <vector>
 
 #include "zetasql/parser/macros/token_with_location.h"
+#include "absl/base/macros.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
 namespace parser {
 namespace macros {
 
-// Converts the given tokens to a string. `standardize_to_single_whitespace`
-// controls whether to preserve the whitespace on the tokens, or to always place
-// exactly one whitespace between tokens.
+// Converts the given tokens to a string.
 //
-// IMPORTANT: The function prevents splicing even if
-// `standardize_to_single_whitespace` is false by inserting an extra single
+// IMPORTANT: The function prevents splicing by inserting an extra single
 // whitespace where needed:
 // 1. Unquoted identifier, keyword, or a macro invocation followed by a token
 //    that starts with a character that could continue the previous token.
@@ -40,8 +38,11 @@ namespace macros {
 //    expander.
 // 2. Symbols that may cause comment-out, i.e. --, /*, or //
 // 3. Integer and floating point literals, e.g. `1.` and `2`
-std::string TokensToString(absl::Span<const TokenWithLocation> tokens,
-                           bool standardize_to_single_whitespace);
+//
+// Note however, if two tokens are adjacent, i.e. `token1.AdjacentlyPrecedes(
+// token2)` returns true, no spaces will be inserted in between even if they
+// belong to the cases mentioned above.
+std::string TokensToString(absl::Span<const TokenWithLocation> tokens);
 
 }  // namespace macros
 }  // namespace parser

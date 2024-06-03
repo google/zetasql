@@ -223,8 +223,8 @@ std::string GenerateRowStringFromSingleLineColumns(
 }
 
 std::string GenerateRowStringFromColumns(
-    const std::vector<std::string>& column_strings,
-    const std::vector<size_t>& column_buffer_lengths) {
+    absl::Span<const std::string> column_strings,
+    absl::Span<const size_t> column_buffer_lengths) {
   std::vector<std::vector<std::string>> lines_by_column =
       SplitColumnStringsIntoLines(column_strings);
 
@@ -304,7 +304,7 @@ std::string GetRowSeparator(absl::Span<const size_t> max_column_lengths) {
 
 std::string ToPrettyOutputStyle(const zetasql::Value& result,
                                 bool is_value_table,
-                                const std::vector<std::string>& column_names) {
+                                absl::Span<const std::string> column_names) {
   // The 'result' Value is expected to be a non-NULL array of struct values,
   // if it is not as expected then return an error string.
   if (result.is_null()) return "<null result>";

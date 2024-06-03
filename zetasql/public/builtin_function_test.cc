@@ -24,32 +24,61 @@
 
 #include "zetasql/base/enum_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/flat_set.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
 
 using testing::Eq;
 using testing::Gt;
+using testing::HasSubstr;
 using testing::IsEmpty;
 using testing::IsNull;
 using testing::IsSupersetOf;
 using testing::Not;
 using testing::NotNull;
+using zetasql_base::testing::StatusIs;
 
 using NameToFunctionMap =
     absl::flat_hash_map<std::string, std::unique_ptr<Function>>;
 using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
+
+namespace {
+
+static constexpr auto kApproxDistanceFunctionNames =
+    zetasql_base::fixed_flat_set_of<absl::string_view>({"approx_dot_product",
+                                               "approx_cosine_distance",
+                                               "approx_euclidean_distance"});
+static constexpr auto kApproxDistanceFunctionIds =
+    zetasql_base::fixed_flat_set_of<FunctionSignatureId>(
+        {FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_PROTO_OPTIONS,
+         FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS,
+         FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_PROTO_OPTIONS,
+         FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS,
+         FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS,
+         FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS,
+         FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS});
+
+}  // namespace
 
 TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   ZetaSQLBuiltinFunctionOptionsProto proto =
@@ -117,12 +146,14 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
 }
 
 TEST(SimpleBuiltinFunctionTests, ClassAndProtoSize) {
-  EXPECT_EQ(3 * sizeof(absl::flat_hash_set<FunctionSignatureId,
+  EXPECT_EQ(4 * sizeof(absl::flat_hash_set<FunctionSignatureId,
                                            FunctionSignatureIdHasher>),
             sizeof(ZetaSQLBuiltinFunctionOptions) - sizeof(LanguageOptions))
       << "The size of ZetaSQLBuiltinFunctionOptions class has changed, "
       << "please also update the proto and serialization code if you "
       << "added/removed fields in it.";
+  // TODO: b/332322078 - Implement serialization/deserialization logic for
+  // `argument_types`.
   EXPECT_EQ(4,
             ZetaSQLBuiltinFunctionOptionsProto::descriptor()->field_count())
       << "The number of fields in ZetaSQLBuiltinFunctionOptionsProto has "
@@ -249,6 +280,16 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       // TODO: Remove FN_TIME_FROM_STRING when there are no more
       // references to it.
       case FN_TIME_FROM_STRING:
+        continue;
+      // These FunctionSignatureIds are not loaded unless `argument_types`
+      // is populated with corresponding entries in BuiltinFunctionOptions.
+      case FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_PROTO_OPTIONS:
+      case FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS:
+      case FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_PROTO_OPTIONS:
+      case FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS:
+      case FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS:
+      case FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS:
+      case FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS:
         continue;
       default:
         break;
@@ -980,6 +1021,211 @@ TEST(SimpleFunctionTests, TestRewriteEnabled) {
   EXPECT_THAT(function, NotNull());
   for (const FunctionSignature& signature : (*function)->signatures()) {
     EXPECT_FALSE(signature.options().rewrite_options()->enabled());
+  }
+}
+
+TEST(SimpleFunctionTests, TestSuppliedArgumentTypes) {
+  {
+    // Test loading builtins without any `argument_types` specified.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    ZETASQL_EXPECT_OK(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+
+    for (const auto& fn_name : kApproxDistanceFunctionNames) {
+      std::unique_ptr<Function>* function = zetasql_base::FindOrNull(functions, fn_name);
+      EXPECT_THAT(function, NotNull());
+      for (int i = 0; i < function->get()->NumSignatures(); ++i) {
+        const FunctionSignature& signature = function->get()->signatures()[i];
+        if (signature.arguments().size() == 3) {
+          EXPECT_TRUE(signature.argument(2).type()->IsJson());
+        }
+      }
+    }
+  }
+  {
+    // Test supplying an invalid Type in `argument_types`
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    options
+        .argument_types[{FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS, 2}] =
+        type_factory.get_double();
+    EXPECT_THAT(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types),
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr("Supplied argument type for the `options` argument "
+                           "of function APPROX_DOT_PRODUCT must be a proto")));
+  }
+  {
+    // Test supplying a function signature that does not support supplied
+    // Types.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    options.argument_types[{FN_ADD_DOUBLE, 0}] = type_factory.get_double();
+    EXPECT_THAT(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr(
+                "Argument 0 of function signature `FN_ADD_DOUBLE` does not "
+                "support a supplied argument type in BuiltinFunctionOptions")));
+  }
+  {
+    // Test supplying a Function Signature that does support supplied Types
+    // but the incorrect index is specified.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    zetasql_test__::TestApproxDistanceFunctionOptionsProto options_proto;
+    const ProtoType* proto_type;
+    ZETASQL_EXPECT_OK(
+        type_factory.MakeProtoType(options_proto.descriptor(), &proto_type));
+    options
+        .argument_types[{FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS, 15}] =
+        proto_type;
+    EXPECT_THAT(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr(
+                "Argument 15 of function signature "
+                "`FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS` does not "
+                "support a supplied argument type in BuiltinFunctionOptions")));
+  }
+  {
+    // Test supplying a valid Type in `argument_types` but that
+    // conflicts with a function signature marked in `exclude_function_ids`
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    zetasql_test__::TestApproxDistanceFunctionOptionsProto options_proto;
+    const ProtoType* proto_type;
+    ZETASQL_EXPECT_OK(
+        type_factory.MakeProtoType(options_proto.descriptor(), &proto_type));
+    options
+        .argument_types[{FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS, 2}] =
+        proto_type;
+    options.exclude_function_ids.insert(
+        FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS);
+    EXPECT_THAT(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types),
+        StatusIs(
+            absl::StatusCode::kInternal,
+            HasSubstr(
+                "Function signatures in `exclude_function_ids` are mutually "
+                "exclusive with signatures in `argument_types`. "
+                "Exception found for FunctionSignatureId "
+                "`FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS`")));
+  }
+  {
+    // When specifying a signature in `include_function_ids`, a Type must be
+    // supplied for all argument indices supporting a supplied Type, otherwise
+    // it is an error.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    zetasql_test__::TestApproxDistanceFunctionOptionsProto options_proto;
+    const ProtoType* proto_type;
+    ZETASQL_EXPECT_OK(
+        type_factory.MakeProtoType(options_proto.descriptor(), &proto_type));
+    options
+        .argument_types[{FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS, 2}] =
+        proto_type;
+    options.include_function_ids.insert(
+        FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS);
+    EXPECT_THAT(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Function signatures in `include_function_ids` must "
+                           "define a supplied argument type for every argument "
+                           "index that supports supplied argument types. "
+                           "Exception found for FunctionSignatureId "
+                           "`FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS` "
+                           "at argument index 2")));
+  }
+  {
+    // Test loading builtins with `argument_types` specified
+    // for all approximate distance functions. Also test specifying
+    // entries in `include_function_ids`.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    zetasql_test__::TestApproxDistanceFunctionOptionsProto options_proto;
+    const ProtoType* proto_type;
+    ZETASQL_EXPECT_OK(
+        type_factory.MakeProtoType(options_proto.descriptor(), &proto_type));
+    for (const auto& id : kApproxDistanceFunctionIds) {
+      options.argument_types[{id, 2}] = proto_type;
+      options.include_function_ids.insert(id);
+    }
+    ZETASQL_EXPECT_OK(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+
+    for (const auto& fn_name : kApproxDistanceFunctionNames) {
+      std::unique_ptr<Function>* function = zetasql_base::FindOrNull(functions, fn_name);
+      EXPECT_THAT(function, NotNull());
+      for (int i = 0; i < function->get()->NumSignatures(); ++i) {
+        const FunctionSignature& signature = function->get()->signatures()[i];
+        if (signature.arguments().size() == 3) {
+          EXPECT_TRUE(signature.argument(2).type()->IsJson() ||
+                      signature.argument(2).type()->IsProto());
+          if (signature.argument(2).type()->IsProto()) {
+            EXPECT_EQ(signature.argument(2).type()->AsProto()->descriptor(),
+                      options_proto.descriptor());
+          }
+        }
+      }
+    }
+  }
+  {
+    // Test loading builtins with `argument_types` specified
+    // for some approximate distance functions, and with different PROTO types.
+    TypeFactory type_factory;
+    NameToFunctionMap functions;
+    NameToTypeMap types;
+    BuiltinFunctionOptions options;
+    const ProtoType* proto_type_1;
+    ZETASQL_EXPECT_OK(type_factory.MakeProtoType(
+        zetasql_test__::KitchenSinkPB::GetDescriptor(), &proto_type_1));
+    const ProtoType* proto_type_2;
+    ZETASQL_EXPECT_OK(type_factory.MakeProtoType(
+        zetasql_test__::TestExtraPB::GetDescriptor(), &proto_type_2));
+    options.argument_types[{FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS,
+                            2}] = proto_type_1;
+    options.argument_types[{
+        FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS, 2}] =
+        proto_type_2;
+    ZETASQL_EXPECT_OK(
+        GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+
+    for (const auto& fn_name : kApproxDistanceFunctionNames) {
+      std::unique_ptr<Function>* function = zetasql_base::FindOrNull(functions, fn_name);
+      EXPECT_THAT(function, NotNull());
+      for (int i = 0; i < function->get()->NumSignatures(); ++i) {
+        const FunctionSignature& signature = function->get()->signatures()[i];
+        if (signature.arguments().size() == 3) {
+          EXPECT_TRUE(signature.argument(2).type()->IsJson() ||
+                      signature.argument(2).type()->IsProto());
+          if (signature.argument(2).type()->IsProto()) {
+            EXPECT_TRUE(
+                signature.context_id() ==
+                    FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS ||
+                signature.context_id() ==
+                    FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS);
+          }
+        }
+      }
+    }
   }
 }
 

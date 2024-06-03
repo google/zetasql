@@ -18,7 +18,7 @@ SELECT e -> e > 0;
 # Call a lambda
 SELECT (e -> e > 0)(1);
 --
-ERROR: Syntax error: Unexpected "->" [at 1:11]
+ERROR: Syntax error: Expected "," but got "->" [at 1:11]
 SELECT (e -> e > 0)(1);
           ^
 ==

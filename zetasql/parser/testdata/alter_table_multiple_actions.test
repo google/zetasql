@@ -246,7 +246,6 @@ ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE 
   DROP CONSTRAINT a_gt_zero
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 alter table foo-bar-123.baz set options(opt_t = 1), add constraint a_is_positive check(a > 0), alter constraint bar enforced, alter constraint baz set options(opt_a = true);
 --

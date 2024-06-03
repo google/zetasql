@@ -69,9 +69,15 @@ class ReferenceDriver : public TestDriver {
       LanguageOptions options = DefaultLanguageOptions(),
       absl::btree_set<ResolvedASTRewrite> enabled_rewrites =
           MinimalRewritesForReference());
+
   ReferenceDriver(const ReferenceDriver&) = delete;
   ReferenceDriver& operator=(const ReferenceDriver&) = delete;
   ~ReferenceDriver() override;
+
+  // Creates a ReferenceDriver from a TestDriver, matching its options and
+  // enabled rewrites.
+  static std::unique_ptr<ReferenceDriver> CreateFromTestDriver(
+      TestDriver* test_driver);
 
   // Returns true if the ResolvedAST tree at `root` contains any types not
   // supported by `options`. If `example` is non-null, populate it with a
@@ -218,6 +224,13 @@ class ReferenceDriver : public TestDriver {
       const std::map<std::string, Value>& parameters,
       std::optional<bool>& uses_unsupported_type) const;
 
+  const absl::btree_set<ResolvedASTRewrite>& enabled_rewrites() const {
+    return enabled_rewrites_;
+  }
+
+  // The LanguageOptions used by the zero-arg constructor.
+  static LanguageOptions DefaultLanguageOptions();
+
  private:
   struct TableInfo {
     std::string table_name;
@@ -226,9 +239,6 @@ class ReferenceDriver : public TestDriver {
     Value array;
     SimpleTable* table;  // Owned by catalog_ in the ReferenceDriver
   };
-
-  // The LanguageOptions used by the zero-arg constructor.
-  static LanguageOptions DefaultLanguageOptions();
 
   absl::Status ExecuteScriptForReferenceDriverInternal(
       absl::string_view sql, const std::map<std::string, Value>& parameters,

@@ -10,12 +10,12 @@ ALTERNATION GROUP: TIMESTAMP_NANOS
 QueryStmt
 +-output_column_list=
 | +-SimpleTypes.timestamp#15 AS timestamp [TIMESTAMP]
-| +-$query.$col2#19 AS `$col2` [TIMESTAMP]
+| +-$query.$col2#20 AS `$col2` [TIMESTAMP]
 +-query=
   +-ProjectScan
-    +-column_list=[SimpleTypes.timestamp#15, $query.$col2#19]
+    +-column_list=[SimpleTypes.timestamp#15, $query.$col2#20]
     +-expr_list=
-    | +-$col2#19 := Literal(type=TIMESTAMP, value=2014-01-01 08:00:00.123456789+00, has_explicit_type=TRUE)
+    | +-$col2#20 := Literal(type=TIMESTAMP, value=2014-01-01 08:00:00.123456789+00, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.timestamp#15], table=SimpleTypes, column_index_list=[14])
 --

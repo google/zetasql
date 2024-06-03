@@ -14,14 +14,15 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+load("//bazel:bison.bzl", "genyacc")
+load("//bazel:flex.bzl", "genlex")
+load("//bazel:textmapper.bzl", "tm_syntax")
 # Placeholder: load py_proto_library
 # Placeholder: load py_binary
 # Placeholder: load py_library
 # Placeholder: load py_test
-load("//bazel:bison.bzl", "genyacc")
-load("//bazel:flex.bzl", "genlex")
-load("//bazel:textmapper.bzl", "tm_syntax")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load(":builddefs.bzl", "gen_parser_test")
 
 package(
@@ -175,8 +176,6 @@ java_proto_library(
     deps = [":parse_tree_proto"],
 )
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-
 py_proto_library(
     name = "ast_enums_py_pb2",
     srcs = ["ast_enums.proto"],
@@ -230,6 +229,7 @@ cc_library(
         "//zetasql/parser/macros:macro_catalog",
         "//zetasql/parser/macros:macro_expander",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:error_location_cc_proto",
         "//zetasql/public:id_string",
         "//zetasql/public:language_options",
@@ -266,25 +266,33 @@ cc_library(
 
 cc_library(
     name = "flex_tokenizer",
-    srcs = ["flex_tokenizer.cc"],
-    hdrs = ["flex_tokenizer.h"],
+    srcs = [
+        "flex_tokenizer.cc",
+        "flex_tokenizer.cc.inc",
+        "flex_tokenizer.flex.cc",
+    ],
+    hdrs = [
+        "flex_tokenizer.h",
+    ],
+    copts = [
+        # Flex generates switches with implicit fallthrough. We must turn this
+        # warning off for the generated flex code to compile.
+        "-Wno-implicit-fallthrough",
+    ],
     deps = [
-        ":bison_parser_generated_lib",  # buildcleaner: keep
-        ":bison_parser_mode",
         ":bison_token_codes",
         ":flex_istream",
-        ":keywords",
         "//bazel:flex",
         "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
-        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -295,7 +303,6 @@ cc_library(
     deps = [
         ":bison_parser_mode",
         ":bison_token_codes",
-        ":flex_tokenizer",
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:ret_check",
@@ -309,6 +316,7 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -327,11 +335,18 @@ cc_test(
         ":bison_token_codes",
         ":flex_tokenizer",
         ":token_disambiguator",
+        "//zetasql/base:arena",
         "//zetasql/base:check",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/parser",
+        "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/parser/macros:token_with_location",
         "//zetasql/public:language_options",
+        "//zetasql/public:parse_location",
+        "//zetasql/public:parse_resume_location",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -360,20 +375,16 @@ cc_library(
     name = "bison_parser_generated_lib",
     srcs = [
         "bison_parser.bison.cc",
-        "flex_tokenizer.flex.cc",
         "join_processor.cc",
     ],
     hdrs = [
         "bison_parser.bison.h",
         "bison_parser.h",
-        "flex_tokenizer.h",
         "join_processor.h",
         "parser_internal.h",
         "parser_runtime_info.h",
         "statement_properties.h",
     ],
-    # The Bison skeleton uses implicit fallthrough, so this won't compile
-    # unless we turn the warning off.
     # The -O2 is required because the generated bison parser uses a ton of
     # stack space in non-optimized builds. The entire parser is contained in
     # a single giant function, and non-optimized compilation does not reuse
@@ -381,18 +392,19 @@ cc_library(
     # fail in fastbuild with default 64KB stack sizes, or to start failing
     # when the parser is extended further.
     copts = [
-        "-Wno-implicit-fallthrough",
         "-O2",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
         ":bison_parser_mode",
+        ":bison_token_codes",
         ":keywords",
         ":parse_tree",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:strings",
@@ -410,6 +422,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -423,10 +436,7 @@ cc_library(
 cc_library(
     name = "flex_istream",
     hdrs = ["flex_istream.h"],
-    deps = [
-        "//zetasql/base:logging",
-        "@com_google_absl//absl/strings",
-    ],
+    deps = ["@com_google_absl//absl/strings"],
 )
 
 cc_test(
@@ -578,6 +588,7 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_helpers",
+        "//zetasql/public:parse_location",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public/testing:test_case_options_util",
         "//zetasql/scripting:parse_helpers",

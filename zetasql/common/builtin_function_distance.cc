@@ -15,22 +15,36 @@
 //
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/common/builtin_function_internal.h"
+#include "zetasql/common/builtins_output_properties.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/functional/bind_front.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+namespace {
+
+// This constant represents the index of the third argument `options` of
+// approximate distance functions. Only the `options` argument allows a
+// Type to be defined through BuiltinFunctionOptions.
+static constexpr int kOptionsArgIdx = 2;
 
 // Create a `FunctionSignatureOptions` that configures a SQL definition that
 // will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
@@ -43,9 +57,70 @@ static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
           .set_sql(sql));
 }
 
+static std::string CheckApproximateDistanceFnProtoArguments(
+    absl::string_view function_name, const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
+  ABSL_CHECK_EQ(arguments.size(), matched_signature.arguments().size());  // Crash OK
+  if (arguments.size() > 2 &&
+      matched_signature.argument(kOptionsArgIdx).type()->IsProto()) {
+    if (!arguments[2].is_literal_for_constness()) {
+      return absl::StrCat("Argument `options` of function ", function_name,
+                          " must be a literal");
+    }
+  }
+  return "";
+}
+
+static std::string CheckApproximateDistanceFnJsonArguments(
+    absl::string_view function_name, const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
+  ABSL_CHECK_EQ(arguments.size(), matched_signature.arguments().size());  // Crash OK
+  if (arguments.size() > 2 &&
+      matched_signature.argument(kOptionsArgIdx).type()->IsJson()) {
+    if (!arguments[2].is_literal_for_constness()) {
+      return absl::StrCat("Argument `options` of function ", function_name,
+                          " must be a JSON literal");
+    }
+  }
+  return "";
+}
+
+static absl::Status MaybeAddApproximateDistanceFunctionProtoSignature(
+    const BuiltinFunctionOptions& options, absl::string_view fn_name,
+    FunctionSignatureId id, const int arg_idx, const ArrayType* vector_type,
+    std::vector<FunctionSignatureOnHeap>& signatures,
+    BuiltinsOutputProperties& output_properties) {
+  // Mark this signature as one that supports a supplied Type.
+  output_properties.MarkSupportsSuppliedArgumentType(id, arg_idx);
+  // Check if a Type was actually supplied in `options`.
+  if (auto it = options.argument_types.find({id, arg_idx});
+      it != options.argument_types.end()) {
+    const Type* proto_type = it->second;
+    if (!proto_type->IsProto()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Supplied argument type for the `options` argument of function ",
+          fn_name, " must be a proto"));
+    }
+    FunctionArgumentType proto_options_arg = FunctionArgumentType(
+        proto_type, FunctionArgumentTypeOptions(FunctionArgumentType::REQUIRED)
+                        .set_argument_name("options", kNamedOnly)
+                        .set_must_be_constant_expression());
+    signatures.push_back(
+        {types::DoubleType(),
+         {vector_type, vector_type, proto_options_arg},
+         id,
+         FunctionSignatureOptions().set_constraints(absl::bind_front(
+             &CheckApproximateDistanceFnProtoArguments, fn_name))});
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
 absl::Status GetDistanceFunctions(TypeFactory* type_factory,
                                   const BuiltinFunctionOptions& options,
-                                  NameToFunctionMap* functions) {
+                                  NameToFunctionMap* functions,
+                                  BuiltinsOutputProperties& output_properties) {
   std::vector<StructType::StructField> input_struct_fields_int64 = {
       {"key", types::Int64Type()}, {"value", types::DoubleType()}};
   const StructType* struct_int64 = nullptr;
@@ -87,7 +162,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "cosine_distance", Function::SCALAR,
                  cosine_signatures, function_options);
 
-  FunctionArgumentType options_arg = FunctionArgumentType(
+  FunctionArgumentType json_options_arg = FunctionArgumentType(
       types::JsonType(),
       FunctionArgumentTypeOptions(FunctionArgumentType::REQUIRED)
           .set_argument_name("options", kNamedOnly));
@@ -97,14 +172,29 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
        {types::DoubleArrayType(), types::DoubleArrayType()},
        FN_APPROX_COSINE_DISTANCE_DOUBLE},
       {types::DoubleType(),
-       {types::DoubleArrayType(), types::DoubleArrayType(), options_arg},
-       FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_OPTIONS},
+       {types::DoubleArrayType(), types::DoubleArrayType(), json_options_arg},
+       FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(
+           absl::bind_front(&CheckApproximateDistanceFnJsonArguments,
+                            "APPROX_COSINE_DISTANCE"))},
       {types::DoubleType(),
        {types::FloatArrayType(), types::FloatArrayType()},
        FN_APPROX_COSINE_DISTANCE_FLOAT},
       {types::DoubleType(),
-       {types::FloatArrayType(), types::FloatArrayType(), options_arg},
-       FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_OPTIONS}};
+       {types::FloatArrayType(), types::FloatArrayType(), json_options_arg},
+       FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(
+           absl::bind_front(&CheckApproximateDistanceFnJsonArguments,
+                            "APPROX_COSINE_DISTANCE"))}};
+
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_COSINE_DISTANCE",
+      FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::DoubleArrayType(), approx_cosine_signatures, output_properties));
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_COSINE_DISTANCE",
+      FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::FloatArrayType(), approx_cosine_signatures, output_properties));
 
   InsertFunction(functions, options, "approx_cosine_distance", Function::SCALAR,
                  approx_cosine_signatures, /*function_options=*/{});
@@ -136,14 +226,30 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
        {types::DoubleArrayType(), types::DoubleArrayType()},
        FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE},
       {types::DoubleType(),
-       {types::DoubleArrayType(), types::DoubleArrayType(), options_arg},
-       FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_OPTIONS},
+       {types::DoubleArrayType(), types::DoubleArrayType(), json_options_arg},
+       FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(
+           absl::bind_front(&CheckApproximateDistanceFnJsonArguments,
+                            "APPROX_EUCLIDEAN_DISTANCE"))},
       {types::DoubleType(),
        {types::FloatArrayType(), types::FloatArrayType()},
        FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT},
       {types::DoubleType(),
-       {types::FloatArrayType(), types::FloatArrayType(), options_arg},
-       FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_OPTIONS}};
+       {types::FloatArrayType(), types::FloatArrayType(), json_options_arg},
+       FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(
+           absl::bind_front(&CheckApproximateDistanceFnJsonArguments,
+                            "APPROX_EUCLIDEAN_DISTANCE"))}};
+
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_EUCLIDEAN_DISTANCE",
+      FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::DoubleArrayType(), approx_euclidean_signatures,
+      output_properties));
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_EUCLIDEAN_DISTANCE",
+      FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::FloatArrayType(), approx_euclidean_signatures, output_properties));
 
   InsertFunction(functions, options, "approx_euclidean_distance",
                  Function::SCALAR, approx_euclidean_signatures,
@@ -205,7 +311,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions dot_product_signature_options =
       SetDefinitionForInlining(dot_product_sql, true)
-          .add_required_language_feature(FEATURE_V_1_4_DOT_PRODUCT);
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_DOT_PRODUCT);
 
   std::vector<FunctionSignatureOnHeap> dot_product_signatures = {
       {types::DoubleType(),
@@ -232,20 +338,42 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
        {types::Int64ArrayType(), types::Int64ArrayType()},
        FN_APPROX_DOT_PRODUCT_INT64},
       {types::DoubleType(),
-       {types::Int64ArrayType(), types::Int64ArrayType(), options_arg},
-       FN_APPROX_DOT_PRODUCT_INT64_WITH_OPTIONS},
+       {types::Int64ArrayType(), types::Int64ArrayType(), json_options_arg},
+       FN_APPROX_DOT_PRODUCT_INT64_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(absl::bind_front(
+           &CheckApproximateDistanceFnJsonArguments, "APPROX_DOT_PRODUCT"))},
       {types::DoubleType(),
        {types::FloatArrayType(), types::FloatArrayType()},
        FN_APPROX_DOT_PRODUCT_FLOAT},
       {types::DoubleType(),
-       {types::FloatArrayType(), types::FloatArrayType(), options_arg},
-       FN_APPROX_DOT_PRODUCT_FLOAT_WITH_OPTIONS},
+       {types::FloatArrayType(), types::FloatArrayType(), json_options_arg},
+       FN_APPROX_DOT_PRODUCT_FLOAT_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(absl::bind_front(
+           &CheckApproximateDistanceFnJsonArguments, "APPROX_DOT_PRODUCT"))},
       {types::DoubleType(),
        {types::DoubleArrayType(), types::DoubleArrayType()},
        FN_APPROX_DOT_PRODUCT_DOUBLE},
       {types::DoubleType(),
-       {types::DoubleArrayType(), types::DoubleArrayType(), options_arg},
-       FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_OPTIONS}};
+       {types::DoubleArrayType(), types::DoubleArrayType(), json_options_arg},
+       FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_JSON_OPTIONS,
+       FunctionSignatureOptions().set_constraints(absl::bind_front(
+           &CheckApproximateDistanceFnJsonArguments, "APPROX_DOT_PRODUCT"))}};
+
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_DOT_PRODUCT",
+      FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::Int64ArrayType(), approx_dot_product_signatures,
+      output_properties));
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_DOT_PRODUCT",
+      FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::FloatArrayType(), approx_dot_product_signatures,
+      output_properties));
+  ZETASQL_RETURN_IF_ERROR(MaybeAddApproximateDistanceFunctionProtoSignature(
+      options, "APPROX_DOT_PRODUCT",
+      FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS, kOptionsArgIdx,
+      types::DoubleArrayType(), approx_dot_product_signatures,
+      output_properties));
 
   InsertFunction(functions, options, "approx_dot_product", Function::SCALAR,
                  approx_dot_product_signatures, /*function_options=*/{});
@@ -262,7 +390,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions manhattan_distance_signature_options =
       SetDefinitionForInlining(manhattan_distance_sql, true)
-          .add_required_language_feature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_MANHATTAN_DISTANCE);
 
   std::vector<FunctionSignatureOnHeap> manhattan_distance_signatures = {
       {types::DoubleType(),
@@ -313,7 +441,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions l1_norm_signature_options =
       SetDefinitionForInlining(l1_norm_sql, true)
-          .add_required_language_feature(FEATURE_V_1_4_L1_NORM);
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_L1_NORM);
 
   std::vector<FunctionSignatureOnHeap> l1_norm_signatures = {
       {types::DoubleType(),
@@ -340,7 +468,7 @@ absl::Status GetDistanceFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions l2_norm_signature_options =
       SetDefinitionForInlining(l2_norm_sql, true)
-          .add_required_language_feature(FEATURE_V_1_4_L2_NORM);
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_L2_NORM);
 
   std::vector<FunctionSignatureOnHeap> l2_norm_signatures = {
       {types::DoubleType(),

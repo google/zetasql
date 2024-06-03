@@ -37,6 +37,7 @@
 #include "zetasql/public/token_list_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
@@ -1157,6 +1158,75 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
   result.reserve(tests.size());
   for (const auto& test : tests) {
     result.push_back(test.WrapWithFeature(FEATURE_INTERVAL_TYPE));
+  }
+  return result;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastUuid() {
+  std::vector<QueryParamsWithResult> tests({
+      // UUID -> UUID
+      {{values::NullUuid()}, values::NullUuid()},
+      {{values::Uuid(
+           UuidValue::FromString("00000000-0000-4000-8000-000000000000")
+               .value())},
+       values::Uuid(
+           UuidValue::FromString("00000000000040008000000000000000").value())},
+
+      // UUID -> STRING
+      {{values::NullUuid()}, NullString()},
+      {{values::Uuid(
+           UuidValue::FromString("00000000000040008000000000000000").value())},
+       String("00000000-0000-4000-8000-000000000000")},
+      {{values::Uuid(
+           UuidValue::FromString("ffffffffffff4fffbfffffffffffffff").value())},
+       String("ffffffff-ffff-4fff-bfff-ffffffffffff")},
+
+      // UUID -> Bytes
+      {{values::NullUuid()}, NullBytes()},
+      {{values::Uuid(
+           UuidValue::FromString("00000000000040008000000000000000").value())},
+       Bytes(
+           "\x00\x00\x00\x00\x00\x00\x40\x00\x80\x00\x00\x00\x00\x00\x00\x00")},
+      {{values::Uuid(
+           UuidValue::FromString("0102030405060708090a0b0c0d0e0f11").value())},
+       Bytes(
+           "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x11")},
+
+      // STRING -> UUID
+      {{NullString()}, values::NullUuid()},
+      {{String("00000000-0000-4000-8000-000000000000")},
+       values::Uuid(
+           UuidValue::FromString("00000000000040008000000000000000").value())},
+      {{String("00000000000040008000000000000000")},
+       values::Uuid(
+           UuidValue::FromString("00000000000040008000000000000000").value())},
+      {{String("9d3da323-4c20-360f-bd9b-ec54feec54f0")},
+       values::Uuid(
+           UuidValue::FromString("9d3da3234c20360fbd9bec54feec54f0").value())},
+      {{String("ffffffff-ffff-4fff-bfff-ffffffffffff")},
+       values::Uuid(
+           UuidValue::FromString("ffffffffffff4fffbfffffffffffffff").value())},
+
+      // Bytes -> UUID
+      {{NullBytes()}, values::NullUuid()},
+      {{Bytes(
+           "\x00\x00\x00\x00\x00\x00\x40\x00\x80\x00\x00\x00\x00\x00\x00\x00")},
+       values::Uuid(
+           UuidValue::FromString("00000000-0000-4000-8000-000000000000")
+               .value())},
+      {{Bytes(
+           "\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x11")},
+       values::Uuid(
+           UuidValue::FromString("0102030405060708090a0b0c0d0e0f11").value())},
+
+      // Bad formats
+      {{String("9d")}, values::NullUuid(), OUT_OF_RANGE},
+  });
+  std::vector<QueryParamsWithResult> result;
+  result.reserve(tests.size());
+  for (auto& test : tests) {
+    test.AddRequiredFeature(FEATURE_V_1_4_UUID_TYPE);
+    result.push_back(test);
   }
   return result;
 }
@@ -2616,14 +2686,18 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
   return ConcatTests<QueryParamsWithResult>({
-      GetFunctionTestsCastBool(), GetFunctionTestsCastComplex(),
-      GetFunctionTestsCastDateTime(), GetFunctionTestsCastInterval(),
-      GetFunctionTestsCastNumeric(), GetFunctionTestsCastString(),
+      GetFunctionTestsCastBool(),
+      GetFunctionTestsCastComplex(),
+      GetFunctionTestsCastDateTime(),
+      GetFunctionTestsCastInterval(),
+      GetFunctionTestsCastNumeric(),
+      GetFunctionTestsCastString(),
       GetFunctionTestsCastNumericString(),
       GetFunctionTestsCastBytesStringWithFormat(),
       GetFunctionTestsCastDateTimestampStringWithFormat(),
       GetFunctionTestsCastRange(),
       GetFunctionTestsCastTokenList(),
+      GetFunctionTestsCastUuid(),
   });
 }
 

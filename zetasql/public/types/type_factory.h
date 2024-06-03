@@ -215,6 +215,7 @@ class TypeFactory {
   const Type* get_bignumeric();
   const Type* get_json();
   const Type* get_tokenlist();
+  const Type* get_uuid();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -271,8 +272,18 @@ class TypeFactory {
   // Make a map type.
   // <key_type> must support grouping for the type to be supported.
   // <value_type> can be any type.
+  ABSL_DEPRECATED("Use MakeMapType(key, value, language_options) instead.")
   absl::StatusOr<const Type*> MakeMapType(const Type* key_type,
                                           const Type* value_type);
+
+  // Make a map type.
+  // <key_type> must support grouping for the type to be supported.
+  // <value_type> can be any type.
+  // <language_options> the language options to use when determining if the type
+  // can be created.
+  absl::StatusOr<const Type*> MakeMapType(
+      const Type* key_type, const Type* value_type,
+      const LanguageOptions& language_options);
 
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
@@ -475,6 +486,9 @@ class TypeFactory {
       absl::Span<const std::string> catalog_name_path, bool is_opaque)
       ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
+  absl::StatusOr<const Type*> MakeMapTypeImpl(const Type* key_type,
+                                              const Type* value_type);
+
   const ProtoType*& FindOrCreateCachedType(const google::protobuf::Descriptor* descriptor,
                                            const internal::CatalogName* catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
@@ -590,6 +604,7 @@ const Type* BigNumericType();
 const Type* JsonType();
 const Type* TokenListType();
 const StructType* EmptyStructType();
+const Type* UuidType();
 
 // ArrayTypes
 const ArrayType* Int32ArrayType();
@@ -611,6 +626,7 @@ const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
 const ArrayType* TokenListArrayType();
+const ArrayType* UuidArrayType();
 
 // RangeTypes
 const RangeType* DateRangeType();

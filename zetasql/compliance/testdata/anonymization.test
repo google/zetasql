@@ -1284,23 +1284,6 @@ FROM TestTableWithUid2;
 ERROR: generic::invalid_argument: Anonymization option DELTA or K_THRESHOLD must be set
 ==
 
-# ANON_QUANTILES with implicit bounds, which is not supported, since the DP
-# libraries do not yet support them (see b/205277450).
-#
-# NOTE: To have a more robust floating point comparison, instead of:
-#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
-[name=anonymization_basic_anon_quantiles_implicit_bounds]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ABS(ANON_QUANTILES(double_val, 5)[OFFSET(2)] - 1.5) < 0.01,
-  ABS(ANON_QUANTILES(int64_val, 5)[OFFSET(3)] - 2) < 0.01
-FROM TestTableWithUid2;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 2:7]
-  ABS(ANON_QUANTILES(double_val, 5)[OFFSET(2)] - 1.5) < 0.01,
-      ^
-==
-
 # ANON_QUANTILES with explicit bounds. The number of rows per user is less than
 # 5 in TestTableWithUid2, so the result won't be random.
 #
@@ -2002,32 +1985,6 @@ ARRAY<STRUCT<BOOL,
   true}]
 ==
 
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_proto]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=PROTO))
-FROM TestTableWithUid2;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 2:3]
-  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=PROTO))
-  ^
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_proto]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=PROTO))
-FROM TestTableWithUid2;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 2:3]
-  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=PROTO))
-  ^
-==
-
 # Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
 # Because the output of a DP algorithm on an empty data set is indeterministic,
 # we only test that the `noise_confidence_interval` value.
@@ -2080,38 +2037,6 @@ FROM (
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, true, true, true, true, true}
 ]
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
-# Because the output of a DP algorithm on an empty data set is indeterministic,
-# we only test that the `noise_confidence_interval` value.
-[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_proto_zero_rows]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=PROTO))
-FROM TestTableWithUid2 WHERE id > 1000;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 2:3]
-  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=PROTO))
-  ^
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
-# Because the output of a DP algorithm on an empty data set is indeterministic,
-# we only test that the `noise_confidence_interval` value.
-[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_proto_zero_rows]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=PROTO))
-FROM TestTableWithUid2 WHERE id > 1000;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=PROTO)) [at 2:3]
-  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=PROTO))
-  ^
 ==
 
 # NOTE: To have a more robust floating point comparison, instead of:
@@ -2286,34 +2211,6 @@ ARRAY<STRUCT<BOOL,
   true}]
 ==
 
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-[required_features=JSON_TYPE,ANONYMIZATION]
-[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=JSON))
-FROM TestTableWithUid2;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
-  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=JSON))
-  ^
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-[required_features=JSON_TYPE,ANONYMIZATION]
-[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_JSON]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=JSON))
-FROM TestTableWithUid2;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
-  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=JSON))
-  ^
-==
-
 # Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
 # Because the output of a DP algorithm on an empty data set is indeterministic,
 # we only test that the `noise_confidence_interval` value.
@@ -2368,40 +2265,6 @@ FROM (
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, true, true, true, true, true}
 ]
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
-# Because the output of a DP algorithm on an empty data set is indeterministic,
-# we only test that the `noise_confidence_interval` value.
-[required_features=JSON_TYPE,ANONYMIZATION]
-[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json_zero_rows]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=JSON))
-FROM TestTableWithUid2 WHERE id > 1000;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
-  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=JSON))
-  ^
-==
-
-# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
-# libraries do not yet support them (see b/205277450).
-# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
-# Because the output of a DP algorithm on an empty data set is indeterministic,
-# we only test that the `noise_confidence_interval` value.
-[required_features=JSON_TYPE,ANONYMIZATION]
-[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_json_zero_rows]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
-  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=JSON))
-FROM TestTableWithUid2 WHERE id > 1000;
---
-ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
-  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=JSON))
-  ^
 ==
 
 [name=anonymization_count_unique_users_with_report_json_with_thresholding]
@@ -2523,7 +2386,8 @@ NOTE: Reference implementation reports non-determinism.
 
 # Conditional evaluation with anonymization
 [name=aggregate_in_if]
-[labels=anonymization,bug_in_reference_impl]
+[required_features=ANONYMIZATION,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
+[labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
   IF(ANON_COUNT(*) > 0, ANON_COUNT(*), ANON_COUNT(1/(int64_val-1)))
 FROM TestTableWithUid
@@ -2765,3 +2629,18 @@ ARRAY<STRUCT<
                     }
                   }
                 }}]
+==
+
+# Approx bounds with not enough data returns NULL.
+[name=anonymization_approx_bounds_on_no_data_returns_null]
+[required_features=ANONYMIZATION,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,V_1_1_WITH_ON_SUBQUERY]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
+  int64_val, ANON_COUNT(*)
+FROM TestTableWithUid
+RIGHT OUTER JOIN (
+    SELECT DISTINCT int64_val FROM UNNEST([9999]) AS int64_val
+  ) using(int64_val)
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[{9999, NULL}]

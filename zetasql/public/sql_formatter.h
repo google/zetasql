@@ -38,6 +38,8 @@ namespace zetasql {
 // 1. This can only reformat SQL statements that can be parsed successfully.
 // Statements that cannot be parsed are returned unchanged.
 // 2. Comments are stripped in the formatted output.
+// If you need formatting unparseable SQL (e.g. containing custom templates) or
+// want to preserve comments, consider using zetasql::LenientFormatSql.
 absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql);
 
 }  // namespace zetasql

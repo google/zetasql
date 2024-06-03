@@ -18,6 +18,7 @@
 
 #include <ctype.h>
 
+#include <cctype>
 #include <memory>
 #include <string>
 #include <utility>
@@ -29,17 +30,18 @@
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/parser/token_disambiguator.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/convert_string.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/case.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -51,6 +53,8 @@ namespace {
 enum class TokenizerState { kNone, kIdentifier, kIdentifierDot };
 
 }  // namespace
+
+using TokenKind = int;
 
 // Returns a syntax error status with message 'error_message', located at byte
 // offset 'error_offset' into 'location'.
@@ -65,7 +69,8 @@ static absl::Status MakeSyntaxErrorAtLocationOffset(
       << "Syntax error: " << error_message;
 }
 
-static absl::Status ConvertBisonToken(int bison_token,
+static absl::Status ConvertBisonToken(TokenKind bison_token,
+                                      bool is_adjacent_to_prior_token,
                                       const ParseLocationRange& location,
                                       std::string image,
                                       std::vector<ParseToken>* parse_tokens) {
@@ -73,8 +78,8 @@ static absl::Status ConvertBisonToken(int bison_token,
 
   switch (bison_token) {
     case 0:
-      parse_tokens->emplace_back(location, std::move(image),
-                                 ParseToken::END_OF_INPUT);
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::END_OF_INPUT);
       break;
 
     case ';': {
@@ -83,7 +88,8 @@ static absl::Status ConvertBisonToken(int bison_token,
       ParseLocationRange adjusted_location = location;
       adjusted_location.set_end(ParseLocationPoint::FromByteOffset(
           location.start().filename(), location.start().GetByteOffset() + 1));
-      parse_tokens->emplace_back(adjusted_location, ";", ParseToken::KEYWORD);
+      parse_tokens->emplace_back(adjusted_location, is_adjacent_to_prior_token,
+                                 ";", ParseToken::KEYWORD);
       break;
     }
 
@@ -97,7 +103,8 @@ static absl::Status ConvertBisonToken(int bison_token,
         return MakeSyntaxErrorAtLocationOffset(location, error_offset,
                                                error_message);
       }
-      parse_tokens->emplace_back(location, std::move(image), ParseToken::VALUE,
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::VALUE,
                                  Value::String(parsed_value));
       break;
     }
@@ -112,7 +119,8 @@ static absl::Status ConvertBisonToken(int bison_token,
         return MakeSyntaxErrorAtLocationOffset(location, error_offset,
                                                error_message);
       }
-      parse_tokens->emplace_back(location, std::move(image), ParseToken::VALUE,
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::VALUE,
                                  Value::Bytes(parsed_value));
       break;
     }
@@ -123,7 +131,8 @@ static absl::Status ConvertBisonToken(int bison_token,
         return MakeSqlErrorAtPoint(location.start())
                << "Invalid floating point literal: " << image;
       }
-      parse_tokens->emplace_back(location, std::move(image), ParseToken::VALUE,
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::VALUE,
                                  Value::Double(double_value));
       break;
     }
@@ -134,7 +143,8 @@ static absl::Status ConvertBisonToken(int bison_token,
         return MakeSqlErrorAtPoint(location.start())
                << "Invalid integer literal: " << image;
       }
-      parse_tokens->emplace_back(location, std::move(image), ParseToken::VALUE,
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::VALUE,
                                  parsed_value);
       break;
     }
@@ -154,8 +164,9 @@ static absl::Status ConvertBisonToken(int bison_token,
         absl::StripAsciiWhitespace(&comment);
         absl::StrAppend(&comment, "\n");
       }
-      parse_tokens->emplace_back(location, std::move(image),
-                                 ParseToken::COMMENT, Value::String(comment));
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::COMMENT,
+                                 Value::String(comment));
       break;
     }
 
@@ -170,14 +181,14 @@ static absl::Status ConvertBisonToken(int bison_token,
           return MakeSyntaxErrorAtLocationOffset(location, error_offset,
                                                  error_message);
         }
-        parse_tokens->emplace_back(location, std::move(image),
-                                   ParseToken::IDENTIFIER,
+        parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                   std::move(image), ParseToken::IDENTIFIER,
                                    Value::String(identifier));
       } else if (isdigit(image[0])) {
         // Values that start with digits also never can be keywords, so they are
         // returned as IDENTIFIER.
-        parse_tokens->emplace_back(location, std::move(image),
-                                   ParseToken::IDENTIFIER,
+        parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                   std::move(image), ParseToken::IDENTIFIER,
                                    Value::String(image));
       } else {
         if (parser::IsKeywordInTokenizer(image)) {
@@ -187,20 +198,37 @@ static absl::Status ConvertBisonToken(int bison_token,
           // the GetParseTokens() API. Others are only recognized as keywords
           // with certain context, e.g. with or without a trailing "(", but here
           // we return them as keywords always.
-          parse_tokens->emplace_back(location, std::move(image),
-                                     ParseToken::KEYWORD);
+          parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                     std::move(image), ParseToken::KEYWORD);
         } else {
-          parse_tokens->emplace_back(location, std::move(image),
-                                     ParseToken::IDENTIFIER_OR_KEYWORD,
-                                     Value::String(image));
+          parse_tokens->emplace_back(
+              location, is_adjacent_to_prior_token, std::move(image),
+              ParseToken::IDENTIFIER_OR_KEYWORD, Value::String(image));
         }
       }
       break;
 
+    case BisonParserImpl::token::
+        INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE: {
+      // Find the start of the identifier and report the error there.
+      ZETASQL_RET_CHECK_GE(image.size(), 2);
+      int start = static_cast<int>(image.size() - 1);
+      while (start >= 0 && !isdigit(image[start]) && image[start] != '.') {
+        start--;
+      }
+      // Identifier starts at index `start + 1`.
+      ZETASQL_RET_CHECK_GE(start, 0);
+      ParseLocationPoint point = ParseLocationPoint::FromByteOffset(
+          location.start().filename(),
+          location.start().GetByteOffset() + start + 1);
+      return MakeSqlErrorAtPoint(point)
+             << "Syntax error: Missing whitespace between literal and alias";
+    }
+
     default:
       // All keywords and symbols become KEYWORD.
-      parse_tokens->emplace_back(location, std::move(image),
-                                 ParseToken::KEYWORD);
+      parse_tokens->emplace_back(location, is_adjacent_to_prior_token,
+                                 std::move(image), ParseToken::KEYWORD);
       break;
   }
   return absl::OkStatus();
@@ -233,21 +261,26 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
           /*macro_catalog=*/nullptr, arena.get()));
 
   absl::Status status;
+  ParseLocationRange previous_location;
   ParseLocationRange location;
   while (true) {
-    int bison_token;
+    TokenKind bison_token;
     status = ConvertInternalErrorLocationToExternal(
         tokenizer->GetNextToken(&location /* input and output */, &bison_token),
         resume_location->input());
     if (!status.ok()) {
       break;
     }
+    bool is_adjacent_to_prior_token =
+        previous_location.IsAdjacentlyFollowedBy(location);
+    previous_location = location;
 
     std::string image(absl::ClippedSubstr(
         resume_location->input(), location.start().GetByteOffset(),
         location.end().GetByteOffset() - location.start().GetByteOffset()));
     status = ConvertInternalErrorLocationToExternal(
-        ConvertBisonToken(bison_token, location, std::move(image), tokens),
+        ConvertBisonToken(bison_token, is_adjacent_to_prior_token, location,
+                          std::move(image), tokens),
         resume_location->input());
     if (!status.ok()) {
       break;
@@ -313,6 +346,12 @@ std::string ParseToken::GetSQL() const {
     case IDENTIFIER:
       return ToIdentifierLiteral(value_.string_value());
     case VALUE:
+      if (value_.is_valid() && value_.type()->IsFloatingPoint()) {
+        // Floating point literals like ".1" and "1." should not be printed as
+        // "0.1" and "1.0". For example, "1.abc" should not be printed as
+        // "1.0abc".
+        return image_;
+      }
       return value_.GetSQL();
     case COMMENT:
       return value_.string_value();
@@ -349,13 +388,19 @@ std::string ParseToken::DebugString() const {
 
 ParseToken::ParseToken() : kind_(END_OF_INPUT) {}
 
-ParseToken::ParseToken(ParseLocationRange location_range, std::string image,
+ParseToken::ParseToken(ParseLocationRange location_range,
+                       bool adjacent_to_prior_token, std::string image,
                        Kind kind)
-    : kind_(kind), image_(std::move(image)), location_range_(location_range) {}
+    : kind_(kind),
+      adjacent_to_prior_token_(adjacent_to_prior_token),
+      image_(std::move(image)),
+      location_range_(location_range) {}
 
-ParseToken::ParseToken(ParseLocationRange location_range, std::string image,
+ParseToken::ParseToken(ParseLocationRange location_range,
+                       bool adjacent_to_prior_token, std::string image,
                        Kind kind, Value value)
     : kind_(kind),
+      adjacent_to_prior_token_(adjacent_to_prior_token),
       image_(std::move(image)),
       location_range_(location_range),
       value_(std::move(value)) {

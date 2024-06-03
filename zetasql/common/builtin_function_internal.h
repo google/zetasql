@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/builtins_output_properties.h"
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
@@ -700,7 +701,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
 
 absl::Status GetDistanceFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    NameToFunctionMap* functions);
+    NameToFunctionMap* functions, BuiltinsOutputProperties& output_properties);
 
 void GetArrayMiscFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,

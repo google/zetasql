@@ -17,11 +17,11 @@
 #include "zetasql/base/mathutil.h"
 
 #include <stdlib.h>
+
+#include <cstdint>
 #include <limits>
-#include <vector>
 
 #include "absl/base/casts.h"
-#include "zetasql/base/logging.h"
 
 namespace zetasql_base {
 namespace {

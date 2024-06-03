@@ -1201,46 +1201,10 @@ absl::StatusOr<int64_t> IntervalValue::Extract(
     case functions::NANOSECOND:
       return (get_nanos() % kNanosInSecond);
     default:
-      break;  // fall through
-  }
-
-  __int128 total_nanos = get_nanos();
-  bool negative_nanos = false;
-  if (total_nanos < 0) {
-    // Cannot overflow because valid range of nanos is smaller than most
-    // negative value.
-    total_nanos = -total_nanos;
-    negative_nanos = true;
-  }
-  int64_t value;
-  switch (part) {
-    case functions::HOUR:
-      value = total_nanos / kNanosInHour;
-      break;
-    case functions::MINUTE:
-      value = (total_nanos % kNanosInHour) / kNanosInMinute;
-      break;
-    case functions::SECOND:
-      value = (total_nanos % kNanosInMinute) / kNanosInSecond;
-      break;
-    case functions::MILLISECOND:
-      value = (total_nanos % kNanosInSecond) / kNanosInMilli;
-      break;
-    case functions::MICROSECOND:
-      value = (total_nanos % kNanosInMilli) / kNanosInMicro;
-      break;
-    case functions::NANOSECOND:
-      value = total_nanos % kNanosInMicro;
-      break;
-    default:
       return absl::OutOfRangeError(
           absl::StrFormat("Unsupported date part %s in EXTRACT FROM INTERVAL",
                           functions::DateTimestampPart_Name(part)));
   }
-  if (negative_nanos) {
-    value = -value;
-  }
-  return value;
 }
 
 std::ostream& operator<<(std::ostream& out, IntervalValue value) {

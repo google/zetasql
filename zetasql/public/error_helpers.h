@@ -84,6 +84,12 @@ struct ErrorMessageOptions {
   ErrorMessageMode mode = ERROR_MESSAGE_WITH_PAYLOAD;
   bool attach_error_location_payload = false;
   ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED;
+
+  // The original line & column of the input text.
+  // Used when the input is from a larger, unavailable source.
+  // Note that these are the actual 1-based line and column, *NOT* offsets.
+  int input_original_start_line = 1;
+  int input_original_start_column = 1;
 };
 
 // Possibly updates the <status> error string based on <input_text> and <mode>.
@@ -132,8 +138,16 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
 //
 // An InternalErrorLocation contained in 'status' must be valid for
 // 'query'. If it is not, then this function returns an internal error.
-absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
-                                                    absl::string_view query);
+//
+// `input_start_line_offset` and `input_start_column_offset` are used when
+// `query` isn't the full source, but rather starts at those offsets. The
+// offsets are passed separately because location is relative to `input`, and
+// for the caret substring to work correctly, `input_start_line_offset` and
+// `input_start_column_offset` are added only after the caret string has been
+// extracted.
+absl::Status ConvertInternalErrorLocationToExternal(
+    absl::Status status, absl::string_view query,
+    int input_start_line_offset = 0, int input_start_column_offset = 0);
 
 // The type url for the ErrorMessageMode payload. Used to indicate what mode
 // was applied to a given error message (e.g. caret on same line or multiline).

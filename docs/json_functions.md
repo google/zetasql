@@ -79,17 +79,53 @@ behavior:
         <a href="#lax_bool"><code>LAX_BOOL</code></a><br>
         
         
+        <a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a><br>
+        
+        
         <a href="#lax_double"><code>LAX_DOUBLE</code></a><br>
+        
+        
+        <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_float"><code>LAX_FLOAT</code></a><br>
+        
+        
+        <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_int32"><code>LAX_INT32</code></a><br>
+        
+        
+        <a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a><br>
         
         
         <a href="#lax_int64"><code>LAX_INT64</code></a><br>
         
         
+        <a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a><br>
+        
+        
         <a href="#lax_string"><code>LAX_STRING</code></a><br>
+        
+        
+        <a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_uint32"><code>LAX_UINT32</code></a><br>
+        
+        
+        <a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_uint64"><code>LAX_UINT64</code></a><br>
+        
+        
+        <a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a><br>
         
       </td>
       <td>
-        Functions that flexibly convert a JSON value to a scalar SQL value
+        Functions that flexibly convert a JSON value to an SQL value
         without returning errors.
       </td>
     </tr>
@@ -102,17 +138,53 @@ behavior:
         <a href="#bool_for_json"><code>BOOL</code></a><br>
         
         
+        <a href="#bool_array_for_json"><code>BOOL_ARRAY</code></a><br>
+        
+        
         <a href="#double_for_json"><code>DOUBLE</code></a><br>
+        
+        
+        <a href="#double_array_for_json"><code>DOUBLE_ARRAY</code></a><br>
+        
+        
+        <a href="#float_for_json"><code>FLOAT</code></a><br>
+        
+        
+        <a href="#float_array_for_json"><code>FLOAT_ARRAY</code></a><br>
+        
+        
+        <a href="#int32_for_json"><code>INT32</code></a><br>
+        
+        
+        <a href="#int32_array_for_json"><code>INT32_ARRAY</code></a><br>
         
         
         <a href="#int64_for_json"><code>INT64</code></a><br>
         
         
+        <a href="#int64_array_for_json"><code>INT64_ARRAY</code></a><br>
+        
+        
         <a href="#string_for_json"><code>STRING</code></a><br>
+        
+        
+        <a href="#string_array_for_json"><code>STRING_ARRAY</code></a><br>
+        
+        
+        <a href="#uint32_for_json"><code>UINT32</code></a><br>
+        
+        
+        <a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a><br>
+        
+        
+        <a href="#uint64_for_json"><code>UINT64</code></a><br>
+        
+        
+        <a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a><br>
         
       </td>
       <td>
-        Functions that convert a JSON value to a scalar SQL value.
+        Functions that convert a JSON value to a SQL value.
       </td>
     </tr>
     
@@ -209,6 +281,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#bool_array_for_json"><code>BOOL</code></a>
+
+</td>
+  <td> Converts a JSON boolean to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td>
   
   <a href="#double_for_json"><code>DOUBLE</code></a>
@@ -222,12 +301,65 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    
+      <a href="#double_array_for_json"><code>DOUBLE_ARRAY</code></a>
+
+    
+  </td>
+  <td> Converts a JSON number to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#float_for_json"><code>FLOAT</code></a>
+
+    
+  </td>
+  <td> Converts a JSON number to a SQL <code>FLOAT</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#float_array_for_json"><code>FLOAT_ARRAY</code></a>
+
+    
+  </td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#int32_for_json"><code>INT32</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int32_array_for_json"><code>INT32_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#int64_for_json"><code>INT64</code></a>
 
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT64</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -373,6 +505,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td>
   
   <a href="#lax_double"><code>LAX_DOUBLE</code></a>
@@ -386,6 +525,52 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    
+      <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a>
+
+    
+  </td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float"><code>LAX_FLOAT</code></a>
+
+    
+  </td>
+  <td>Attempts to convert a JSON value to a SQL <code>FLOAT</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a>
+
+    
+  </td>
+  <td> Attempts to convert a JSON value to a SQL <code>ARRAY&gt;FLOAT&lt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32"><code>LAX_INT32</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#lax_int64"><code>LAX_INT64</code></a>
 
 </td>
@@ -395,12 +580,58 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#lax_string"><code>LAX_STRING</code></a>
 
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>STRING</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;STRING&gt;</code>value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint32"><code>LAX_UINT32</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64"><code>LAX_UINT64</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -423,6 +654,17 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    <a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
+
+  </td>
+  <td>
+    Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
+    value.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#to_json"><code>TO_JSON</code></a>
 
 </td>
@@ -438,6 +680,38 @@ behavior:
   <td>
     Converts a SQL value to a JSON-formatted <code>STRING</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_for_json"><code>UINT32</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_for_json"><code>UINT64</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
 </tr>
 
   </tbody>
@@ -498,6 +772,53 @@ The following examples show how invalid requests are handled:
 SELECT BOOL(JSON '123') AS result; -- Throws an error
 SELECT BOOL(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### `BOOL_ARRAY` 
+<a id="bool_array_for_json"></a>
+
+```sql
+BOOL_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON boolean to a SQL `ARRAY<BOOL>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[true]'
+    ```
+
+    If the JSON value is not an array of booleans, an error is produced. If the
+    expression is SQL `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<BOOL>`
+
+**Examples**
+
+```sql
+SELECT BOOL_ARRAY(JSON '[true, false]') AS vacancies;
+
+/*---------------*
+ | vacancies     |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of booleans.
+SELECT BOOL_ARRAY(JSON '[123]') AS result; -- Throws an error
+SELECT BOOL_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
 ### `DOUBLE` 
@@ -596,6 +917,398 @@ SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
 SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 ```
 
+### `DOUBLE_ARRAY` 
+<a id="double_array_for_json"></a>
+
+```sql
+DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `ARRAY<DOUBLE>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+    If the JSON value is not an array of numbers, an error is produced. If the
+    expression is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `DOUBLE` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `DOUBLE` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `DOUBLE`. If such rounding is not possible, the
+        function fails.
+
+**Return type**
+
+`ARRAY<DOUBLE>`
+
+**Examples**
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[9, 9.8]') AS velocities;
+
+/*-------------*
+ | velocities  |
+ +-------------+
+ | [9.0, 9.8]  |
+ *-------------*/
+```
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'round') as result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | [1.8446744073709552e+19] |
+ *--------------------------*/
+```
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]') as result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | [1.8446744073709552e+19] |
+ *--------------------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers.
+SELECT DOUBLE_ARRAY(JSON '["strawberry"]') AS result;
+SELECT DOUBLE_ARRAY(JSON '[null]') AS result;
+SELECT DOUBLE_ARRAY(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
+SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as result;
+```
+
+### `FLOAT` 
+<a id="float_for_json"></a>
+
+```sql
+FLOAT(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `FLOAT` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '9.8'
+    ```
+
+    If the JSON value is not a number, an error is produced. If the expression
+    is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `FLOAT` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `FLOAT` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `FLOAT`. If such rounding is not possible, the function
+        fails.
+
+**Return type**
+
+`FLOAT`
+
+**Examples**
+
+```sql
+SELECT FLOAT(JSON '9.8') AS velocity;
+
+/*----------*
+ | velocity |
+ +----------+
+ | 9.8      |
+ *----------*/
+```
+
+```sql
+SELECT FLOAT(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
+
+/*---------*
+ | vo2_max |
+ +---------+
+ | 39.1    |
+ *---------*/
+```
+
+```sql
+SELECT FLOAT(JSON '16777217', wide_number_mode=>'round') as result;
+
+/*------------*
+ | result     |
+ +------------+
+ | 16777216.0 |
+ *------------*/
+```
+
+```sql
+SELECT FLOAT(JSON '16777216') as result;
+
+/*------------*
+ | result     |
+ +------------+
+ | 16777216.0 |
+ *------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type FLOAT.
+SELECT FLOAT(JSON '"strawberry"') AS result;
+SELECT FLOAT(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT FLOAT(JSON '123.4', wide_number_mode=>'EXACT') as result;
+SELECT FLOAT(JSON '123.4', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+SELECT FLOAT(JSON '16777217', wide_number_mode=>'exact') as result;
+
+-- Returns a SQL NULL
+SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
+```
+
+### `FLOAT_ARRAY` 
+<a id="float_array_for_json"></a>
+
+```sql
+FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `ARRAY<FLOAT>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+    If the JSON value is not an array of numbers, an error is produced. If the
+    expression is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `FLOAT` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `FLOAT` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `FLOAT`. If such rounding is not possible, the function
+        fails.
+
+**Return type**
+
+`ARRAY<FLOAT>`
+
+**Examples**
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[9, 9.8]') AS velocities;
+
+/*-------------*
+ | velocities  |
+ +-------------+
+ | [9.0, 9.8]  |
+ *-------------*/
+```
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'round') as result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[16777216]') as result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in FLOAT domain.
+SELECT FLOAT_ARRAY(JSON '["strawberry"]') AS result;
+SELECT FLOAT_ARRAY(JSON '[null]') AS result;
+SELECT FLOAT_ARRAY(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
+SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'exact') as result;
+```
+
+### `INT32` 
+<a id="int32_for_json"></a>
+
+```sql
+INT32(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `INT32` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`INT32`
+
+**Examples**
+
+```sql
+SELECT INT32(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT INT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT INT32(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT INT32(JSON '10.1') AS result;  -- Throws an error
+SELECT INT32(JSON '"strawberry"') AS result; -- Throws an error
+SELECT INT32(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.INT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `INT32_ARRAY` 
+<a id="int32_array_for_json"></a>
+
+```sql
+INT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT32_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `INT32` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<INT32>`
+
+**Examples**
+
+```sql
+SELECT INT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT INT32_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in INT32 domain.
+SELECT INT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT INT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT INT32_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT INT32_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
 ### `INT64` 
 <a id="int64_for_json"></a>
 
@@ -663,6 +1376,65 @@ SELECT INT64(JSON '10.1') AS result;  -- Throws an error
 SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `INT64_ARRAY` 
+<a id="int64_array_for_json"></a>
+
+```sql
+INT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT64_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `INT64` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Examples**
+
+```sql
+SELECT INT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT INT64_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in INT64 domain.
+SELECT INT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT INT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT INT64_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT INT64_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
 ### `JSON_ARRAY`
@@ -3201,6 +3973,145 @@ SELECT LAX_BOOL(JSON '-1.1') AS result;
  *--------*/
 ```
 
+### `LAX_BOOL_ARRAY` 
+<a id="lax_bool_array"></a>
+
+```sql
+LAX_BOOL_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<BOOL>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[true]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;BOOL&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_bool"><code>LAX_BOOL</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<BOOL>`
+
+**Examples**
+
+Example with input that is a JSON array of booleans:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[true, false]') AS result;
+
+/*---------------*
+ | result        |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '["true", "false", "TRue", "FaLse"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [true, false, true, false] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '["true ", "foo", "null", ""]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [NULL, NULL, NULL, NULL |
+ *-------------------------*/
+```
+
+Examples with input that is JSON array of numbers:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[10, 0, 0.0, -1.1]') AS result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | TRUE, FALSE, FALSE, TRUE |
+ *--------------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_BOOL_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_DOUBLE` 
 <a id="lax_double"></a>
 
@@ -3424,6 +4335,972 @@ SELECT LAX_DOUBLE(JSON '"foo"') AS result;
  *--------*/
 ```
 
+### `LAX_DOUBLE_ARRAY` 
+<a id="lax_double_array"></a>
+
+```sql
+LAX_DOUBLE_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<DOUBLE>`
+value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;DOUBLE&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_double"><code>LAX_DOUBLE</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<DOUBLE>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[9.8, 9]') AS result;
+
+/*-------------*
+ | result      |
+ +-------------+
+ | [9.8, 9.0,] |
+ *-------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[9007199254740993, -9007199254740993]') AS result;
+
+/*-------------------------------------------*
+ | result                                    |
+ +-------------------------------------------+
+ | [9007199254740992.0, -9007199254740992.0] |
+ *-------------------------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
+
+/*-----------------------------------------------------*
+ | result                                              |
+ +-----------------------------------------------------+
+ | [-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e+100] |
+ *-----------------------------------------------------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[true, false]') AS result;
+
+/*----------------*
+ | result         |
+ +----------------+
+ | [NULL, NULL]   |
+ *----------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [10.0, 1.1, 110.0, 1.5] |
+ *-------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["9007199254740993"]') AS result;
+
+/*----------------------*
+ | result               |
+ +----------------------+
+ | [9007199254740992.0] |
+ *----------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [NaN, Infinity, -Infinity] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_FLOAT` 
+<a id="lax_float"></a>
+
+```sql
+LAX_FLOAT(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `FLOAT` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '9.8'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>FLOAT</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      <code>NULL</code>
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the result as a
+      <code>FLOAT</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as a
+      <code>FLOAT</code> value.
+      Large JSON numbers are rounded.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`FLOAT`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_FLOAT(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.8    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '9') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.0    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '16777217') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 16777216.0         |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_FLOAT(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_FLOAT(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10.0   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.1    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110.0  |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"16777217"') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 16777216.0         |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.5    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"NaN"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NaN    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"Inf"') AS result;
+
+/*----------*
+ | result   |
+ +----------+
+ | Infinity |
+ *----------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"-InfiNiTY"') AS result;
+
+/*-----------*
+ | result    |
+ +-----------+
+ | -Infinity |
+ *-----------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_FLOAT_ARRAY` 
+<a id="lax_float_array"></a>
+
+```sql
+LAX_FLOAT_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<FLOAT>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8, 9]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;FLOAT&gt;</code></th>
+  </tr>
+<tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_float"><code>LAX_FLOAT_ARRAY</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<FLOAT>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[9.8, 9]') AS result;
+
+/*------------*
+ | result     |
+ +------------+
+ | [9.8, 9.0] |
+ *------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[16777217, -16777217]') AS result;
+
+/*---------------------------*
+ | result                    |
+ +---------------------------+
+ | [16777216.0, -16777216.0] |
+ *---------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[-3.40282e+38, 1.17549e-38, 3.40282e+38]') AS result;
+
+/*------------------------------------------*
+ | result                                   |
+ +------------------------------------------+
+ | [-3.40282e+38, 1.17549e-38, 3.40282e+38] |
+ *------------------------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
+
+/*-----------------------*
+ | result                |
+ +-----------------------+
+ | [NULL, 0, NULL, NULL] |
+ *-----------------------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[true, false]') AS result;
+
+/*----------------*
+ | result         |
+ +----------------+
+ | [NULL, NULL]   |
+ *----------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [10.0, 1.1, 110.0, 1.5] |
+ *------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["16777217"]') AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [NaN, Infinity, -Infinity] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_INT32` 
+<a id="lax_int32"></a>
+
+```sql
+LAX_INT32(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `INT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>INT32</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>INT32</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>INT32</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`INT32`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_INT32(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_INT32(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT32(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_INT32_ARRAY` 
+<a id="lax_int32_array"></a>
+
+```sql
+LAX_INT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<INT32>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;INT32&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_int32"><code>LAX_INT32</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<INT32>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------- ----*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_INT32_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_INT64` 
 <a id="lax_int64"></a>
 
@@ -3636,6 +5513,165 @@ SELECT LAX_INT64(JSON '"foo"') AS result;
  *--------*/
 ```
 
+### `LAX_INT64_ARRAY` 
+<a id="lax_int64_array"></a>
+
+```sql
+LAX_INT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<INT64>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;INT64&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_int64"><code>LAX_INT64</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_INT64_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_STRING` 
 <a id="lax_string"></a>
 
@@ -3771,6 +5807,899 @@ SELECT LAX_STRING(JSON '1e100') AS result;
  | result |
  +--------+
  | 1e+100 |
+ *--------*/
+```
+
+### `LAX_STRING_ARRAY` 
+<a id="lax_string_array"></a>
+
+```sql
+LAX_STRING_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<STRING>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["a", "b"]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>STRING</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_string"><code>LAX_STRING</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+Example with input that is a JSON array of strings:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '["purple", "10"]') AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [purple, 10] |
+ *--------------*/
+```
+
+Example with input that is a JSON array of booleans:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[true, false]') AS result;
+
+/*---------------*
+ | result        |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+Example with input that is a JSON array of numbers:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[10.0, 10, 1e100]') AS result;
+
+/*------------------*
+ | result           |
+ +------------------+
+ | [10, 10, 1e+100] |
+ *------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_STRING_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT32` 
+<a id="lax_uint32"></a>
+
+```sql
+LAX_UINT32(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `UINT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>UINT32</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>UINT32</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>UINT32</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`UINT32`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_UINT32(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '-1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_UINT32(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT32(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT32_ARRAY` 
+<a id="lax_uint32_array"></a>
+
+```sql
+LAX_UINT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<UINT32>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;UINT32&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_uint32"><code>LAX_UINT32</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<UINT32>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is a JSON array of booleans:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_UINT32_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT64` 
+<a id="lax_uint64"></a>
+
+```sql
+LAX_UINT64(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `UINT64` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>UINT64</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>UINT64</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>UINT64</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`UINT64`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_UINT64(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '-1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_UINT64(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT64(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT64_ARRAY` 
+<a id="lax_uint64_array"></a>
+
+```sql
+LAX_UINT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<UINT64>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;UINT64&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_uint64"><code>LAX_UINT64</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<UINT64>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is a JSON array of booleans:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_UINT64_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
  *--------*/
 ```
 
@@ -3910,6 +6839,53 @@ SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
+### `STRING_ARRAY` 
+<a id="string_array_for_json"></a>
+
+```sql
+STRING_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON array of strings to a SQL `ARRAY<STRING>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["purple", "blue"]'
+    ```
+
+    If the JSON value is not an array of strings, an error is produced. If the
+    expression is SQL `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+```sql
+SELECT STRING_ARRAY(JSON '["purple", "blue"]') AS colors;
+
+/*----------------*
+ | colors         |
+ +----------------+
+ | [purple, blue] |
+ *----------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of strings.
+SELECT STRING_ARRAY(JSON '[123]') AS result; -- Throws an error
+SELECT STRING_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
 ### `TO_JSON`
 
 ```sql
@@ -3980,7 +6956,7 @@ In the following example, the query returns a large numerical value as a
 JSON string.
 
 ```sql
-SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on;
 
 /*--------------------*
  | stringify_on       |
@@ -3993,8 +6969,8 @@ In the following example, both queries return a large numerical value as a
 JSON number.
 
 ```sql
-SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
-SELECT TO_JSON(9007199254740993) as stringify_off
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off;
+SELECT TO_JSON(9007199254740993) as stringify_off;
 
 /*------------------*
  | stringify_off    |
@@ -4116,6 +7092,266 @@ FROM CoordinatesTable AS t;
 ```
 
 [json-encodings]: #json_encodings
+
+### `UINT32` 
+<a id="uint32_for_json"></a>
+
+```sql
+UINT32(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `UINT32` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`UINT32`
+
+**Examples**
+
+```sql
+SELECT UINT32(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT32(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT UINT32(JSON '10.1') AS result;  -- Throws an error
+SELECT UINT32(JSON '-1') AS result;  -- Throws an error
+SELECT UINT32(JSON '"strawberry"') AS result; -- Throws an error
+SELECT UINT32(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.UINT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `UINT32_ARRAY` 
+<a id="uint32_array_for_json"></a>
+
+```sql
+UINT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT32_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `UINT32` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<UINT32>`
+
+**Examples**
+
+```sql
+SELECT UINT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT UINT32_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in UINT32 domain.
+SELECT UINT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT UINT32_ARRAY(JSON '[-1]') AS result;  -- Throws an error
+SELECT UINT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT UINT32_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT UINT32_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
+### `UINT64` 
+<a id="uint64_for_json"></a>
+
+```sql
+UINT64(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT64` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `UINT64` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`UINT64`
+
+**Examples**
+
+```sql
+SELECT UINT64(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT64(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT UINT64(JSON '10.1') AS result;  -- Throws an error
+SELECT UINT64(JSON '-1') AS result;  -- Throws an error
+SELECT UINT64(JSON '"strawberry"') AS result; -- Throws an error
+SELECT UINT64(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.UINT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `UINT64_ARRAY` 
+<a id="uint64_array_for_json"></a>
+
+```sql
+UINT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT64_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `UINT64` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<UINT64>`
+
+**Examples**
+
+```sql
+SELECT UINT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT UINT64_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in UINT64 domain.
+SELECT UINT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT UINT64_ARRAY(JSON '[-1]') AS result;  -- Throws an error
+SELECT UINT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT UINT64_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT UINT64_ARRAY(JSON 'null') AS result; -- Throws an error
+```
 
 ### JSON encodings 
 <a id="json_encodings"></a>
@@ -4500,7 +7736,7 @@ The following SQL to JSON encodings are supported:
       <td>
         <p>object</p>
         <p>
-          The object can contain zero or more key/value pairs.
+          The object can contain zero or more key-value pairs.
           Each value is formatted according to its type.
         </p>
         <p>
@@ -4533,22 +7769,22 @@ The following SQL to JSON encodings are supported:
       <td>
         <p>object</p>
         <p>
-          The object can contain zero or more key/value pairs.
+          The object can contain zero or more key-value pairs.
           Each value is formatted according to its type.
         </p>
         <p>
-          Field names with underscores are converted to camel-case in accordance
+          Field names with underscores are converted to camel case in accordance
           with
           <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
           protobuf json conversion</a>. Field values are formatted according to
           <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
           protobuf json conversion</a>. If a <code>field_value</code> is a
-          non-empty repeated field or submessage, elements/fields are indented
-          to the appropriate level.
+          non-empty repeated field or submessage, the elements and fields are
+          indented to the appropriate level.
         </p>
         <ul>
           <li>
-            Field names that are not valid UTF-8 might result in unparseable
+            Field names that aren't valid UTF-8 might result in unparseable
             JSON.
           </li>
           <li>Field annotations are ignored.</li>

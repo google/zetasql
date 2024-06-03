@@ -279,7 +279,7 @@ class FunctionResolver {
       absl::string_view function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const std::vector<NamedArgumentInfo>& named_arguments,
+      absl::Span<const NamedArgumentInfo> named_arguments,
       int num_repeated_args_repetitions,
       bool always_include_omitted_named_arguments_in_index_mapping,
       bool show_mismatch_details,
@@ -349,6 +349,22 @@ class FunctionResolver {
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
       std::vector<ResolvedTVFArg>* resolved_tvf_args);
 
+  // Check an argument against constraints for a given argument, and return an
+  // error if any are violated.
+  absl::Status CheckArgumentConstraints(
+      const ASTNode* function_location, absl::string_view function_name,
+      bool is_tvf, const ASTNode* arg_location, int idx,
+      const FunctionArgumentType& concrete_argument,
+      const ResolvedExpr* arg_expr,
+      const std::function<std::string(int)>& BadArgErrorPrefix) const;
+
+  // Check a literal argument value against value constraints for a given
+  // argument, and return an error if any are violated.
+  absl::Status CheckArgumentValueConstraints(
+      const ASTNode* arg_location, int idx, const Value& value,
+      const FunctionArgumentType& concrete_argument,
+      const std::function<std::string(int)>& BadArgErrorPrefix) const;
+
  private:
   Catalog* catalog_;           // Not owned.
   TypeFactory* type_factory_;  // Not owned.
@@ -414,13 +430,6 @@ class FunctionResolver {
       const Function* function, absl::string_view prefix_message,
       FunctionArgumentType::NamePrintingStyle argument_print_style,
       const std::vector<std::string>* mismatch_errors = nullptr) const;
-
-  // Check a literal argument value against value constraints for a given
-  // argument, and return an error if any are violated.
-  absl::Status CheckArgumentValueConstraints(
-      const ASTNode* arg_location, int idx, const Value& value,
-      const FunctionArgumentType& concrete_argument,
-      const std::function<std::string(int)>& BadArgErrorPrefix) const;
 
   // Converts <argument_literal> to <target_type> and replaces
   // <converted_literal> with the new expression if successful. If

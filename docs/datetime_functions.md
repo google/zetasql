@@ -49,7 +49,8 @@ ZetaSQL supports the following datetime functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>DATETIME</code> values.
+    Gets the number of unit boundaries between two <code>DATETIME</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -264,43 +265,50 @@ SELECT
 ### `DATETIME_DIFF`
 
 ```sql
-DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
+DATETIME_DIFF(end_datetime, start_datetime, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `part` intervals between two
-`DATETIME` objects (`datetime_expression_a` - `datetime_expression_b`).
-If the first `DATETIME` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
-result type, such as if the difference in
-nanoseconds
-between the two `DATETIME` objects would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `DATETIME` values
+(`end_datetime` - `start_datetime`) at a particular time granularity.
 
-`DATETIME_DIFF` supports the following values for `part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`: This date part begins on Sunday.
-+ `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
-  `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
-  `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
-  boundaries. ISO weeks begin on Monday.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
-  week-numbering year boundary. The ISO year boundary is the Monday of the
-  first week whose Thursday belongs to the corresponding Gregorian calendar
-  year.
++   `start_datetime`: The starting `DATETIME` value.
++   `end_datetime`: The ending `DATETIME` value.
++   `granularity`: The datetime part that represents the granularity.
+    This can be:
+
+      
+      + `NANOSECOND`
+        (if the SQL engine supports it)
+      + `MICROSECOND`
+      + `MILLISECOND`
+      + `SECOND`
+      + `MINUTE`
+      + `HOUR`
+      + `DAY`
+      + `WEEK`: This date part begins on Sunday.
+      + `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
+        `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+        `FRIDAY`, and `SATURDAY`.
+      + `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
+        boundaries. ISO weeks begin on Monday.
+      + `MONTH`
+      + `QUARTER`
+      + `YEAR`
+      + `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
+        week-numbering year boundary. The ISO year boundary is the Monday of the
+        first week whose Thursday belongs to the corresponding Gregorian calendar
+        year.
+
+**Details**
+
+If `end_datetime` is earlier than `start_datetime`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `DATETIME` values overflows.
 
 **Return Data Type**
 
@@ -837,16 +845,16 @@ each element in `datetime_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This works because %c can find all matching elements in datetime_string.
-SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
 `PARSE_DATETIME` parses `string` according to the following rules:
@@ -889,7 +897,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 ```
 
 ```sql
-SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime
+SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime;
 
 /*---------------------*
  | datetime            |

@@ -344,7 +344,6 @@ AlterTableStatement [0-68]
 ALTER TABLE constraint ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
 --

@@ -241,16 +241,34 @@ ALTER VIEW foo SET OPTIONS(a = 1)
 
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a += 1);
 --
-ERROR: Syntax error: Invalid operator "+=" [at 1:49]
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a += 1);
-                                                ^
+AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a += 1)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-53] [ALTER COLUMN...PTIONS (a += 1)]
+    AlterColumnOptionsAction [16-53] [ALTER COLUMN...PTIONS (a += 1)]
+      Identifier(bar) [29-32] [bar]
+      OptionsList [45-53] [(a += 1)]
+        OptionsEntry [46-52] [a += 1]
+          Identifier(a) [46-47] [a]
+          IntLiteral(1) [51-52] [1]
+--
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a += 1)
 ==
 
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a -= 1);
 --
-ERROR: Syntax error: Invalid operator "-=" [at 1:49]
-ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (a -= 1);
-                                                ^
+AlterTableStatement [0-53] [ALTER TABLE...OPTIONS (a -= 1)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-53] [ALTER COLUMN...PTIONS (a -= 1)]
+    AlterColumnOptionsAction [16-53] [ALTER COLUMN...PTIONS (a -= 1)]
+      Identifier(bar) [29-32] [bar]
+      OptionsList [45-53] [(a -= 1)]
+        OptionsEntry [46-52] [a -= 1]
+          Identifier(a) [46-47] [a]
+          IntLiteral(1) [51-52] [1]
+--
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(a -= 1)
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]

@@ -45,13 +45,13 @@ INSERT OR IGNORE  IGNORE
 --
 ALTERNATION GROUP: OR,IGNORE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+ERROR: Syntax error: Unexpected end of statement [at 1:26]
 INSERT OR IGNORE  REPLACE
                          ^
 --
 ALTERNATION GROUP: OR,IGNORE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+ERROR: Syntax error: Unexpected end of statement [at 1:25]
 INSERT OR IGNORE  UPDATE
                         ^
 --
@@ -81,13 +81,13 @@ INSERT OR REPLACE  IGNORE
 --
 ALTERNATION GROUP: OR,REPLACE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:27]
+ERROR: Syntax error: Unexpected end of statement [at 1:27]
 INSERT OR REPLACE  REPLACE
                           ^
 --
 ALTERNATION GROUP: OR,REPLACE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+ERROR: Syntax error: Unexpected end of statement [at 1:26]
 INSERT OR REPLACE  UPDATE
                          ^
 --
@@ -117,13 +117,13 @@ INSERT OR UPDATE  IGNORE
 --
 ALTERNATION GROUP: OR,UPDATE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+ERROR: Syntax error: Unexpected end of statement [at 1:26]
 INSERT OR UPDATE  REPLACE
                          ^
 --
 ALTERNATION GROUP: OR,UPDATE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+ERROR: Syntax error: Unexpected end of statement [at 1:25]
 INSERT OR UPDATE  UPDATE
                         ^
 --
@@ -153,13 +153,13 @@ INSERT  IGNORE  IGNORE
 --
 ALTERNATION GROUP: IGNORE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+ERROR: Syntax error: Unexpected end of statement [at 1:24]
 INSERT  IGNORE  REPLACE
                        ^
 --
 ALTERNATION GROUP: IGNORE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+ERROR: Syntax error: Unexpected end of statement [at 1:23]
 INSERT  IGNORE  UPDATE
                       ^
 --
@@ -189,13 +189,13 @@ INSERT  REPLACE  IGNORE
 --
 ALTERNATION GROUP: REPLACE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+ERROR: Syntax error: Unexpected end of statement [at 1:25]
 INSERT  REPLACE  REPLACE
                         ^
 --
 ALTERNATION GROUP: REPLACE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+ERROR: Syntax error: Unexpected end of statement [at 1:24]
 INSERT  REPLACE  UPDATE
                        ^
 --
@@ -225,13 +225,13 @@ INSERT  UPDATE  IGNORE
 --
 ALTERNATION GROUP: UPDATE,,REPLACE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+ERROR: Syntax error: Unexpected end of statement [at 1:24]
 INSERT  UPDATE  REPLACE
                        ^
 --
 ALTERNATION GROUP: UPDATE,,UPDATE
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+ERROR: Syntax error: Unexpected end of statement [at 1:23]
 INSERT  UPDATE  UPDATE
                       ^
 ==
@@ -241,25 +241,25 @@ INSERT {{INTO|}} mytable {{INTO|}} mytable
 --
 ALTERNATION GROUP: INTO,INTO
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:21]
+ERROR: Syntax error: Unexpected keyword INTO [at 1:21]
 INSERT INTO mytable INTO mytable
                     ^
 --
 ALTERNATION GROUP: INTO,
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:22]
+ERROR: Syntax error: Unexpected identifier "mytable" [at 1:22]
 INSERT INTO mytable  mytable
                      ^
 --
 ALTERNATION GROUP: INTO
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:17]
+ERROR: Syntax error: Unexpected keyword INTO [at 1:17]
 INSERT  mytable INTO mytable
                 ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:18]
+ERROR: Syntax error: Unexpected identifier "mytable" [at 1:18]
 INSERT  mytable  mytable
                  ^
 ==
@@ -267,15 +267,15 @@ INSERT  mytable  mytable
 # Duplicate.
 INSERT INTO mytable (c1, c2) (c1, c2)
 --
-ERROR: Syntax error: Unexpected column list [at 1:30]
+ERROR: Syntax error: Unexpected identifier "c1" [at 1:31]
 INSERT INTO mytable (c1, c2) (c1, c2)
-                             ^
+                              ^
 ==
 
 # Duplicate.
 INSERT INTO mytable VALUES (a, b) VALUES (a, b)
 --
-ERROR: Syntax error: Unexpected VALUES list [at 1:35]
+ERROR: Syntax error: Expected end of input but got keyword VALUES [at 1:35]
 INSERT INTO mytable VALUES (a, b) VALUES (a, b)
                                   ^
 ==
@@ -285,37 +285,37 @@ INSERT INTO mytable {{(c1, c2)|}}{{VALUES (a, b)|}} {{OR|}} {{IGNORE|REPLACE|UPD
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,IGNORE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:43]
 INSERT INTO mytable (c1, c2)VALUES (a, b) OR IGNORE
                                           ^
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,REPLACE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:43]
 INSERT INTO mytable (c1, c2)VALUES (a, b) OR REPLACE
                                           ^
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,UPDATE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:43]
 INSERT INTO mytable (c1, c2)VALUES (a, b) OR UPDATE
                                           ^
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),,IGNORE
 --
-ERROR: Syntax error: Unexpected keyword IGNORE [at 1:44]
+ERROR: Syntax error: Expected end of input but got keyword IGNORE [at 1:44]
 INSERT INTO mytable (c1, c2)VALUES (a, b)  IGNORE
                                            ^
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),,REPLACE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+ERROR: Syntax error: Expected end of input but got keyword REPLACE [at 1:44]
 INSERT INTO mytable (c1, c2)VALUES (a, b)  REPLACE
                                            ^
 --
 ALTERNATION GROUP: (c1, c2),VALUES (a, b),,UPDATE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+ERROR: Syntax error: Expected end of input but got keyword UPDATE [at 1:44]
 INSERT INTO mytable (c1, c2)VALUES (a, b)  UPDATE
                                            ^
 --
@@ -345,49 +345,49 @@ INSERT INTO mytable (c1, c2)  IGNORE
 --
 ALTERNATION GROUP: (c1, c2),,,REPLACE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+ERROR: Syntax error: Unexpected keyword REPLACE [at 1:31]
 INSERT INTO mytable (c1, c2)  REPLACE
                               ^
 --
 ALTERNATION GROUP: (c1, c2),,,UPDATE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+ERROR: Syntax error: Unexpected keyword UPDATE [at 1:31]
 INSERT INTO mytable (c1, c2)  UPDATE
                               ^
 --
 ALTERNATION GROUP: VALUES (a, b),OR,IGNORE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:35]
 INSERT INTO mytable VALUES (a, b) OR IGNORE
                                   ^
 --
 ALTERNATION GROUP: VALUES (a, b),OR,REPLACE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:35]
 INSERT INTO mytable VALUES (a, b) OR REPLACE
                                   ^
 --
 ALTERNATION GROUP: VALUES (a, b),OR,UPDATE
 --
-ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+ERROR: Syntax error: Expected end of input but got keyword OR [at 1:35]
 INSERT INTO mytable VALUES (a, b) OR UPDATE
                                   ^
 --
 ALTERNATION GROUP: VALUES (a, b),,IGNORE
 --
-ERROR: Syntax error: Unexpected keyword IGNORE [at 1:36]
+ERROR: Syntax error: Expected end of input but got keyword IGNORE [at 1:36]
 INSERT INTO mytable VALUES (a, b)  IGNORE
                                    ^
 --
 ALTERNATION GROUP: VALUES (a, b),,REPLACE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+ERROR: Syntax error: Expected end of input but got keyword REPLACE [at 1:36]
 INSERT INTO mytable VALUES (a, b)  REPLACE
                                    ^
 --
 ALTERNATION GROUP: VALUES (a, b),,UPDATE
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+ERROR: Syntax error: Expected end of input but got keyword UPDATE [at 1:36]
 INSERT INTO mytable VALUES (a, b)  UPDATE
                                    ^
 --
@@ -417,13 +417,13 @@ INSERT INTO mytable   IGNORE
 --
 ALTERNATION GROUP: REPLACE
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+ERROR: Syntax error: Unexpected keyword REPLACE [at 1:23]
 INSERT INTO mytable   REPLACE
                       ^
 --
 ALTERNATION GROUP: UPDATE
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+ERROR: Syntax error: Unexpected keyword UPDATE [at 1:23]
 INSERT INTO mytable   UPDATE
                       ^
 ==
@@ -431,7 +431,7 @@ INSERT INTO mytable   UPDATE
 # Wrong order for column list.
 INSERT (c1, c2) INTO mytable
 --
-ERROR: Syntax error: Expecting INSERT target name [at 1:8]
+ERROR: Syntax error: Unexpected "(" [at 1:8]
 INSERT (c1, c2) INTO mytable
        ^
 ==
@@ -441,13 +441,13 @@ INSERT VALUES (a, b) {{INTO|}} mytable
 --
 ALTERNATION GROUP: INTO
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:22]
+ERROR: Syntax error: Unexpected keyword INTO [at 1:22]
 INSERT VALUES (a, b) INTO mytable
                      ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Unexpected INSERT target name [at 1:23]
+ERROR: Syntax error: Unexpected identifier "mytable" [at 1:23]
 INSERT VALUES (a, b)  mytable
                       ^
 ==
@@ -455,9 +455,9 @@ INSERT VALUES (a, b)  mytable
 # Wrong order for VALUES clause, missing table.
 INSERT VALUES (a, b) (c1, c2)
 --
-ERROR: Syntax error: Unexpected column list [at 1:22]
+ERROR: Syntax error: Unexpected identifier "c1" [at 1:23]
 INSERT VALUES (a, b) (c1, c2)
-                     ^
+                      ^
 ==
 
 insert {{or|}} ignore {{into|}} {{c.T|values}} {{(c1, c2)|}}
@@ -880,12 +880,19 @@ SELECT
 --
 ALTERNATION GROUPS:
      or, ignore, into,
+     or, ignore,,
      or, replace, into,
+     or, replace,,
      or, update, into,
+     or, update,,
      into,
+    <empty>
      ignore, into,
+     ignore,,
      replace, into,
+     replace,,
      update, into,
+     update,,
 --
 ERROR: Syntax error: Unexpected keyword SELECT [at 2:1]
 select 1
@@ -905,19 +912,6 @@ InsertStatement(insert_mode=IGNORE) [0-27] [insert or ignore T select 1]
 INSERT OR IGNORE INTO T
 SELECT
   1
---
-ALTERNATION GROUPS:
-     or, ignore,,
-     or, replace,,
-     or, update,,
-    <empty>
-     ignore,,
-     replace,,
-     update,,
---
-ERROR: Syntax error: Expecting INSERT target name [at 2:1]
-select 1
-^
 --
 ALTERNATION GROUP:  or, replace, into, T
 --
@@ -1105,9 +1099,58 @@ SELECT
 # interpreted as a column list.
 INSERT values (a, b)
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:21]
+ERROR: Syntax error: Unexpected end of statement [at 1:21]
 INSERT values (a, b)
                     ^
+==
+
+INSERT {{replace|update}} values (a, b){{| VALUES (1, 2)}}
+--
+ALTERNATION GROUP: replace,
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:29]
+INSERT replace values (a, b)
+                            ^
+--
+ALTERNATION GROUP: replace, VALUES (1, 2)
+--
+InsertStatement(insert_mode=REPLACE) [0-42] [INSERT replace...VALUES (1, 2)]
+  PathExpression [15-21] [values]
+    Identifier(values) [15-21] [values]
+  ColumnList [22-28] [(a, b)]
+    Identifier(a) [23-24] [a]
+    Identifier(b) [26-27] [b]
+  InsertValuesRowList [29-42] [VALUES (1, 2)]
+    InsertValuesRow [36-42] [(1, 2)]
+      IntLiteral(1) [37-38] [1]
+      IntLiteral(2) [40-41] [2]
+--
+INSERT OR REPLACE INTO values(a, b)
+VALUES
+  (1, 2)
+--
+ALTERNATION GROUP: update,
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:28]
+INSERT update values (a, b)
+                           ^
+--
+ALTERNATION GROUP: update, VALUES (1, 2)
+--
+InsertStatement(insert_mode=UPDATE) [0-41] [INSERT update...VALUES (1, 2)]
+  PathExpression [14-20] [values]
+    Identifier(values) [14-20] [values]
+  ColumnList [21-27] [(a, b)]
+    Identifier(a) [22-23] [a]
+    Identifier(b) [25-26] [b]
+  InsertValuesRowList [28-41] [VALUES (1, 2)]
+    InsertValuesRow [35-41] [(1, 2)]
+      IntLiteral(1) [36-37] [1]
+      IntLiteral(2) [39-40] [2]
+--
+INSERT OR UPDATE INTO values(a, b)
+VALUES
+  (1, 2)
 ==
 
 INSERT values values (a, b)
@@ -1146,7 +1189,7 @@ VALUES
 
 INSERT values mytable (a, b)
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:15]
+ERROR: Syntax error: Unexpected identifier "mytable" [at 1:15]
 INSERT values mytable (a, b)
               ^
 ==
@@ -1154,7 +1197,7 @@ INSERT values mytable (a, b)
 # Bad column list (values is a table name here).
 INSERT values (1, 3)
 --
-ERROR: Syntax error: Expected column name [at 1:16]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:16]
 INSERT values (1, 3)
                ^
 ==
@@ -1166,16 +1209,16 @@ INSERT values (1, 3)
 # reinterpreted as a column list.
 INSERT values (a, b), (c, d)
 --
-ERROR: Syntax error: Unexpected multiple column lists [at 1:23]
+ERROR: Syntax error: Unexpected "," [at 1:21]
 INSERT values (a, b), (c, d)
-                      ^
+                    ^
 ==
 
 # Same as the previous test case, but the first column list doesn't parse as a
 # column list.
 INSERT values (1, 3), (c, d)
 --
-ERROR: Syntax error: Expected column name [at 1:16]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:16]
 INSERT values (1, 3), (c, d)
                ^
 ==
@@ -1185,7 +1228,7 @@ INSERT values (1, 3), (c, d)
 # column name list without escaping..
 INSERT values (a, default) values (1, 3)
 --
-ERROR: Syntax error: Expected column name, got keyword DEFAULT [at 1:19]
+ERROR: Syntax error: Unexpected keyword DEFAULT [at 1:19]
 INSERT values (a, default) values (1, 3)
                   ^
 ==
@@ -1332,14 +1375,14 @@ ASSERT_ROWS_MODIFIED @row_count
 
 insert into T
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:14]
+ERROR: Syntax error: Unexpected end of statement [at 1:14]
 insert into T
              ^
 ==
 
 insert into T (c1,c2)
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:22]
+ERROR: Syntax error: Unexpected end of statement [at 1:22]
 insert into T (c1,c2)
                      ^
 ==
@@ -1347,7 +1390,7 @@ insert into T (c1,c2)
 insert into T (c1,c2)
 assert_rows_modified 10
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 2:1]
+ERROR: Syntax error: Unexpected keyword ASSERT_ROWS_MODIFIED [at 2:1]
 assert_rows_modified 10
 ^
 ==
@@ -1587,7 +1630,7 @@ insert into T
 values (1,2)
 select 5
 --
-ERROR: Syntax error: Unexpected query [at 3:1]
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 3:1]
 select 5
 ^
 ==
@@ -1698,9 +1741,9 @@ SELECT
 
 insert into T (c1, c2) (c3)
 --
-ERROR: Syntax error: Unexpected column list [at 1:24]
+ERROR: Syntax error: Unexpected identifier "c3" [at 1:25]
 insert into T (c1, c2) (c3)
-                       ^
+                        ^
 ==
 
 # The resolver will fail on this because the target involves a generalized
@@ -1752,13 +1795,13 @@ INSERT T {{AS|}} a VALUES (5)
 --
 ALTERNATION GROUP: AS
 --
-ERROR: Syntax error: Expecting VALUES list or query [at 1:9]
+ERROR: Syntax error: Unexpected keyword AS [at 1:10]
 INSERT T AS a VALUES (5)
-        ^
+         ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 1:11]
+ERROR: Syntax error: Unexpected identifier "a" [at 1:11]
 INSERT T  a VALUES (5)
           ^
 ==
@@ -1784,17 +1827,37 @@ VALUES
   (null)
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
-insert into project-987654321.a.b values (1)
+insert{{| into}} project-987654321.a.b values (1)
 --
 ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:8]
+insert project-987654321.a.b values (1)
+       ^
+--
+ALTERNATION GROUP:  into
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:13]
 insert into project-987654321.a.b values (1)
             ^
 --
-ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME,
+--
+InsertStatement [0-39] [insert project...values (1)]
+  PathExpression [7-28] [project-987654321.a.b]
+    Identifier(`project-987654321`) [7-26] [project-987654321.a]
+    Identifier(a) [7-26] [project-987654321.a]
+    Identifier(b) [27-28] [b]
+  InsertValuesRowList [29-39] [values (1)]
+    InsertValuesRow [36-39] [(1)]
+      IntLiteral(1) [37-38] [1]
+--
+INSERT INTO `project-987654321`.a.b
+VALUES
+  (1)
+--
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME, into
 --
 InsertStatement [0-44] [insert into...values (1)]
   PathExpression [12-33] [project-987654321.a.b]

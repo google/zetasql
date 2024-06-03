@@ -28,6 +28,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -35,6 +36,7 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -48,9 +50,9 @@ namespace zetasql {
 
 struct HashableValueContentContainerElementIgnoringFloat {
   explicit HashableValueContentContainerElementIgnoringFloat(
-      const internal::ValueContentContainerElement element, const Type* type)
+      const internal::NullableValueContent element, const Type* type)
       : element(element), type(type) {}
-  const internal::ValueContentContainerElement element;
+  const internal::NullableValueContent element;
   const Type* type;
 
   template <typename H>
@@ -85,9 +87,9 @@ struct HashableValueContentContainerElementIgnoringFloat {
         absl::Hash<HashableValueContentContainerElementIgnoringFloat>
             element_hasher;
         size_t combined_hash = 1;
-        const internal::ValueContentContainer* container =
+        const internal::ValueContentOrderedList* container =
             v.element.value_content()
-                .GetAs<internal::ValueContentContainerRef*>()
+                .GetAs<internal::ValueContentOrderedListRef*>()
                 ->value();
         for (int i = 0; i < container->num_elements(); i++) {
           const Type* element_type = v.type->AsArray()->element_type();
@@ -98,9 +100,9 @@ struct HashableValueContentContainerElementIgnoringFloat {
         return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
       }
       case TYPE_STRUCT: {
-        const internal::ValueContentContainer* container =
+        const internal::ValueContentOrderedList* container =
             v.element.value_content()
-                .GetAs<internal::ValueContentContainerRef*>()
+                .GetAs<internal::ValueContentOrderedListRef*>()
                 ->value();
         absl::Hash<HashableValueContentContainerElementIgnoringFloat>
             field_hasher;
@@ -154,13 +156,13 @@ struct MultisetValueContentContainerElementHasher {
       FloatMargin float_margin_arg, const Type* type)
       : float_margin(float_margin_arg), type(type) {}
 
-  size_t operator()(const internal::ValueContentContainerElement& x) const {
+  size_t operator()(const internal::NullableValueContent& x) const {
     if (!float_margin.IsExactEquality()) {
       return absl::Hash<HashableValueContentContainerElementIgnoringFloat>()(
           HashableValueContentContainerElementIgnoringFloat(x, type));
     }
-    return absl::Hash<ContainerType::HashableValueContentContainerElement>()(
-        ContainerType::HashableValueContentContainerElement{x, type});
+    return absl::Hash<ListBackedType::HashableNullableValueContent>()(
+        ListBackedType::HashableNullableValueContent{x, type});
   }
 
  private:
@@ -169,7 +171,7 @@ struct MultisetValueContentContainerElementHasher {
 };
 
 ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
-    : ContainerType(factory, TYPE_ARRAY), element_type_(element_type) {
+    : ListBackedType(factory, TYPE_ARRAY), element_type_(element_type) {
   ABSL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
 
@@ -334,12 +336,12 @@ bool ArrayType::EqualsImpl(const ArrayType* const type1,
 
 void ArrayType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
-  from.GetAs<internal::ValueContentContainerRef*>()->Ref();
+  from.GetAs<internal::ValueContentOrderedListRef*>()->Ref();
   *to = from;
 }
 
 void ArrayType::ClearValueContent(const ValueContent& value) const {
-  value.GetAs<internal::ValueContentContainerRef*>()->Unref();
+  value.GetAs<internal::ValueContentOrderedListRef*>()->Unref();
 }
 
 absl::HashState ArrayType::HashTypeParameter(absl::HashState state) const {
@@ -350,15 +352,15 @@ absl::HashState ArrayType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState ArrayType::HashValueContent(const ValueContent& value,
                                             absl::HashState state) const {
-  const internal::ValueContentContainer* container =
-      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* container =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
   // We must hash arrays as if unordered to support hash_map and hash_set of
   // values containing arrays with order_kind()=kIgnoresOrder.
   // absl::Hash lacks support for unordered containers, so we create a
   // cheapo solution of just adding the hashcodes.
   size_t combined_hash = 1;
   for (int i = 0; i < container->num_elements(); i++) {
-    ValueContentContainerElementHasher hasher(element_type());
+    NullableValueContentHasher hasher(element_type());
     combined_hash += hasher(container->element(i));
   }
   return absl::HashState::combine(std::move(state), combined_hash);
@@ -377,19 +379,19 @@ absl::HashState ArrayType::HashValueContent(const ValueContent& value,
 bool ArrayType::EqualElementMultiSet(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  const internal::ValueContentContainer* x_container =
-      x.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainer* y_container =
-      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* x_container =
+      x.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::ValueContentOrderedList* y_container =
+      y.GetAs<internal::ValueContentOrderedListRef*>()->value();
   std::string* reason = options.reason;
   using CountMap =
-      absl::flat_hash_map<internal::ValueContentContainerElement, int,
+      absl::flat_hash_map<internal::NullableValueContent, int,
                           MultisetValueContentContainerElementHasher,
-                          ValueContentContainerElementEq>;
+                          NullableValueContentEq>;
 
   MultisetValueContentContainerElementHasher hasher(options.float_margin,
                                                     element_type());
-  ValueContentContainerElementEq eq(options, element_type());
+  NullableValueContentEq eq(options, element_type());
   CountMap x_multiset(x_container->num_elements(), hasher, eq);
   CountMap y_multiset(y_container->num_elements(), hasher, eq);
   ABSL_DCHECK_EQ(x_container->num_elements(), y_container->num_elements());
@@ -399,15 +401,15 @@ bool ArrayType::EqualElementMultiSet(
   }
   const auto& format_options = DebugFormatValueContentOptions();
   for (const auto& p : x_multiset) {
-    const internal::ValueContentContainerElement& element = p.first;
+    const internal::NullableValueContent& element = p.first;
     auto it = y_multiset.find(element);
     if (it == y_multiset.end()) {
       if (reason) {
         absl::StrAppend(
             reason,
             absl::Substitute("Multiset element $0 of $1 is missing in $2\n",
-                             FormatValueContentContainerElement(
-                                 element, element_type(), format_options),
+                             FormatNullableValueContent(element, element_type(),
+                                                        format_options),
                              FormatValueContent(x, format_options),
                              FormatValueContent(y, format_options)));
       }
@@ -420,8 +422,8 @@ bool ArrayType::EqualElementMultiSet(
             absl::Substitute(
                 "Number of occurrences of multiset element $0 is $1 and $2 "
                 "respectively in multisets $3 and $4\n",
-                FormatValueContentContainerElement(element, element_type(),
-                                                   format_options),
+                FormatNullableValueContent(element, element_type(),
+                                           format_options),
                 p.second, it->second, FormatValueContent(x, format_options),
                 FormatValueContent(y, format_options)));
       }
@@ -434,13 +436,13 @@ bool ArrayType::EqualElementMultiSet(
   if (reason) {
     // There exists an element in y that's missing from x. Report it.
     for (const auto& p : y_multiset) {
-      const internal::ValueContentContainerElement& element = p.first;
+      const internal::NullableValueContent& element = p.first;
       if (x_multiset.find(element) == x_multiset.end()) {
         absl::StrAppend(
             reason,
             absl::Substitute("Multiset element $0 of $1 is missing in $2\n",
-                             FormatValueContentContainerElement(
-                                 element, element_type(), format_options),
+                             FormatNullableValueContent(element, element_type(),
+                                                        format_options),
                              FormatValueContent(y, format_options),
                              FormatValueContent(x, format_options)));
       }
@@ -453,10 +455,10 @@ bool ArrayType::EqualElementMultiSet(
 bool ArrayType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  const internal::ValueContentContainer* x_container =
-      x.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainer* y_container =
-      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* x_container =
+      x.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::ValueContentOrderedList* y_container =
+      y.GetAs<internal::ValueContentOrderedListRef*>()->value();
   if (x_container->num_elements() != y_container->num_elements()) {
     if (options.reason) {
       const auto& format_options = DebugFormatValueContentOptions();
@@ -484,7 +486,7 @@ bool ArrayType::ValueContentEquals(
     }
   }
 
-  ValueContentContainerElementEq eq(*element_options, element_type());
+  NullableValueContentEq eq(*element_options, element_type());
   for (int i = 0; i < x_container->num_elements(); i++) {
     if (!eq(x_container->element(i), y_container->element(i))) {
       return false;
@@ -495,16 +497,16 @@ bool ArrayType::ValueContentEquals(
 
 bool ArrayType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  const internal::ValueContentContainer* x_container =
-      x.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainer* y_container =
-      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* x_container =
+      x.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::ValueContentOrderedList* y_container =
+      y.GetAs<internal::ValueContentOrderedListRef*>()->value();
   const Type* x_element_type = element_type();
   const Type* y_element_type = other_type->AsArray()->element_type();
   for (int i = 0;
        i < std::min(x_container->num_elements(), y_container->num_elements());
        ++i) {
-    const std::optional<bool> is_less = ValueContentContainerElementLess(
+    const std::optional<bool> is_less = NullableValueContentLess(
         x_container->element(i), y_container->element(i), x_element_type,
         y_element_type);
     if (is_less.has_value()) return *is_less;
@@ -532,10 +534,10 @@ std::string ArrayType::GetFormatPrefix(
   std::string prefix;
   switch (options.mode) {
     case Type::FormatValueContentOptions::Mode::kDebug: {
-      const internal::ValueContentContainerRef* container_ref =
-          value_content.GetAs<internal::ValueContentContainerRef*>();
+      const internal::ValueContentOrderedListRef* container_ref =
+          value_content.GetAs<internal::ValueContentOrderedListRef*>();
       if (options.verbose) {
-        const internal::ValueContentContainer* container =
+        const internal::ValueContentOrderedList* container =
             container_ref->value();
         if (container->num_elements() == 0) {
           prefix.append(CapitalizedName());

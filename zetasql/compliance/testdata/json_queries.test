@@ -466,14 +466,6 @@ SELECT JSON_OBJECT();
 --
 ARRAY<STRUCT<JSON>>[{{}}]
 ==
-[name=json_object_odd_num_args]
-[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
-SELECT JSON_OBJECT("a", 10, "b");
---
-ERROR: generic::invalid_argument: No matching signature for function JSON_OBJECT for argument types: STRING, INT64, STRING. Supported signatures: JSON_OBJECT([STRING, ...], [ANY, ...]); JSON_OBJECT(ARRAY<STRING>, ARRAY) [at 1:8]
-SELECT JSON_OBJECT("a", 10, "b");
-       ^
-==
 [name=json_object_basic]
 [required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
 SELECT JSON_OBJECT("a", "foo", "b", true, "c", NULL);
@@ -548,14 +540,6 @@ ARRAY<STRUCT<JSON>>[
   }
 ]
 ==
-[name=json_remove_no_jsonpath]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]')
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_REMOVE. Supported signature: JSON_REMOVE(JSON, STRING, [STRING, ...]) [at 1:8]
-SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]')
-       ^
-==
 [name=json_remove_null_jsonpath]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', NULL)
@@ -580,30 +564,6 @@ SELECT JSON_REMOVE(JSON '[{"a": [10]}, null, {"b": 20, "c": "foo"}]', "$[1]", "$
 --
 ARRAY<STRUCT<JSON>>[{[{"a":[]},{"b":20}]}]
 ==
-[name=json_set_no_update]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_SET(JSON '{"a": 10}')
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [create_if_missing => BOOL]) [at 1:8]
-SELECT JSON_SET(JSON '{"a": 10}')
-       ^
-==
-[name=json_set_no_value]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_SET(JSON '{"a": 10}', "$.a")
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_SET. Supported signature: JSON_SET(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [create_if_missing => BOOL]) [at 1:8]
-SELECT JSON_SET(JSON '{"a": 10}', "$.a")
-       ^
-==
-[name=json_set_no_second_value]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
---
-ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "create_if_missing" only [at 1:46]
-SELECT JSON_SET(JSON '{"a": 10}', "$.a", 20, "$.b")
-                                             ^
-==
 [name=json_set_one_value]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
 SELECT JSON_SET(JSON '{"a": 10}', "$.b.c", "foo")
@@ -621,14 +581,6 @@ ARRAY<STRUCT<JSON>>[{{"a":10,"b":{"c":[{"a":1,"b":"foo"},null,"foo"]}}}]
 SELECT JSON_SET(JSON '{"a": 10}', "$.a", "foo", "$.b", 20, create_if_missing=>false)
 --
 ARRAY<STRUCT<JSON>>[{{"a":"foo"}}]
-==
-[name=json_strip_nulls_include_arrays_error]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', false, false)
---
-ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "include_arrays" only [at 1:50]
-SELECT JSON_STRIP_NULLS(JSON '{"a": 10}', false, false)
-                                                 ^
 ==
 [name=json_strip_nulls_named_value_error]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
@@ -661,30 +613,6 @@ ARRAY<STRUCT<JSON>>[{{"a":[null]}}]
 SELECT JSON_STRIP_NULLS(JSON '{"a": [null, [], {}], "b":{}}', "$.a", include_arrays=>true, remove_empty=>false)
 --
 ARRAY<STRUCT<JSON>>[{{"a":[[],{}],"b":{}}}]
-==
-[name=json_array_insert_zero_element]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}')
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_ARRAY_INSERT. Supported signature: JSON_ARRAY_INSERT(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [insert_each_element => BOOL]) [at 1:8]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}')
-       ^
-==
-[name=json_array_insert_zero_element_with_optional]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}', insert_each_element=>true)
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_ARRAY_INSERT. Supported signature: JSON_ARRAY_INSERT(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [insert_each_element => BOOL]) [at 1:8]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}', insert_each_element=>true)
-       ^
-==
-[name=json_array_insert_incorrect_number_of_args]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}', "$.a", 10, "$.b")
---
-ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "insert_each_element" only [at 1:63]
-SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}', "$.a", 10, "$.b")
-                                                              ^
 ==
 [name=json_array_insert_incorrect_number_of_args_with_optional]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
@@ -723,30 +651,6 @@ ARRAY<STRUCT<JSON>>[{{"a":[10,[true,false],null]}}]
 SELECT JSON_ARRAY_INSERT(JSON '{"a": [10, null]}', "$.a[1]", [10], "$.a[1][5]", true, "$.a[3]", "foo", insert_each_element=>false)
 --
 ARRAY<STRUCT<JSON>>[{{"a":[10,[10,null,null,null,null,true],null,"foo"]}}]
-==
-[name=json_array_append_zero_element]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}')
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_ARRAY_APPEND. Supported signature: JSON_ARRAY_APPEND(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [append_each_element => BOOL]) [at 1:8]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}')
-       ^
-==
-[name=json_array_append_zero_element_with_optional]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}', append_each_element=>true)
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_ARRAY_APPEND. Supported signature: JSON_ARRAY_APPEND(JSON, STRING, ANY, [STRING, ...], [ANY, ...], [append_each_element => BOOL]) [at 1:8]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}', append_each_element=>true)
-       ^
-==
-[name=json_array_append_incorrect_number_of_args]
-[required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}', "$.a", 10, "$.b")
---
-ERROR: generic::invalid_argument: Positional argument is invalid because this function restricts that this argument is referred to by name "append_each_element" only [at 1:63]
-SELECT JSON_ARRAY_APPEND(JSON '{"a": [10, null]}', "$.a", 10, "$.b")
-                                                              ^
 ==
 [name=json_array_append_incorrect_number_of_args_with_optional]
 [required_features=JSON_TYPE,JSON_MUTATOR_FUNCTIONS,NAMED_ARGUMENTS]
@@ -867,4 +771,57 @@ ERROR: generic::out_of_range: JSONPath must start with zero or more unique modif
 SELECT JSON_QUERY(JSON '{"a":1}', "lax $.a.b")
 --
 ERROR: generic::out_of_range: JSONPath must start with '$'
-
+==
+[name=json_keys_basic]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION]
+SELECT JSON_KEYS(JSON '{"a":{"b":1}}')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "a.b"]}]
+==
+[name=json_keys_basic_with_max_depth]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION]
+SELECT JSON_KEYS(JSON '{"a":{"b":1}}', 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["a"]}]
+==
+[name=json_keys_basic_with_max_depth_and_strict_mode]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[{"a":{"b":1}}]', 1, mode => "Strict")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[]}]
+==
+[name=json_keys_basic_with_max_depth_and_lax_mode]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[{"a":{"b":1}}]', 1, mode => "Lax")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["a"]}]
+==
+[name=json_keys_basic_with_max_depth_and_lax_recursive_mode]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[[{"a":{"b":1}}]]', 1, mode => "lax Recursive")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["a"]}]
+==
+[name=json_keys_basic_with_max_depth_and_invalid_mode]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[[{"a":{"b":1}}]]', 1, mode => "invalid")
+--
+ERROR: generic::out_of_range: Invalid JSON mode specified
+==
+[name=json_keys_basic_with_invalid_depth_and_mode]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[[{"a":{"b":1}}]]', -1, mode => "invalid")
+--
+ERROR: generic::out_of_range: max_depth must be positive.
+==
+[name=json_keys_basic_with_mode_constant_expression]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '[{"a":[{"b":1}]}]', mode => Trim(" lax"))
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "a.b"]}]
+==
+[name=json_keys_basic_with_non_const_depth]
+[required_features=JSON_TYPE,JSON_KEYS_FUNCTION]
+SELECT JSON_KEYS(JSON '{"a":{"b":1}}', ABS(2))
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[known order:"a", "a.b"]}]

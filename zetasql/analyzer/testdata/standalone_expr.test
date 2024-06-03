@@ -1374,15 +1374,15 @@ TestConstant64
 ==
 
 [language_features=V_1_3_WITH_GROUP_ROWS]
-sum(x) with group_rows(select x from group_rows())
+sum(x) with group rows(select x from group_rows())
 --
 ERROR: Aggregate function SUM not allowed in standalone expression [at 1:1]
-sum(x) with group_rows(select x from group_rows())
+sum(x) with group rows(select x from group_rows())
 ^
 ==
 
 [language_features=V_1_3_WITH_GROUP_ROWS]
-(select sum(x) with group_rows(select x from group_rows()) from (select 1 x))
+(select sum(x) with group rows(select x from group_rows()) from (select 1 x))
 --
 SubqueryExpr
 +-parse_location=0-77

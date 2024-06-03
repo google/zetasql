@@ -24,8 +24,6 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
-using Location = ParseLocationRange;
-
 // Represents one token in the unexpanded input stream. 'Kind' is the Flex token
 // kind, e.g. STRING_LITERAL, IDENTIFIER, KW_SELECT.
 // Offsets and 'text' refer to the token *without* any whitespaces, consistent
@@ -35,12 +33,32 @@ using Location = ParseLocationRange;
 // spacing.
 struct TokenWithLocation {
   int kind;
-  Location location;
+  ParseLocationRange location;
   absl::string_view text;
   absl::string_view preceding_whitespaces;
 
+  // TEMPORARY FIELD: Please do not use as it will be removed shortly.
+  //
+  // Location offsets must be valid for the source they refer to.
+  // Currently, the parser & analyzer only have the unexpanded source, so we
+  // use the unexpanded offset.
+  // In the future, the resolver should show the expanded location and where
+  // it was expanded from. The expander would have the full location map and
+  // the sources of macro definitions as well, so we would not need this
+  // adjustment nor the `topmost_invocation_location` at all, since the
+  // expander will be able to provide the stack. All layers, however, will need
+  // to ask for that mapping.
+  ParseLocationRange topmost_invocation_location;
+
   int start_offset() const { return location.start().GetByteOffset(); }
   int end_offset() const { return location.end().GetByteOffset(); }
+
+  // Returns whether `other` and `this` are adjacent tokens (no spaces in
+  // between) and `this` precedes `other`.
+  //
+  // If the location of either token is invalid, i.e. with one end smaller than
+  // 0, the function call returns false.
+  bool AdjacentlyPrecedes(const TokenWithLocation& other) const;
 };
 
 }  // namespace macros

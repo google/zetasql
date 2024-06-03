@@ -19,7 +19,7 @@ QueryStatement [0-42]
           PathExpression [37-42]
             Identifier(table) [37-42]
 --
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 FROM
   table
@@ -44,7 +44,7 @@ QueryStatement [0-52]
           PathExpression [47-52]
             Identifier(table) [47-52]
 --
-SELECT WITH anonymization OPTIONS()
+SELECT WITH anonymization OPTIONS() ALL
   sum()
 FROM
   table
@@ -72,7 +72,7 @@ QueryStatement [0-63]
           PathExpression [58-63]
             Identifier(table) [58-63]
 --
-SELECT WITH anonymization OPTIONS(epsilon = 1)
+SELECT WITH anonymization OPTIONS(epsilon = 1) ALL
   sum()
 FROM
   table
@@ -104,7 +104,7 @@ QueryStatement [0-81]
           PathExpression [76-81]
             Identifier(table) [76-81]
 --
-SELECT WITH anonymization OPTIONS(epsilon = 1, k_threshold = 50)
+SELECT WITH anonymization OPTIONS(epsilon = 1, k_threshold = 50) ALL
   sum()
 FROM
   table
@@ -139,7 +139,7 @@ SELECT
   *
 FROM
   (
-    SELECT WITH anonymization
+    SELECT WITH anonymization ALL
       sum()
     FROM
       table
@@ -210,7 +210,7 @@ QueryStatement [0-31]
             PathExpression [26-29]
               Identifier(sum) [26-29]
 --
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 ==
 
@@ -232,7 +232,7 @@ QueryStatement [0-43]
           PathExpression [38-43]
             Identifier(table) [38-43]
 --
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 FROM
   table
@@ -260,7 +260,7 @@ CreateTableStatement [0-63]
             Identifier(table) [58-63]
 --
 CREATE TABLE name AS
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 FROM
   table
@@ -286,7 +286,7 @@ ExportDataStatement [0-57]
             Identifier(table) [52-57]
 --
 EXPORT DATA AS
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 FROM
   table
@@ -315,7 +315,7 @@ InsertStatement [0-56]
             Identifier(table) [51-56]
 --
 INSERT INTO t
-SELECT WITH anonymization
+SELECT WITH anonymization ALL
   sum()
 FROM
   table
@@ -397,7 +397,7 @@ QueryStatement [0-177]
         PathExpression [172-173]
           Identifier(x) [172-173]
 --
-SELECT WITH ANONYMIZATION OPTIONS(epsilon = 1e20, k_threshold = 1, kappa = 3)
+SELECT WITH ANONYMIZATION OPTIONS(epsilon = 1e20, k_threshold = 1, kappa = 3) ALL
   x,
   ANON_COUNT(*)
 FROM

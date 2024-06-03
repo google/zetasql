@@ -17,6 +17,7 @@
 #include "zetasql/testing/test_function.h"
 
 #include <iosfwd>
+#include <iterator>
 #include <ostream>
 #include <set>
 #include <string>
@@ -42,19 +43,23 @@ namespace zetasql {
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, absl::Status status)
-    : params_(ValueConstructor::ToValues(arguments)), result_(result, status) {}
+    : params_(ValueConstructor::ToValues(arguments)),
+      ordinal_param_size_(arguments.size()),
+      result_(result, status) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
     absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, FloatMargin float_margin_arg,
     absl::Status status)
     : params_(ValueConstructor::ToValues(arguments)),
+      ordinal_param_size_(arguments.size()),
       result_(result, status, float_margin_arg) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, absl::string_view error_substring)
     : params_(ValueConstructor::ToValues(arguments)),
+      ordinal_param_size_(arguments.size()),
       result_(result,
               error_substring.empty()
                   ? absl::OkStatus()
@@ -64,15 +69,54 @@ QueryParamsWithResult::QueryParamsWithResult(
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, absl::StatusCode code)
-    : params_(ValueConstructor::ToValues(arguments)), result_(result, code) {}
+    : params_(ValueConstructor::ToValues(arguments)),
+      ordinal_param_size_(arguments.size()),
+      result_(result, code) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& params,
+    absl::Span<const ValueConstructor> params,
     absl::StatusOr<Value> status_or_result, const Type* output_type)
     : params_(ValueConstructor::ToValues(params)),
+      ordinal_param_size_(params.size()),
       result_(status_or_result.ok() ? status_or_result.value()
                                     : Value::Null(output_type),
               status_or_result.status()) {}
+
+QueryParamsWithResult& QueryParamsWithResult::SetOrdinalArguments(
+    absl::Span<const ValueConstructor> ordinal_args) {
+  std::vector<Value> new_params;
+  new_params.reserve(ordinal_args.size() + named_value_params_.size());
+  // Ordinal parameters are always placed before named-value args. This is
+  // an invariant of ZetaSQL function signatures.
+  new_params = ValueConstructor::ToValues(ordinal_args);
+  // Copy named-value params after ordinal params are inserted.
+  new_params.insert(
+      new_params.end(),
+      std::make_move_iterator(named_value_params_values().begin()),
+      std::make_move_iterator(named_value_params_values().end()));
+  ordinal_param_size_ = ordinal_args.size();
+  params_ = std::move(new_params);
+  return *this;
+}
+
+QueryParamsWithResult& QueryParamsWithResult::SetNamedValueArguments(
+    absl::Span<const NamedValueConstructor> named_value_constructor_params) {
+  std::vector<Value> new_params;
+  new_params.reserve(ordinal_param_size_ +
+                     named_value_constructor_params.size());
+  // Copy ordinal params.
+  new_params.insert(new_params.end(),
+                    std::make_move_iterator(ordinal_params().begin()),
+                    std::make_move_iterator(ordinal_params().end()));
+  // Add named-value arguments.
+  named_value_params_.clear();
+  for (const auto& [key, value] : named_value_constructor_params) {
+    named_value_params_.push_back(std::string(key));
+    new_params.push_back(value.get());
+  }
+  params_ = std::move(new_params);
+  return *this;
+}
 
 QueryParamsWithResult::Result::Result(const ValueConstructor& result_in)
     : result(result_in.get()), status() {}
@@ -190,9 +234,8 @@ std::ostream& operator<<(std::ostream& out,
 }
 
 std::ostream& operator<<(std::ostream& out, const FunctionTestCall& f) {
-  return out
-      << "FunctionTestCall[function_name: " << f.function_name
-      << ", params: " << f.params << "]";
+  return out << "FunctionTestCall[function_name: " << f.function_name
+             << ", params: " << f.params << "]";
 }
 
 std::ostream& operator<<(std::ostream& out, const QueryParamsWithResult& p) {
@@ -213,6 +256,5 @@ std::ostream& operator<<(std::ostream& out, const QueryParamsWithResult& p) {
       << "]";
   return out;
 }
-
 
 }  // namespace zetasql

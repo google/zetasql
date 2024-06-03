@@ -19,94 +19,18 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
+#include "zetasql/public/collator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
-#include "absl/status/status.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
-absl::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
-  switch (type->kind()) {
-    case TYPE_INT32:
-    case TYPE_INT64:
-    case TYPE_UINT32:
-    case TYPE_UINT64:
-    case TYPE_BOOL:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_NUMERIC:
-    case TYPE_BIGNUMERIC:
-    case TYPE_STRING:
-    case TYPE_BYTES:
-    case TYPE_DATE:
-    case TYPE_TIMESTAMP:
-    case TYPE_TIME:
-    case TYPE_DATETIME:
-    case TYPE_INTERVAL:
-    case TYPE_ENUM:
-    case TYPE_PROTO:
-    case TYPE_STRUCT:
-    case TYPE_ARRAY:
-    case TYPE_RANGE:
-      return absl::OkStatus();
-    case TYPE_GEOGRAPHY:
-    case TYPE_JSON:
-    case TYPE_UNKNOWN:
-    default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "No equality comparison for type " << type->DebugString();
-  }
-}
-
-absl::Status ValidateTypeSupportsOrderComparison(const Type* type) {
-  switch (type->kind()) {
-    case TYPE_INT32:
-    case TYPE_INT64:
-    case TYPE_UINT32:
-    case TYPE_UINT64:
-    case TYPE_BOOL:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_NUMERIC:
-    case TYPE_BIGNUMERIC:
-    case TYPE_STRING:
-    case TYPE_BYTES:
-    case TYPE_DATE:
-    case TYPE_TIMESTAMP:
-    case TYPE_TIME:
-    case TYPE_DATETIME:
-    case TYPE_INTERVAL:
-    case TYPE_ENUM:
-      return absl::OkStatus();
-    case TYPE_RANGE:
-      ZETASQL_RET_CHECK_OK(
-          ValidateTypeSupportsOrderComparison(type->AsRange()->element_type()))
-          << "Range element type must be orderable";
-      return absl::OkStatus();
-    case TYPE_ARRAY: {
-      const ArrayType* array_type = type->AsArray();
-      if (ValidateTypeSupportsOrderComparison(
-              array_type->element_type()).ok()) {
-        return absl::OkStatus();
-      }
-    }
-    ABSL_FALLTHROUGH_INTENDED;
-    case TYPE_GEOGRAPHY:
-    case TYPE_PROTO:
-    case TYPE_STRUCT:
-    case TYPE_JSON:
-    case TYPE_UNKNOWN:
-    default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "No order comparison for type " << type->DebugString();
-  }
-}
 
 absl::StatusOr<std::string>
 GetCollationNameFromResolvedCollation(

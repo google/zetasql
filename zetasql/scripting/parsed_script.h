@@ -21,30 +21,41 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
+#include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "zetasql/base/case.h"
-#include "absl/base/macros.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/status.h"
+#include "absl/strings/string_view.h"
 
 // Flag which controls the maximum supported nesting of script statements within
 // a ZetaSQL script.
 ABSL_DECLARE_FLAG(int, zetasql_scripting_max_nesting_level);
 
 namespace zetasql {
+
+struct ParsedScriptOptions {
+  // Script variables declared before the script starts. For example, when a
+  // script runs as part of a session, the script will inherit the session
+  // variables.
+  VariableWithTypeParameterMap predefined_variables = {};
+  // System variables that are allowed to be assigned before DECLARE statements.
+  std::vector<std::string> system_variables_allowed_before_declare = {};
+};
 
 class ParsedScript {
  public:
@@ -92,12 +103,10 @@ class ParsedScript {
   //    executes.
   //
   // All results are stored in the returned ParsedScript object.
-  // predefined_variable_names refers to the predfined variables for script,
-  // default to none.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> Create(
       absl::string_view script_string, const ParserOptions& parser_options,
       ErrorMessageMode error_message_mode,
-      const VariableWithTypeParameterMap& predefined_variable_names = {});
+      const ParsedScriptOptions& options = {});
 
   // Similar to the above function, but uses an existing, externally-owned
   // AST instead of parsing the script.  <ast_script> must be kept alive for
@@ -105,14 +114,14 @@ class ParsedScript {
   static absl::StatusOr<std::unique_ptr<ParsedScript>> Create(
       absl::string_view script_string, const ASTScript* ast_script,
       ErrorMessageMode error_message_mode,
-      const VariableWithTypeParameterMap& predefined_variable_names = {});
+      const ParsedScriptOptions& options = {});
 
   // Similar to above function, but also passes arguments for a routine, i.e. a
   // function or stored procedure whose body is a script.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateForRoutine(
       absl::string_view script_string, const ParserOptions& parser_options,
       ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-      const VariableWithTypeParameterMap& predefined_variable_names = {});
+      const ParsedScriptOptions& options = {});
 
   // Similar to the above functions, but allows the caller to provide an AST
   // node when the script is contained with a larger script, for example,
@@ -120,7 +129,7 @@ class ParsedScript {
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateForRoutine(
       absl::string_view script_string, const ASTScript* ast_script,
       ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-      const VariableWithTypeParameterMap& predefined_variable_names = {});
+      const ParsedScriptOptions& options = {});
 
   const ASTScript* script() const { return ast_script_; }
   absl::string_view script_text() const { return script_string_; }
@@ -160,16 +169,11 @@ class ParsedScript {
 
   bool IsProcedure() const { return is_procedure_; }
 
-  const VariableWithTypeParameterMap& GetPredefinedVariables() const {
-    return predefined_variable_names_;
-  }
-
  private:
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateInternal(
       absl::string_view script_string, const ParserOptions& parser_options,
       ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-      bool is_procedure,
-      const VariableWithTypeParameterMap& predefined_variable_names);
+      bool is_procedure, const ParsedScriptOptions& options);
 
   // script_string: The string of the entire script for which parse locations
   //   within <ast_script> are based off of. Owned externally.
@@ -190,17 +194,18 @@ class ParsedScript {
   ParsedScript(absl::string_view script_string, const ASTScript* ast_script,
                std::unique_ptr<ParserOutput> parser_output,
                ErrorMessageMode error_message_mode,
-               ArgumentTypeMap routine_arguments, bool is_procedure,
-               const VariableWithTypeParameterMap& predefined_variable_names);
+               ArgumentTypeMap routine_arguments, bool is_procedure);
 
   // Called from Create() to walk the parse tree and perform non-trivial work
   // to initialize fields.
-  absl::Status GatherInformationAndRunChecks();
+  absl::Status GatherInformationAndRunChecks(
+      const ParsedScriptOptions& options);
 
   // Helper function called by GatherInformationAndRunChecks().  Returns errors
   // with an InternalErrorLocation, which the caller then converts to an
   // external ErrorLocation.
-  absl::Status GatherInformationAndRunChecksInternal();
+  absl::Status GatherInformationAndRunChecksInternal(
+      const ParsedScriptOptions& options);
 
   // Populates <named_query_parameters_> and <positional_query_parameters_> with
   // parameter locations. Returns an error if both positional and named query
@@ -234,9 +239,6 @@ class ParsedScript {
   std::unique_ptr<const ControlFlowGraph> control_flow_graph_;
 
   bool is_procedure_;
-
-  // Predefined variables before the script run.
-  const VariableWithTypeParameterMap& predefined_variable_names_;
 };
 
 }  // namespace zetasql

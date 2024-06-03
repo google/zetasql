@@ -50,8 +50,10 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/status_builder.h"  
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 
@@ -175,7 +177,8 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
 static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     const LanguageOptions& language_options, ParseLocationPoint& error_location,
     absl::string_view bison_error_message, BisonParserMode mode,
-    absl::string_view input, int start_offset) {
+    absl::string_view input, int start_offset,
+    const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
   // Bison error messages are always of the form "syntax error, unexpected X,
   // expecting Y", where Y may be of the form "A" or "A or B" or "A or B or C".
   // It will use $end to indicate "end of input". We don't want to have the text
@@ -200,6 +203,13 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     if ((expectation.size() == 1 && !isalpha(expectation[0])) ||
         expectation == "+=" || expectation == "-=") {
       expectation = absl::StrCat("\"", expectation, "\"");
+    }
+
+    // The only time we ever see MACRO_BODY_TOKEN in the expected set is when
+    // the macro name is missing in a definition. For a better error message,
+    // just replace it with "macro name".
+    if (expectation == "MACRO_BODY_TOKEN") {
+      expectation = "macro name";
     }
 
     // We use some special tokens for lexical disambiguation. The labels we
@@ -248,6 +258,20 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // This is usually a bad suggestion anyway.
   expectations_set.erase("keyword FROM");
 
+  // Avoid suggesting OR everywhere an expression might show up.
+  // OR is generally the lowest precedence operator and it appears separate in
+  // the highest rule for `expression` in the grammar, whereas other operators
+  // are grouped in a more specific rule, such as
+  // `expression_with_prec_higher_than_and`. Consequently, when an unexpected
+  // token is encountered after an `expression`, the expected set is a lot
+  // smaller because all other operators are in more specific rules. In several
+  // instances, the expected set is small enough so bison displays it, and OR
+  // shows up (since an `expression` can continue with OR to form a larger
+  // `expression`). However, there is nothing special about it to single it out
+  // and suggest the user continue their expression with an OR any time there is
+  // some syntax error.
+  expectations_set.erase("keyword OR");
+
   // Removes the "+=" and "-=" from the expectations set if the language feature
   // is not enabled.
   if (!language_options.LanguageFeatureEnabled(
@@ -264,9 +288,11 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // start the tokenizer in kTokenizer mode because we don't need to get a bogus
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
-  auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
-      BisonParserMode::kTokenizerPreserveComments, error_location.filename(),
-      input, start_offset, language_options);
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto tokenizer,
+      DisambiguatorLexer::Create(BisonParserMode::kTokenizerPreserveComments,
+                                 error_location.filename(), input, start_offset,
+                                 language_options, macro_catalog, arena));
   ParseLocationRange token_location;
   int token = -1;
   while (token != 0) {
@@ -376,16 +402,15 @@ static absl::Status ParseWithBison(
     ASTNode*& output_node, std::string& error_message,
     ParseLocationPoint& error_location,
     ASTStatementProperties* ast_statement_properties,
-    bool& move_error_location_past_whitespace, int* statement_end_byte_offset,
-    bool& format_error, int64_t& out_num_lexical_tokens) {
+    int* statement_end_byte_offset, bool& format_error,
+    int64_t& out_num_lexical_tokens) {
   ZETASQL_ASSIGN_OR_RETURN(auto tokenizer, DisambiguatorLexer::Create(
                                        mode, filename, input, start_byte_offset,
                                        language_options, macro_catalog, arena));
 
   zetasql_bison_parser::BisonParserImpl bison_parser_impl(
       tokenizer.get(), parser, &output_node, ast_statement_properties,
-      &error_message, &error_location, &move_error_location_past_whitespace,
-      statement_end_byte_offset);
+      &error_message, &error_location, statement_end_byte_offset);
 
   const int parse_status_code = bison_parser_impl.parse();
   out_num_lexical_tokens = tokenizer->num_lexical_tokens();
@@ -458,8 +483,12 @@ absl::Status BisonParser::Parse(
       mode, filename, input, start_byte_offset, id_string_pool, arena,
       language_options, macro_catalog, output, other_allocated_ast_nodes,
       ast_statement_properties, statement_end_byte_offset);
-  if (!status.ok() && absl::GetFlag(FLAGS_zetasql_parser_strip_errors)) {
-    return absl::InvalidArgumentError("Syntax error");
+  if (!status.ok()) {
+    if (absl::StartsWith(status.message(), "Internal Error: ")) {
+      status = zetasql_base::StatusBuilder(status).SetCode(absl::StatusCode::kInternal);
+    } else if (absl::GetFlag(FLAGS_zetasql_parser_strip_errors)) {
+      return absl::InvalidArgumentError("Syntax error");
+    }
   }
   return status;
 }
@@ -495,7 +524,6 @@ absl::Status BisonParser::ParseInternal(
   ASTNode* output_node = nullptr;
   std::string error_message;
   ParseLocationPoint error_location;
-  bool move_error_location_past_whitespace = false;
   bool format_error = false;
 
   ZETASQL_RET_CHECK(parser_runtime_info_ != nullptr);
@@ -506,8 +534,8 @@ absl::Status BisonParser::ParseInternal(
   absl::Status parse_status = ParseWithBison(
       this, filename, input, mode, start_byte_offset, language_options,
       macro_catalog, arena, output_node, error_message, error_location,
-      ast_statement_properties, move_error_location_past_whitespace,
-      statement_end_byte_offset, format_error, num_lexical_tokens);
+      ast_statement_properties, statement_end_byte_offset, format_error,
+      num_lexical_tokens);
   parser_runtime_info_->add_lexical_tokens(num_lexical_tokens);
 
   if (parse_status.ok()) {
@@ -520,23 +548,6 @@ absl::Status BisonParser::ParseInternal(
     return parse_status;
   }
 
-  if (move_error_location_past_whitespace) {
-    // In rare cases we manually generate parse errors when tokens are
-    // missing. In those cases we typically don't have the position of the
-    // next token available, and the parser can request that the error
-    // location be moved past any whitespace onto the next token.
-    ZETASQL_ASSIGN_OR_RETURN(auto skip_whitespace_tokenizer,
-                     DisambiguatorLexer::Create(
-                         BisonParserMode::kTokenizer, filename_.ToStringView(),
-                         input_, error_location.GetByteOffset(),
-                         this->language_options(), macro_catalog, arena));
-    ParseLocationRange next_token_location;
-    int token;
-    ZETASQL_RETURN_IF_ERROR(
-        skip_whitespace_tokenizer->GetNextToken(&next_token_location, &token));
-    // Ignore the token. We only care about its starting location.
-    error_location = next_token_location.start();
-  }
   // Bison returns error messages that start with "syntax error, ". The parser
   // logic itself will return an empty error message if it wants to generate
   // a simple "Unexpected X" error.
@@ -547,7 +558,7 @@ absl::Status BisonParser::ParseInternal(
     ZETASQL_ASSIGN_OR_RETURN(error_message,
                      GenerateImprovedBisonSyntaxError(
                          language_options, error_location, error_message, mode,
-                         input_, start_byte_offset));
+                         input_, start_byte_offset, macro_catalog, arena));
   }
   return MakeSqlErrorAtPoint(error_location) << error_message;
 }

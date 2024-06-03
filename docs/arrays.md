@@ -1233,7 +1233,7 @@ consisting of pairs of elements from input arrays, taken from their
 corresponding positions. This operation is sometimes called
 [zipping][convolution].
 
-You can zip arrays with the function [`ARRAY_ZIP`]([array-zip]).
+You can zip arrays with the function [`ARRAY_ZIP`][array-zip].
 
 ## Building arrays of arrays
 
@@ -1347,6 +1347,8 @@ SELECT ARRAY(
 [flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 
 [array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
+
+[array-zip]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#array-zip
 
 <!-- mdlint on -->
 

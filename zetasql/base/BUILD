@@ -184,6 +184,7 @@ cc_library(
         ":source_location",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -411,10 +412,9 @@ cc_library(
     ],
     deps = [
         ":bits",
-        ":logging",
+        ":check",
         ":mathlimits",
         "@com_google_absl//absl/base",
-        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -424,10 +424,11 @@ cc_test(
         "mathutil_test.cc",
     ],
     deps = [
-        ":logging",
+        ":mathlimits",
         ":mathutil",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log",
     ],
 )
 
@@ -459,8 +460,8 @@ cc_library(
         "bits.h",
     ],
     deps = [
+        ":check",
         ":endian",
-        ":logging",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_googletest//:gtest",

@@ -88,54 +88,6 @@ TEST(GetErrorLocationPoint, LeftMost) {
   EXPECT_EQ(5, GetErrorLocationPoint(expr->child(1), true).GetByteOffset());
 }
 
-TEST(Errors, ReturnIf) {
-  // Dummy query that can be used to resolve all lines and columns in
-  // InternalErrorLocations in this test.
-  const std::string query = "1\n2\n3\n42345\n";
-
-  EXPECT_EQ("OK", FormatError(NoError()));
-  EXPECT_EQ("No location", FormatError(ErrorWithoutLocation()));
-  EXPECT_EQ("With location [at 4:5]",
-            FormatError(ConvertInternalErrorLocationToExternal(
-                ErrorWithLocation(), query)));
-  EXPECT_EQ("generic::not_found: Non-SQL error", FormatError(ErrorNonSQL()));
-
-  auto ReturnIfTest = [](std::function<absl::Status()> error) -> absl::Status {
-    FakeASTNode ast_location;
-    ZETASQL_RETURN_IF_ERROR(ast_location.InitFields());
-    RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
-    RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, error());
-    return absl::OkStatus();
-  };
-
-  // Now call via ReturnIfTest and see how the errors get modified to
-  // override the location.  The added location is 4,2 (the fake location of
-  // FakeASTNode)
-  absl::Status test_status = ConvertInternalErrorLocationToExternal(
-      ReturnIfTest(&ErrorWithoutLocation), query);
-  EXPECT_EQ("No location [at fake_filename:4:2]", FormatError(test_status));
-  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
-
-  test_status = ConvertInternalErrorLocationToExternal(
-      ReturnIfTest(&ErrorWithLocation), query);
-  EXPECT_EQ("With location [at fake_filename:4:2]", FormatError(test_status));
-  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
-
-  test_status =
-      ConvertInternalErrorLocationToExternal(ReturnIfTest(&ErrorNonSQL), query);
-  // This also converts the error to a SQL error, dropping the old error code.
-  EXPECT_EQ("Non-SQL error [at fake_filename:4:2]", FormatError(test_status));
-  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
-
-  test_status = ConvertInternalErrorLocationToExternal(
-      ReturnIfTest(&RetCheckError), query);
-  EXPECT_THAT(FormatError(test_status),
-              HasSubstr("ret_check_error [at fake_filename:4:2]"));
-  // TODO: This error code should be Internal. Internal error code
-  // should never be dropped.
-  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
-}
-
 TEST(Errors, LocationOverride) {
   // Dummy query that can be used to resolve all lines and columns in
   // InternalErrorLocations in this test.
@@ -152,9 +104,11 @@ TEST(Errors, LocationOverride) {
   absl::Status test_status = ConvertInternalErrorLocationToExternal(
       ReturnWithLocationOverride(RetCheckError), query);
   EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInternal));
-  EXPECT_THAT(FormatError(test_status),
-              HasSubstr("ret_check_error [zetasql.ErrorLocation] { line: 4 "
-                        "column: 2 filename: \"fake_filename\" }"));
+  EXPECT_THAT(
+      FormatError(test_status),
+      HasSubstr("ret_check_error [zetasql.ErrorLocation] { line: 4 "
+                "column: 2 filename: \"fake_filename\" "
+                "input_start_line_offset: 0 input_start_column_offset: 0 }"));
 
   ZETASQL_EXPECT_OK(ConvertInternalErrorLocationToExternal(
       ReturnWithLocationOverride(&NoError), query));
@@ -180,7 +134,8 @@ TEST(Errors, LocationOverride) {
   EXPECT_THAT(
       FormatError(test_status),
       HasSubstr("generic::not_found: Non-SQL error [zetasql.ErrorLocation] { "
-                "line: 4 column: 2 filename: \"fake_filename\" }"));
+                "line: 4 column: 2 filename: \"fake_filename\" "
+                "input_start_line_offset: 0 input_start_column_offset: 0 }"));
 }
 
 }  // namespace zetasql

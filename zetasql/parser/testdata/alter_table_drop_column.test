@@ -115,7 +115,6 @@ AlterTableStatement [0-38]
 ALTER TABLE column DROP COLUMN `union`
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-bar.baz DROP COLUMN a
 --

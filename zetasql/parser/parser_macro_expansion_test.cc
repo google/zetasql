@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "zetasql/parser/macros/macro_catalog.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/language_options.h"
@@ -25,6 +26,7 @@
 #include "zetasql/public/proto/logging.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -42,9 +44,33 @@ static LanguageOptions GetLanguageOptions() {
   return language_options;
 }
 
+static constexpr absl::string_view kTopFileName = "top_file.sql";
+
+static void RegisterMacros(absl::string_view source,
+                           MacroCatalog& macro_catalog) {
+  ParseResumeLocation location =
+      ParseResumeLocation::FromStringView(kTopFileName, source);
+  bool at_end_of_input = false;
+  while (!at_end_of_input) {
+    std::unique_ptr<ParserOutput> output;
+    ZETASQL_ASSERT_OK(ParseNextStatement(&location, ParserOptions(GetLanguageOptions()),
+                                 &output, &at_end_of_input));
+    ASSERT_TRUE(output->statement() != nullptr);
+    auto def_macro_stmt =
+        output->statement()->GetAsOrNull<ASTDefineMacroStatement>();
+    ASSERT_TRUE(def_macro_stmt != nullptr);
+    ZETASQL_ASSERT_OK(macro_catalog.RegisterMacro(
+        {.source_text = source,
+         .location = def_macro_stmt->GetParseLocationRange(),
+         .name_location = def_macro_stmt->name()->GetParseLocationRange(),
+         .body_location = def_macro_stmt->body()->GetParseLocationRange()}));
+  }
+}
+
 TEST(ParserMacroExpansionTest, ExpandsMacros) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"m", "$1 b"});
+  RegisterMacros("DEFINE MACRO m $1 b", macro_catalog);
+
   ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
 
   ParseResumeLocation resume_location =
@@ -57,21 +83,22 @@ TEST(ParserMacroExpansionTest, ExpandsMacros) {
   EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 9);
 
   EXPECT_EQ(parser_output->statement()->DebugString(),
-            R"(QueryStatement [0-macro:m:4]
-  Query [0-macro:m:4]
-    Select [0-macro:m:4]
-      SelectList [7-macro:m:4]
-        SelectColumn [7-macro:m:4]
+            R"(QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
           PathExpression [7-8]
             Identifier(ax) [7-8]
-          Alias [macro:m:3-4]
-            Identifier(b2) [macro:m:3-4]
+          Alias [8-13]
+            Identifier(b2) [8-13]
 )");
 }
 
 TEST(ParserMacroExpansionTest, RecognizesOnlyOriginalDefineMacroStatements) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"def", "DEFINE MACRO x 1"});
+  RegisterMacros("DEFINE MACRO def DEFINE MACRO x 1", macro_catalog);
+
   ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
 
   ParseResumeLocation resume_location =
@@ -99,7 +126,8 @@ TEST(ParserMacroExpansionTest, RecognizesOnlyOriginalDefineMacroStatements) {
 TEST(ParserMacroExpansionTest,
      CorrectErrorOnPartiallyGeneratedDefineMacroStatement) {
   MacroCatalog macro_catalog;
-  macro_catalog.insert({"def", "define"});
+  RegisterMacros("DEFINE MACRO def define", macro_catalog);
+
   ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
 
   ParseResumeLocation resume_location =
@@ -111,6 +139,132 @@ TEST(ParserMacroExpansionTest,
                          &at_end_of_input),
       StatusIs(_, HasSubstr("Syntax error: DEFINE MACRO statements cannot be "
                             "composed from other expansions")));
+}
+
+TEST(ParserMacroExpansionTest, DefineEmptyMacroNoSemiColon) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO empty");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 5);
+
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(DefineMacroStatement [0-18]
+  Identifier(empty) [13-18]
+  MacroBody() [18-18]
+)");
+}
+
+TEST(ParserMacroExpansionTest, DefineEmptyMacroWithSemiColon) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO empty;");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(DefineMacroStatement [0-18]
+  Identifier(empty) [13-18]
+  MacroBody() [18-18]
+)");
+}
+
+TEST(ParserMacroExpansionTest, DefineMacroWithKeywordAsName) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO limit 1");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(DefineMacroStatement [0-20]
+  Identifier(`limit`) [13-18]
+  MacroBody(1) [19-20]
+)");
+}
+
+TEST(ParserMacroExpansionTest, MacroNameCanBeQuoted) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO `limit` 1");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->runtime_info().num_lexical_tokens(), 6);
+
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(DefineMacroStatement [0-22]
+  Identifier(`limit`) [13-20]
+  MacroBody(1) [21-22]
+)");
+}
+
+TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsASymbol) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO + 1");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  EXPECT_THAT(ParseNextStatement(&resume_location, parser_options,
+                                 &parser_output, &at_end_of_input),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Syntax error: Expected macro name")));
+}
+
+TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtEof) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO      /*nothing*/  ");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  EXPECT_THAT(
+      ParseNextStatement(&resume_location, parser_options, &parser_output,
+                         &at_end_of_input),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Syntax error: Expected macro name but got end of statement")));
+}
+
+TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtSemicolon) {
+  MacroCatalog macro_catalog;
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView("DEFINE MACRO      /*nothing*/  ;");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  EXPECT_THAT(
+      ParseNextStatement(&resume_location, parser_options, &parser_output,
+                         &at_end_of_input),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Syntax error: Expected macro name but got \";\"")));
 }
 
 }  // namespace zetasql

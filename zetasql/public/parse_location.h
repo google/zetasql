@@ -19,6 +19,7 @@
 #ifndef ZETASQL_PUBLIC_PARSE_LOCATION_H_
 #define ZETASQL_PUBLIC_PARSE_LOCATION_H_
 
+#include <cstddef>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -26,6 +27,7 @@
 
 #include "zetasql/public/parse_location_range.pb.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -180,6 +182,20 @@ class ParseLocationRange {
 
   // Returns true if both start and end ParseLocationPoint are valid.
   bool IsValid() const { return start().IsValid() && end().IsValid(); }
+
+  // Identify whether `following_location` immediately follows this range
+  // with no space (white space, comment, another token) in between.
+  bool IsAdjacentlyFollowedBy(
+      const ParseLocationRange& following_location) const {
+    if (!IsValid() || !following_location.IsValid()) {
+      return false;
+    }
+    if (end().GetByteOffset() != following_location.start().GetByteOffset()) {
+      return false;
+    }
+    // Tokens must be from the same file to be adjacent.
+    return start().filename() == following_location.start().filename();
+  }
 
   // Returns the string representation of this parse location.
   std::string GetString() const {

@@ -448,7 +448,7 @@ select {{|ARRAY}} (((1+1)) union all (select 2))
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Unexpected keyword UNION [at 1:18]
+ERROR: Syntax error: Expected "," but got keyword UNION [at 1:18]
 select  (((1+1)) union all (select 2))
                  ^
 --
@@ -625,7 +625,7 @@ SELECT
 # won't go away when we fix bug 15826703.
 SELECT a, 1+((count(*) x x x))
 --
-ERROR: Syntax error: Unexpected identifier "x" [at 1:24]
+ERROR: Syntax error: Expected "," but got identifier "x" [at 1:24]
 SELECT a, 1+((count(*) x x x))
                        ^
 ==

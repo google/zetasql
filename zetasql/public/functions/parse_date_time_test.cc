@@ -1172,7 +1172,7 @@ void CheckParseTimestampResultImpl(const ParseDatetimeTest& test,
 void CheckParseTimestampResult(const ParseDatetimeTest& test,
                                const absl::Status& parse_status,
                                std::optional<int32_t> parsed_date,
-                               const std::string& test_type) {
+                               absl::string_view test_type) {
   CheckParseTimestampResultImpl(test, parse_status, parsed_date, std::nullopt,
                                 test_type);
 }

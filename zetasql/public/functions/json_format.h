@@ -22,16 +22,16 @@
 #include <cstdint>
 #include <string>
 
-#include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
@@ -78,8 +78,8 @@ void JsonFromBytes(absl::string_view value, std::string* output,
 absl::Status JsonFromTimestamp(absl::Time value, std::string* output,
                                bool quote_output_string = true);
 
-// Appends the given datetime to 'output' as an quoted ISO 8601 date-time with
-// a T separator and no timezone suffix if quote_output_string is true.
+// Appends the given datetime to 'output' as a quoted ISO 8601 date-time with
+// a T separator and no timezone suffix if qua quotedt_string is true.
 // Otherwise, returns the unquoted string.
 absl::Status JsonFromDatetime(const DatetimeValue& value, std::string* output,
                               bool quote_output_string = true);

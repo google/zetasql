@@ -140,14 +140,14 @@ select * replace (a as b) except (c)
 
 select * replace (a)
 --
-ERROR: Syntax error: Unexpected ")" [at 1:20]
+ERROR: Syntax error: Expected keyword AS but got ")" [at 1:20]
 select * replace (a)
                    ^
 ==
 
 select * replace (a b)
 --
-ERROR: Syntax error: Unexpected identifier "b" [at 1:21]
+ERROR: Syntax error: Expected keyword AS but got identifier "b" [at 1:21]
 select * replace (a b)
                     ^
 ==

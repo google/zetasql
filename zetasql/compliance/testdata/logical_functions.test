@@ -208,20 +208,6 @@ SELECT NOT false
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
-[name=logical_not_zero]
-SELECT NOT 0
---
-ERROR: generic::invalid_argument: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
-SELECT NOT 0
-       ^
-==
-[name=logical_not_one]
-SELECT NOT 1
---
-ERROR: generic::invalid_argument: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
-SELECT NOT 1
-       ^
-==
 [name=logical_not_null]
 SELECT NOT null
 --

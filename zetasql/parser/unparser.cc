@@ -89,34 +89,29 @@ void Formatter::Format(absl::string_view s) {
         // When seeing these characters, appends s directly.
         absl::StrAppend(&buffer_, s);
         break;
-      default:
-        {
-          char curr_char = s[0];
-          if (last_was_single_char_unary_) {
-            absl::StrAppend(&buffer_, s);
-          } else if (curr_char == '(') {
-            // Inserts a space if last token is a separator, otherwise regards
-            // it as a function call.
-            if (LastTokenIsSeparator()) {
-              absl::StrAppend(&buffer_, " ", s);
-            } else {
-              absl::StrAppend(&buffer_, s);
-            }
-          } else if (
-              curr_char == ')' ||
-              curr_char == '[' ||
-              curr_char == ']' ||
-              // To avoid case like "SELECT 1e10,.1e10".
-              (curr_char == '.' && last_char != ',') ||
-              curr_char == ',') {
-            // If s starts with these characters, appends s directly.
-            absl::StrAppend(&buffer_, s);
-          } else {
-            // By default, separate s from anything before with a space.
+      default: {
+        char curr_char = s[0];
+        if (last_was_single_char_unary_) {
+          absl::StrAppend(&buffer_, s);
+        } else if (curr_char == '(') {
+          // Inserts a space if last token is a separator, otherwise regards
+          // it as a function call.
+          if (LastTokenIsSeparator()) {
             absl::StrAppend(&buffer_, " ", s);
+          } else {
+            absl::StrAppend(&buffer_, s);
           }
-          break;
+        } else if (curr_char == ')' || curr_char == '[' || curr_char == ']' ||
+                   // To avoid case like "SELECT 1e10,.1e10".
+                   (curr_char == '.' && last_char != ',') || curr_char == ',') {
+          // If s starts with these characters, appends s directly.
+          absl::StrAppend(&buffer_, s);
+        } else {
+          // By default, separate s from anything before with a space.
+          absl::StrAppend(&buffer_, " ", s);
         }
+        break;
+      }
     }
   }
 
@@ -257,8 +252,8 @@ void Unparser::visitASTQueryStatement(const ASTQueryStatement* node,
   visitASTQuery(node->query(), data);
 }
 
-void Unparser::visitASTFunctionParameter(
-    const ASTFunctionParameter* node, void* data) {
+void Unparser::visitASTFunctionParameter(const ASTFunctionParameter* node,
+                                         void* data) {
   print(ASTFunctionParameter::ProcedureParameterModeToString(
       node->procedure_parameter_mode()));
   if (node->name() != nullptr) {
@@ -312,8 +307,8 @@ void Unparser::visitASTTemplatedParameterType(
   }
 }
 
-void Unparser::visitASTFunctionParameters(
-    const ASTFunctionParameters* node, void* data) {
+void Unparser::visitASTFunctionParameters(const ASTFunctionParameters* node,
+                                          void* data) {
   print("(");
   for (int i = 0; i < node->num_children(); ++i) {
     if (i > 0) {
@@ -324,14 +319,14 @@ void Unparser::visitASTFunctionParameters(
   print(")");
 }
 
-void Unparser::visitASTFunctionDeclaration(
-    const ASTFunctionDeclaration* node, void* data) {
+void Unparser::visitASTFunctionDeclaration(const ASTFunctionDeclaration* node,
+                                           void* data) {
   node->name()->Accept(this, data);
   node->parameters()->Accept(this, data);
 }
 
-void Unparser::visitASTSqlFunctionBody(
-    const ASTSqlFunctionBody* node, void* data) {
+void Unparser::visitASTSqlFunctionBody(const ASTSqlFunctionBody* node,
+                                       void* data) {
   node->expression()->Accept(this, data);
 }
 
@@ -568,8 +563,8 @@ void Unparser::visitASTAuxLoadDataPartitionsClause(
   print(")");
 }
 
-void Unparser::visitASTAuxLoadDataStatement(
-    const ASTAuxLoadDataStatement* node, void* data) {
+void Unparser::visitASTAuxLoadDataStatement(const ASTAuxLoadDataStatement* node,
+                                            void* data) {
   print("LOAD DATA");
   switch (node->insertion_mode()) {
     case ASTAuxLoadDataStatement::InsertionMode::APPEND:
@@ -625,8 +620,8 @@ void Unparser::visitASTSequenceArg(const ASTSequenceArg* node, void* data) {
   node->sequence_path()->Accept(this, data);
 }
 
-void Unparser::visitASTCreateTableStatement(
-    const ASTCreateTableStatement* node, void* data) {
+void Unparser::visitASTCreateTableStatement(const ASTCreateTableStatement* node,
+                                            void* data) {
   print(GetCreateStatementPrefix(node, "TABLE"));
   node->name()->Accept(this, data);
   if (node->table_element_list() != nullptr) {
@@ -773,8 +768,8 @@ void Unparser::visitASTForeignKeyColumnAttribute(
   node->reference()->Accept(this, data);
 }
 
-void Unparser::visitASTColumnAttributeList(
-    const ASTColumnAttributeList* node, void* data) {
+void Unparser::visitASTColumnAttributeList(const ASTColumnAttributeList* node,
+                                           void* data) {
   UnparseChildrenWithSeparator(node, data, "", /*break_line=*/false);
 }
 
@@ -788,8 +783,8 @@ void Unparser::visitASTColumnDefinition(const ASTColumnDefinition* node,
   }
 }
 
-void Unparser::visitASTCreateViewStatement(
-    const ASTCreateViewStatement* node, void* data) {
+void Unparser::visitASTCreateViewStatement(const ASTCreateViewStatement* node,
+                                           void* data) {
   print(GetCreateStatementPrefix(node, "VIEW"));
   node->name()->Accept(this, data);
   if (node->column_with_options_list() != nullptr) {
@@ -1055,8 +1050,8 @@ void Unparser::visitASTCreateRowAccessPolicyStatement(
   node->filter_using()->Accept(this, data);
 }
 
-void Unparser::visitASTExportDataStatement(
-    const ASTExportDataStatement* node, void* data) {
+void Unparser::visitASTExportDataStatement(const ASTExportDataStatement* node,
+                                           void* data) {
   print("EXPORT DATA");
   if (node->with_connection_clause() != nullptr) {
     node->with_connection_clause()->Accept(this, data);
@@ -1111,8 +1106,7 @@ void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
   node->connection_clause()->Accept(this, data);
 }
 
-void Unparser::visitASTCallStatement(
-    const ASTCallStatement* node, void* data) {
+void Unparser::visitASTCallStatement(const ASTCallStatement* node, void* data) {
   print("CALL");
   node->procedure_name()->Accept(this, data);
   print("(");
@@ -1120,8 +1114,8 @@ void Unparser::visitASTCallStatement(
   print(")");
 }
 
-void Unparser::visitASTDefineTableStatement(
-    const ASTDefineTableStatement* node, void* data) {
+void Unparser::visitASTDefineTableStatement(const ASTDefineTableStatement* node,
+                                            void* data) {
   print("DEFINE TABLE");
   node->name()->Accept(this, data);
   node->options_list()->Accept(this, data);
@@ -1169,8 +1163,8 @@ void Unparser::visitASTShowStatement(const ASTShowStatement* node, void* data) {
   }
 }
 
-void Unparser::visitASTBeginStatement(
-    const ASTBeginStatement* node, void* data) {
+void Unparser::visitASTBeginStatement(const ASTBeginStatement* node,
+                                      void* data) {
   print("BEGIN TRANSACTION");
   if (node->mode_list() != nullptr) {
     node->mode_list()->Accept(this, data);
@@ -1437,8 +1431,7 @@ void Unparser::visitASTModuleStatement(const ASTModuleStatement* node,
   }
 }
 
-void Unparser::visitASTWithClause(const ASTWithClause* node,
-                                  void* data) {
+void Unparser::visitASTWithClause(const ASTWithClause* node, void* data) {
   if (node->recursive()) {
     println("WITH RECURSIVE");
   } else {
@@ -1476,14 +1469,14 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
     for (int i = start; i < node->num_children(); ++i) {
       if (i > start) {
         if (i == start + 1) {
-            const auto& pair = node->GetSQLForOperationPair();
-            print(pair.first);
-            if (node->hint()) {
-              node->hint()->Accept(this, data);
-            }
-            print(pair.second);
+          const auto& pair = node->GetSQLForOperationPair();
+          print(pair.first);
+          if (node->hint()) {
+            node->hint()->Accept(this, data);
+          }
+          print(pair.second);
         } else {
-            print(node->GetSQLForOperation());
+          print(node->GetSQLForOperation());
         }
       }
       node->child(i)->Accept(this, data);
@@ -1524,6 +1517,11 @@ void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
   }
   if (node->distinct()) {
     print("DISTINCT");
+  } else if (node->select_with() != nullptr) {
+    // Omitting 'ALL' when the query uses `SELECT WITH kind OPTIONS()` can
+    // cause the unparser to change the meaning of the query.
+    // See: b/333428605
+    print("ALL");
   }
 
   // Visit all children except `hint`, `select_with_clause_identifier` and
@@ -1674,8 +1672,8 @@ void Unparser::visitASTUnnestExpressionWithOptAliasAndOffset(
   visitASTChildren(node, data);
 }
 
-void Unparser::visitASTTablePathExpression(
-    const ASTTablePathExpression* node, void* data) {
+void Unparser::visitASTTablePathExpression(const ASTTablePathExpression* node,
+                                           void* data) {
   visitASTChildren(node, data);
 }
 
@@ -1689,12 +1687,15 @@ void Unparser::visitASTForSystemTime(const ASTForSystemTime* node, void* data) {
   visitASTChildren(node, data);
 }
 
-void Unparser::visitASTTableSubquery(
-    const ASTTableSubquery* node, void* data) {
+void Unparser::visitASTTableSubquery(const ASTTableSubquery* node, void* data) {
   visitASTChildren(node, data);
 }
 
 void Unparser::visitASTJoin(const ASTJoin* node, void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   node->child(0)->Accept(this, data);
 
   if (node->join_type() == ASTJoin::COMMA) {
@@ -2090,8 +2091,8 @@ void Unparser::visitASTIntLiteral(const ASTIntLiteral* node, void* data) {
   UnparseLeafNode(node);
 }
 
-void Unparser::visitASTNumericLiteral(
-    const ASTNumericLiteral* node, void* data) {
+void Unparser::visitASTNumericLiteral(const ASTNumericLiteral* node,
+                                      void* data) {
   print("NUMERIC");
   node->string_literal()->Accept(this, data);
 }
@@ -2230,8 +2231,7 @@ void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
   }
 }
 
-void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node,
-                                     void* data) {
+void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node, void* data) {
   // The dot identifier actually can be self-recursive in long expressions like
   // a.b.c.d.e.f, and so needs to be protected here.
   if (!ThreadHasEnoughStack()) {
@@ -2277,8 +2277,8 @@ void Unparser::visitASTDotStar(const ASTDotStar* node, void* data) {
   print(".*");
 }
 
-void Unparser::visitASTDotStarWithModifiers(
-    const ASTDotStarWithModifiers* node, void* data) {
+void Unparser::visitASTDotStarWithModifiers(const ASTDotStarWithModifiers* node,
+                                            void* data) {
   node->expr()->Accept(this, data);
   print(".*");
   node->modifiers()->Accept(this, data);
@@ -2314,7 +2314,7 @@ void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
   PrintCloseParenIfNeeded(node);
 }
 
-void Unparser::visitASTFormatClause(const ASTFormatClause *node, void *data) {
+void Unparser::visitASTFormatClause(const ASTFormatClause* node, void* data) {
   print("FORMAT");
   node->format()->Accept(this, data);
   if (node->time_zone_expr() != nullptr) {
@@ -2520,11 +2520,14 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
       case ASTFunctionCall::RESPECT_NULLS:
         print("RESPECT NULLS");
         break;
-      // No "default:". Let the compilation fail in case an entry is added to
-      // the enum without being handled here.
+        // No "default:". Let the compilation fail in case an entry is added to
+        // the enum without being handled here.
     }
     if (node->having_modifier() != nullptr) {
       node->having_modifier()->Accept(this, data);
+    }
+    if (node->group_by() != nullptr) {
+      node->group_by()->Accept(this, data);
     }
     if (node->clamped_between_modifier() != nullptr) {
       node->clamped_between_modifier()->Accept(this, data);
@@ -2550,7 +2553,7 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
 }
 
 void Unparser::visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) {
-  print("WITH GROUP_ROWS (");
+  print("WITH GROUP ROWS (");
   {
     Formatter::Indenter indenter(&formatter_);
     node->subquery()->Accept(this, data);
@@ -2842,7 +2845,7 @@ void Unparser::visitASTFunctionCallWithGroupRows(
     const ASTFunctionCallWithGroupRows* node, void* data) {
   PrintOpenParenIfNeeded(node);
   node->function()->Accept(this, data);
-  print("WITH GROUP_ROWS (");
+  print("WITH GROUP ROWS (");
   {
     Formatter::Indenter indenter(&formatter_);
     node->subquery()->Accept(this, data);
@@ -2860,16 +2863,16 @@ void Unparser::visitASTWindowClause(const ASTWindowClause* node, void* data) {
   }
 }
 
-void Unparser::visitASTWindowDefinition(
-    const ASTWindowDefinition* node, void* data) {
+void Unparser::visitASTWindowDefinition(const ASTWindowDefinition* node,
+                                        void* data) {
   node->name()->Accept(this, data);
   print("AS (");
   node->window_spec()->Accept(this, data);
   print(")");
 }
 
-void Unparser::visitASTWindowSpecification(
-    const ASTWindowSpecification* node, void* data) {
+void Unparser::visitASTWindowSpecification(const ASTWindowSpecification* node,
+                                           void* data) {
   UnparseChildrenWithSeparator(node, data, "");
 }
 
@@ -2887,8 +2890,7 @@ void Unparser::visitASTClusterBy(const ASTClusterBy* node, void* data) {
   UnparseVectorWithSeparator(node->clustering_expressions(), data, ",");
 }
 
-void Unparser::visitASTWindowFrame(const ASTWindowFrame* node,
-                                   void* data) {
+void Unparser::visitASTWindowFrame(const ASTWindowFrame* node, void* data) {
   print(node->GetFrameUnitString());
   if (nullptr != node->end_expr()) {
     print("BETWEEN");
@@ -2900,8 +2902,8 @@ void Unparser::visitASTWindowFrame(const ASTWindowFrame* node,
   }
 }
 
-void Unparser::visitASTWindowFrameExpr(
-    const ASTWindowFrameExpr* node, void* data) {
+void Unparser::visitASTWindowFrameExpr(const ASTWindowFrameExpr* node,
+                                       void* data) {
   switch (node->boundary_type()) {
     case ASTWindowFrameExpr::UNBOUNDED_PRECEDING:
     case ASTWindowFrameExpr::CURRENT_ROW:
@@ -3461,7 +3463,7 @@ void Unparser::visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) {
   }
 }
 
-void Unparser::visitASTWithWeight(const ASTWithWeight* node, void *data) {
+void Unparser::visitASTWithWeight(const ASTWithWeight* node, void* data) {
   print("WITH WEIGHT");
   visitASTChildren(node, data);
 }
@@ -3517,8 +3519,8 @@ void Unparser::visitASTAlterDatabaseStatement(
   VisitAlterStatementBase(node, data);
 }
 
-void Unparser::visitASTAlterSchemaStatement(
-    const ASTAlterSchemaStatement* node, void* data) {
+void Unparser::visitASTAlterSchemaStatement(const ASTAlterSchemaStatement* node,
+                                            void* data) {
   print("ALTER SCHEMA");
   VisitAlterStatementBase(node, data);
 }
@@ -3901,8 +3903,7 @@ void Unparser::visitASTWhenThenClauseList(const ASTWhenThenClauseList* node,
   }
 }
 
-void Unparser::visitASTCaseStatement(
-    const ASTCaseStatement* node, void* data) {
+void Unparser::visitASTCaseStatement(const ASTCaseStatement* node, void* data) {
   print("CASE");
   if (node->expression() != nullptr) {
     node->expression()->Accept(this, data);
@@ -3982,8 +3983,8 @@ void Unparser::visitASTForeignKey(const ASTForeignKey* node, void* data) {
   VisitForeignKeySpec(node, data);
 }
 
-void Unparser::visitASTForeignKeyReference(
-    const ASTForeignKeyReference* node, void* data) {
+void Unparser::visitASTForeignKeyReference(const ASTForeignKeyReference* node,
+                                           void* data) {
   print("REFERENCES");
   node->table_name()->Accept(this, data);
   node->column_list()->Accept(this, data);
@@ -3996,8 +3997,8 @@ void Unparser::visitASTForeignKeyReference(
   print("ENFORCED");
 }
 
-void Unparser::visitASTForeignKeyActions(
-    const ASTForeignKeyActions* node, void* data) {
+void Unparser::visitASTForeignKeyActions(const ASTForeignKeyActions* node,
+                                         void* data) {
   print("ON UPDATE");
   print(ASTForeignKeyActions::GetSQLForAction(node->update_action()));
   print("ON DELETE");
@@ -4056,7 +4057,7 @@ void Unparser::visitASTSystemVariableAssignment(
 }
 
 void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
-                                  void* data) {
+                                            void* data) {
   print("SET");
   print("(");
   for (const ASTIdentifier* variable : node->variables()->identifier_list()) {
@@ -4100,8 +4101,7 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
   }
 }
 
-void Unparser::visitASTUntilClause(const ASTUntilClause* node,
-                                   void* data) {
+void Unparser::visitASTUntilClause(const ASTUntilClause* node, void* data) {
   print("UNTIL");
   node->condition()->Accept(this, data);
 }
@@ -4517,6 +4517,14 @@ void Unparser::visitASTExpressionWithOptAlias(
 
 void Unparser::visitASTMacroBody(const ASTMacroBody* node, void* data) {
   UnparseLeafNode(node);
+}
+
+void Unparser::visitASTMapType(const ASTMapType* node, void* data) {
+  print("MAP<");
+  node->key_type()->Accept(this, data);
+  print(", ");
+  node->value_type()->Accept(this, data);
+  print(">");
 }
 
 }  // namespace parser

@@ -1,0 +1,315 @@
+#
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Known errors file for zetasql compliance framework when using all rewrites.
+# Add labels and queries
+# here to exclude them from compliance tests.
+
+# TODO: Fix the rewriters so that these tests pass.
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Results were in a different order than reference implementation even though both were unordered"
+  label: "unpivot_test:additional_select_1"
+  label: "unpivot_test:join"
+  label: "unpivot_test:multiple_value_columns"
+  label: "unpivot_test:multiple_value_with_mix_datatypes"
+  label: "unpivot_test:qualified_names"
+  label: "unpivot_test:subquery"
+  label: "unpivot_test:unpivot_basic"
+  label: "unpivot_test:unpivot_exclude_nulls"
+  label: "unpivot_test:unpivot_include_nulls"
+  label: "unnest_multiway_test:multiway_unnest_empty_literal_arrays_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_empty_literal_arrays_pad_mode"
+  label: "unnest_multiway_test:multiway_unnest_one_null_array_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_one_null_array_pad_mode"
+  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_pad_mode"
+  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_pad_mode"
+  label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_truncate_mode"
+  label: "unnest_multiway_test:multiway_unnest_unequal_literal_arrays_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_unequal_literal_arrays_pad_mode"
+}
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "ERROR: generic::internal: ZETASQL_RET_CHECK failure (zetasql/analyzer/rewriters/insert_dml_values_rewriter.cc:61) column->HasDefaultExpression() No default expression exists for the column specified with DEFAULT keyword in insert dml"
+  label: "dml_value_table_test:int64_insert_default"
+  label: "dml_value_table_test:proto_insert_default"
+  label: "dml_value_table_test:struct_insert_default"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "Wrong bounds"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_star_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_count_star_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_count_unique_users_with_report_json_with_thresholding"
+  label: "anonymization_test:anonymization_count_unique_users_with_report_json_without_thresholding"
+  label: "anonymization_test:anonymization_count_unique_users_with_report_proto_with_thresholding"
+  label: "anonymization_test:anonymization_count_unique_users_with_report_proto_without_thresholding"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "INVALID_ARGUMENT: The argument to ARRAY_AGG must not be an array type but was ARRAY<DOUBLE>"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_explicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_explicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds_with_params"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds_with_params_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_with_null_epsilon"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_with_null_epsilon_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_quantiles_explicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_quantiles_explicit_bounds_result_length"
+  label: "anonymization_test:anonymization_basic_anon_quantiles_with_null_delta"
+  label: "anonymization_test:anonymization_basic_anon_quantiles_with_null_epsilon"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_explicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_explicit_bounds_all_nulls"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_explicit_bounds_all_nulls_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_explicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_implicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_stddev_pop_implicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_explicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_explicit_bounds_all_nulls"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_explicit_bounds_all_nulls_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_explicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_implicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_var_pop_implicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_public_groups_with_group_by"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_2"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_2_with_delta"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds_2"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_var_pop_implicit_bounds"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_var_pop_implicit_bounds_with_delta"
+  label: "anonymization_test:anonymization_verify_randomness_of_anon_var_pop_implicit_bounds"
+  label: "anonymization_test:anonymization_verify_randomness_of_anon_var_pop_implicit_bounds_with_delta"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "Unsupported function in SELECT WITH ANONYMIZATION select list: SUM"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_is_2"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_is_3"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_is_4"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_is_one"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_and_explicit_laplace_thresholding"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_works_with_json_report"
+  label: "anonymization_test:anonymization_min_privacy_units_per_group_works_with_proto_report"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "invalid_argument: Epsilon must be finite and positive, but is -0.333333."
+  label: "anonymization_errors_test:epsilon_is_negative"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Use of aggregate function ANY_VALUE as PIVOT expression is not supported"
+  label: "pivot_test:having_in_aggregate_fn_call"
+  label: "pivot_test:having_min_with_reference"
+  label: "pivot_test:pivot_any_value_array_groupby"
+  label: "pivot_test:pivot_any_value_array_no_groupby"
+  label: "pivot_test:pivot_any_value_empty_input"
+  label: "pivot_test:pivot_any_value_empty_input_array"
+  label: "pivot_test:pivot_any_value_groupby_z"
+  label: "pivot_test:pivot_any_value_multiple"
+  label: "pivot_test:pivot_any_value_no_groupby"
+  label: "pivot_test:pivot_array_agg"
+  label: "pivot_test:pivot_st_nearest_neighbors"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "Example: Bounds are different floating point values"
+  label: "differential_privacy_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_test:differential_privacy_count_star_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_count_star_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_count_unique_users_with_report_json_thresholding"
+  label: "differential_privacy_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+}
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "Example: Unsupported function in SELECT WITH DIFFERENTIAL_PRIVACY select list: SUM"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_test:differential_privacy_basic_approx_quantiles_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_approx_quantiles_explicit_bounds_result_length"
+  label: "differential_privacy_test:differential_privacy_basic_epsilon_not_set"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_implicit_bounds_with_params"
+  label: "differential_privacy_test:differential_privacy_basic_stddev_pop_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_stddev_pop_explicit_bounds_all_nulls"
+  label: "differential_privacy_test:differential_privacy_basic_stddev_pop_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_var_pop_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_var_pop_explicit_bounds_all_nulls"
+  label: "differential_privacy_test:differential_privacy_basic_var_pop_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_and_explicit_laplace_thresholding"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_is_2"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_is_3"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_is_4"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_is_one"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_works_with_json_report"
+  label: "differential_privacy_test:differential_privacy_min_privacy_units_per_group_works_with_proto_report"
+  label: "differential_privacy_test:differential_privacy_public_groups_with_group_by"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_approx_quantiles_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_approx_quantiles_explicit_bounds_2"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds_2"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_var_pop_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_verify_randomness_of_var_pop_implicit_bounds"
+}
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "Example: DIFFERENTIAL_PRIVACY query must query data with a specified privacy unit column"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_approx_quantiles_int64_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_explicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_explicit_bounds_multi_user_smaller_delta"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_avg_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_approx_quantiles_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_approx_quantiles_explicit_bounds_result_length"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_avg_double_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_avg_double_implicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_avg_int64_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_count_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_delta_not_set"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_delta_too_large"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_epsilon_not_set"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_percentile_cont_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_percentile_cont_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_percentile_cont_implicit_bounds_with_params"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_stddev_pop_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_stddev_pop_explicit_bounds_all_nulls"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_stddev_pop_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_double_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_double_implicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_sum_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_var_pop_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_var_pop_explicit_bounds_all_nulls"
+  label: "differential_privacy_unit_column_test:differential_privacy_basic_var_pop_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_star_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_star_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_count_unique_users_with_report_json_thresholding"
+  label: "differential_privacy_unit_column_test:differential_privacy_delta_eliminates_row"
+  label: "differential_privacy_unit_column_test:differential_privacy_delta_eliminates_row_for_avg"
+  label: "differential_privacy_unit_column_test:differential_privacy_explicit_bounds_avg_and_count"
+  label: "differential_privacy_unit_column_test:differential_privacy_explicit_bounds_sum_and_count"
+  label: "differential_privacy_unit_column_test:differential_privacy_max_groups_contributed_group_by_1"
+  label: "differential_privacy_unit_column_test:differential_privacy_max_groups_contributed_group_by_2"
+  label: "differential_privacy_unit_column_test:differential_privacy_max_groups_contributed_group_by_3"
+  label: "differential_privacy_unit_column_test:differential_privacy_max_groups_contributed_scalar_aggregation"
+  label: "differential_privacy_unit_column_test:differential_privacy_max_groups_contributed_scalar_aggregation_explicit"
+  label: "differential_privacy_unit_column_test:differential_privacy_public_groups_with_privacy_unit_column_and_group_by_and_max_groups_contributed"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_json"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_int64_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_int64_explicit_bounds_multi_user"
+  label: "differential_privacy_unit_column_test:differential_privacy_sum_int64_explicit_bounds_multi_user_smaller_delta"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_non_randomness_of_approx_quantiles_explicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_non_randomness_of_approx_quantiles_explicit_bounds_2"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds_2"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_non_randomness_of_var_pop_implicit_bounds"
+  label: "differential_privacy_unit_column_test:differential_privacy_verify_randomness_of_var_pop_implicit_bounds"
+}
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "RET_CHECK failure (zetasql/analyzer/rewriters/insert_dml_values_rewriter.cc:61) column->HasDefaultExpression() No default expression exists for the column specified with DEFAULT keyword in insert dml"
+  label: "dml_insert_test:insert_default"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Reference implementation reports non-determinism and rewritten there is none"
+  label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same"
+  label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same_lambda"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: After rewriter array is ordered instead of unordered"
+  label: "array_path_test:flatten_deeply_nested_unordered_array"
+}

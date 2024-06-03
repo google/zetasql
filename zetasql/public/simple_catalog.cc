@@ -456,13 +456,13 @@ void SimpleCatalog::AddOwnedFunction(const std::string& name,
 }
 
 void SimpleCatalog::AddOwnedFunctionLocked(
-    const std::string& name, std::unique_ptr<const Function> function) {
+    absl::string_view name, std::unique_ptr<const Function> function) {
   AddFunctionLocked(name, function.get());
   owned_functions_.emplace_back(std::move(function));
 }
 
 void SimpleCatalog::AddOwnedTableValuedFunction(
-    const std::string& name,
+    absl::string_view name,
     std::unique_ptr<const TableValuedFunction> function) {
   AddTableValuedFunction(name, function.get());
   absl::MutexLock l(&mutex_);
@@ -1466,7 +1466,7 @@ std::vector<const Connection*> SimpleCatalog::connections() const {
 }
 
 SimpleTable::SimpleTable(absl::string_view name,
-                         const std::vector<NameAndType>& columns,
+                         absl::Span<const NameAndType> columns,
                          const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
   for (const NameAndType& name_and_type : columns) {

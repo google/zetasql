@@ -134,29 +134,6 @@ TEST(ExecuteQueryStatementPrompt, EmptyInput) {
       });
 }
 
-TEST(ExecuteQueryStatementPrompt, UsesOptionsFromConfig) {
-  TestStmtPrompt(
-      {
-          {.ret = "$m;"},
-      },
-      {
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr("Unexpected macro")),
-      });
-
-  ExecuteQueryConfig config;
-  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
-      FEATURE_V_1_4_SQL_MACROS);
-  TestStmtPrompt(
-      {
-          {.ret = "$m;"},
-      },
-      {
-          IsOkAndHolds("$m;"),
-      },
-      &config);
-}
-
 TEST(ExecuteQueryStatementPrompt, SingleLine) {
   TestStmtPrompt(
       {

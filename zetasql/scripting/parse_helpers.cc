@@ -25,7 +25,8 @@
 namespace zetasql {
 absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode) {
+    ErrorMessageMode error_message_mode,
+    const ParsedScriptOptions& parsed_script_options) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(
       ParseScript(script_string, parser_options, error_message_mode,
@@ -36,9 +37,10 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
   // Verify that we can obtain a ParsedScript from the AST.  This performs
   // various checks, such as that BREAK and CONTINUE statements have an
   // enclosing loop.
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ParsedScript> parsed_script,
-                   ParsedScript::Create(script_string, parser_output->script(),
-                                        error_message_mode));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(script_string, parser_output->script(),
+                           error_message_mode, parsed_script_options));
   return parser_output;
 }
 }  // namespace zetasql

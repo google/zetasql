@@ -2711,3 +2711,180 @@ ARRAY<STRUCT<key INT64, INT64, grp_key INT64>>[known order:
   {1, NULL, 0},
   {1, NULL, 0}
 ]
+==
+
+[name=grouping_sets_grouping_function_with_pre_group_by_expr]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY GROUPING SETS(1, a+1, a1)
+ORDER BY a1
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[known order:
+  {NULL, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0}
+]
+==
+
+[name=grouping_sets_grouping_function_with_pre_group_by_expr_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY GROUPING SETS(1, a+1, a1)
+ORDER BY GROUPING(a+1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0}
+]
+==
+
+[name=grouping_sets_grouping_function_with_post_group_by_expr_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY GROUPING SETS(1, a+1, a1)
+ORDER BY GROUPING(a+1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0}
+]
+==
+
+[name=rollup_grouping_function_with_pre_group_by_expr_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN,GROUP_BY_ROLLUP]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY ROLLUP(1, a+1, b)
+ORDER BY GROUPING(a+1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0},
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0},
+  {NULL, 1}
+]
+==
+
+[name=cube_grouping_function_with_post_group_by_expr_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN,V_1_4_GROUPING_SETS]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY CUBE(1, a1, b)
+ORDER BY GROUPING(a1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:
+  {NULL, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0},
+  {NULL, 0},
+  {NULL, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {11, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0},
+  {124, 0},
+  {NULL, 1},
+  {NULL, 1},
+  {NULL, 1},
+  {NULL, 1}
+]
+==
+
+[name=regular_group_by_grouping_function_with_pre_and_post_group_by_expr_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN]
+SELECT a+1 AS a1, GROUPING(a+1)
+FROM simple_table
+GROUP BY 1
+ORDER BY GROUPING(a+1), GROUPING(a1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:{11, 0}, {NULL, 0}, {124, 0}]
+==
+
+[name=regular_group_by_grouping_function_with_pre_and_post_group_by_struct_field_expr]
+[required_features=V_1_4_GROUPING_BUILTIN]
+WITH T AS (
+  SELECT STRUCT<a INT64, b STRING>(a, b) AS kv FROM simple_table
+)
+SELECT kv.a AS a1, GROUPING(kv.a)
+FROM T
+GROUP BY 1
+HAVING GROUPING(kv.a) = 0
+ORDER BY GROUPING(a1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:{NULL, 0}, {10, 0}, {123, 0}]
+==
+
+[name=regular_group_by_grouping_function_with_pre_and_post_group_by_dot_star_field_expr]
+[required_features=V_1_4_GROUPING_BUILTIN]
+WITH T AS (
+  SELECT STRUCT<a INT64, b STRING>(a, b) AS kv FROM simple_table
+)
+SELECT kv.*, GROUPING(kv.a), GROUPING(kv.b)
+FROM T
+GROUP BY 1, 2
+HAVING GROUPING(kv.a) = 0
+ORDER BY GROUPING(kv.b)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64, INT64>>[unknown order:
+  {123, "bar", 0, 0},
+  {10, "foo", 0, 0},
+  {10, "bar", 0, 0},
+  {NULL, NULL, 0, 0},
+  {123, "foo", 0, 0}
+]
+==
+
+[name=regular_group_by_grouping_function_with_pre_and_post_group_by_column_reference_in_order_by]
+[required_features=V_1_4_GROUPING_BUILTIN]
+SELECT a AS a1, GROUPING(a)
+FROM simple_table
+GROUP BY 1
+HAVING GROUPING(a) = 0
+ORDER BY GROUPING(a1)
+--
+ARRAY<STRUCT<a1 INT64, INT64>>[unknown order:{NULL, 0}, {10, 0}, {123, 0}]

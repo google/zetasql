@@ -33,7 +33,8 @@ namespace zetasql {
 //   the same block or any enclosing block.
 absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode);
+    ErrorMessageMode error_message_mode,
+    const ParsedScriptOptions& parsed_script_options = {});
 
 }  // namespace zetasql
 

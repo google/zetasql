@@ -36,6 +36,8 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -1065,6 +1067,55 @@ TEST_F(ValueTest, TokenList) {
 
   TestGetSQL(Value::NullTokenList());
   TestGetSQL(TokenListFromToken("tokenlist"));
+}
+
+TEST_F(ValueTest, Uuid) {
+  EXPECT_TRUE(Value::NullUuid().is_null());
+  EXPECT_EQ(TYPE_UUID, Value::NullUuid().type_kind());
+
+  UuidValue uuid;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      uuid, UuidValue::FromString("9d3da3234c20360fbd9bec54feec54f0"));
+  // Verify that there are no memory leaks.
+  {
+    Value v1(Value::Uuid(uuid));
+    EXPECT_EQ(TYPE_UUID, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    Value v2(v1);
+    EXPECT_EQ(TYPE_UUID, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+  }
+
+  // Test the assignment operator.
+  {
+    Value v1 = Value::Uuid(uuid);
+    Value v2 = Value::NullUuid();
+    Value v3 = zetasql::values::Uuid(uuid);
+    v2 = v1;
+    EXPECT_EQ(TYPE_UUID, v1.type()->kind());
+    EXPECT_EQ(TYPE_UUID, v2.type()->kind());
+    EXPECT_EQ(TYPE_UUID, v3.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+    EXPECT_EQ(uuid, v1.uuid_value().value());
+    EXPECT_EQ(uuid, v2.uuid_value().value());
+    EXPECT_EQ(uuid, v3.uuid_value().value());
+  }
+}
+
+TEST_F(ValueTest, UuidFormatting) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      UuidValue v, UuidValue::FromString("9d3da3234c20360fbd9bec54feec54f0"));
+  const Value uuid = Value::Uuid(v);
+  EXPECT_EQ(uuid.DebugString(/*verbose=*/true),
+            "Uuid(9d3da323-4c20-360f-bd9b-ec54feec54f0)");
+  EXPECT_EQ(uuid.DebugString(), "9d3da323-4c20-360f-bd9b-ec54feec54f0");
+  EXPECT_EQ(uuid.Format(), "Uuid(9d3da323-4c20-360f-bd9b-ec54feec54f0)");
+  EXPECT_EQ(uuid.Format(/*print_top_level_type=*/false),
+            "9d3da323-4c20-360f-bd9b-ec54feec54f0");
+  EXPECT_EQ(uuid.GetSQLLiteral(PRODUCT_EXTERNAL),
+            R"sql(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID))sql");
+  EXPECT_EQ(uuid.GetSQL(PRODUCT_EXTERNAL),
+            R"sql(CAST('9d3da323-4c20-360f-bd9b-ec54feec54f0' AS UUID))sql");
 }
 
 TEST_F(ValueTest, GenericAccessors) {
@@ -2161,9 +2212,9 @@ TEST_F(ValueTest, NestedArrayBag) {
   ABSL_LOG(INFO) << "Reason: " << reason;
 }
 
-// This tests that InternalValue::Equals takes a wholeistic view of
+// This tests that InternalValue::Equals takes an overall view of
 // kIgnoresOrder rather than a purely local view (e.g. b/22417506).
-TEST_F(ValueTest, AsymetricNestedArrayBag) {
+TEST_F(ValueTest, AsymmetricNestedArrayBag) {
   auto v1 = Value::Int64(1);
   auto v2 = Value::Int64(2);
   auto vN = Value::MakeNull<int64_t>();
@@ -2212,6 +2263,48 @@ TEST_F(ValueTest, AsymetricNestedArrayBag) {
       ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
                                 .reason = &why}))
       << why;
+}
+
+// A test demonstrating the subtlety of orderedness considerations in
+// InternalValue::Equals, based on the interpretation of DeepOrderKindSpec.
+TEST_F(ValueTest, AsymmetricNestedArrayBagEqualityConsidersOrderednessBySlot) {
+  auto ordered_a_b = Struct({""}, {Array({"a", "b"})});
+  auto ordered_c_d = Struct({""}, {Array({"c", "d"})});
+  auto ordered_d_c = Struct({""}, {Array({"d", "c"})});
+  auto unordered_b_a =
+      Struct({""}, {Array({"b", "a"}, InternalValue::kIgnoresOrder)});
+
+  // This comparison is false using .Equals(), because this method does not
+  // consider bags: [a, b] != [b, a]
+  EXPECT_FALSE(Array({ordered_a_b, ordered_c_d})
+                   .Equals(Array({unordered_b_a, ordered_c_d})));
+
+  // The same values are found equal using InternalValue::Equals, which does
+  // consider bags: [a, b](ord) == [b, a](bag)
+  EXPECT_TRUE(InternalValue::Equals(Array({ordered_a_b, ordered_c_d}),
+                                    Array({unordered_b_a, ordered_c_d})));
+
+  // These arrays are not equal because [c, d] != [d, c]
+  EXPECT_FALSE(InternalValue::Equals(Array({ordered_a_b, ordered_c_d}),
+                                     Array({ordered_a_b, ordered_d_c})));
+
+  // [a, b](ord) is changed to [b, a](bag) and the equality becomes true.
+  // Orderedness here is considered based on struct "slot", but not array
+  // position. Adding in [b, a](bag) results in all values at struct
+  // property 0 being considered unordered, regardless of array index.
+  EXPECT_TRUE(InternalValue::Equals(Array({unordered_b_a, ordered_c_d}),
+                                    Array({ordered_a_b, ordered_d_c})));
+
+  // This only applies to the specific struct index, though. Here, struct
+  // property 0 is unordered, but struct property 1 is still ordered.
+  EXPECT_FALSE(InternalValue::Equals(
+      Array({Struct({"x", "y"}, {unordered_b_a, ordered_c_d})}),
+      Array({Struct({"x", "y"}, {ordered_a_b, ordered_d_c})})));
+
+  // Swapping the positions of structs in the ordered outer array is not equal,
+  // regardless of the orderedness of inner values.
+  EXPECT_FALSE(InternalValue::Equals(Array({unordered_b_a, ordered_c_d}),
+                                     Array({ordered_d_c, ordered_a_b})));
 }
 
 TEST_F(ValueTest, ArrayOfInt64Formatting) {
@@ -3138,7 +3231,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
   // TODO: Implement serialization/deserialization for RANGE.
-  EXPECT_EQ(25, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(26, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -4441,7 +4534,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
 
   // Variable sized types.
   uint64_t empty_array_size = values::Int64Array({}).physical_byte_size();
-  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
                 sizeof(Value::TypedList),
             empty_array_size);
   EXPECT_EQ(empty_array_size + Value::Int64(1).physical_byte_size(),
@@ -4460,17 +4553,17 @@ TEST_F(ValueTest, PhysicalByteSize) {
             Value::String("abc").physical_byte_size());
 
   // Structs should be consistent with their contents.
-  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
                 sizeof(Value::TypedList),
             Struct({}, {}).physical_byte_size());
-  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
                 sizeof(Value::TypedList) + bool_value.physical_byte_size() +
                 date_value.physical_byte_size(),
             Struct({"b", "d"}, {bool_value, date_value}).physical_byte_size());
 
   // Ranges should be consistent with their contents.
   uint64_t expected_range_size = sizeof(Value) +
-                                 sizeof(internal::ValueContentContainerRef) +
+                                 sizeof(internal::ValueContentOrderedListRef) +
                                  sizeof(Value::TypedList) + 2 * sizeof(Value);
   const absl::TimeZone utc = absl::UTCTimeZone();
 

@@ -1448,6 +1448,28 @@ with connection connection2
 
 [language_features=CREATE_TABLE_WITH_CONNECTION]
 create table tt
+with connection ``
+as select 1 a, 2 b;
+--
+ERROR: Syntax error: Invalid empty identifier [at 2:17]
+with connection ``
+                ^
+==
+
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+create table tt
+with connection default
+as select 1 a, 2 b;
+--
+ERROR: CONNECTION DEFAULT is not supported [at 2:17]
+with connection default
+                ^
+==
+
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+create table tt
 with connection connection2
 as select 1 a, 2 b;
 --

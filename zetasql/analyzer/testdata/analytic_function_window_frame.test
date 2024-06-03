@@ -295,13 +295,13 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [INT64]
+| +-$analytic.$analytic1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
         +-function_group_list=
@@ -313,7 +313,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
                   +-window_frame=
                     +-WindowFrame(frame_unit=RANGE)
@@ -337,14 +337,14 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#21 AS `$col1` [INT64]
-| +-$analytic.$analytic2#22 AS `$col2` [INT64]
+| +-$analytic.$analytic1#22 AS `$col1` [INT64]
+| +-$analytic.$analytic2#23 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$analytic.[$analytic1#21, $analytic2#22]
+    +-column_list=$analytic.[$analytic1#22, $analytic2#23]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#21, $analytic.$analytic2#22]
+        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#22, $analytic.$analytic2#23]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
         +-function_group_list=
@@ -356,7 +356,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
           | +-analytic_function_list=
-          |   +-$analytic1#21 :=
+          |   +-$analytic1#22 :=
           |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
           |       +-window_frame=
           |         +-WindowFrame(frame_unit=RANGE)
@@ -374,7 +374,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
             +-analytic_function_list=
-              +-$analytic2#22 :=
+              +-$analytic2#23 :=
                 +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
                   +-window_frame=
                     +-WindowFrame(frame_unit=RANGE)
@@ -685,13 +685,13 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [INT64]
+| +-$analytic.$analytic1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
         +-function_group_list=
@@ -703,7 +703,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
                   +-window_frame=
                     +-WindowFrame(frame_unit=RANGE)
@@ -725,23 +725,23 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#24 AS `$col1` [INT64]
-| +-$analytic.$analytic2#25 AS `$col2` [INT64]
-| +-$analytic.$analytic3#26 AS `$col3` [INT64]
-| +-$analytic.$analytic4#27 AS `$col4` [INT64]
-| +-$analytic.$analytic5#28 AS `$col5` [INT64]
+| +-$analytic.$analytic1#25 AS `$col1` [INT64]
+| +-$analytic.$analytic2#26 AS `$col2` [INT64]
+| +-$analytic.$analytic3#27 AS `$col3` [INT64]
+| +-$analytic.$analytic4#28 AS `$col4` [INT64]
+| +-$analytic.$analytic5#29 AS `$col5` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$analytic.[$analytic1#24, $analytic2#25, $analytic3#26, $analytic4#27, $analytic5#28]
+    +-column_list=$analytic.[$analytic1#25, $analytic2#26, $analytic3#27, $analytic4#28, $analytic5#29]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int64#2, SimpleTypes.uint64#4, SimpleTypes.double#9, $analytic.$analytic1#24, $analytic.$analytic2#25, $analytic.$analytic3#26, $analytic.$analytic4#27, $analytic.$analytic5#28]
+        +-column_list=[SimpleTypes.int64#2, SimpleTypes.uint64#4, SimpleTypes.double#9, $analytic.$analytic1#25, $analytic.$analytic2#26, $analytic.$analytic3#27, $analytic.$analytic4#28, $analytic.$analytic5#29]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int64#2, uint64#4, double#9], table=SimpleTypes, column_index_list=[1, 3, 8])
         +-function_group_list=
           +-AnalyticFunctionGroup
           | +-analytic_function_list=
-          |   +-$analytic1#24 :=
+          |   +-$analytic1#25 :=
           |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
           |       +-window_frame=
           |         +-WindowFrame(frame_unit=ROWS)
@@ -759,7 +759,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
           | +-analytic_function_list=
-          |   +-$analytic2#25 :=
+          |   +-$analytic2#26 :=
           |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
           |       +-window_frame=
           |         +-WindowFrame(frame_unit=RANGE)
@@ -777,7 +777,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
           | +-analytic_function_list=
-          |   +-$analytic3#26 :=
+          |   +-$analytic3#27 :=
           |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
           |       +-window_frame=
           |         +-WindowFrame(frame_unit=RANGE)
@@ -794,7 +794,7 @@ QueryStmt
           | |       +-column_ref=
           | |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
           | +-analytic_function_list=
-          |   +-$analytic4#27 :=
+          |   +-$analytic4#28 :=
           |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
           |       +-window_frame=
           |         +-WindowFrame(frame_unit=RANGE)
@@ -812,7 +812,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
             +-analytic_function_list=
-              +-$analytic5#28 :=
+              +-$analytic5#29 :=
                 +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
                   +-window_frame=
                     +-WindowFrame(frame_unit=RANGE)

@@ -23,6 +23,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -51,7 +52,7 @@ namespace zetasql {
 // output then returns an error string.
 std::string ToPrettyOutputStyle(const zetasql::Value& result,
                                 bool is_value_table,
-                                const std::vector<std::string>& column_names);
+                                absl::Span<const std::string> column_names);
 
 // Helper function shared by analyze_query and execute_script to convert
 // a query result into a human-readable display string.

@@ -91,6 +91,11 @@ enum TestEnumWithAlias {
   FIRSTENUM_WITHSECONDALIAS = 0;
 }
 
+message TestApproxDistanceFunctionOptionsProto {
+  optional int64 key = 1;
+  optional string value = 2;
+}
+
 message TestExtraPB {
   extensions 10323131;
 
@@ -407,6 +412,10 @@ message ProtoWithRangeFields {
       [(zetasql.format) = RANGE_DATETIMES_ENCODED];
   optional bytes range_timestamp_val = 3
       [(zetasql.format) = RANGE_TIMESTAMPS_ENCODED];
+}
+
+message ProtoWithTokenListField {
+  optional bytes tokenlist_value = 1 [(zetasql.format) = TOKENLIST];
 }
 
 message MessageWithMapField {
@@ -962,4 +971,19 @@ message IteratorProto {
   }
 
   repeated Row row = 1;
+}
+
+message OneofProto {
+  optional int64 non_oneof = 1;
+  repeated int64 int64_repeated = 2;
+  oneof one_of_field {
+    int32 int32_one_of = 3;
+    string string_one_of = 4;
+    bool bool_one_of = 5;
+    OneofProto recursive_oneof = 6;
+    KitchenSinkPB kitchen_sink_oneof = 7;
+    group NestedGroup = 8 {
+      optional int64 int64_field = 1;
+    }
+  }
 }

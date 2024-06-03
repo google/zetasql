@@ -91,7 +91,7 @@ class FunctionSignatureMatcher {
   //   corresponding index, if it matches the signature specification.
   absl::StatusOr<bool> SignatureMatches(
       const std::vector<const ASTNode*>& arg_ast_nodes,
-      const std::vector<InputArgumentType>& input_arguments,
+      absl::Span<const InputArgumentType> input_arguments,
       const FunctionSignature& signature,
       const ResolveLambdaCallback* resolve_lambda_callback,
       std::unique_ptr<FunctionSignature>* concrete_result_signature,
@@ -352,7 +352,10 @@ std::string FunctionSignatureMatcher::ArgKindToInputTypesMapDebugString(
   return debug_string;
 }
 
-SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
+// Return the related template kind for `kind`, where `kind` is an ANY_N,
+// or ARRAY_ANY_N. Other templated types are not supported by the function at
+// this time.
+SignatureArgumentKind ArrayRelatedTemplatedKind(SignatureArgumentKind kind) {
   switch (kind) {
     case ARG_TYPE_ANY_1:
       return ARG_ARRAY_TYPE_ANY_1;
@@ -375,11 +378,13 @@ SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
     case ARG_ARRAY_TYPE_ANY_5:
       return ARG_TYPE_ANY_5;
     case ARG_RANGE_TYPE_ANY:
+      // TODO: Remove range handling from this function in a
+      // follow-up.
       return ARG_TYPE_ANY_1;
     default:
       break;
   }
-  ABSL_LOG(ERROR) << "Unexpected RelatedTemplatedKind: "
+  ABSL_LOG(ERROR) << "Unexpected ArrayRelatedTemplateKind: "
               << FunctionArgumentType::SignatureArgumentKindToString(kind);
   return kind;
 }
@@ -464,7 +469,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
             concrete_arg_types, *concrete_expr_arg, argument.options()));
   } else {
     *output_argument = std::make_unique<FunctionArgumentType>(
-        argument.type(), argument.options(), num_occurrences);
+        argument.type(), options, num_occurrences);
   }
   return true;
 }
@@ -500,7 +505,7 @@ FunctionSignatureMatcher::GetConcreteArguments(
             GetConcreteArgument(signature_argument, /*num_occurrences=*/1,
                                 templated_argument_map, &argument_type));
         ZETASQL_RET_CHECK(matches);
-        resolved_argument_list.push_back(*argument_type);
+        resolved_argument_list.push_back(std::move(*argument_type));
       }
       if (arg_index_mapping != nullptr) {
         (*arg_index_mapping)[i].concrete_signature_arg_index = i;
@@ -595,7 +600,7 @@ FunctionSignatureMatcher::GetConcreteArguments(
         argument_type = std::make_unique<FunctionArgumentType>(
             signature_argument.kind(), signature_argument.cardinality(), 0);
       }
-      resolved_argument_list.push_back(*argument_type);
+      resolved_argument_list.push_back(std::move(*argument_type));
     }
 
     if (sig_arg_index == last_repeated_index) {
@@ -927,14 +932,13 @@ FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
     }
   }
 
-  // If the result type is ARRAY_ANY_K and there is an entry for ANY_K, make
-  // sure we have an entry for ARRAY_ANY_K, adding an untyped NULL if necessary.
-  // We do the same for PROTO_MAP_ANY if we see entries for the key or value,
-  // and for RANGE_TYPE_ANY
+  // Ensure that templated result types that have their containing type
+  // referenced in the argument map also have an entry in the argument map,
+  // creating an untyped NULL if necessary.
   const SignatureArgumentKind result_kind = signature.result_type().kind();
   if (IsArgKind_ARRAY_ANY_K(result_kind) &&
       zetasql_base::ContainsKey(*templated_argument_map,
-                       RelatedTemplatedKind(result_kind))) {
+                       ArrayRelatedTemplatedKind(result_kind))) {
     // Creates an UNTYPED_NULL if no entry exists.
     (*templated_argument_map)[result_kind];
   }
@@ -945,6 +949,11 @@ FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
   }
   if (result_kind == ARG_RANGE_TYPE_ANY &&
       zetasql_base::ContainsKey(*templated_argument_map, ARG_TYPE_ANY_1)) {
+    (*templated_argument_map)[result_kind];
+  }
+  if ((result_kind == ARG_MAP_TYPE_ANY_1_2 &&
+       (zetasql_base::ContainsKey(*templated_argument_map, ARG_TYPE_ANY_1) ||
+        zetasql_base::ContainsKey(*templated_argument_map, ARG_TYPE_ANY_2)))) {
     (*templated_argument_map)[result_kind];
   }
 
@@ -1079,7 +1088,7 @@ bool FunctionSignatureMatcher::
     // When adding an entry for ARRAY_ANY_K, we must also have one for ANY_K.
     if (IsArgKind_ARRAY_ANY_K(kind)) {
       // Initializes to UNTYPED_NULL if not already set.
-      (*templated_argument_map)[RelatedTemplatedKind(kind)];
+      (*templated_argument_map)[ArrayRelatedTemplatedKind(kind)];
     }
     if (kind == ARG_PROTO_MAP_ANY) {
       // It is not possible to infer the type of a map entry proto, because
@@ -1101,8 +1110,11 @@ bool FunctionSignatureMatcher::
     }
     if (kind == ARG_RANGE_TYPE_ANY) {
       // Initializes to UNTYPED_NULL if not already set.
+      // TODO: Investigate if this is necessary/correct.
       (*templated_argument_map)[ARG_RANGE_TYPE_ANY];
     }
+    // ARG_MAP_TYPE_ANY_1_2 is intentionally not handled here, because we return
+    // an error when the key or value type can't be inferred.
   } else {
     // Templated argument, input is not null.
     SignatureArgumentKind signature_argument_kind = signature_argument.kind();
@@ -1173,7 +1185,7 @@ bool FunctionSignatureMatcher::
       InputArgumentType new_argument = MakeConcreteArgument(
           input_argument.type()->AsArray()->element_type());
       const SignatureArgumentKind related_kind =
-          RelatedTemplatedKind(signature_argument_kind);
+          ArrayRelatedTemplatedKind(signature_argument_kind);
       (*templated_argument_map)[related_kind].InsertTypedArgument(new_argument);
     }
 
@@ -1182,9 +1194,7 @@ bool FunctionSignatureMatcher::
       // This is used to resolve function signature with RANGE<T> -> T
       InputArgumentType arg_type = MakeConcreteArgument(
           input_argument.type()->AsRange()->element_type());
-      const SignatureArgumentKind related_kind =
-          RelatedTemplatedKind(signature_argument_kind);
-      (*templated_argument_map)[related_kind].InsertTypedArgument(arg_type);
+      (*templated_argument_map)[ARG_TYPE_ANY_1].InsertTypedArgument(arg_type);
     }
 
     if (signature_argument_kind == ARG_PROTO_MAP_ANY) {
@@ -1193,7 +1203,6 @@ bool FunctionSignatureMatcher::
       absl::StatusOr<MapEntryTypes> entry_types =
           GetMapEntryTypes(input_argument.type(), *type_factory_);
       if (!entry_types.ok()) {
-        ZETASQL_VLOG(1) << "Error computing map entry types: " << entry_types.status();
         SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
             "failed to infer type for proto map key or value with error: %s",
             entry_types.status().message()));
@@ -1206,6 +1215,21 @@ bool FunctionSignatureMatcher::
           MakeConcreteArgument(entry_types->key_type), set_dominant);
       (*templated_argument_map)[ARG_PROTO_MAP_VALUE_ANY].InsertTypedArgument(
           MakeConcreteArgument(entry_types->value_type), set_dominant);
+    }
+
+    if (signature_argument_kind == ARG_MAP_TYPE_ANY_1_2) {
+      if (!input_argument.type()->IsMap()) {
+        SET_ARG_KIND_MISMATCH_ERROR();
+        return false;
+      }
+      // The map template type is dominant. Other arguments must be coercible to
+      // this type.
+      const MapType* map_type = input_argument.type()->AsMap();
+      constexpr bool set_dominant = true;
+      (*templated_argument_map)[ARG_TYPE_ANY_1].InsertTypedArgument(
+          MakeConcreteArgument(map_type->key_type()), set_dominant);
+      (*templated_argument_map)[ARG_TYPE_ANY_2].InsertTypedArgument(
+          MakeConcreteArgument(map_type->value_type()), set_dominant);
     }
   }
 
@@ -1417,6 +1441,44 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
             resolved_templated_arguments, kind,
             type_set.typed_arguments().dominant_argument()->type());
       }
+    } else if (kind == ARG_MAP_TYPE_ANY_1_2) {
+      const Type* key_type =
+          zetasql_base::FindPtrOrNull(*resolved_templated_arguments, ARG_TYPE_ANY_1);
+      const Type* value_type =
+          zetasql_base::FindPtrOrNull(*resolved_templated_arguments, ARG_TYPE_ANY_2);
+
+      if (key_type == nullptr || value_type == nullptr) {
+        std::string kv_error_msg_part;
+        if (key_type == nullptr && value_type == nullptr) {
+          kv_error_msg_part = "key and value types were";
+        } else if (key_type == nullptr) {
+          kv_error_msg_part = "key type was";
+        } else {
+          kv_error_msg_part = "value type was";
+        }
+        SET_MISMATCH_ERROR(
+            absl::StrCat("The map type could not be constructed because the ",
+                         kv_error_msg_part, " not determinable"));
+        return false;
+      }
+
+      std::string no_grouping_type;
+      if (!key_type->SupportsGrouping(language_, &no_grouping_type)) {
+        SET_MISMATCH_ERROR(absl::StrCat("Invalid map: ", no_grouping_type,
+                                        " key type is not groupable"));
+        return false;
+      }
+
+      absl::StatusOr<const Type*> map_type_or_status =
+          type_factory_->MakeMapType(key_type, value_type);
+      if (!map_type_or_status.ok()) {
+        SET_MISMATCH_ERROR(absl::StrCat("Unable to coerce map type: ",
+                                        map_type_or_status.status().message()));
+        return false;
+      }
+      zetasql_base::InsertOrDie(resolved_templated_arguments, kind,
+                       map_type_or_status.value());
+
     } else if (!IsArgKind_ARRAY_ANY_K(kind)) {
       switch (type_set.kind()) {
         case SignatureArgumentKindTypeSet::UNTYPED_NULL:
@@ -1472,7 +1534,8 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
     } else {
       // For ARRAY_ANY_K, also consider the ArrayType whose element type is
       // bound to ANY_K.
-      const SignatureArgumentKind related_kind = RelatedTemplatedKind(kind);
+      const SignatureArgumentKind related_kind =
+          ArrayRelatedTemplatedKind(kind);
       const Type** element_type =
           zetasql_base::FindOrNull(*resolved_templated_arguments, related_kind);
       // ANY_K is handled before ARRAY_ANY_K.
@@ -1516,7 +1579,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
 
 absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
+    absl::Span<const InputArgumentType> input_arguments,
     const FunctionSignature& signature,
     const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* concrete_result_signature,
@@ -1526,7 +1589,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
       "Out of stack space due to deeply nested query expression "
       "during signature matching");
-  if (!signature.options().check_all_required_features_are_enabled(
+  if (!signature.options().CheckAllRequiredFeaturesAreEnabled(
           language_.GetEnabledLanguageFeatures())) {
     // Signature will be hidden in error message, so no need to set mismatch
     // message.
@@ -1588,7 +1651,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     return false;
   }
 
-  // Sanity check to verify that templated array element types and their
+  // Consistency check to verify that templated array element types and their
   // corresponding templated types match.
   std::vector<std::pair<SignatureArgumentKind, SignatureArgumentKind>> kinds(
       {{ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
@@ -1708,7 +1771,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
 absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
+    absl::Span<const InputArgumentType> input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
     TypeFactory* type_factory,
     const ResolveLambdaCallback* resolve_lambda_callback,

@@ -19,17 +19,17 @@
 #include "zetasql/base/mathutil.h"
 
 #include <stdio.h>
-#include <cstddef>
+
 #include <cmath>
-#include <iomanip>
+#include <cstdint>
 #include <limits>
-#include <ostream>
-#include <vector>
+#include <type_traits>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/base/casts.h"
-#include "zetasql/base/logging.h"
+#include "absl/base/macros.h"
+#include "absl/log/log.h"
+#include "zetasql/base/mathlimits.h"
 
 namespace zetasql_base {
 namespace {
@@ -334,7 +334,8 @@ void TestThatCeilOfRatioDenomMinusOneIsIncorrect(int64_t numerator,
 // Here we demonstrate why not to use CeilOfRatioDenomMinusOne
 void TestThatCeilOfRatioDenomMinusOneIsIncorrect() {
   // It does not work with negative values
-  TestThatCeilOfRatioDenomMinusOneIsIncorrect(int64_t{-1}, int64_t{-2}, int64_t{-1});
+  TestThatCeilOfRatioDenomMinusOneIsIncorrect(int64_t{-1}, int64_t{-2},
+                                              int64_t{-1});
 
   // This would also fail if given kint64max because of signed integer overflow.
 }

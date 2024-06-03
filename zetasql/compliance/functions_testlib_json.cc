@@ -1721,6 +1721,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonRemove() {
 
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
   std::vector<FunctionTestCall> tests;
+  constexpr absl::string_view kInsertEachElement = "insert_each_element";
   // One argument to JSON_ARRAY_INSERT. Test cases from TO_JSON to make sure
   // JSON_ARRAY_INSERT applies TO_JSON semantics to arguments.
   for (FunctionTestCall& test : GetFunctionTestsToJson()) {
@@ -1747,15 +1748,17 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
       tests.push_back(
           {"json_array_insert",
            QueryParamsWithResult({std::move(input), String(json_path),
-                                  std::move(test.params.param(0)), Bool(false)},
+                                  std::move(test.params.param(0))},
                                  result)
+               .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
                .AddRequiredFeatures(features_set)});
     } else {
       tests.push_back(
           {"json_array_insert",
            QueryParamsWithResult({std::move(input), String(json_path),
-                                  std::move(test.params.param(0)), Bool(false)},
+                                  std::move(test.params.param(0))},
                                  NullJson(), test.params.status())
+               .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
                .AddRequiredFeatures(features_set)});
     }
   }
@@ -1794,20 +1797,22 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
       {"json_array_insert",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"), Int64Array({1, 2}),
-            NullString(), Int64(2), Bool(true)},
+            NullString(), Int64(2)},
            ParseJson(R"([1, 2, [1, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // NULL insert_each_element.
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult({ParseJson(json_string),
-                                          String("$[0]"), Int64(1), NullBool()},
-                                         ParseJson(json_string))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), String("$[0]"), Int64(1)},
+                             ParseJson(json_string))
+           .SetNamedValueArguments({{kInsertEachElement, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // NULL input JSON and NULL insert_each_element.
   tests.push_back(
       {"json_array_insert",
-       QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1), NullBool()},
-                             NullJson())
+       QueryParamsWithResult({NullJson(), String("$[0]"), Int64(1)}, NullJson())
+           .SetNamedValueArguments({{kInsertEachElement, NullBool()}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Invalid JSONPath.
   tests.push_back(
@@ -1824,26 +1829,30 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
                                           String("$$"), Int64(1)},
                                          NullJson(), OUT_OF_RANGE)});
   // Invalid JSONPath with NULL insert_each_element.
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
-                                          String("$$"), Int64(2), NullBool()},
-                                         NullJson(), OUT_OF_RANGE)
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult(
+           {NullJson(), String("$"), Int64(1), String("$$"), Int64(2)},
+           NullJson(), OUT_OF_RANGE)
+           .SetNamedValueArguments({{kInsertEachElement, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // NULL array value for insertion. The insertion is ignored because
   // `insert_each_element` = true.
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult(
-                       {ParseJson(json_string), String("$[0]"),
-                        Value::Null(types::StringArrayType()), Bool(true)},
-                       ParseJson(json_string))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), String("$[0]"),
+                              Value::Null(types::StringArrayType())},
+                             ParseJson(json_string))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(true)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Successful NULL array value insertion.
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"),
-            Value::Null(types::StringArrayType()), Bool(false)},
+            Value::Null(types::StringArrayType())},
            ParseJson(R"([null, [1, 2, 3], true, {"a": [1.1,[["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Two inserts. The first inserts a NULL array which is ignored because
   // `insert_each_element` = true, and the second insertion is successful.
@@ -1852,19 +1861,21 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"),
             Value::Null(types::StringArrayType()), String("$[0][1]"),
-            Int64Array({10, 20}), Bool(true)},
+            Int64Array({10, 20})},
            ParseJson(R"([[1, 10, 20, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Two inserts with a NULL array value. Both are successful inserts.
-  tests.push_back({"json_array_insert",
-                   QueryParamsWithResult(
-                       {ParseJson(json_string), String("$[0]"),
-                        Value::Null(types::StringArrayType()),
-                        String("$[0][1]"), Int64Array({10, 20}), Bool(false)},
-                       ParseJson(
-                           R"([[null, [10, 20]], [1, 2, 3], true,
+  tests.push_back(
+      {"json_array_insert",
+       QueryParamsWithResult({ParseJson(json_string), String("$[0]"),
+                              Value::Null(types::StringArrayType()),
+                              String("$[0][1]"), Int64Array({10, 20})},
+                             ParseJson(
+                                 R"([[null, [10, 20]], [1, 2, 3], true,
                               {"a": [1.1, [["foo"]]]}])"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   // 1 insertion
   // Negative indexing is not supported.
@@ -1958,8 +1969,9 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
-                              String("$.a[1]"), Int64Array({}), Bool(false)},
+                              String("$.a[1]"), Int64Array({})},
                              ParseJson(R"({"a": [null, []], "b": [null]})"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back({"json_array_insert",
                    QueryParamsWithResult(
@@ -1987,34 +1999,34 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20}),
-            Bool(true)},
+           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20})},
            ParseJson(R"([[1, 10, 20, 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20}),
-            Bool(false)},
+           {ParseJson(json_string), String("$[0][1]"), Int64Array({10, 20})},
            ParseJson(R"([[1, [10, 20], 2, 3], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[2].a[1]"),
-            values::Array(StringArrayType(), {String("foo"), NullString()}),
-            Bool(true)},
+            values::Array(StringArrayType(), {String("foo"), NullString()})},
            ParseJson(
                R"([[1, 2, 3], true, {"a": [1.1, "foo", null, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_insert",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[2].a[1]"),
-            values::Array(StringArrayType(), {String("foo"), NullString()}),
-            Bool(false)},
+            values::Array(StringArrayType(), {String("foo"), NullString()})},
            ParseJson(
                R"([[1, 2, 3], true, {"a": [1.1, ["foo", null], [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_insert",
@@ -2057,9 +2069,10 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
       {"json_array_insert",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[1]"), StringArray({"a", "b"}),
-            String("$[1][1]"), Bool(true), Bool(false)},
+            String("$[1][1]"), Bool(true)},
            ParseJson(R"([[1, 2, 3], ["a", true, "b"], true,
                          {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kInsertEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_insert",
@@ -2164,6 +2177,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayInsert() {
 
 std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
   std::vector<FunctionTestCall> tests;
+  constexpr absl::string_view kAppendEachElement = "append_each_element";
   // One argument to JSON_ARRAY_APPEND. Test cases from TO_JSON to make sure
   // JSON_ARRAY_APPEND applies TO_JSON semantics to arguments.
   for (FunctionTestCall& test : GetFunctionTestsToJson()) {
@@ -2189,15 +2203,17 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
       tests.push_back(
           {"json_array_append",
            QueryParamsWithResult({std::move(input), String(json_path),
-                                  std::move(test.params.param(0)), Bool(false)},
+                                  std::move(test.params.param(0))},
                                  result)
+               .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
                .AddRequiredFeatures(features_set)});
     } else {
       tests.push_back(
           {"json_array_append",
            QueryParamsWithResult({std::move(input), String(json_path),
-                                  std::move(test.params.param(0)), Bool(false)},
+                                  std::move(test.params.param(0))},
                                  NullJson(), test.params.status())
+               .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
                .AddRequiredFeatures(features_set)});
     }
   }
@@ -2232,15 +2248,18 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult({ParseJson(json_string), String("$"), Int64(1),
-                              String("$"), Int64(2), NullBool()},
+                              String("$"), Int64(2)},
                              ParseJson(json_string))
+           .SetNamedValueArguments({{kAppendEachElement, NullBool()}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // NULL input json and NULL append_each_element.
-  tests.push_back({"json_array_append",
-                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
-                                          String("$"), Int64(2), NullBool()},
-                                         NullJson())
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {NullJson(), String("$"), Int64(1), String("$"), Int64(2)},
+           NullJson())
+           .SetNamedValueArguments({{kAppendEachElement, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   // Invalid JSONPath.
   tests.push_back(
@@ -2257,11 +2276,13 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
                                           String("$$"), Int64(1)},
                                          NullJson(), OUT_OF_RANGE)});
   // Invalid JSONPath with NULL append_each_element.
-  tests.push_back({"json_array_append",
-                   QueryParamsWithResult({NullJson(), String("$"), Int64(1),
-                                          String("$$"), Int64(2), NullBool()},
-                                         NullJson(), OUT_OF_RANGE)
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult(
+           {NullJson(), String("$"), Int64(1), String("$$"), Int64(2)},
+           NullJson(), OUT_OF_RANGE)
+           .SetNamedValueArguments({{kAppendEachElement, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // 1 append
   // Negative indexing is not supported.
   tests.push_back({"json_array_append",
@@ -2333,8 +2354,9 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult({ParseJson(R"({"a": null, "b": [null]})"),
-                              String("$.a"), Int64Array({}), Bool(false)},
+                              String("$.a"), Int64Array({})},
                              ParseJson(R"({"a": [[]], "b": [null]})"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
@@ -2346,19 +2368,21 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
   //
   // NULL array value for appending. The operation is ignored because
   // `append_each_element` = true.
-  tests.push_back({"json_array_append",
-                   QueryParamsWithResult(
-                       {ParseJson(json_string), String("$[0]"),
-                        Value::Null(types::DoubleArrayType()), Bool(true)},
-                       ParseJson(json_string))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_array_append",
+       QueryParamsWithResult({ParseJson(json_string), String("$[0]"),
+                              Value::Null(types::DoubleArrayType())},
+                             ParseJson(json_string))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(true)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Successful NULL array value append operation.
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"),
-            Value::Null(types::StringArrayType()), Bool(false)},
+            Value::Null(types::StringArrayType())},
            ParseJson(R"([[1, 2, 3, null], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Two appends. The first append with a NULL array value is ignored because
   // `append_each_element` = true, and the second operation is successful.
@@ -2367,8 +2391,9 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"),
             Value::Null(types::StringArrayType()), String("$[0]"),
-            Int64Array({10, 20}), Bool(true)},
+            Int64Array({10, 20})},
            ParseJson(R"([[1, 2, 3, 10, 20], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Two appends with a NULL array value. Both are successful operations.
   tests.push_back(
@@ -2376,9 +2401,10 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[0]"),
             Value::Null(types::BoolArrayType()), String("$[0]"),
-            Int64Array({10, 20}), Bool(false)},
+            Int64Array({10, 20})},
            ParseJson(
                R"([[1, 2, 3, null, [10, 20]], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   tests.push_back(
@@ -2390,34 +2416,34 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20}),
-            Bool(true)},
+           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20})},
            ParseJson(R"([[1, 2, 3, 10, 20], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20}),
-            Bool(false)},
+           {ParseJson(json_string), String("$[0]"), Int64Array({10, 20})},
            ParseJson(R"([[1, 2, 3, [10, 20]], true, {"a": [1.1, [["foo"]]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[2].a"),
-            values::Array(StringArrayType(), {String("foo"), NullString()}),
-            Bool(true)},
+            values::Array(StringArrayType(), {String("foo"), NullString()})},
            ParseJson(
                R"([[1, 2, 3], true, {"a": [1.1, [["foo"]], "foo", null]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$[2].a"),
-            values::Array(StringArrayType(), {String("foo"), NullString()}),
-            Bool(false)},
+            values::Array(StringArrayType(), {String("foo"), NullString()})},
            ParseJson(
                R"([[1, 2, 3], true, {"a": [1.1, [["foo"]], ["foo", null]]}])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
@@ -2450,9 +2476,10 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArrayAppend() {
       {"json_array_append",
        QueryParamsWithResult(
            {ParseJson(json_string), String("$"), StringArray({"a", "b"}),
-            String("$[3]"), Bool(true), Bool(false)},
+            String("$[3]"), Bool(true)},
            ParseJson(R"([[1, 2, 3], true,
                          {"a": [1.1, [["foo"]]]}, ["a", "b", true]])"))
+           .SetNamedValueArguments({{kAppendEachElement, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_array_append",
@@ -2568,6 +2595,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
     }
   }
 
+  constexpr absl::string_view kCreateIfMissingName = "create_if_missing";
   absl::string_view json_string =
       R"({"a":null, "b":{}, "c":[], "d":{"e": 1}, "f":["foo", [], {}, [3,4]]})";
 
@@ -2581,10 +2609,12 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
                        {NullJson(), String("$.a"), Bool(true)}, NullJson())});
   // NULL create_if_missing.
   tests.push_back(
-      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$.a"),
-                                          Bool(true), NullBool()},
-                                         ParseJson(json_string))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.a"), Bool(true)},
+           ParseJson(json_string))
+           .SetNamedValueArguments({{kCreateIfMissingName, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Non-null input and single NULL JSONPath.
   tests.push_back({"json_set", QueryParamsWithResult({ParseJson(json_string),
                                                       NullString(), Bool(true)},
@@ -2639,8 +2669,9 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   tests.push_back(
       {"json_set",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$[1]"), Bool(true), Bool(false)},
+           {ParseJson(json_string), String("$[1]"), Bool(true)},
            ParseJson(json_string))
+           .SetNamedValueArguments({{kCreateIfMissingName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_set", QueryParamsWithResult(
@@ -2670,10 +2701,11 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
 
   // Replace entire JSON with create_if_missing = false.
   tests.push_back(
-      {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$"),
-                                          Bool(true), Bool(false)},
-                                         ParseJson("true"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+      {"json_set",
+       QueryParamsWithResult({ParseJson(json_string), String("$"), Bool(true)},
+                             ParseJson("true"))
+           .SetNamedValueArguments({{kCreateIfMissingName, Bool(false)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_set", QueryParamsWithResult({ParseJson(json_string), String("$"),
                                           Bool(true), String("$"), Int64(10)},
@@ -2710,26 +2742,30 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonSet() {
   tests.push_back(
       {"json_set",
        QueryParamsWithResult({ParseJson(json_string), String("$.a"), Int64(777),
-                              String("$.b.c"), Int64(888), Bool(false)},
+                              String("$.b.c"), Int64(888)},
                              ParseJson(R"({"a":777, "b":{}, "c":[], "d":{"e":1},
                                      "f":["foo", [], {}, [3, 4]]})"))
+           .SetNamedValueArguments({{kCreateIfMissingName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   // Multiple sets with create_if_missing = false. First set operation ignored.
   tests.push_back(
-      {"json_set", QueryParamsWithResult(
-                       {ParseJson(json_string), String("$.a.b"), Int64(777),
-                        String("$.b"), Int64(888), Bool(false)},
-                       ParseJson(R"({"a":null, "b":888, "c":[], "d":{"e":1},
+      {"json_set",
+       QueryParamsWithResult(
+           {ParseJson(json_string), String("$.a.b"), Int64(777), String("$.b"),
+            Int64(888)},
+           ParseJson(R"({"a":null, "b":888, "c":[], "d":{"e":1},
                                      "f":["foo", [], {}, [3, 4]]})"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+           .SetNamedValueArguments({{kCreateIfMissingName, Bool(false)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   // Insert into NULL with create_if_missing false. Set operation ignored.
   tests.push_back(
       {"json_set",
        QueryParamsWithResult(
-           {ParseJson(json_string), String("$.a.b"), Bool(true), Bool(false)},
+           {ParseJson(json_string), String("$.a.b"), Bool(true)},
            ParseJson(json_string))
+           .SetNamedValueArguments({{kCreateIfMissingName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   tests.push_back(
@@ -2903,13 +2939,16 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
   std::vector<FunctionTestCall> tests;
   constexpr absl::string_view kInitialSimpleObjectValue =
       R"({"a":null, "b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})";
+  constexpr absl::string_view kIncludeArraysName = "include_arrays";
+  constexpr absl::string_view kRemoveEmptyName = "remove_empty";
   // NULL input JSON.
   tests.push_back(
       {"json_strip_nulls", QueryParamsWithResult({NullJson()}, NullJson())});
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult(
-           {NullJson(), String("$.a"), Bool(true), NullBool()}, NullJson())
+       QueryParamsWithResult({NullJson(), String("$.a")}, NullJson())
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, NullBool()}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Invalid JSONPath with NULL input JSON.
   tests.push_back(
@@ -2923,16 +2962,21 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
                        ParseJson(kInitialSimpleObjectValue))});
   // Non-null input with NULL include_arrays.
   tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
-                                          String("$.a"), NullBool()},
-                                         ParseJson(kInitialSimpleObjectValue))
+                   QueryParamsWithResult(
+                       {ParseJson(kInitialSimpleObjectValue), String("$.a")},
+                       ParseJson(kInitialSimpleObjectValue))
+                       .SetNamedValueArguments({
+                           {kIncludeArraysName, NullBool()},
+                       })
                        .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Non-null input with NULL remove_empty.
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
-                              String("$.a"), Bool(true), NullBool()},
-                             ParseJson(kInitialSimpleObjectValue))
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$.a")},
+           ParseJson(kInitialSimpleObjectValue))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, NullBool()}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Invalid JSONPath.
   tests.push_back({"json_strip_nulls",
@@ -2944,45 +2988,56 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
       {"json_strip_nulls", QueryParamsWithResult({NullJson(), String("$a")},
                                                  NullJson(), OUT_OF_RANGE)});
   // Invalid JSONPath with NULL include_arrays.
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
-                                          String("$a"), NullBool()},
-                                         NullJson(), OUT_OF_RANGE)
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$a")}, NullJson(),
+           OUT_OF_RANGE)
+           .SetNamedValueArguments({{kIncludeArraysName, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Invalid JSONPath with NULL remove_empty.
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
-                                          String("$a"), Bool(true), NullBool()},
-                                         NullJson(), OUT_OF_RANGE)
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$a")}, NullJson(),
+           OUT_OF_RANGE)
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, NullBool()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Valid cases.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(false),
-            Bool(false)},
+           {ParseJson(kInitialSimpleObjectValue), String("$")},
            ParseJson(
                R"({"b":1, "c":[null, true], "d":{}, "e":[null], "f":[]})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(true),
-            Bool(false)},
+           {ParseJson(kInitialSimpleObjectValue), String("$")},
            ParseJson(R"({"b":1, "c":[true], "d":{}, "e":[], "f":[]})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleObjectValue), String("$"), Bool(false),
-            Bool(true)},
+           {ParseJson(kInitialSimpleObjectValue), String("$")},
            ParseJson(R"({"b":1, "c":[null, true], "e":[null], "f":[]})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialSimpleObjectValue),
-                                          String("$"), Bool(true), Bool(true)},
-                                         ParseJson(R"({"b":1, "c":[true]})"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleObjectValue), String("$")},
+           ParseJson(R"({"b":1, "c":[true]})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   constexpr absl::string_view kInitialComplexObjectValue =
       R"({"a": {"b":null, "c":null, "d":[[null], null]}, "e":null})";
@@ -3004,32 +3059,40 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
            {ParseJson(kInitialComplexObjectValue), String("$.a.d[2]")},
            ParseJson(kInitialComplexObjectValue))});
   // Removes all JSON 'null'.
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
-                                          String("$"), Bool(true), Bool(true)},
-                                         ParseJson("null"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$")},
+           ParseJson("null"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // No change. Subpath points to a nested ARRAY.
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
-                              String("$.a.d"), Bool(false), Bool(true)},
-                             ParseJson(kInitialComplexObjectValue))
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a.d")},
+           ParseJson(kInitialComplexObjectValue))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Subpath is nested ARRAY and removes JSON 'null's.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialComplexObjectValue), String("$.a.d"), Bool(true),
-            Bool(false)},
+           {ParseJson(kInitialComplexObjectValue), String("$.a.d")},
            ParseJson(R"({"a": {"b":null, "c":null, "d":[[]]}, "e":null})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Subpath is nested ARRAY replaced by JSON 'null'.
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialComplexObjectValue),
-                              String("$.a"), Bool(true), Bool(true)},
-                             ParseJson(R"({"a":null, "e":null})"))
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexObjectValue), String("$.a")},
+           ParseJson(R"({"a":null, "e":null})"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   // Valid Cases.
@@ -3039,84 +3102,309 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleArrayValue), String("$"), Bool(false),
-            Bool(false)},
+           {ParseJson(kInitialSimpleArrayValue), String("$")},
            ParseJson(R"(["a", null, 1.1, [], [null], [1, null], {}, {},
                       {"b":1}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(false)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult(
-                       {ParseJson(kInitialSimpleArrayValue), String("$"),
-                        Bool(true), Bool(false)},
-                       ParseJson(R"(["a", 1.1, [], [], [1], {}, {}, {"b":1}])"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialSimpleArrayValue), String("$")},
+           ParseJson(R"(["a", 1.1, [], [], [1], {}, {}, {"b":1}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(false)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Because parent of empty OBJECTs is an ARRAY, empty OBJECTs are not
   // removed.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleArrayValue), String("$"), Bool(false),
-            Bool(true)},
+           {ParseJson(kInitialSimpleArrayValue), String("$")},
            ParseJson(
                R"(["a", null, 1.1, [], [null], [1, null], {}, {}, {"b":1}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialSimpleArrayValue), String("$"),
-                              Bool(true), Bool(true)},
+       QueryParamsWithResult({ParseJson(kInitialSimpleArrayValue), String("$")},
                              ParseJson(R"(["a", 1.1, [1], {"b":1}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Subpath points to an array that is replaced with JSON 'null'.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleArrayValue), String("$[4]"), Bool(true),
-            Bool(true)},
+           {ParseJson(kInitialSimpleArrayValue), String("$[4]")},
            ParseJson(R"(["a", null, 1.1, [], null, [1, null], {}, {"a":null},
               {"b":1, "c":null}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Subpath points to an OBJECT that is replaced with JSON 'null'.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialSimpleArrayValue), String("$[7]"), Bool(true),
-            Bool(true)},
+           {ParseJson(kInitialSimpleArrayValue), String("$[7]")},
            ParseJson(R"(["a", null, 1.1, [], [null], [1, null], {}, null,
               {"b":1, "c":null}])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
   constexpr absl::string_view kInitialComplexArrayValue =
       R"([null, {"b":null, "c":null, "d":[[null], null]}, [null, null],
       []])";
   // Removes all JSON 'null'.
-  tests.push_back({"json_strip_nulls",
-                   QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
-                                          String("$"), Bool(true), Bool(true)},
-                                         ParseJson("null"))
-                       .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  tests.push_back(
+      {"json_strip_nulls",
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexArrayValue), String("$")},
+           ParseJson("null"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Cleanup nested arrays to JSON 'null'.
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
-                              String("$[1]"), Bool(true), Bool(true)},
-                             ParseJson("[null, null, [null, null],[]]"))
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexArrayValue), String("$[1]")},
+           ParseJson("[null, null, [null, null],[]]"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(true)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // Cleanup nested arrays to JSON 'null' but no array cleanup.
   tests.push_back(
       {"json_strip_nulls",
        QueryParamsWithResult(
-           {ParseJson(kInitialComplexArrayValue), String("$[1]"), Bool(false),
-            Bool(true)},
+           {ParseJson(kInitialComplexArrayValue), String("$[1]")},
            ParseJson(R"([null, {"d":[[null], null]}, [null, null], []])"))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
   // No change. Subpath points to a nested ARRAY.
   tests.push_back(
       {"json_strip_nulls",
-       QueryParamsWithResult({ParseJson(kInitialComplexArrayValue),
-                              String("$[1].d"), Bool(false), Bool(true)},
-                             ParseJson(kInitialComplexArrayValue))
+       QueryParamsWithResult(
+           {ParseJson(kInitialComplexArrayValue), String("$[1].d")},
+           ParseJson(kInitialComplexArrayValue))
+           .SetNamedValueArguments({{kIncludeArraysName, Bool(false)},
+                                    {kRemoveEmptyName, Bool(true)}})
            .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
 
+  return tests;
+}
+
+void JsonKeysSameResultForModes(absl::string_view json_input,
+                                std::optional<int64_t> max_depth,
+                                std::vector<std::string> results,
+                                const std::vector<absl::string_view>& modes,
+                                std::vector<FunctionTestCall>& tests) {
+  constexpr absl::string_view kModeArgumentName = "mode";
+  for (absl::string_view mode : modes) {
+    if (max_depth.has_value()) {
+      tests.push_back(
+          {"json_keys",
+           QueryParamsWithResult({ParseJson(json_input), Int64(*max_depth)},
+                                 values::StringArray(results))
+               .SetNamedValueArguments({{kModeArgumentName, String(mode)}})
+               .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+    } else {
+      tests.push_back(
+          {"json_keys",
+           QueryParamsWithResult({ParseJson(json_input)},
+                                 values::StringArray(results))
+               .SetNamedValueArguments({{kModeArgumentName, String(mode)}})
+               .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+    }
+  }
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonKeys() {
+  // Function signature:
+  // JSON_KEYS(JSON json_doc[, INT64 max_depth][,
+  // STRING mode=>{"strict", "lax", "lax recursive"}]) -> Array<STRING>
+  constexpr absl::string_view kModeArgumentName = "mode";
+  constexpr absl::string_view kStrictMode = "strict";
+  constexpr absl::string_view kLaxMode = "lax";
+  constexpr absl::string_view kLaxRecursiveMode = "lax recursive";
+
+  std::vector<FunctionTestCall> tests;
+  // NULL `json_doc`.
+  tests.push_back(
+      {"json_keys", QueryParamsWithResult(
+                        {NullJson()}, Value::Null(types::StringArrayType()))});
+  // NULL `json_doc` and `max_depth`.
+  tests.push_back({"json_keys", QueryParamsWithResult(
+                                    {NullJson(), NullInt64()},
+                                    Value::Null(types::StringArrayType()))});
+  // NULL `json_doc`, `max_depth`, and `mode`.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({NullJson(), NullInt64()},
+                             Value::Null(types::StringArrayType()))
+           .SetNamedValueArguments({{kModeArgumentName, NullString()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL `max_depth` and non-null `json_doc`.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"({"a":1})"), NullInt64()},
+                             values::Array(StringArrayType(), {String("a")}))});
+  // NULL `mode` and non-null `json_doc`.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"({"a":1})")},
+                             Value::Null(types::StringArrayType()))
+           .SetNamedValueArguments({{kModeArgumentName, NullString()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL `json_doc` and non-null `max_depth` and `mode`.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({NullJson(), Int64(1)},
+                             Value::Null(types::StringArrayType()))
+           .SetNamedValueArguments({{kModeArgumentName, String("lax")}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // NULL `json_doc` with invalid `mode` throws error.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({NullJson(), Int64(1)},
+                             Value::Null(types::StringArrayType()),
+                             OUT_OF_RANGE)
+           .SetNamedValueArguments({{kModeArgumentName, String("invalid")}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Non-null `json_doc` with invalid `mode` throws error.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"({"a":1})"), Int64(1)},
+                             Value::Null(types::StringArrayType()),
+                             OUT_OF_RANGE)
+           .SetNamedValueArguments({{kModeArgumentName, String("invalid")}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Non-null `json_doc`, NULL `mode`, invalid `max_depth` throws error.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"({"a":1})"), Int64(0)},
+                             Value::Null(types::StringArrayType()),
+                             OUT_OF_RANGE)
+           .SetNamedValueArguments({{kModeArgumentName, NullString()}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Non-null `json_doc`, NULL `max_depth`, invalid `mode` throws error.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"({"a":1})"), NullInt64()},
+                             Value::Null(types::StringArrayType()),
+                             OUT_OF_RANGE)
+           .SetNamedValueArguments({{kModeArgumentName, String("invalid")}})
+           .AddRequiredFeature(FEATURE_NAMED_ARGUMENTS)});
+  // Non-positive `max_depth` throws an error.
+  tests.push_back(
+      {"json_keys", QueryParamsWithResult({NullJson(), Int64(-1)},
+                                          Value::Null(types::StringArrayType()),
+                                          OUT_OF_RANGE)});
+  tests.push_back(
+      {"json_keys", QueryParamsWithResult({NullJson(), Int64(0)},
+                                          Value::Null(types::StringArrayType()),
+                                          OUT_OF_RANGE)});
+
+  // Valid cases
+  //
+  // Mode "strict", "lax", and "lax recursive" same result.
+  tests.push_back({"json_keys", QueryParamsWithResult(
+                                    {ParseJson("null")},
+                                    values::Array(StringArrayType(), {}))});
+  JsonKeysSameResultForModes(R"({"a":1})", std::nullopt, {"a"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  // Special characters for JSON keys.
+  JsonKeysSameResultForModes(R"({"a.b":1})", std::nullopt, {R"("a.b")"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a.b":{"c":1}})", std::nullopt,
+                             {R"("a.b")", R"("a.b".c)"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a.b": {"c\"":1}})", std::nullopt,
+                             {R"("a.b")", R"("a.b"."c\"")"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a.b": {"c\"":1, "d.e":2}})", std::nullopt,
+                             {R"("a.b")", R"("a.b"."c\"")", R"("a.b"."d.e")"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  // Testing `max_depth`.
+  JsonKeysSameResultForModes(R"({"a":1})", 1, {"a"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a": {"b":1}})", INT64_MAX, {"a", "a.b"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a": {"b":1}})", 1, {"a"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"({"a": {"c":1, "b":1}})", 2, {"a", "a.b", "a.c"},
+                             {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  // Keys should be returned in alphabetically sorted order.
+  JsonKeysSameResultForModes(
+      R"({"a": {"c":{"d":1, "e":1}, "b":1, "a":{"a":1}}})", std::nullopt,
+      {"a", "a.a", "a.a.a", "a.b", "a.c", "a.c.d", "a.c.e"},
+      {kStrictMode, kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(
+      R"({"a": {"c":{"d":1, "e":1}, "b":1, "a":{"a":1}}})", 2,
+      {"a", "a.a", "a.b", "a.c"}, {kStrictMode, kLaxMode, kLaxRecursiveMode},
+      tests);
+
+  // Tests arrays are correctly unwrapped when "lax" is enabled.
+  // Mode "lax", and "lax recursive" same result.
+  JsonKeysSameResultForModes(R"({"a": [{"b":1}, {"c":2}]})", std::nullopt,
+                             {"a", "a.b", "a.c"}, {kLaxMode, kLaxRecursiveMode},
+                             tests);
+  JsonKeysSameResultForModes(R"({"a": [{"b":1}, {"c":2}]})", 1, {"a"},
+                             {kLaxMode, kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(R"([{"a":1}, {"b":1}, {"c":2}, "d"])", 1,
+                             {"a", "b", "c"}, {kLaxMode, kLaxRecursiveMode},
+                             tests);
+
+  // Tests nested array are correctly unwrapped when "lax" and "recursive"
+  // behavior is enabled.
+  JsonKeysSameResultForModes(R"([1, {"a": 1}, [{"b": 2}]])", 3, {"a", "b"},
+                             {kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(
+      R"({"a": [[{"b":1}, {"b":2}], {"c":2}, {"b":{"c":3}}]})", 3,
+      {"a", "a.b", "a.b.c", "a.c"}, {kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(
+      R"({"a": [[{"b":1}, {"b":2}], [[[{"c":2}]]], {"b":{"c":3}}]})", 2,
+      {"a", "a.b", "a.c"}, {kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(
+      R"({"a": [[{"b":1}, {"b":2}], [[[{"c":2}]]], {"b":{"c":3}}]})", 1, {"a"},
+      {kLaxRecursiveMode}, tests);
+  JsonKeysSameResultForModes(
+      R"({"b":2, "a": [[{"b":1}, 2, "value"], {"c":2}]})", 2,
+      {"a", "a.b", "a.c", "b"}, {kLaxRecursiveMode}, tests);
+
+  // Tests when "lax" is enabled but "recursive" is not, doesn't unwrap nested
+  // arrays.
+  JsonKeysSameResultForModes(R"([[{"a":1}]])", std::nullopt, {}, {kLaxMode},
+                             tests);
+  JsonKeysSameResultForModes(R"([1, {"a": 1}, [{"b": 2}]])", std::nullopt,
+                             {"a"}, {kLaxMode}, tests);
+  JsonKeysSameResultForModes(
+      R"([1, {"a": 1}, {"c": [{"d":2}, [{"e":3}]]}, [{"b": 2}]])", std::nullopt,
+      {"a", "c", "c.d"}, {kLaxMode}, tests);
+
+  // Tests that when lax behavior isn't enabled doesn't unwrap arrays.
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"([{"a":1}])")},
+                             values::StringArray(std::vector<std::string>()))});
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult({ParseJson(R"([[{"a":1}]])")},
+                             values::StringArray(std::vector<std::string>()))});
+  tests.push_back(
+      {"json_keys",
+       QueryParamsWithResult(
+           {ParseJson(R"([1, [{"a": 1}], [{"c": 1}], [[{"b": 2}]]])")},
+           values::StringArray(std::vector<std::string>()))});
+
+  for (auto& test : tests) {
+    test.params.AddRequiredFeature(FEATURE_JSON_TYPE);
+    test.params.AddRequiredFeature(FEATURE_JSON_KEYS_FUNCTION);
+  }
   return tests;
 }
 }  // namespace zetasql

@@ -27,6 +27,7 @@
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
@@ -119,7 +120,7 @@ absl::Status ValidateQuantifiedLikeEvaluationParams(
 }
 
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> BuildCollator(
-    const std::string& collation_str) {
+    absl::string_view collation_str) {
   if (collation_str.empty()) {
     return nullptr;
   }

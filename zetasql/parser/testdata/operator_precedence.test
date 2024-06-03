@@ -625,7 +625,7 @@ ALTERNATION GROUPS:
     BETWEEN 2 AND 3,<> 2
     NOT BETWEEN 2 AND 3,<> 2
 --
-ERROR: Syntax error: Unexpected "<>" [at 4:5]
+ERROR: Syntax error: Unexpected "<" [at 4:5]
     <> 2
     ^
 --

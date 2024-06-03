@@ -532,7 +532,7 @@ SELECT STRUCT {foobar: 5
 # ARRAY keyword not allowed.
 SELECT STRUCT ARRAY<int32>{}
 --
-ERROR: Syntax error: Expected "(" or "<" or "{" but got keyword ARRAY [at 1:15]
+ERROR: Syntax error: Expected "<" but got keyword ARRAY [at 1:15]
 SELECT STRUCT ARRAY<int32>{}
               ^
 ==

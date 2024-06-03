@@ -17,10 +17,13 @@
 #include "zetasql/public/sql_formatter.h"
 
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -175,12 +178,144 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
             ";",
             formatted_sql);
 
-  // The second statement contains invalid input character '$', which makes
+  // The second statement contains invalid input character '`', which makes
   // GetParseTokens fail. Original sql is returned in this case even if the
   // first statement can be formatted.
-  EXPECT_THAT(FormatSql("select 1;  select $d ;", &formatted_sql),
-              StatusIs(_, HasSubstr("Unexpected macro")));
-  EXPECT_EQ("select 1;  select $d ;", formatted_sql);
+  EXPECT_THAT(FormatSql("select 1;  select ` ;", &formatted_sql),
+              StatusIs(_, HasSubstr("Unclosed identifier")));
+  EXPECT_EQ("select 1;  select ` ;", formatted_sql);
+}
+
+TEST(SqlFormatterTest, MissingWhitespaceBetweenLiteralsAndIdentifier) {
+  // Floating point literals ending with dot are allowed to be followed by
+  // identifiers directly.
+  {
+    std::string formatted_sql;
+    ZETASQL_EXPECT_OK(FormatSql("SELECT 1.m", &formatted_sql));
+    EXPECT_EQ(formatted_sql, "SELECT\n  1.AS m;");
+  }
+
+  std::vector<std::string> test_cases = {
+      // Floating point literals starting with dot.
+      "SELECT .1e",
+      "SELECT .1E10m",
+      "SELECT .1E+10m",
+      "SELECT .1E-10m",
+      // Floating point literals dot in middle.
+      "SELECT 1.1e",
+      "SELECT 1.1E10m",
+      "SELECT 1.1E+10m",
+      "SELECT 1.1E-10m",
+      // Floating point literals no dot.
+      "SELECT 1E10m",
+      "SELECT 1E+10m",
+      "SELECT 1E-10m",
+      // Integer literals.
+      "SELECT 1m",
+      "SELECT 0x1m",
+  };
+
+  for (const auto& test_case : test_cases) {
+    std::string formatted_sql;
+    EXPECT_THAT(
+        FormatSql(test_case, &formatted_sql),
+        StatusIs(
+            absl::StatusCode::kInvalidArgument,
+            HasSubstr(
+                "Syntax error: Missing whitespace between literal and alias")));
+  }
+}
+
+TEST(SqlFormatterTest, FloatingPointLiteral) {
+  std::string formatted_sql;
+  // Floating point literals that start with dot.
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select .123", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  .123;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select .123E2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  .123E2;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select .123E+2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  .123E+2;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select .123E-2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  .123E-2;",
+        formatted_sql);
+  }
+  // Floating point literals that end with dot.
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1.", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1.;",
+        formatted_sql);
+  }
+  // Floating point literals that have dot in middle.
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1.1", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1.1;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1.1E2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1.1E2;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1.1E+2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1.1E+2;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1.1E-2", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1.1E-2;",
+        formatted_sql);
+  }
+  // Floating point literals without dot.
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1E10", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1E10;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1E+10", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1E+10;",
+        formatted_sql);
+  }
+  {
+    ZETASQL_ASSERT_OK(FormatSql("select 1E-10", &formatted_sql));
+    EXPECT_EQ(
+        "SELECT\n"
+        "  1E-10;",
+        formatted_sql);
+  }
 }
 
 }  // namespace

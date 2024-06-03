@@ -289,12 +289,13 @@ QueryStmt
 | +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
 | +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
 | +-SimpleTypes.json#18 AS json [JSON]
+| +-SimpleTypes.uuid#19 AS uuid [UUID]
 +-query=
   +-OrderByScan
-    +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
+    +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
     +-is_ordered=TRUE
     +-input_scan=
-    | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-order_by_item_list=
       +-OrderByItem
       | +-column_ref=
@@ -2828,22 +2829,22 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.foo#19 AS foo [INT32]
+| +-$groupby.foo#20 AS foo [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$groupby.foo#19]
+    +-column_list=[$groupby.foo#20]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=[$groupby.foo#19]
+    |   +-column_list=[$groupby.foo#20]
     |   +-input_scan=
     |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   +-group_by_list=
-    |     +-foo#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#19)
+          +-ColumnRef(type=INT32, column=$groupby.foo#20)
 --
 ALTERNATION GROUPS:
     int32,foo
@@ -2852,22 +2853,22 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.int32#19 AS foo [INT32]
+| +-$groupby.int32#20 AS foo [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$groupby.int32#19]
+    +-column_list=[$groupby.int32#20]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=[$groupby.int32#19]
+    |   +-column_list=[$groupby.int32#20]
     |   +-input_scan=
     |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   +-group_by_list=
-    |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32#19)
+          +-ColumnRef(type=INT32, column=$groupby.int32#20)
 ==
 
 # ORDER BY alias, ordinal, column all behave the same when DISTINCT present.
@@ -2877,22 +2878,22 @@ order by {{foo|1|int32}}
 --
 QueryStmt
 +-output_column_list=
-| +-$distinct.int32#19 AS foo [INT32]
+| +-$distinct.int32#20 AS foo [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$distinct.int32#19]
+    +-column_list=[$distinct.int32#20]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=[$distinct.int32#19]
+    |   +-column_list=[$distinct.int32#20]
     |   +-input_scan=
     |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   +-group_by_list=
-    |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#19)
+          +-ColumnRef(type=INT32, column=$distinct.int32#20)
 ==
 
 # ORDER BY alias, ordinal, column all behave the same when DISTINCT and
@@ -2913,27 +2914,27 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$distinct.foo#20 AS foo [INT32]
+| +-$distinct.foo#21 AS foo [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$distinct.foo#20]
+    +-column_list=[$distinct.foo#21]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=[$distinct.foo#20]
+    |   +-column_list=[$distinct.foo#21]
     |   +-input_scan=
     |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#19]
+    |   |   +-column_list=[$groupby.foo#20]
     |   |   +-input_scan=
     |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   |   +-group_by_list=
-    |   |     +-foo#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=$groupby.foo#19)
+    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#20)
+          +-ColumnRef(type=INT32, column=$distinct.foo#21)
 --
 ALTERNATION GROUPS:
     int32,foo
@@ -2942,27 +2943,27 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$distinct.int32#20 AS foo [INT32]
+| +-$distinct.int32#21 AS foo [INT32]
 +-query=
   +-OrderByScan
-    +-column_list=[$distinct.int32#20]
+    +-column_list=[$distinct.int32#21]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=[$distinct.int32#20]
+    |   +-column_list=[$distinct.int32#21]
     |   +-input_scan=
     |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32#19]
+    |   |   +-column_list=[$groupby.int32#20]
     |   |   +-input_scan=
     |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   |   +-group_by_list=
-    |   |     +-int32#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |   |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |   +-group_by_list=
-    |     +-int32#20 := ColumnRef(type=INT32, column=$groupby.int32#19)
+    |     +-int32#21 := ColumnRef(type=INT32, column=$groupby.int32#20)
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#20)
+          +-ColumnRef(type=INT32, column=$distinct.int32#21)
 ==
 
 # This was originally b/20529177, which failed with an internal error about

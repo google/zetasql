@@ -251,6 +251,70 @@ QueryStmt
       +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
 ==
 
+[language_features=V_1_2_SAFE_FUNCTION_CALL,JSON_TYPE]
+# Subscripts with KEY and SAFE_KEY should be an error.
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][{{"a"|KEY("a")|SAFE_KEY("a")}}]
+--
+ALTERNATION GROUP: "a"
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$subscript(JSON, STRING) -> JSON)
+    |     +-FunctionCall(ZetaSQL:$subscript(JSON, INT64) -> JSON)
+    |     | +-Literal(type=JSON, value=[{"a":"foo"},{"a":"bar"}], has_explicit_type=TRUE)
+    |     | +-Literal(type=INT64, value=0)
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: KEY("a")
+--
+ERROR: Subscript access using [KEY(STRING)] is not supported on values of type JSON [at 2:49]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][KEY("a")]
+                                                ^
+--
+ALTERNATION GROUP: SAFE_KEY("a")
+--
+ERROR: Subscript access using [KEY(STRING)] is not supported on values of type JSON [at 2:49]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][SAFE_KEY("a")]
+                                                ^
+==
+
+[language_features=V_1_2_SAFE_FUNCTION_CALL,JSON_TYPE]
+# Subscripts with OFFSET, ORDINAL, and their SAFE versions should be an error.
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[{{OFFSET(0)|ORDINAL(1)|SAFE_OFFSET(0)|SAFE_ORDINAL(1)}}]["a"]
+--
+ALTERNATION GROUP: OFFSET(0)
+--
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type JSON [at 2:46]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[OFFSET(0)]["a"]
+                                             ^
+--
+ALTERNATION GROUP: ORDINAL(1)
+--
+ERROR: Subscript access using [ORDINAL(INT64)] is not supported on values of type JSON [at 2:46]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[ORDINAL(1)]["a"]
+                                             ^
+--
+ALTERNATION GROUP: SAFE_OFFSET(0)
+--
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type JSON [at 2:46]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[SAFE_OFFSET(0)]["a"]
+                                             ^
+--
+ALTERNATION GROUP: SAFE_ORDINAL(1)
+--
+ERROR: Subscript access using [ORDINAL(INT64)] is not supported on values of type JSON [at 2:46]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[SAFE_ORDINAL(1)]["a"]
+                                             ^
+==
+
 [language_features=JSON_TYPE,NAMED_ARGUMENTS]
 SELECT TO_JSON(key), TO_JSON(TestEnum, stringify_wide_numbers=>true), TO_JSON(KitchenSink, stringify_wide_numbers=>false) FROM TestTable;
 --
@@ -443,3 +507,125 @@ SELECT JSON_REMOVE(json_col, "$.a", TRIM(" $.a"), TO_JSON_STRING(json_col)) FROM
 ERROR: Argument 4 to JSON_REMOVE must be a constant expression [at 1:51]
 SELECT JSON_REMOVE(json_col, "$.a", TRIM(" $.a"), TO_JSON_STRING(json_col)) F...
                                                   ^
+==
+
+[language_features=JSON_TYPE,JSON_CONTAINS_FUNCTION]
+SELECT JSON_CONTAINS(JSON 'true', JSON 'true'),
+       JSON_CONTAINS(json_col, JSON '[1,3]'),
+       JSON_CONTAINS(JSON_QUERY(json_col, "$.a"), @test_param_json)
+FROM JsonTable;
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
+| +-$query.$col2#3 AS `$col2` [BOOL]
+| +-$query.$col3#4 AS `$col3` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#2, $col2#3, $col3#4]
+    +-expr_list=
+    | +-$col1#2 :=
+    | | +-FunctionCall(ZetaSQL:json_contains(JSON, JSON) -> BOOL)
+    | |   +-Literal(type=JSON, value=true, has_explicit_type=TRUE)
+    | |   +-Literal(type=JSON, value=true, has_explicit_type=TRUE)
+    | +-$col2#3 :=
+    | | +-FunctionCall(ZetaSQL:json_contains(JSON, JSON) -> BOOL)
+    | |   +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    | |   +-Literal(type=JSON, value=[1,3], has_explicit_type=TRUE)
+    | +-$col3#4 :=
+    |   +-FunctionCall(ZetaSQL:json_contains(JSON, JSON) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:json_query(JSON, STRING) -> JSON)
+    |     | +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    |     | +-Literal(type=STRING, value="$.a")
+    |     +-Parameter(type=JSON, name="test_param_json")
+    +-input_scan=
+      +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+==
+
+[language_features=JSON_TYPE,JSON_CONTAINS_FUNCTION]
+SELECT JSON_CONTAINS(json_col, "1")
+FROM JsonTable;
+--
+ERROR: No matching signature for function JSON_CONTAINS for argument types: JSON, STRING. Supported signature: JSON_CONTAINS(JSON, JSON) [at 1:8]
+SELECT JSON_CONTAINS(json_col, "1")
+       ^
+==
+
+# Test unsupported function if `JSON_CONTAINS_FUNCTION` feature is missing.
+[language_features=JSON_TYPE]
+SELECT JSON_CONTAINS(JSON 'true', JSON 'true')
+--
+ERROR: Function not found: JSON_CONTAINS [at 1:8]
+SELECT JSON_CONTAINS(JSON 'true', JSON 'true')
+       ^
+==
+
+# Test JSON_KEYS function.
+[language_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '999'),
+       JSON_KEYS(JSON '999', 1),
+       JSON_KEYS(JSON '999', 1, mode=>Trim("lax"))
+FROM JsonTable;
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<STRING>]
+| +-$query.$col2#3 AS `$col2` [ARRAY<STRING>]
+| +-$query.$col3#4 AS `$col3` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#2, $col2#3, $col3#4]
+    +-expr_list=
+    | +-$col1#2 :=
+    | | +-FunctionCall(ZetaSQL:json_keys(JSON, optional(1) INT64, optional(1) STRING mode) -> ARRAY<STRING>)
+    | |   +-Literal(type=JSON, value=999, has_explicit_type=TRUE)
+    | |   +-Literal(type=INT64, value=9223372036854775807)
+    | |   +-Literal(type=STRING, value="strict")
+    | +-$col2#3 :=
+    | | +-FunctionCall(ZetaSQL:json_keys(JSON, optional(1) INT64, optional(1) STRING mode) -> ARRAY<STRING>)
+    | |   +-Literal(type=JSON, value=999, has_explicit_type=TRUE)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=STRING, value="strict")
+    | +-$col3#4 :=
+    |   +-FunctionCall(ZetaSQL:json_keys(JSON, optional(1) INT64, optional(1) STRING mode) -> ARRAY<STRING>)
+    |     +-Literal(type=JSON, value=999, has_explicit_type=TRUE)
+    |     +-Literal(type=INT64, value=1)
+    |     +-FunctionCall(ZetaSQL:trim(STRING, optional(0) STRING) -> STRING)
+    |       +-Literal(type=STRING, value="lax")
+    +-input_scan=
+      +-TableScan(table=JSONTable)
+==
+
+# Test JSON_KEYS with non-const `max_depth`
+[language_features=JSON_TYPE,JSON_KEYS_FUNCTION,JSON_LAX_VALUE_EXTRACTION_FUNCTIONS,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '1', LAX_INT64(json_col))
+FROM JsonTable;
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:json_keys(JSON, optional(1) INT64, optional(1) STRING mode) -> ARRAY<STRING>)
+    |     +-Literal(type=JSON, value=1, has_explicit_type=TRUE)
+    |     +-FunctionCall(ZetaSQL:lax_int64(JSON) -> INT64)
+    |     | +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+    |     +-Literal(type=STRING, value="strict")
+    +-input_scan=
+      +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+==
+
+# Error: Test JSON_KEYS function with non-const expression for `mode`.
+[language_features=JSON_TYPE,JSON_KEYS_FUNCTION,NAMED_ARGUMENTS]
+SELECT JSON_KEYS(JSON '999', mode=>TO_JSON_STRING(json_col))
+FROM JsonTable;
+--
+ERROR: Argument 'mode' to JSON_KEYS must be a constant expression [at 1:30]
+SELECT JSON_KEYS(JSON '999', mode=>TO_JSON_STRING(json_col))
+                             ^

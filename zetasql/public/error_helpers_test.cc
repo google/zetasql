@@ -28,8 +28,12 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/status_payload_matchers.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/script_exception.pb.h"
+#include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
@@ -45,10 +49,15 @@
 namespace zetasql {
 
 using ::zetasql::testing::EqualsProto;
+using ::zetasql::testing::StatusHasGenericPayload;
+using ::zetasql::testing::StatusHasPayload;
 using ::testing::_;
+using ::testing::AllOf;
 using ::testing::ElementsAreArray;
 using ::testing::Eq;
+using ::testing::ExplainMatchResult;
 using ::testing::HasSubstr;
+using ::testing::Not;
 using ::zetasql_base::testing::StatusIs;
 
 TEST(ErrorHelpersTest, FormatErrorLocation) {
@@ -88,7 +97,8 @@ TEST(ErrorHelpersTest, FormatError) {
   status2 = ConvertInternalErrorLocationToExternal(status2, dummy_query);
   EXPECT_EQ(
       "generic::invalid_argument: Message2 "
-      "[zetasql.ErrorLocation] { line: 4 column: 9 }",
+      "[zetasql.ErrorLocation] { line: 4 column: 9 input_start_line_offset: "
+      "0 input_start_column_offset: 0 }",
       internal::StatusToString(status2));
   EXPECT_EQ("Message2 [at 4:9]", FormatError(status2));
 
@@ -105,7 +115,8 @@ TEST(ErrorHelpersTest, FormatError) {
   status4 = ConvertInternalErrorLocationToExternal(status4, dummy_query);
   EXPECT_EQ(
       "generic::unknown: Message4 "
-      "[zetasql.ErrorLocation] { line: 1 column: 2 }",
+      "[zetasql.ErrorLocation] { line: 1 column: 2 input_start_line_offset: "
+      "0 input_start_column_offset: 0 }",
       internal::StatusToString(status4));
   EXPECT_EQ(internal::StatusToString(status4), FormatError(status4));
 
@@ -134,7 +145,9 @@ TEST(ErrorHelpersTest, FormatError) {
       internal::StatusToString(status6),
       AllOf(
           HasSubstr("generic::invalid_argument: Message6"),
-          HasSubstr("[zetasql.ErrorLocation] { line: 2 column: 22 }"),
+          HasSubstr(
+              "[zetasql.ErrorLocation] { line: 2 column: 22 "
+              "input_start_line_offset: 0 input_start_column_offset: 0 }"),
           HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
   EXPECT_EQ(
       "Message6 [at 2:22] "
@@ -161,11 +174,14 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   status2 = ConvertInternalErrorLocationToExternal(status2, "123\n456");
   EXPECT_EQ(
       "generic::unknown: Message2 "
-      "[zetasql.ErrorLocation] { line: 1 column: 2 }",
+      "[zetasql.ErrorLocation] { line: 1 column: 2 input_start_line_offset: "
+      "0 input_start_column_offset: 0 }",
       internal::StatusToString(status2));
   EXPECT_TRUE(HasErrorLocation(status2));
   EXPECT_TRUE(GetErrorLocation(status2, &location));
-  EXPECT_THAT(location, EqualsProto("line: 1 column: 2"));
+  EXPECT_THAT(location,
+              EqualsProto("line: 1 column: 2 input_start_line_offset: 0 "
+                          "input_start_column_offset: 0"));
   ClearErrorLocation(&status2);
   EXPECT_EQ("generic::unknown: Message2", internal::StatusToString(status2));
   // No payload, not an empty payload.
@@ -190,12 +206,16 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
       internal::StatusToString(status3),
       AllOf(
           HasSubstr("generic::invalid_argument: Message3"),
-          HasSubstr("[zetasql.ErrorLocation] { line: 3 column: 4 }"),
+          HasSubstr(
+              "[zetasql.ErrorLocation] { line: 3 column: 4 "
+              "input_start_line_offset: 0 input_start_column_offset: 0 }"),
           HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
 
   EXPECT_TRUE(HasErrorLocation(status3));
   EXPECT_TRUE(GetErrorLocation(status3, &location));
-  EXPECT_THAT(location, EqualsProto("line: 3 column: 4"));
+  EXPECT_THAT(location,
+              EqualsProto("line: 3 column: 4 input_start_line_offset: 0 "
+                          "input_start_column_offset: 0"));
   ClearErrorLocation(&status3);
   EXPECT_EQ(
       "generic::invalid_argument: Message3 "
@@ -628,15 +648,18 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
             "[zetasql.InternalErrorLocation] { byte_offset: 3 }",
             FormatError(status3));
   status3 = ConvertInternalErrorLocationToExternal(status3, dummy_query);
-  EXPECT_EQ("generic::unknown: Message3 [zetasql.ErrorLocation] "
-            "{ line: 1 column: 4 }",
-            FormatError(status3));
+  EXPECT_EQ(
+      "generic::unknown: Message3 [zetasql.ErrorLocation] "
+      "{ line: 1 column: 4 input_start_line_offset: 0 "
+      "input_start_column_offset: 0 }",
+      FormatError(status3));
 
   // The byte_offset is 0-based and the column is 1-based, so byte_offset 3
   // is line 1, column 4.
   const std::string expected_payload_string3 =
       "generic::unknown: Message3 [zetasql.ErrorLocation] "
-      "{ line: 1 column: 4 }";
+      "{ line: 1 column: 4 input_start_line_offset: 0 "
+      "input_start_column_offset: 0 }";
   const std::string expected_oneline_string3 =
       "generic::unknown: Message3 [at 1:4]";
   const std::string expected_caret_string3 =
@@ -1267,13 +1290,14 @@ static absl::Status ErrorWithLocation() {
          << "With location";
 }
 
-static absl::Status UpdateWithRedaction(const absl::Status& status,
-                                        absl::string_view query) {
+static absl::Status UpdateWithRedaction(
+    const absl::Status& status, absl::string_view query,
+    ErrorMessageStability stability = ERROR_MESSAGE_STABILITY_TEST_REDACTED) {
   return MaybeUpdateErrorFromPayload(
       ErrorMessageOptions{
           .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
           .attach_error_location_payload = true,
-          .stability = ERROR_MESSAGE_STABILITY_TEST_REDACTED},
+          .stability = stability},
       query, status);
 }
 
@@ -1285,16 +1309,23 @@ TEST(ErrorHelpersTest, RedactedModeReturnsRedactedMessages) {
   // Error locations also get removed. They are not stable, as we change
   // locations to improve some messages.
   ZETASQL_EXPECT_OK(UpdateWithRedaction(NoError(), query));
-  EXPECT_THAT(UpdateWithRedaction(ErrorWithoutLocation(), query),
-              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
-  EXPECT_THAT(UpdateWithRedaction(ErrorWithLocation(), query),
-              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
-  EXPECT_THAT(UpdateWithRedaction(ErrorWithLocation(), query),
-              StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")));
+  EXPECT_THAT(
+      UpdateWithRedaction(ErrorWithoutLocation(), query),
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")),
+            Not(StatusHasPayload<InternalErrorLocation>())));
+  absl::Status error_with_location = ErrorWithLocation();
+
+  ASSERT_THAT(error_with_location, StatusHasPayload<InternalErrorLocation>());
+  EXPECT_THAT(
+      UpdateWithRedaction(error_with_location, query),
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")),
+            Not(StatusHasPayload<InternalErrorLocation>())));
+
   EXPECT_THAT(
       UpdateWithRedaction(
           absl::Status(absl::StatusCode::kNotFound, "Some message"), query),
-      StatusIs(absl::StatusCode::kNotFound, Eq("SQL ERROR")));
+      AllOf(StatusIs(absl::StatusCode::kNotFound, Eq("SQL ERROR")),
+            Not(StatusHasPayload<InternalErrorLocation>())));
 }
 
 TEST(Errors, RedactedModeDoesNotHideSystemErrors) {
@@ -1302,14 +1333,235 @@ TEST(Errors, RedactedModeDoesNotHideSystemErrors) {
   // InternalErrorLocations in this test.
   const std::string query = "1\n2\n3\n42345\n";
 
-  EXPECT_THAT(UpdateWithRedaction(absl::Status(absl::StatusCode::kUnimplemented,
-                                               "Unimplemented"),
-                                  query),
-              StatusIs(absl::StatusCode::kUnimplemented, Eq("Unimplemented")));
+  absl::Status unimplemented_error =
+      ::zetasql_base::UnimplementedErrorBuilder().AttachPayload(
+          ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
+      << "Unimplemented";
 
-  EXPECT_THAT(UpdateWithRedaction(
-                  absl::Status(absl::StatusCode::kInternal, "Internal"), query),
-              StatusIs(absl::StatusCode::kInternal, Eq("Internal")));
+  ASSERT_THAT(unimplemented_error, StatusHasPayload<InternalErrorLocation>());
+  EXPECT_THAT(UpdateWithRedaction(unimplemented_error, query),
+              AllOf(StatusIs(absl::StatusCode::kUnimplemented,
+                             Eq("Unimplemented [at 1:2]\n1\n ^")),
+                    StatusHasPayload<ErrorLocation>()));
+
+  absl::Status internal_error =
+      ::zetasql_base::InternalErrorBuilder().AttachPayload(
+          ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
+      << "Internal";
+
+  ASSERT_THAT(internal_error, StatusHasPayload<InternalErrorLocation>());
+  EXPECT_THAT(UpdateWithRedaction(internal_error, query),
+              AllOf(StatusIs(absl::StatusCode::kInternal,
+                             Eq("Internal [at 1:2]\n1\n ^")),
+                    StatusHasPayload<ErrorLocation>()));
 }
+
+static void AttachAllRedactablePaylaods(absl::Status& status) {
+  ErrorMessageModeForPayload mode_wrapper;
+  mode_wrapper.set_mode(ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+  status.SetPayload(kErrorMessageModeUrl, mode_wrapper.SerializeAsCord());
+
+  ErrorLocation error_location;
+  error_location.set_line(1);
+  error_location.set_column(2);
+  internal::AttachPayload(&status, error_location);
+
+  DeprecationWarning deprecation_warning;
+  deprecation_warning.set_kind(DeprecationWarning::DEPRECATED_FUNCTION);
+  internal::AttachPayload(&status, deprecation_warning);
+
+  ScriptException script_exception;
+  script_exception.set_message("script exception");
+  internal::AttachPayload(&status, script_exception);
+}
+
+static void AttachExtraPayload(absl::Status& status) {
+  zetasql_test__::TestStatusPayload extra_payload;
+  extra_payload.set_value("abc");
+  internal::AttachPayload(&status, extra_payload);
+}
+
+TEST(ErrorHelpersTest,
+     RedactionRemovesOnlyAndAllRelevantPayloads_NoOtherPayloadsPresent) {
+  absl::Status status = MakeSqlError() << "Some error";
+
+  AttachAllRedactablePaylaods(status);
+
+  EXPECT_THAT(
+      UpdateWithRedaction(status, /*query=*/""),
+      // Note: the message is redacted in the absence of other payloads.
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")),
+            Not(StatusHasPayload<zetasql_test__::TestStatusPayload>()),
+            Not(StatusHasGenericPayload(kErrorMessageModeUrl)),
+            Not(StatusHasPayload<ErrorLocation>()),
+            Not(StatusHasPayload<DeprecationWarning>()),
+            Not(StatusHasPayload<ScriptException>())));
+}
+
+TEST(ErrorHelpersTest,
+     RedactionRemovesOnlyAndAllRelevantPayloads_OtherPayloadsPresent) {
+  absl::Status status = MakeSqlError() << "Some error";
+
+  AttachAllRedactablePaylaods(status);
+  AttachExtraPayload(status);
+  EXPECT_THAT(
+      UpdateWithRedaction(status, /*query=*/""),
+      // Note: the message is *NOT* redacted because of the extra payload.
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("Some error")),
+            StatusHasPayload<zetasql_test__::TestStatusPayload>(),
+            Not(StatusHasGenericPayload(kErrorMessageModeUrl)),
+            Not(StatusHasPayload<ErrorLocation>()),
+            Not(StatusHasPayload<DeprecationWarning>()),
+            Not(StatusHasPayload<ScriptException>())));
+}
+
+TEST(ErrorHelpersTest, RedecatMessageKeepPayload_InternalError) {
+  absl::Status status = absl::InternalError("Some error");
+
+  EXPECT_THAT(
+      UpdateWithRedaction(status, /*query=*/"",
+                          ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS),
+      AllOf(StatusIs(absl::StatusCode::kInternal, Eq("Some error"))));
+}
+
+TEST(ErrorHelpersTest, RedecatMessageKeepPayload_WithZetaSQLPayloads) {
+  absl::Status status = MakeSqlError() << "Some error";
+
+  AttachAllRedactablePaylaods(status);
+
+  EXPECT_THAT(
+      UpdateWithRedaction(status, /*query=*/"",
+                          ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS),
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("SQL ERROR")),
+            StatusHasGenericPayload(kErrorMessageModeUrl),
+            StatusHasPayload<ErrorLocation>(),
+            StatusHasPayload<DeprecationWarning>(),
+            StatusHasPayload<ScriptException>()));
+}
+
+TEST(ErrorHelpersTest, RedecatMessageKeepPayload_WithExtraPayloads) {
+  absl::Status status = MakeSqlError() << "Some error";
+
+  AttachAllRedactablePaylaods(status);
+  AttachExtraPayload(status);
+
+  EXPECT_THAT(
+      UpdateWithRedaction(status, /*query=*/"",
+                          ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS),
+      // Note: the message is redacted in the absence of external payloads.
+      AllOf(StatusIs(absl::StatusCode::kInvalidArgument, Eq("Some error")),
+            StatusHasPayload<zetasql_test__::TestStatusPayload>(),
+            StatusHasGenericPayload(kErrorMessageModeUrl),
+            StatusHasPayload<ErrorLocation>(),
+            StatusHasPayload<DeprecationWarning>(),
+            StatusHasPayload<ScriptException>()));
+}
+
+MATCHER_P2(HasErrorLocationPayload, line, column, "") {
+  if (!internal::HasPayloadWithType<ErrorLocation>(arg)) {
+    *result_listener << "No ErrorLocation payload";
+    return false;
+  }
+
+  auto loc = internal::GetPayload<ErrorLocation>(arg);
+  return ExplainMatchResult(Eq(""), loc.filename(), result_listener) &&
+         ExplainMatchResult(Eq(line), loc.line(), result_listener) &&
+         ExplainMatchResult(Eq(column), loc.column(), result_listener);
+}
+
+struct CustomOffsetsTestCase {
+  int error_byte_offset;
+  ErrorMessageMode mode;
+  int expected_original_line;
+  int expected_original_column;
+  absl::string_view expected_message;
+};
+
+class ErrorHelpersTestParameterized
+    : public ::testing::TestWithParam<CustomOffsetsTestCase> {};
+
+TEST_P(ErrorHelpersTestParameterized,
+       ErrorLocationWithCustomLineColumnOffsets) {
+  const auto& [error_byte_offset, mode, expected_original_line,
+               expected_original_column, expected_message] = GetParam();
+
+  int line_offset = 1000;
+  int column_offset = 80;
+
+  const std::string query =
+      "abc\n"
+      "def\n"
+      "ghi";
+
+  absl::Status status =
+      MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(error_byte_offset))
+      << "Error: some failure";
+
+  status = ConvertInternalErrorLocationToExternal(status, query, line_offset,
+                                                  column_offset);
+
+  EXPECT_THAT(MaybeUpdateErrorFromPayload(
+                  ErrorMessageOptions{.mode = mode,
+                                      .attach_error_location_payload = true},
+                  query, status),
+              AllOf(StatusIs(_, Eq(expected_message)),
+                    HasErrorLocationPayload(expected_original_line,
+                                            expected_original_column)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ErrorHelpersTestParameterized, ErrorHelpersTestParameterized,
+    ::testing::Values(
+        // Error occurs on the first line.
+        CustomOffsetsTestCase{
+            .error_byte_offset = 2,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
+            .expected_original_line = 1,
+            .expected_original_column = 3,
+            .expected_message = "Error: some failure"},
+
+        // Because the error is on the first line, the column offset is taken
+        // into account.
+        CustomOffsetsTestCase{
+            .error_byte_offset = 2,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
+            .expected_original_line = 1,
+            .expected_original_column = 3,
+            .expected_message = "Error: some failure [at 1001:83]"},
+
+        // Because the error is on the first line, the column offset is taken
+        // into account. The column offset is 80, already taking up the
+        // max_width, forcing the addition of the '...' prefix.
+        CustomOffsetsTestCase{
+            .error_byte_offset = 2,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+            .expected_original_line = 1,
+            .expected_original_column = 3,
+            .expected_message = "Error: some failure [at 1001:83]\n"
+                                "...abc\n"
+                                "     ^"},
+
+        // Error occurs on a line that is not the first, so the column offset
+        // does not take effect.
+        CustomOffsetsTestCase{
+            .error_byte_offset = 9,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
+            .expected_original_line = 3,
+            .expected_original_column = 2,
+            .expected_message = "Error: some failure"},
+        CustomOffsetsTestCase{
+            .error_byte_offset = 9,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
+            .expected_original_line = 3,
+            .expected_original_column = 2,
+            .expected_message = "Error: some failure [at 1003:2]"},
+        CustomOffsetsTestCase{
+            .error_byte_offset = 9,
+            .mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+            .expected_original_line = 3,
+            .expected_original_column = 2,
+            .expected_message = "Error: some failure [at 1003:2]\n"
+                                "ghi\n"
+                                " ^"}));
 
 }  // namespace zetasql

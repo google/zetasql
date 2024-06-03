@@ -93,6 +93,7 @@ All mathematical functions have the following behaviors:
         Distance
       </td>
       <td>
+        
         <a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>&nbsp;&nbsp;
         <a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>&nbsp;&nbsp;
       </td>

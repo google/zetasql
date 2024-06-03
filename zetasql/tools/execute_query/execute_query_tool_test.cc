@@ -38,11 +38,13 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/span.h"
 
@@ -73,12 +75,12 @@ TEST(ExecuteQueryDefaults, AllRewritesEnabledByDefault) {
             internal::GetAllRewrites());
 }
 
-TEST(SetToolModeFromFlags, ToolMode) {
-  auto CheckFlag = [](absl::string_view name, ToolMode expected_mode) {
-    absl::SetFlag(&FLAGS_mode, name);
+TEST(SetToolModeFromFlags, SingleToolMode) {
+  auto CheckFlag = [](std::string name, ToolMode expected_mode) {
+    absl::SetFlag(&FLAGS_mode, std::vector<std::string>{name});
     ExecuteQueryConfig config;
     ZETASQL_EXPECT_OK(SetToolModeFromFlags(config));
-    EXPECT_EQ(config.tool_mode(), expected_mode);
+    EXPECT_TRUE(config.has_tool_mode(expected_mode));
   };
   CheckFlag("parse", ToolMode::kParse);
   CheckFlag("unparse", ToolMode::kUnparse);
@@ -88,8 +90,44 @@ TEST(SetToolModeFromFlags, ToolMode) {
   CheckFlag("execute", ToolMode::kExecute);
 }
 
+TEST(SetToolModeFromFlags, MultipleToolModes) {
+  auto CheckFlag = [](const std::vector<std::string>& names,
+                      const absl::flat_hash_set<ToolMode>& expected_modes,
+                      const absl::flat_hash_set<ToolMode>& unexpected_modes) {
+    absl::SetFlag(&FLAGS_mode, names);
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetToolModeFromFlags(config));
+    for (const ToolMode mode : expected_modes) {
+      EXPECT_TRUE(config.has_tool_mode(mode));
+    }
+    for (const ToolMode mode : unexpected_modes) {
+      EXPECT_FALSE(config.has_tool_mode(mode));
+    }
+  };
+  CheckFlag({"parse", "unparse"}, {ToolMode::kParse, ToolMode::kUnparse},
+            {ToolMode::kResolve, ToolMode::kUnAnalyze, ToolMode::kExplain,
+             ToolMode::kExecute});
+  CheckFlag({"unparse", "resolve"}, {ToolMode::kUnparse, ToolMode::kResolve},
+            {ToolMode::kParse, ToolMode::kUnAnalyze, ToolMode::kExplain,
+             ToolMode::kExecute});
+  CheckFlag({"resolve", "unanalyze"},
+            {ToolMode::kResolve, ToolMode::kUnAnalyze},
+            {ToolMode::kParse, ToolMode::kUnparse, ToolMode::kExplain,
+             ToolMode::kExecute});
+  CheckFlag({"unanalyze", "explain"},
+            {ToolMode::kUnAnalyze, ToolMode::kExplain},
+            {ToolMode::kParse, ToolMode::kUnparse, ToolMode::kResolve,
+             ToolMode::kExecute});
+  CheckFlag({"explain", "execute"}, {ToolMode::kExplain, ToolMode::kExecute},
+            {ToolMode::kParse, ToolMode::kUnparse, ToolMode::kResolve,
+             ToolMode::kUnAnalyze});
+  CheckFlag({"execute", "parse"}, {ToolMode::kExecute, ToolMode::kParse},
+            {ToolMode::kUnparse, ToolMode::kResolve, ToolMode::kUnAnalyze,
+             ToolMode::kExplain});
+}
+
 TEST(SetToolModeFromFlags, BadToolMode) {
-  absl::SetFlag(&FLAGS_mode, "bad-mode");
+  absl::SetFlag(&FLAGS_mode, {"bad-mode"});
   ExecuteQueryConfig config;
   EXPECT_THAT(SetToolModeFromFlags(config),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -295,7 +333,8 @@ void RunWriter(const absl::string_view mode, std::ostream& output) {
   absl::SetFlag(&FLAGS_output_mode, mode);
 
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<ExecuteQueryWriter> writer,
@@ -515,7 +554,8 @@ TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
 
 TEST(ExecuteQuery, ParseQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kParse);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kParse);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
   EXPECT_EQ(output.str(), R"(QueryStatement [0-8]
@@ -530,7 +570,8 @@ TEST(ExecuteQuery, ParseQuery) {
 
 TEST(ExecuteQuery, UnparseQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kUnparse);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kUnparse);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
   EXPECT_EQ(output.str(), R"(SELECT
@@ -541,7 +582,8 @@ TEST(ExecuteQuery, UnparseQuery) {
 
 TEST(ExecuteQuery, ResolveQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kResolve);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kResolve);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
   EXPECT_EQ(output.str(), R"(QueryStmt
@@ -560,16 +602,20 @@ TEST(ExecuteQuery, ResolveQuery) {
 
 TEST(ExecuteQuery, UnAnalyzeQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kUnAnalyze);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kUnAnalyze);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
-  EXPECT_EQ(output.str(), R"(SELECT 1 AS a_1
+  EXPECT_EQ(output.str(), R"(SELECT
+  1 AS a_1;
+
 )");
 }
 
 TEST(ExecuteQuery, ExplainQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExplain);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExplain);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
   EXPECT_EQ(output.str(), R"(RootOp(
@@ -577,12 +623,14 @@ TEST(ExecuteQuery, ExplainQuery) {
   +-map: {
   | +-$col1 := ConstExpr(1)},
   +-input: EnumerateOp(ConstExpr(1))))
+
 )");
 }
 
 TEST(ExecuteQuery, ExecuteQuery) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
   EXPECT_EQ(output.str(), R"(+---+
@@ -596,30 +644,37 @@ TEST(ExecuteQuery, ExecuteQuery) {
 
 TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
       FEATURE_V_1_4_SQL_MACROS);
+  config.mutable_analyzer_options().set_error_message_mode(
+      ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+
   std::ostringstream output;
-  EXPECT_THAT(ExecuteQuery("define macro", config, output),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Syntax error: Unexpected end of statement")));
+  EXPECT_THAT(
+      ExecuteQuery("define macro", config, output),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Syntax error: Expected macro name but got end of statement")));
   EXPECT_EQ(output.str(), R"(Expanded SQL:
 define macro
 )");
 
   output.str("");
   ZETASQL_EXPECT_OK(ExecuteQuery("define macro repeat $1, $1, $2, $2", config, output));
-  EXPECT_EQ(output.str(), R"(Expanded SQL:
-define macro repeat $1 , $1 , $2 , $2
-Macro registered: repeat
+  EXPECT_EQ(output.str(), R"(Macro registered: repeat
 )");
 
   output.str("");
-  EXPECT_THAT(
-      ExecuteQuery("select $absent", config, output),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Syntax error: Unexpected \"$absent\" [at 1:8]")));
-  EXPECT_EQ(output.str(), R"(Warning: Macro 'absent' not found.
+  EXPECT_THAT(ExecuteQuery("select $absent", config, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Syntax error: Unexpected \"$absent\"")));
+  EXPECT_EQ(output.str(),
+            R"(Warning: Macro 'absent' not found. [at <filename>:1:8]
+select $absent
+       ^
 Expanded SQL:
 select $absent
 )");
@@ -627,7 +682,7 @@ select $absent
   output.str("");
   ZETASQL_EXPECT_OK(ExecuteQuery("select $repeat(1, (2))", config, output));
   EXPECT_EQ(output.str(), R"(Expanded SQL:
-select 1 , 1 , ( 2 ) , ( 2 )
+select 1, 1, (2), (2)
 +---+---+---+---+
 |   |   |   |   |
 +---+---+---+---+
@@ -639,7 +694,8 @@ select 1 , 1 , ( 2 ) , ( 2 )
 
 TEST(ExecuteQuery, ParseExpression) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kParse);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kParse);
   config.set_sql_mode(SqlMode::kExpression);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
@@ -650,7 +706,8 @@ TEST(ExecuteQuery, ParseExpression) {
 
 TEST(ExecuteQuery, ResolveExpression) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kResolve);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kResolve);
   config.set_sql_mode(SqlMode::kExpression);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
@@ -661,7 +718,8 @@ TEST(ExecuteQuery, ResolveExpression) {
 
 TEST(ExecuteQuery, ExplainExpression) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExplain);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExplain);
   config.set_sql_mode(SqlMode::kExpression);
 
   std::ostringstream output;
@@ -672,7 +730,8 @@ TEST(ExecuteQuery, ExplainExpression) {
 
 TEST(ExecuteQuery, ExecuteExpression) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
 
   std::ostringstream output;
@@ -682,7 +741,8 @@ TEST(ExecuteQuery, ExecuteExpression) {
 
 TEST(ExecuteQuery, ExecuteError) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   std::ostringstream output;
   EXPECT_THAT(ExecuteQuery("select a", config, output),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -690,7 +750,8 @@ TEST(ExecuteQuery, ExecuteError) {
 
 TEST(ExecuteQuery, RespectEvaluatorOptions) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.mutable_catalog().AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
 
@@ -713,7 +774,8 @@ TEST(ExecuteQuery, RespectEvaluatorOptions) {
 
 TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
   config.mutable_catalog().AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
@@ -737,7 +799,8 @@ TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
 
 TEST(ExecuteQuery, RespectQueryParameters) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.mutable_catalog().AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
   ZETASQL_ASSERT_OK(config.mutable_analyzer_options().AddQueryParameter(
@@ -756,7 +819,8 @@ TEST(ExecuteQuery, RespectQueryParameters) {
 
 TEST(ExecuteQuery, RespectQueryParametersExpression) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
   config.mutable_catalog().AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
@@ -770,7 +834,8 @@ TEST(ExecuteQuery, RespectQueryParametersExpression) {
 
 TEST(ExecuteQuery, ExamineResolvedASTCallback) {
   ExecuteQueryConfig config;
-  config.set_tool_mode(ToolMode::kExecute);
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
   config.set_examine_resolved_ast_callback(
       [](const ResolvedNode*) -> absl::Status {
         return absl::Status(absl::StatusCode::kFailedPrecondition, "");

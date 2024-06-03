@@ -5643,7 +5643,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
   };
 
   // Add test cases with invalid elements
-  for (const char element : "AaBbhCcDdeFGgjmsUuVWwxYyZz") {
+  for (const char element : absl::string_view("AaBbhCcDdeFGgjmsUuVWwxYyZz")) {
     test_cases.push_back(CivilTimeTestCase(
         {String(absl::StrCat("%", std::string(1, element))), String("1")},
         FunctionEvalError(), TimeType()));

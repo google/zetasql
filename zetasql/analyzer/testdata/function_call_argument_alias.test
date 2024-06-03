@@ -26,7 +26,7 @@ SELECT s1[OFFSET(1 AS offset)]
 SELECT s1[OFFSET(1) AS offset]
 FROM (SELECT AS STRUCT 1 AS a, 2 AS b) s1
 --
-ERROR: Syntax error: Unexpected keyword AS [at 1:21]
+ERROR: Syntax error: Expected "]" but got keyword AS [at 1:21]
 SELECT s1[OFFSET(1) AS offset]
                     ^
 ==
@@ -88,7 +88,7 @@ SELECT [1, 2][OFFSET(1 AS offset_alias)]
 # (disallowed by the grammar).
 SELECT [1, 2][0 AS offset_alias]
 --
-ERROR: Syntax error: Unexpected keyword AS [at 1:17]
+ERROR: Syntax error: Expected "]" but got keyword AS [at 1:17]
 SELECT [1, 2][0 AS offset_alias]
                 ^
 ==
@@ -622,12 +622,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<int64 INT64, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<int64 INT64, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int64 INT64, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -648,12 +648,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<int32 INT64, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<int32 INT64, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<int32 INT64, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -699,12 +699,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -724,12 +724,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<alias_0 INT64, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(INT64, INT64) -> STRUCT<alias_0 INT64, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -775,12 +775,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, string STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<string STRING, string STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(STRING, STRING) -> STRUCT<string STRING, string STRING>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -879,12 +879,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -905,12 +905,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<string STRING, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<string STRING, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -931,12 +931,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<alias_0 STRING, no_alias_1 INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<alias_0 STRING, no_alias_1 INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(optional(1) STRING, optional(1) INT64) -> STRUCT<alias_0 STRING, no_alias_1 INT64>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -1031,12 +1031,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, int64 INT64, no_alias_4 STRING>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -1066,12 +1066,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, alias_1 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
     |     +-FunctionArgument
     |     | +-expr=
@@ -1102,12 +1102,12 @@ FROM SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(sample_functions:fn_to_struct_with_optional_aliases(BYTES, repeated(2) INT64, repeated(2) STRING) -> STRUCT<no_alias_0 BYTES, int64 INT64, no_alias_2 STRING, alias_3 INT64, no_alias_4 STRING>)
     |     +-FunctionArgument
     |     | +-expr=

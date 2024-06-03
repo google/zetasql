@@ -42,10 +42,13 @@
 #include "zetasql/resolved_ast/target_syntax.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/flags/declare.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+
+ABSL_DECLARE_FLAG(bool, zetasql_remove_degenerate_projectscans);
 
 namespace zetasql {
 
@@ -342,6 +345,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedOrderByItem* node) override;
   absl::Status VisitResolvedComputedColumn(
       const ResolvedComputedColumn* node) override;
+  absl::Status VisitResolvedDeferredComputedColumn(
+      const ResolvedDeferredComputedColumn* node) override;
   absl::Status VisitResolvedAssertRowsModified(
       const ResolvedAssertRowsModified* node) override;
   absl::Status VisitResolvedReturningClause(
@@ -514,7 +519,7 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Always append a (possibly empty) OPTIONS clause.
   absl::Status AppendOptions(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+      absl::Span<const std::unique_ptr<const ResolvedOption>> option_list,
       std::string* sql);
   // Only append an OPTIONS clause if there is at least one option.
   absl::Status AppendOptionsIfPresent(
@@ -522,7 +527,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       std::string* sql);
 
   absl::Status AppendHintsIfPresent(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list,
+      absl::Span<const std::unique_ptr<const ResolvedOption>> hint_list,
       std::string* text);
 
   void PushSQLForQueryExpression(const ResolvedNode* node,
@@ -978,6 +983,15 @@ class SQLBuilder : public ResolvedASTVisitor {
   // unparsed SQL.
   absl::StatusOr<const ResolvedScan*> GetOriginalInputScanForCorresponding(
       const ResolvedScan* scan);
+
+  // When building function call which defines a side effects scope, we may need
+  // to inline some column refs to input scans. This stack keeps track of the
+  // current error handling context. Note that the same node may now be visited
+  // twice, e.g. an AggregateScan's aggregations would be first be visited from
+  // the context of an outer IFERROR() call to collect all its inputs, before
+  // being visited again free of any error handling context for the other
+  // expressions.
+  absl::flat_hash_set<const ResolvedScan*> scans_to_collapse_;
 };
 
 }  // namespace zetasql

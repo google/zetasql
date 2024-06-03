@@ -38,7 +38,9 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/btree_set.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -84,6 +86,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_ENUM_ANY:
     case ARG_TYPE_ARBITRARY:
     case ARG_RANGE_TYPE_ANY:
+    case ARG_MAP_TYPE_ANY_1_2:
       return true;
     case ARG_TYPE_RELATION:
     case ARG_TYPE_VOID:
@@ -128,7 +131,7 @@ absl::Status FunctionSignatureOptions::Deserialize(
   (*result)->set_additional_deprecation_warnings(
       proto.additional_deprecation_warning());
   for (const int each : proto.required_language_feature()) {
-    (*result)->add_required_language_feature(LanguageFeature(each));
+    (*result)->AddRequiredLanguageFeature(LanguageFeature(each));
   }
   (*result)->set_is_aliased_signature(proto.is_aliased_signature());
   (*result)->set_propagates_collation(proto.propagates_collation());
@@ -573,11 +576,11 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
     case ARG_ARRAY_TYPE_ANY_5:
       return "<array<T5>>";
     case ARG_PROTO_MAP_ANY:
-      return "<map<K, V>>";
+      return "<proto_map<proto_K, proto_V>>";
     case ARG_PROTO_MAP_KEY_ANY:
-      return "<K>";
+      return "<proto_K>";
     case ARG_PROTO_MAP_VALUE_ANY:
-      return "<V>";
+      return "<proto_V>";
     case ARG_PROTO_ANY:
       return "<proto>";
     case ARG_STRUCT_ANY:
@@ -602,6 +605,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<range<T>>";
     case ARG_TYPE_SEQUENCE:
       return "ANY SEQUENCE";
+    case ARG_MAP_TYPE_ANY_1_2:
+      return "<map<T1, T2>>";
     case __SignatureArgumentKind__switch_must_have_a_default__:
       break;  // Handling this case is only allowed internally.
   }
@@ -724,7 +729,7 @@ bool FunctionArgumentType::IsScalar() const {
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
          kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
-         kind_ == ARG_RANGE_TYPE_ANY;
+         kind_ == ARG_RANGE_TYPE_ANY || kind_ == ARG_MAP_TYPE_ANY_1_2;
 }
 
 // Intentionally restrictive for known functional programming functions. If this
@@ -913,6 +918,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "RANGE";
       case ARG_TYPE_SEQUENCE:
         return "SEQUENCE";
+      case ARG_MAP_TYPE_ANY_1_2:
+        return print_template_details ? "MAP<T1, T2>" : "MAP";
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
@@ -1037,8 +1044,7 @@ FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
       num_repeated_arguments_(ComputeNumRepeatedArguments()),
       num_optional_arguments_(ComputeNumOptionalArguments()),
       context_ptr_(context_ptr) {
-  ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
-  ComputeConcreteArgumentTypes();
+  Init();
 }
 
 FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
@@ -1057,8 +1063,26 @@ FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
       num_optional_arguments_(ComputeNumOptionalArguments()),
       context_id_(context_id),
       options_(std::move(options)) {
-  ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
+  Init();
+}
+
+void FunctionSignature::Init() {
+  init_status_ = InitInternal();
+  // Check failure is only expected if the object was constructed with invalid
+  // args.
+  // Most function signature code is static and should be OK.
+  // In case of dynamically defined functions with CREATE FUNCTION, engines
+  // should have done rigorous validation on the input arguments. That being
+  // said, engines should still check init_status() after creating a
+  // FunctionSignature.
+  ZETASQL_DCHECK_OK(init_status_);
+}
+
+absl::Status FunctionSignature::InitInternal() {
+  ZETASQL_RETURN_IF_ERROR(CreateNamedArgumentToOptionsMap());
+  ZETASQL_RETURN_IF_ERROR(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
+  return absl::OkStatus();
 }
 
 absl::StatusOr<std::unique_ptr<FunctionSignature>>
@@ -1191,6 +1215,29 @@ bool FunctionSignature::HasConcreteArguments() const {
     }
   }
   return true;
+}
+
+absl::Status FunctionSignature::CreateNamedArgumentToOptionsMap() {
+  for (int i = 0; i < arguments().size(); ++i) {
+    const FunctionArgumentType& arg_type = arguments()[i];
+
+    if (arg_type.options().has_argument_name() &&
+        (arg_type.options().named_argument_kind() ==
+             FunctionEnums::NAMED_ONLY ||
+         arg_type.options().named_argument_kind() ==
+             FunctionEnums::POSITIONAL_OR_NAMED)) {
+      const auto it = argument_name_to_options_.try_emplace(
+          arg_type.options().argument_name(), &arg_type.options());
+      ZETASQL_RET_CHECK(it.second) << "Duplicate named argument "
+                           << arg_type.options().argument_name()
+                           << " found in signature";
+      last_named_arg_index_ = i;
+    }
+    if (arg_type.GetDefault().has_value()) {
+      last_arg_index_with_default_ = i;
+    }
+  }
+  return absl::OkStatus();
 }
 
 bool FunctionSignature::ComputeIsConcrete() const {
@@ -1327,6 +1374,49 @@ std::string FunctionSignature::GetSQLDeclaration(
   return out;
 }
 
+namespace {
+
+// Returns true if `kind_1` is an ARRAY templated type of `kind_2`
+static inline bool TemplatedKindRelatedArrayType(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return (kind_1 == ARG_ARRAY_TYPE_ANY_1 && kind_2 == ARG_TYPE_ANY_1) ||
+         (kind_1 == ARG_ARRAY_TYPE_ANY_2 && kind_2 == ARG_TYPE_ANY_2) ||
+         (kind_1 == ARG_ARRAY_TYPE_ANY_3 && kind_2 == ARG_TYPE_ANY_3) ||
+         (kind_1 == ARG_ARRAY_TYPE_ANY_4 && kind_2 == ARG_TYPE_ANY_4) ||
+         (kind_1 == ARG_ARRAY_TYPE_ANY_5 && kind_2 == ARG_TYPE_ANY_5);
+}
+
+// Returns true if `kind_1` is a PROTO_MAP templated type of `kind_2`
+static inline bool TemplatedKindRelatedProtoMapType(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return (kind_1 == ARG_PROTO_MAP_ANY && kind_2 == ARG_PROTO_MAP_KEY_ANY) ||
+         (kind_1 == ARG_PROTO_MAP_ANY && kind_2 == ARG_PROTO_MAP_VALUE_ANY);
+}
+
+// Returns true if `kind_1` is a RANGE templated type of `kind_2`
+static inline bool TemplatedKindRelatedRangeType(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return (kind_1 == ARG_RANGE_TYPE_ANY && kind_2 == ARG_TYPE_ANY_1);
+}
+
+// Returns true if `kind_1` is a MAP templated type of `kind_2`
+static inline bool TemplatedKindRelatedMapType(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return (kind_1 == ARG_MAP_TYPE_ANY_1_2 && kind_2 == ARG_TYPE_ANY_1) ||
+         (kind_1 == ARG_MAP_TYPE_ANY_1_2 && kind_2 == ARG_TYPE_ANY_2);
+}
+
+// Returns true if `kind_1` is a templated type containing `kind_2`
+static inline bool TemplatedKindIsRelatedImpl(
+    const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
+  return TemplatedKindRelatedArrayType(kind_1, kind_2) ||
+         TemplatedKindRelatedProtoMapType(kind_1, kind_2) ||
+         TemplatedKindRelatedRangeType(kind_1, kind_2) ||
+         TemplatedKindRelatedMapType(kind_1, kind_2);
+}
+
+}  // namespace
+
 bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
     const {
   if (!IsTemplated()) {
@@ -1348,25 +1438,8 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
     return false;
   }
 
-  if ((kind_ == ARG_ARRAY_TYPE_ANY_1 && kind == ARG_TYPE_ANY_1) ||
-      (kind_ == ARG_ARRAY_TYPE_ANY_2 && kind == ARG_TYPE_ANY_2) ||
-      (kind_ == ARG_ARRAY_TYPE_ANY_3 && kind == ARG_TYPE_ANY_3) ||
-      (kind_ == ARG_ARRAY_TYPE_ANY_4 && kind == ARG_TYPE_ANY_4) ||
-      (kind_ == ARG_ARRAY_TYPE_ANY_5 && kind == ARG_TYPE_ANY_5) ||
-      (kind == ARG_ARRAY_TYPE_ANY_1 && kind_ == ARG_TYPE_ANY_1) ||
-      (kind == ARG_ARRAY_TYPE_ANY_2 && kind_ == ARG_TYPE_ANY_2) ||
-      (kind == ARG_ARRAY_TYPE_ANY_3 && kind_ == ARG_TYPE_ANY_3) ||
-      (kind == ARG_ARRAY_TYPE_ANY_4 && kind_ == ARG_TYPE_ANY_4) ||
-      (kind == ARG_ARRAY_TYPE_ANY_5 && kind_ == ARG_TYPE_ANY_5) ||
-      (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_KEY_ANY) ||
-      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
-      (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||
-      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_VALUE_ANY) ||
-      (kind_ == ARG_TYPE_ANY_1 && kind == ARG_RANGE_TYPE_ANY) ||
-      (kind_ == ARG_RANGE_TYPE_ANY && kind == ARG_TYPE_ANY_1)) {
-    return true;
-  }
-  return false;
+  return TemplatedKindIsRelatedImpl(kind_, kind) ||
+         TemplatedKindIsRelatedImpl(kind, kind_);
 }
 
 absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
@@ -1382,17 +1455,35 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
   // since the result type will be determined based on an argument type.
   if (result_type_.IsTemplated() && result_type_.kind() != ARG_TYPE_ARBITRARY &&
       !result_type_.IsRelation()) {
-    bool result_type_matches_an_argument_type = false;
-    for (const auto& arg : arguments_) {
-      if (arg.TemplatedKindIsRelated(result_type_.kind())) {
-        result_type_matches_an_argument_type = true;
-        break;
+    // Templated map type must match both templated key and value arguments.
+    if (result_type_.kind() == ARG_MAP_TYPE_ANY_1_2) {
+      const bool has_arg_type_any_1 =
+          absl::c_find_if(arguments_, [](auto& arg) {
+            return arg.kind() == ARG_TYPE_ANY_1;
+          }) != arguments_.end();
+      const bool has_arg_type_any_2 =
+          absl::c_find_if(arguments_, [](auto& arg) {
+            return arg.kind() == ARG_TYPE_ANY_2;
+          }) != arguments_.end();
+      if (!has_arg_type_any_1 || !has_arg_type_any_2) {
+        return MakeSqlError()
+               << "Result map type template must match an argument type "
+                  "template for both key and value: "
+               << DebugString();
       }
-    }
-    if (!result_type_matches_an_argument_type) {
-      return MakeSqlError()
-             << "Result type template must match an argument type template: "
-             << DebugString();
+    } else {
+      bool result_type_matches_an_argument_type = false;
+      for (const auto& arg : arguments_) {
+        if (arg.TemplatedKindIsRelated(result_type_.kind())) {
+          result_type_matches_an_argument_type = true;
+          break;
+        }
+      }
+      if (!result_type_matches_an_argument_type) {
+        return MakeSqlError()
+               << "Result type template must match an argument type template: "
+               << DebugString();
+      }
     }
   }
 
@@ -1651,7 +1742,7 @@ bool FunctionSignature::HideInSupportedSignatureList(
     const LanguageOptions& language_options) const {
   return IsDeprecated() || IsInternal() || IsHidden() ||
          HasUnsupportedType(language_options) ||
-         !options().check_all_required_features_are_enabled(
+         !options().CheckAllRequiredFeaturesAreEnabled(
              language_options.GetEnabledLanguageFeatures());
 }
 

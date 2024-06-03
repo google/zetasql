@@ -420,7 +420,7 @@ absl::Status QueryExpression::SetGroupByAllClause(
 
 bool QueryExpression::TrySetOrderByClause(
     const std::vector<std::string>& order_by_list,
-    const std::string& order_by_hints) {
+    absl::string_view order_by_hints) {
   if (!CanSetOrderByClause()) {
     return false;
   }
@@ -455,7 +455,7 @@ bool QueryExpression::TrySetWithAnonymizationClause(
   return true;
 }
 
-bool QueryExpression::TrySetPivotClause(const std::string& pivot) {
+bool QueryExpression::TrySetPivotClause(absl::string_view pivot) {
   if (!CanSetPivotClause()) {
     return false;
   }

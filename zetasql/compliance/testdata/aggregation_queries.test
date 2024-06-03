@@ -2523,21 +2523,11 @@ SELECT string_agg("s", NULL) FROM (SELECT 1)
 ==
 
 # string_agg on string with NULL separator gives error
-[name=aggregation_string_agg_error_1_null_param]
-[parameters=NULL as separator]
-SELECT string_agg("s", @separator) FROM (SELECT 1)
---
-ERROR: generic::invalid_argument: No matching signature for aggregate function STRING_AGG for argument types: STRING, INT64. Supported signatures: STRING_AGG(STRING); STRING_AGG(STRING, STRING); STRING_AGG(BYTES); STRING_AGG(BYTES, BYTES) [at 1:8]
-SELECT string_agg("s", @separator) FROM (SELECT 1)
-       ^
-==
-
-# string_agg on string with NULL separator gives error
 [name=aggregation_string_agg_error_1_null_string_param]
 [parameters=cast(NULL as string) as separator]
 SELECT string_agg("s", @separator) FROM (SELECT 1)
 --
-ERROR: generic::invalid_argument: Illegal NULL separator in STRING_AGG
+ERROR: generic::out_of_range: Illegal NULL separator in STRING_AGG
 ==
 
 # string_agg on bytes with NULL separator gives error
@@ -2554,7 +2544,7 @@ SELECT string_agg(b"b", NULL) FROM (SELECT 1)
 [parameters=cast(NULL as bytes) as separator]
 SELECT string_agg(b"b", @separator) FROM (SELECT 1)
 --
-ERROR: generic::invalid_argument: Illegal NULL separator in STRING_AGG
+ERROR: generic::out_of_range: Illegal NULL separator in STRING_AGG
 ==
 
 # ----------------------------------------------------------------------------

@@ -1150,6 +1150,37 @@ options ( a=b, b=c, c=d, a=z );
                          ^
 ==
 
+[language_features={{V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION|}}]
+create function myfunc() returns boolean
+remote with connection `` as (false);
+--
+ERROR: Syntax error: Invalid empty identifier [at 2:24]
+remote with connection `` as (false);
+                       ^
+==
+
+[language_features={{V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION|}}]
+create function myfunc() returns boolean
+remote with connection default as (false);
+--
+ALTERNATION GROUPS:
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION
+    V_1_3_REMOTE_FUNCTION
+--
+ERROR: CONNECTION DEFAULT is not supported [at 2:24]
+remote with connection default as (false);
+                       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION
+    <empty>
+--
+ERROR: Keyword REMOTE is not supported [at 2:1]
+remote with connection default as (false);
+^
+==
+
+
 # LANGUAGE clause with WITH CONNECTION
 [language_features={{V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION,V_1_3_REMOTE_FUNCTION|V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION|V_1_3_REMOTE_FUNCTION|}}]
 create function myfunc() returns string

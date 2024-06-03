@@ -2238,37 +2238,37 @@ SELECT ( foo ) ], foo
 --
 ALTERNATION GROUP: (,},)
 --
-ERROR: Syntax error: Unexpected "}" [at 1:14]
+ERROR: Syntax error: Expected "," but got "}" [at 1:14]
 SELECT ( foo } ), foo
              ^
 --
 ALTERNATION GROUP: (,},}
 --
-ERROR: Syntax error: Unexpected "}" [at 1:14]
+ERROR: Syntax error: Expected "," but got "}" [at 1:14]
 SELECT ( foo } }, foo
              ^
 --
 ALTERNATION GROUP: (,},]
 --
-ERROR: Syntax error: Unexpected "}" [at 1:14]
+ERROR: Syntax error: Expected "," but got "}" [at 1:14]
 SELECT ( foo } ], foo
              ^
 --
 ALTERNATION GROUP: (,],)
 --
-ERROR: Syntax error: Unexpected "]" [at 1:14]
+ERROR: Syntax error: Expected "," but got "]" [at 1:14]
 SELECT ( foo ] ), foo
              ^
 --
 ALTERNATION GROUP: (,],}
 --
-ERROR: Syntax error: Unexpected "]" [at 1:14]
+ERROR: Syntax error: Expected "," but got "]" [at 1:14]
 SELECT ( foo ] }, foo
              ^
 --
 ALTERNATION GROUP: (,],]
 --
-ERROR: Syntax error: Unexpected "]" [at 1:14]
+ERROR: Syntax error: Expected "," but got "]" [at 1:14]
 SELECT ( foo ] ], foo
              ^
 --
@@ -2626,7 +2626,6 @@ SELECT
 ==
 
 # Various C-style comment corner cases.
-[no_test_get_parse_tokens]
 /* C-style comment with {{* in the middle|/ in the middle|trailing *|trailing**}}*/
 SELECT foo;
 --

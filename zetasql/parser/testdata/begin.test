@@ -130,7 +130,7 @@ end;
 begin
   select 3;
 --
-ERROR: Syntax error: Expected keyword END but got end of script [at 2:12]
+ERROR: Syntax error: Unexpected end of script [at 2:12]
   select 3;
            ^
 ==

@@ -76,7 +76,8 @@ class TypeofFunctionRewriteVisitor : public ResolvedASTRewriteVisitor {
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 TypeofFunctionRewriteVisitor::PostVisitResolvedFunctionCall(
     std::unique_ptr<const ResolvedFunctionCall> node) {
-  if (!IsBuiltInFunctionIdEq(node.get(), FN_TYPEOF)) {
+  if (!IsBuiltInFunctionIdEq(node.get(), FN_TYPEOF)
+  ) {
     return node;
   }
   if (node->hint_list_size() > 0) {

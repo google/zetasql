@@ -715,7 +715,6 @@ create external table a.b.c.T(x int64)
                                       ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 create external table t1-2
 options (a=b, c="def")
@@ -912,9 +911,40 @@ create external table projectid.datasetid.tablename(x int64)
 with connection 1_a.b.c
 options (x=f3)
 --
-ERROR: Syntax error: Missing whitespace between literal and alias [at 2:18]
+ERROR: Syntax error: Unexpected "1_a" [at 2:17]
 with connection 1_a.b.c
-                 ^
+                ^
+
+==
+
+create external table projectid.datasetid.tablename(x int64)
+with connection default
+options (x=foo)
+--
+CreateExternalTableStatement [0-100] [create external...ions (x=foo)]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-60] [(x int64)]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+  WithConnectionClause [61-84] [with connection default]
+    ConnectionClause [66-84] [connection default]
+      DefaultLiteral [77-84] [default]
+  OptionsList [93-100] [(x=foo)]
+    OptionsEntry [94-99] [x=foo]
+      Identifier(x) [94-95] [x]
+      PathExpression [96-99] [foo]
+        Identifier(foo) [96-99] [foo]
+--
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64
+) WITH CONNECTION DEFAULT OPTIONS(x = foo)
 
 ==
 

@@ -409,6 +409,18 @@ class ResolverTest : public ::testing::Test {
         << resolved_expression->DebugString();
   }
 
+  void TestResolverOK(absl::string_view query) {
+    std::unique_ptr<ParserOutput> parser_output;
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    // Parsing should succeed.
+    ZETASQL_ASSERT_OK(ParseExpression(query, ParserOptions(), &parser_output)) << query;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ASSERT_THAT(parsed_expression, NotNull());
+    ZETASQL_EXPECT_OK(ResolveExpr(parsed_expression, &resolved_expression));
+    EXPECT_THAT(resolved_expression.get(), NotNull())
+        << resolved_expression->DebugString();
+  }
+
   void InitializeQueryParameters() {
     ZETASQL_ASSERT_OK(analyzer_options_.AddQueryParameter(
         "param_BOOL", type_factory_.get_bool()));
@@ -735,7 +747,8 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   // ARRAY (some will be errors - to be added in TestResolverErrors).
 
   // Cast shorthands do not work.
-  ResolveFunctionFails("INT32(1)", "Function not found: INT32");
+  ResolveFunctionFails("INT64(1)", "No matching signature for function INT64");
+  ResolveFunctionFails("INT32(1)", "No matching signature for function INT32");
 
   // Casts disallowed between date/time and integer.
   ResolveFunctionFails("cast(cast(1 as INT32) as date)",
@@ -1039,31 +1052,27 @@ TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
   }
 }
 
-TEST_F(ResolverTest, TestExpectedErrorMessage) {
-  // Comparing Bytes to String Literal (or vice versa) should generate a
-  // specific error message (b/18798970)
-  const std::string expected_error_substr =
-      "STRING and BYTES are different types";
-  TestResolverErrorMessage("'abc' < b'abd'", expected_error_substr);
-  TestResolverErrorMessage("'abc' <= b'abd'", expected_error_substr);
-  TestResolverErrorMessage("'abc' > b'abd'", expected_error_substr);
-  TestResolverErrorMessage("'abc' >= b'abd'", expected_error_substr);
-  TestResolverErrorMessage("'abc' = b'abd'", expected_error_substr);
-  TestResolverErrorMessage("'abc' != b'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' < 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' <= 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' > 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' >= 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' = 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' != 'abd'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' LIKE 'ab%'", expected_error_substr);
-  TestResolverErrorMessage("'abc' LIKE b'ab%'", expected_error_substr);
-  TestResolverErrorMessage("b'abc' IN ('abc', 'abd')", expected_error_substr);
-  TestResolverErrorMessage("'abc' IN (b'abc', b'abd')", expected_error_substr);
-  TestResolverErrorMessage("'abc' IN UNNEST([b'abc', b'abd'])",
-                           expected_error_substr);
-  TestResolverErrorMessage("b'abc' IN UNNEST(['abc', 'abd'])",
-                           expected_error_substr);
+TEST_F(ResolverTest, TestBytesAndStringLiteralComparison) {
+  // FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES is enabled, so
+  // these statements succeed.
+  TestResolverOK("'abc' < b'abd'");
+  TestResolverOK("'abc' <= b'abd'");
+  TestResolverOK("'abc' > b'abd'");
+  TestResolverOK("'abc' >= b'abd'");
+  TestResolverOK("'abc' = b'abd'");
+  TestResolverOK("'abc' != b'abd'");
+  TestResolverOK("b'abc' < 'abd'");
+  TestResolverOK("b'abc' <= 'abd'");
+  TestResolverOK("b'abc' > 'abd'");
+  TestResolverOK("b'abc' >= 'abd'");
+  TestResolverOK("b'abc' = 'abd'");
+  TestResolverOK("b'abc' != 'abd'");
+  TestResolverOK("b'abc' IN ('abc', 'abd')");
+  TestResolverOK("'abc' IN (b'abc', b'abd')");
+  TestResolverOK("'abc' IN UNNEST([b'abc', b'abd'])");
+  TestResolverOK("b'abc' IN UNNEST(['abc', 'abd'])");
+  TestResolverOK("b'abc' LIKE 'ab%'");
+  TestResolverOK("'abc' LIKE b'ab%'");
 }
 
 TEST_F(ResolverTest, ReturnsErrorWhenRequestedToOrderByZero) {

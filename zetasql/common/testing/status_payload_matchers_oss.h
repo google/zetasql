@@ -138,6 +138,63 @@ class PayloadMatcher<
   const PayloadProtoMatcher payload_proto_matcher_;
 };
 
+class PayloadUrlMatcher {
+ public:
+  template <typename PayloadMatcher>
+  explicit PayloadUrlMatcher(absl::string_view url,
+                             const PayloadMatcher& payload_matcher)
+      : url_(url),
+        payload_matcher_(
+            ::testing::SafeMatcherCast<std::string>(payload_matcher)) {}
+
+  void DescribeTo(std::ostream* os) const {
+    *os << "has a generic payload '" << url_ << "' that ";
+    payload_matcher_.DescribeTo(os);
+  }
+
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "has no generic payload '" << url_ << "' that ";
+    payload_matcher_.DescribeTo(os);
+  }
+
+  template <typename StatusType>
+  bool MatchAndExplain(StatusType actual,
+                       ::testing::MatchResultListener* o) const {
+    const auto& actual_status = GetStatus(actual);
+    if (actual_status.ok()) {
+      *o << "which is OK and has no payload";
+      return false;
+    }
+    const auto payload = actual_status.GetPayload(url_);
+    if (!payload.has_value()) {
+      *o << "which has no generic payload '" << url_ << "'";
+      return false;
+    }
+
+    ::testing::StringMatchResultListener match_result;
+    const bool match =
+        payload_matcher_.MatchAndExplain(std::string(*payload), &match_result);
+    if (!o->IsInterested()) {
+      return match;
+    }
+    const std::string match_result_str = [&]() -> std::string {
+      if (!match) {
+        return " which does not match";
+      }
+      if (match_result.str().empty()) {
+        return "";
+      }
+      return absl::StrCat(" that ", match_result.str());
+    }();
+    *o << "has a generic payload '" << url_ << "'" << match_result_str;
+    return match;
+  }
+
+ private:
+  std::string url_;
+  ::testing::Matcher<std::string> payload_matcher_;
+};
+
 }  // namespace internal_status
 
 // Returns a gMock matcher that matches the payload of a Status or StatusOr<>
@@ -145,7 +202,7 @@ class PayloadMatcher<
 // We do not default to google::protobuf::Message since we want the exact type to be
 // specified.
 template <typename PayloadProtoType>
-inline internal_status::PayloadMatcher<PayloadProtoType> StatusHasPayload(
+inline auto StatusHasPayload(
     ::testing::Matcher<PayloadProtoType> payload_proto_matcher) {
   return internal_status::PayloadMatcher<PayloadProtoType>(
       std::move(::testing::Matcher<PayloadProtoType>(payload_proto_matcher)));
@@ -156,9 +213,28 @@ inline internal_status::PayloadMatcher<PayloadProtoType> StatusHasPayload(
 // The requested type defaults to google::protobuf::Message, so that we can test for the
 // presence of any type and thus any payload of any type.
 template <typename PayloadProtoType = google::protobuf::Message>
-inline internal_status::PayloadMatcher<PayloadProtoType> StatusHasPayload() {
+inline auto StatusHasPayload() {
   return internal_status::PayloadMatcher<PayloadProtoType>(
       ::testing::A<PayloadProtoType>());
+}
+
+// Returns a gMock matcher that matches the payload of a Status or StatusOr<>
+// against payload_matcher.
+// We do not default to google::protobuf::Message since we want the exact type to be
+// specified.
+inline auto StatusHasGenericPayload(absl::string_view url) {
+  return ::testing::MakePolymorphicMatcher(
+      internal_status::PayloadUrlMatcher(url, ::testing::_));
+}
+
+// Returns a gMock matcher that matches if a Status or StatusOr<> has a payload
+// of the requested type.
+// The requested type defaults to google::protobuf::Message, so that we can test for the
+// presence of any type and thus any payload of any type.
+template <typename M>
+inline auto StatusHasGenericPayload(absl::string_view url, M payload_matcher) {
+  return ::testing::MakePolymorphicMatcher(
+      internal_status::PayloadUrlMatcher(url, std::move(payload_matcher)));
 }
 
 }  // namespace testing

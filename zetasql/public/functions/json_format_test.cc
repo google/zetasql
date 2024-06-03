@@ -20,24 +20,21 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <map>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {

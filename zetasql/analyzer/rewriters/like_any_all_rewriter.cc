@@ -304,8 +304,9 @@ absl::Status LikeAnyAllRewriteVisitor::RewriteLikeAnyAll(
     pattern_elements_list.push_back(std::move(rewritten_pattern_expr));
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> patterns_array_expr,
-                   fn_builder_.MakeArray(input_type, pattern_elements_list));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedExpr> patterns_array_expr,
+      fn_builder_.MakeArray(input_type, std::move(pattern_elements_list)));
 
   return RewriteLikeAnyAllArrayWithAggregate(std::move(rewritten_input_expr),
                                              std::move(patterns_array_expr),

@@ -1261,7 +1261,7 @@ UPDATE TestTable SET
    VALUES (1), (1 + 2), ((select 1)))
 WHERE true
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 2:42]
+ERROR: Syntax error: Unexpected identifier "elt" [at 2:42]
   (INSERT KitchenSink.repeated_int64_val elt
                                          ^
 ==
@@ -1285,7 +1285,7 @@ ALTERNATION GROUPS:
      repeated_int64_val
     V_1_2_CORRELATED_REFS_IN_NESTED_DML, repeated_int64_val
 --
-ERROR: Syntax error: INSERT target cannot have an alias [at 2:42]
+ERROR: Syntax error: Unexpected identifier "repeated_int64_val" [at 2:42]
   (INSERT KitchenSink.repeated_int64_val repeated_int64_val
                                          ^
 ==

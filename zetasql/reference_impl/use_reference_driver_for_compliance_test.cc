@@ -16,6 +16,8 @@
 
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/reference_impl/reference_driver.h"
+#include "zetasql/reference_impl/rewrite_flags.h"
+#include "absl/flags/flag.h"
 
 namespace zetasql {
 
@@ -23,12 +25,14 @@ namespace zetasql {
 // class because the reference driver gets linked in to all compliance test
 // instances, and we don't usually want it to be the main one being tested.
 TestDriver* GetComplianceTestDriver() {
-  // This returns a default ReferenceDriver with no specific options set.
-  // For compliance tests, the desired options should always be filled in,
-  // so the reference driver matches the options of the engine being tested,
-  // or is put into the configurations specified inside each test when testing
-  // the reference implementation itself and generating golden outputs.
-  return new ReferenceDriver();
+  // This returns a default ReferenceDriver with rewrites given by the
+  // --rewrites flag and default language options set. For compliance tests,
+  // the desired options should always be filled in, so the reference driver
+  // matches the options of the engine being tested, or is put into the
+  // configurations specified inside each test when testing the reference
+  // implementation itself and generating golden outputs.
+  return new ReferenceDriver(ReferenceDriver::DefaultLanguageOptions(),
+                             absl::GetFlag(FLAGS_rewrites));
 }
 
 }  // namespace zetasql

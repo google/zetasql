@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 469
+NEXT_NODE_TAG_ID = 474
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -220,9 +220,6 @@ SCALAR_RELATIVE_POSITION_TYPE = EnumScalarType('RelativePositionType',
 
 SCALAR_INSERT_MODE = EnumScalarType('InsertMode', 'ASTInsertStatement',
                                     'DEFAULT_MODE')
-
-SCALAR_PARSE_PROGRESS = EnumScalarType('ParseProgress', 'ASTInsertStatement',
-                                       'kInitial')
 
 SCALAR_ACTION_TYPE = EnumScalarType('ActionType', 'ASTMergeAction', 'NOT_SET')
 
@@ -2052,7 +2049,16 @@ def main(argv):
               tag_id=4,
               private_comment="""
        Set if the function was called with FUNC(args HAVING {MAX|MIN} expr).
-              """),
+              """,
+          ),
+          Field(
+              'group_by',
+              'ASTGroupBy',
+              tag_id=14,
+              private_comment="""
+       Set if the function was called with FUNC(args GROUP BY expr [, ... ]).
+              """,
+          ),
           Field(
               'clamped_between_modifier',
               'ASTClampedBetweenModifier',
@@ -2111,7 +2117,7 @@ def main(argv):
               'ASTWithGroupRows',
               tag_id=9,
               private_comment="""
-      Set if the function was called WITH GROUP_ROWS(...).
+      Set if the function was called WITH GROUP ROWS(...).
               """),
           Field(
               'null_handling_modifier',
@@ -2153,7 +2159,8 @@ def main(argv):
     return distinct_ || null_handling_modifier_ != DEFAULT_NULL_HANDLING ||
            having_modifier_ != nullptr ||
            clamped_between_modifier_ != nullptr || order_by_ != nullptr ||
-           limit_offset_ != nullptr || with_group_rows_ != nullptr;
+           limit_offset_ != nullptr || with_group_rows_ != nullptr ||
+           group_by_ != nullptr;
   }
       """)
 
@@ -4429,7 +4436,7 @@ def main(argv):
   //
   // The function_with_group_rows() case can only happen if
   // FEATURE_V_1_3_WITH_GROUP_ROWS is enabled and one function call has both
-  // WITH GROUP_ROWS and an OVER clause.
+  // WITH GROUP ROWS and an OVER clause.
   const ASTFunctionCall* function() const;
   const ASTFunctionCallWithGroupRows* function_with_group_rows() const;
       """)
@@ -4971,13 +4978,14 @@ def main(argv):
       tag_id=159,
       parent='ASTNode',
       comment="""
-     This represents a clause of form "CONNECTION <target>", where <target> is a
-     connection name.
+     This represents a clause of `CONNECTION DEFAULT` or `CONNECTION <path>`.
+     In the former form, the connection_path will be a default literal. In the
+     latter form, the connection_path will be a path expression.
       """,
       fields=[
           Field(
               'connection_path',
-              'ASTPathExpression',
+              'ASTExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
@@ -5182,7 +5190,8 @@ def main(argv):
       comment="""
       This represents a CREATE EXTERNAL SCHEMA statement, i.e.,
       CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA [IF
-      NOT EXISTS] <name> WITH CONNECTION <connection> OPTIONS (name=value, ...);
+      NOT EXISTS] <name> [WITH CONNECTION <connection>] OPTIONS (name=value,
+      ...);
       """,
       fields=[
           Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=2),
@@ -5634,7 +5643,7 @@ def main(argv):
       tag_id=188,
       parent='ASTExpression',
       comment="""
-      This represents the value DEFAULT that shows up in DML statements.
+      This represents the value DEFAULT in DML statements or connection clauses.
       It will not show up as a general expression anywhere else.
       """)
 
@@ -5987,12 +5996,10 @@ def main(argv):
               'target_path',
               'ASTGeneralizedPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field('hint', 'ASTHint', tag_id=10),
-          Field(
-              'column_list',
-              'ASTColumnList',
-              tag_id=3),
+          Field('column_list', 'ASTColumnList', tag_id=3),
           Field(
               'rows',
               'ASTInsertValuesRowList',
@@ -6004,35 +6011,18 @@ def main(argv):
               private_comment="""
               Exactly one of rows_ or query_ will be present.
               with_ can be present if query_ is present.
-              """),
+              """,
+          ),
+          Field('query', 'ASTQuery', tag_id=5),
+          Field('assert_rows_modified', 'ASTAssertRowsModified', tag_id=6),
+          Field('returning', 'ASTReturningClause', tag_id=7),
           Field(
-              'query',
-              'ASTQuery',
-              tag_id=5),
-          Field(
-              'assert_rows_modified',
-              'ASTAssertRowsModified',
-              tag_id=6),
-          Field(
-              'returning',
-              'ASTReturningClause',
-              tag_id=7),
-          Field(
-              'parse_progress',
-              SCALAR_PARSE_PROGRESS,
+              'deprecated_parse_progress',
+              SCALAR_INT,
               tag_id=8,
-              comment="""
-      This is used by the Bison parser to store the latest element of the INSERT
-      syntax that was seen. The INSERT statement is extremely complicated to
-      parse in bison because it is very free-form, almost everything is optional
-      and almost all of the keywords are also usable as identifiers. So we parse
-      it in a very free-form way, and enforce the grammar in code during/after
-      parsing.
-              """),
-          Field(
-              'insert_mode',
-              SCALAR_INSERT_MODE,
-              tag_id=9),
+              comment='Deprecated',
+          ),
+          Field('insert_mode', SCALAR_INSERT_MODE, tag_id=9),
       ],
       extra_public_defs="""
   const ASTGeneralizedPathExpression* GetTargetPathForNested() const {
@@ -6045,7 +6035,8 @@ def main(argv):
   // it. The behavior is undefined when called on a node that represents a
   // nested INSERT.
   absl::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
-""")
+""",
+  )
 
   gen.AddNode(
       name='ASTUpdateSetValue',
@@ -9575,6 +9566,40 @@ def main(argv):
               comment="""
                 upper_bound is infinity when the node's `bound` field is unset.
               """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTMapType',
+      tag_id=470,
+      parent='ASTType',
+      fields=[
+          Field(
+              'key_type',
+              'ASTType',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'value_type',
+              'ASTType',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'type_parameters',
+              'ASTTypeParameterList',
+              tag_id=4,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL,
+          ),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=5,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL,
           ),
       ],
   )

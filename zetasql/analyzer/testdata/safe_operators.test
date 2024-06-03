@@ -15,12 +15,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -35,12 +35,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -55,12 +55,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -75,12 +75,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -95,12 +95,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -114,12 +114,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -134,12 +134,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -154,12 +154,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -174,12 +174,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -194,12 +194,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -213,12 +213,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -233,12 +233,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -253,12 +253,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -273,12 +273,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -293,12 +293,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -312,12 +312,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT64 -> DOUBLE)
     |     | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -332,12 +332,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT64 -> DOUBLE)
     |     | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -352,12 +352,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT64 -> DOUBLE)
     |     | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -372,12 +372,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT64 -> DOUBLE)
     |     | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -392,12 +392,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Cast(UINT64 -> DOUBLE)
     |     | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -411,12 +411,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Literal(type=DOUBLE, value=1)
     |     +-Cast(INT32 -> DOUBLE)
@@ -430,12 +430,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Literal(type=DOUBLE, value=1)
     |     +-Cast(UINT32 -> DOUBLE)
@@ -449,12 +449,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Literal(type=DOUBLE, value=1)
     |     +-Cast(INT64 -> DOUBLE)
@@ -468,12 +468,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Literal(type=DOUBLE, value=1)
     |     +-Cast(UINT64 -> DOUBLE)
@@ -487,12 +487,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(DOUBLE, DOUBLE) -> DOUBLE)
     |     +-Literal(type=DOUBLE, value=1)
     |     +-Literal(type=DOUBLE, value=1)
@@ -510,12 +510,12 @@ ALTERNATION GROUP: int32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT32 -> NUMERIC)
@@ -527,12 +527,12 @@ ALTERNATION GROUP: uint32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT32 -> NUMERIC)
@@ -544,12 +544,12 @@ ALTERNATION GROUP: int64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT64 -> NUMERIC)
@@ -561,12 +561,12 @@ ALTERNATION GROUP: uint64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT64 -> NUMERIC)
@@ -578,12 +578,12 @@ ALTERNATION GROUP: numeric
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
@@ -594,12 +594,12 @@ ALTERNATION GROUP: 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_divide(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Literal(type=NUMERIC, value=1)
@@ -619,12 +619,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -639,12 +639,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -659,12 +659,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -698,12 +698,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -717,12 +717,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -737,12 +737,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -757,12 +757,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -776,12 +776,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -795,12 +795,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -814,12 +814,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(INT32 -> INT64)
@@ -833,12 +833,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(UINT32 -> INT64)
@@ -852,12 +852,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -890,12 +890,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Literal(type=INT64, value=1)
@@ -928,12 +928,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Cast(UINT32 -> UINT64)
@@ -967,12 +967,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -985,12 +985,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Literal(type=UINT64, value=1)
@@ -1003,12 +1003,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Cast(INT32 -> INT64)
@@ -1022,12 +1022,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-Cast(UINT32 -> UINT64)
@@ -1041,12 +1041,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -1059,12 +1059,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(UINT64, UINT64) -> UINT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -1077,12 +1077,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Literal(type=INT64, value=1)
@@ -1171,12 +1171,12 @@ ALTERNATION GROUP: int32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT32 -> NUMERIC)
@@ -1188,12 +1188,12 @@ ALTERNATION GROUP: uint32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT32 -> NUMERIC)
@@ -1205,12 +1205,12 @@ ALTERNATION GROUP: int64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT64 -> NUMERIC)
@@ -1222,12 +1222,12 @@ ALTERNATION GROUP: uint64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT64 -> NUMERIC)
@@ -1239,12 +1239,12 @@ ALTERNATION GROUP: numeric
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
@@ -1255,12 +1255,12 @@ ALTERNATION GROUP: 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_add(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Literal(type=NUMERIC, value=1)
@@ -1280,12 +1280,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1300,12 +1300,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1320,12 +1320,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1359,12 +1359,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1378,12 +1378,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -1398,12 +1398,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -1418,12 +1418,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -1437,12 +1437,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -1456,12 +1456,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -1475,12 +1475,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(INT32 -> INT64)
@@ -1494,12 +1494,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(UINT32 -> INT64)
@@ -1513,12 +1513,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -1551,12 +1551,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Literal(type=INT64, value=1)
@@ -1589,12 +1589,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Cast(UINT32 -> UINT64)
@@ -1628,12 +1628,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -1646,12 +1646,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Literal(type=UINT64, value=1)
@@ -1664,12 +1664,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Cast(INT32 -> INT64)
@@ -1683,12 +1683,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-Cast(UINT32 -> UINT64)
@@ -1702,12 +1702,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -1720,12 +1720,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(UINT64, UINT64) -> INT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -1738,12 +1738,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Literal(type=INT64, value=1)
@@ -1832,12 +1832,12 @@ ALTERNATION GROUP: int32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT32 -> NUMERIC)
@@ -1849,12 +1849,12 @@ ALTERNATION GROUP: uint32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT32 -> NUMERIC)
@@ -1866,12 +1866,12 @@ ALTERNATION GROUP: int64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT64 -> NUMERIC)
@@ -1883,12 +1883,12 @@ ALTERNATION GROUP: uint64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT64 -> NUMERIC)
@@ -1900,12 +1900,12 @@ ALTERNATION GROUP: numeric
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
@@ -1916,12 +1916,12 @@ ALTERNATION GROUP: 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_subtract(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Literal(type=NUMERIC, value=1)
@@ -1941,12 +1941,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1961,12 +1961,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -1981,12 +1981,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -2020,12 +2020,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(INT32 -> INT64)
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
@@ -2039,12 +2039,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -2059,12 +2059,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -2079,12 +2079,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Cast(UINT32 -> INT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -2098,12 +2098,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -2117,12 +2117,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-Cast(UINT32 -> UINT64)
     |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
@@ -2136,12 +2136,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(INT32 -> INT64)
@@ -2155,12 +2155,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Cast(UINT32 -> INT64)
@@ -2174,12 +2174,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -2212,12 +2212,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |     +-Literal(type=INT64, value=1)
@@ -2250,12 +2250,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Cast(UINT32 -> UINT64)
@@ -2289,12 +2289,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -2307,12 +2307,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     |     +-Literal(type=UINT64, value=1)
@@ -2325,12 +2325,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Cast(INT32 -> INT64)
@@ -2344,12 +2344,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-Cast(UINT32 -> UINT64)
@@ -2363,12 +2363,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -2381,12 +2381,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col1#20 AS `$col1` [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(UINT64, UINT64) -> UINT64)
     |     +-Literal(type=UINT64, value=1)
     |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
@@ -2399,12 +2399,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(INT64, INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     |     +-Literal(type=INT64, value=1)
@@ -2493,12 +2493,12 @@ ALTERNATION GROUP: int32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT32 -> NUMERIC)
@@ -2510,12 +2510,12 @@ ALTERNATION GROUP: uint32
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT32 -> NUMERIC)
@@ -2527,12 +2527,12 @@ ALTERNATION GROUP: int64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(INT64 -> NUMERIC)
@@ -2544,12 +2544,12 @@ ALTERNATION GROUP: uint64
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Cast(UINT64 -> NUMERIC)
@@ -2561,12 +2561,12 @@ ALTERNATION GROUP: numeric
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
@@ -2577,12 +2577,12 @@ ALTERNATION GROUP: 1
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_multiply(NUMERIC, NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     |     +-Literal(type=NUMERIC, value=1)
@@ -2600,12 +2600,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT32]
+| +-$query.$col1#20 AS `$col1` [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(INT32) -> INT32)
     |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-input_scan=
@@ -2617,12 +2617,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(INT64) -> INT64)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     +-input_scan=
@@ -2634,12 +2634,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [FLOAT]
+| +-$query.$col1#20 AS `$col1` [FLOAT]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(FLOAT) -> FLOAT)
     |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
     +-input_scan=
@@ -2651,12 +2651,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(DOUBLE) -> DOUBLE)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
     +-input_scan=
@@ -2666,12 +2666,12 @@ ALTERNATION GROUP: NUMERIC_TYPE,numeric
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col1#20 AS `$col1` [NUMERIC]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(NUMERIC) -> NUMERIC)
     |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
     +-input_scan=
@@ -2683,12 +2683,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:safe_negate(INT64) -> INT64)
     |     +-Literal(type=INT64, value=1)
     +-input_scan=

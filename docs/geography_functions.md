@@ -2123,7 +2123,7 @@ If `expression` is `NULL`, the output is `NULL`.
 This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 
 ```sql
-SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format
+SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 
 /*------------------------------------*
  | WKT_format                         |
@@ -2136,7 +2136,7 @@ This takes a WKB-formatted hexadecimal-encoded string and returns a
 `GEOGRAPHY` point:
 
 ```sql
-SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format
+SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format;
 
 /*----------------*
  | WKB_format     |
@@ -2148,7 +2148,7 @@ SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WK
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 
 ```sql
-SELECT ST_GEOGFROM('010100000000000000000000400000000000001040')-AS WKB_format
+SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 /*----------------*
  | WKB_format     |
@@ -2162,7 +2162,7 @@ This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
 ```sql
 SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
-) AS GEOJSON_format
+) AS GEOJSON_format;
 
 /*-----------------------------------------*
  | GEOJSON_format                          |
@@ -2250,122 +2250,53 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 
 ### `ST_GEOGFROMTEXT`
 
-+ [Signature 1](#st_geogfromtext_signature1)
-+ [Signature 2](#st_geogfromtext_signature2)
-
-#### Signature 1 
-<a id="st_geogfromtext_signature1"></a>
+<a id="st_geogfromtext_signature1"></a><a id="st_geogfromtext_signature2"></a>
 
 ```sql
-ST_GEOGFROMTEXT(wkt_string[, oriented])
+ST_GEOGFROMTEXT(
+  wkt_string
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 **Description**
 
-Returns a `GEOGRAPHY` value that corresponds to the
-input [WKT][wkt-link] representation.
+Converts a `STRING` [WKT][wkt-link] geometry value into a `GEOGRAPHY`
+value.
 
-This function supports an optional parameter of type
-`BOOL`, `oriented`. If this parameter is set to
-`TRUE`, any polygons in the input are assumed to be oriented as follows:
-if someone walks along the boundary of the polygon in the order of
-the input vertices, the interior of the polygon is on the left. This allows
-WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
-omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
-to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+To format `GEOGRAPHY` value as WKT, use [`ST_ASTEXT`][st-astext].
 
-To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`][st-astext].
+**Definitions**
 
-**Constraints**
++   `wkt_string`: A `STRING` value that contains the [WKT][wkt-link] format.
++   `oriented`: A named argument with a `BOOL` literal.
 
-*   All input edges are assumed to be spherical geodesics, and *not* planar
-    straight lines. For reading data in a planar projection, consider using
-    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
-*   The function does not support three-dimensional geometries that have a `Z`
+    +   If the value is `TRUE`, any polygons in the input are assumed to be
+        oriented as follows: when traveling along the boundary of the polygon
+        in the order of the input vertices, the interior of the polygon is on
+        the left. This allows WKT to represent polygons larger than a
+        hemisphere. See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented],
+        which is similar to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+
+    +   If the value is `FALSE` or omitted, this function returns the polygon
+        with the smaller area.
++   `planar`: A named argument with a `BOOL` literal. If the value
+    is `TRUE`, the edges of the linestrings and polygons are assumed to use
+    planar map semantics, rather than ZetaSQL default spherical
+    geodesics semantics.
++   `make_valid`: A named argument with a `BOOL` literal. If the
+    value is `TRUE`, the function attempts to repair polygons that don't
+    conform to [Open Geospatial Consortium][ogc-link] semantics.
+
+**Details**
+
++   The function does not support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
-*   The function only supports geometry primitives and multipart geometries. In
-    particular it supports only point, multipoint, linestring, multilinestring,
-    polygon, multipolygon, and geometry collection.
-
-**Return type**
-
-`GEOGRAPHY`
-
-**Example**
-
-The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))`
-both as a non-oriented polygon and as an oriented polygon, and checks whether
-each result contains the point `(1, 1)`.
-
-```sql
-WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
-SELECT
-  ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
-  ST_CONTAINS(ST_GEOGFROMTEXT(p, FALSE), ST_GEOGPOINT(1, 1)) AS non_oriented,
-  ST_CONTAINS(ST_GEOGFROMTEXT(p, TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
-FROM polygon;
-
-/*-------------------+---------------+-----------*
- | fromtext_default  | non_oriented  | oriented  |
- +-------------------+---------------+-----------+
- | TRUE              | TRUE          | FALSE     |
- *-------------------+---------------+-----------*/
-```
-
-#### Signature 2 
-<a id="st_geogfromtext_signature2"></a>
-
-```sql
-ST_GEOGFROMTEXT(wkt_string[, oriented => boolean_constant_1]
-    [, planar => boolean_constant_2] [, make_valid => boolean_constant_3])
-```
-
-**Description**
-
-Returns a `GEOGRAPHY` value that corresponds to the
-input [WKT][wkt-link] representation.
-
-This function supports three optional parameters  of type
-`BOOL`: `oriented`, `planar`, and `make_valid`.
-This signature uses named arguments syntax, and the parameters should be
-specified using `parameter_name => parameter_value` syntax, in any order.
-
-If the `oriented` parameter is set to
-`TRUE`, any polygons in the input are assumed to be oriented as follows:
-if someone walks along the boundary of the polygon in the order of
-the input vertices, the interior of the polygon is on the left. This allows
-WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
-omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
-to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
-
-If the parameter `planar` is set to `TRUE`, the edges of the line strings and
-polygons are assumed to use planar map semantics, rather than ZetaSQL
-default spherical geodesics semantics.
-
-If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
-polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
-
-To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`][st-astext].
-
-**Constraints**
-
-*   All input edges are assumed to be spherical geodesics by default, and *not*
-    planar straight lines. For reading data in a planar projection,
-    pass `planar => TRUE` argument, or consider using
-    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
-*   The function does not support three-dimensional geometries that have a `Z`
-    suffix, nor does it support linear referencing system geometries with an `M`
-    suffix.
-*   The function only supports geometry primitives and multipart geometries. In
-    particular it supports only point, multipoint, linestring, multilinestring,
-    polygon, multipolygon, and geometry collection.
-*   `oriented` and `planar` cannot be equal to `TRUE` at the same time.
-*   `oriented` and `make_valid` cannot be equal to `TRUE` at the same time.
++   `oriented` and `planar` can't be `TRUE` at the same time.
++   `oriented` and `make_valid` can't be `TRUE` at the same time.
 
 **Example**
 
@@ -2422,31 +2353,90 @@ FROM data
 ### `ST_GEOGFROMWKB`
 
 ```sql
-ST_GEOGFROMWKB(wkb_bytes_expression)
+ST_GEOGFROMWKB(
+  wkb_bytes_expression
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 ```sql
-ST_GEOGFROMWKB(wkb_hex_string_expression)
+ST_GEOGFROMWKB(
+  wkb_hex_string_expression
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 **Description**
 
-Converts an expression for a hexadecimal-text `STRING` or `BYTES`
+Converts an expression from a hexadecimal-text `STRING` or `BYTES`
 value into a `GEOGRAPHY` value. The expression must be in
 [WKB][wkb-link] format.
 
-To format `GEOGRAPHY` as WKB, use
-[`ST_ASBINARY`][st-asbinary].
+To format `GEOGRAPHY` as WKB, use [`ST_ASBINARY`][st-asbinary].
 
-**Constraints**
+**Definitions**
 
-All input edges are assumed to be spherical geodesics, and *not* planar straight
-lines. For reading data in a planar projection, consider using
-[`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
++   `wkb_bytes_expression`: A `BYTES` value that contains the [WKB][wkb-link]
+    format.
++   `wkb_hex_string_expression`: A `STRING` value that contains the
+    hexadecimal-encoded [WKB][wkb-link] format.
++   `oriented`: A named argument with a `BOOL` literal.
+
+    +   If the value is `TRUE`, any polygons in the input are assumed to be
+        oriented as follows: when traveling along the boundary of the polygon
+        in the order of the input vertices, the interior of the polygon is on
+        the left. This allows WKB to represent polygons larger than a
+        hemisphere. See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented],
+        which is similar to `ST_GEOGFROMWKB` with `oriented=TRUE`.
+
+    +   If the value is `FALSE` or omitted, this function returns the polygon
+        with the smaller area.
++   `planar`: A named argument with a `BOOL` literal. If the value
+    is `TRUE`, the edges of the linestrings and polygons are assumed to use
+    planar map semantics, rather than ZetaSQL default spherical
+    geodesics semantics.
++   `make_valid`: A named argument with a `BOOL` literal. If the
+    value is `TRUE`, the function attempts to repair polygons that
+    don't conform to [Open Geospatial Consortium][ogc-link] semantics.
+
+**Details**
+
++   The function does not support three-dimensional geometries that have a `Z`
+    suffix, nor does it support linear referencing system geometries with an `M`
+    suffix.
++   `oriented` and `planar` can't be `TRUE` at the same time.
++   `oriented` and `make_valid` can't be `TRUE` at the same time.
 
 **Return type**
 
 `GEOGRAPHY`
+
+**Example**
+
+The following query reads the hex-encoded WKB data containing
+`LINESTRING(1 1, 3 2)` and uses it with planar and geodesic semantics. When
+planar is used, the function approximates the planar input line using
+line that contains a chain of geodesic segments.
+
+```sql
+WITH wkb_data AS (
+  SELECT '010200000002000000feffffffffffef3f000000000000f03f01000000000008400000000000000040' geo
+)
+SELECT
+  ST_GeogFromWkb(geo, planar=>TRUE) AS from_planar,
+  ST_GeogFromWkb(geo, planar=>FALSE) AS from_geodesic,
+FROM wkb_data
+
+/*---------------------------------------+----------------------*
+ | from_planar                           | from_geodesic        |
+ +---------------------------------------+----------------------+
+ | LINESTRING(1 1, 2 1.5, 2.5 1.75, 3 2) | LINESTRING(1 1, 3 2) |
+ *---------------------------------------+----------------------*/
+```
 
 [wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
 

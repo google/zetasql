@@ -46,6 +46,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,6 +72,7 @@
 #include "zetasql/resolved_ast/node_sources.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -79,6 +81,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -95,7 +98,11 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
+ABSL_FLAG(bool, zetasql_remove_degenerate_projectscans, false,
+          "Remove subqueries generated from ProjectScans that are not needed");
+
 namespace zetasql {
+
 #define RETURN_ERROR_IF_OUT_OF_STACK_SPACE() \
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(      \
       "Out of stack space due to deeply nested query expression")
@@ -138,6 +145,8 @@ std::string SQLBuilder::UpdateColumnAlias(const ResolvedColumn& column) {
 SQLBuilder::SQLBuilder(const SQLBuilderOptions& options) : options_(options) {}
 
 namespace {
+constexpr absl::string_view kint64max_str = "9223372036854775807";
+
 // In some cases ZetaSQL name resolution rules cause table names to be
 // resolved as column names. See the test in sql_builder.test that is tagged
 // "resolution_conflict" for an example. Currently this only happens in
@@ -202,6 +211,43 @@ class ColumnNameCollector : public ResolvedASTVisitor {
   absl::flat_hash_set<std::string> value_table_names_;
 };
 
+// Collects ResolvedScans that contain a side effects scope source,
+// and links them to all their targets. The targets will need to be placed
+// inside them in the generated SQL.
+class SideEffectsScopeCollector : public ResolvedASTVisitor {
+ public:
+  SideEffectsScopeCollector() = default;
+  SideEffectsScopeCollector(const SideEffectsScopeCollector& other) = delete;
+  SideEffectsScopeCollector operator=(const SideEffectsScopeCollector& other) =
+      delete;
+
+  absl::Status VisitResolvedDeferredComputedColumn(
+      const ResolvedDeferredComputedColumn* node) override {
+    ZETASQL_RET_CHECK(!current_scan_stack_.empty());
+    scans_to_collapse_.insert(current_scan_stack_.top());
+    return absl::OkStatus();
+  }
+
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    if (node->IsScan()) {
+      current_scan_stack_.push(node->GetAs<ResolvedScan>());
+      ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+      current_scan_stack_.pop();
+    } else {
+      ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::flat_hash_set<const ResolvedScan*> ReleaseScansToCollapse() {
+    return std::move(scans_to_collapse_);
+  }
+
+ private:
+  std::stack<const ResolvedScan*> current_scan_stack_;
+  absl::flat_hash_set<const ResolvedScan*> scans_to_collapse_;
+};
+
 template <typename Iterator, typename Formatter>
 absl::Status StrJoin(std::string* s, Iterator start, Iterator end,
                      absl::string_view separator, Formatter&& fmt) {
@@ -251,9 +297,9 @@ void MarkCollationFieldsAccessed(const ResolvedColumnAnnotations* annotations) {
 // Helper function to convert list of ResolvedGroupingSet (AST Nodes) to list of
 // GroupingSetIds (column ids).
 absl::Status ConvertGroupSetIdList(
-    const std::vector<std::unique_ptr<const ResolvedGroupingSetBase>>&
+    absl::Span<const std::unique_ptr<const ResolvedGroupingSetBase>>
         grouping_set_list,
-    const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
+    absl::Span<const std::unique_ptr<const ResolvedColumnRef>>
         rollup_column_list,
     std::vector<int>& rollup_column_id_list,
     std::vector<GroupingSetIds>& grouping_set_ids_list) {
@@ -315,7 +361,7 @@ absl::Status ConvertGroupSetIdList(
 // function calls, which have their arguments stored in the ResolvedAST as
 // a ColumnRef of a group_by computed column.
 absl::flat_hash_map<int, int> CreateGroupingColumnIdMap(
-    const std::vector<std::unique_ptr<const ResolvedGroupingCall>>&
+    absl::Span<const std::unique_ptr<const ResolvedGroupingCall>>
         grouping_call_list) {
   absl::flat_hash_map<int, int> grouping_column_id_map;
   if (!grouping_call_list.empty()) {
@@ -358,10 +404,12 @@ ResolvedColumnList GetRecursiveScanColumnsExcludingDepth(
 absl::Status SQLBuilder::Process(const ResolvedNode& ast) {
   ast.ClearFieldsAccessed();
   ColumnNameCollector name_collector(&col_ref_names_);
-  absl::Status s = ast.Accept(&name_collector);
-  if (!s.ok()) {
-    return s;
-  }
+  ZETASQL_RETURN_IF_ERROR(ast.Accept(&name_collector));
+
+  SideEffectsScopeCollector side_effects_scope_collector;
+  ZETASQL_RETURN_IF_ERROR(ast.Accept(&side_effects_scope_collector));
+  scans_to_collapse_ = side_effects_scope_collector.ReleaseScansToCollapse();
+
   ast.ClearFieldsAccessed();
   return ast.Accept(this);
 }
@@ -448,8 +496,26 @@ absl::StatusOr<std::string> SQLBuilder::GetSQL(
     }
   }
 
+  // If the opaque enum type is not fully supported in the catalog, we cannot
+  // use an explicit CAST when building the SQL, and instead:
+  //   -If non-null, render a string literal representation of its value
+  //   -If null, render NULL
+  bool is_opaque_enum_not_in_catalog =
+      type->IsEnum() && type->AsEnum()->IsOpaque();
+  if (options_.catalog != nullptr) {
+    const Type* ignored = nullptr;
+    absl::Status find_type_status =
+        options_.catalog->FindType({type->TypeName(mode)}, &ignored);
+    if (find_type_status.code() == absl::StatusCode::kInternal) {
+      return find_type_status;
+    }
+    if (find_type_status.ok()) {
+      is_opaque_enum_not_in_catalog = false;
+    }
+  }
+
   if (value.is_null()) {
-    if (is_constant_value) {
+    if (is_constant_value || is_opaque_enum_not_in_catalog) {
       // To handle NULL literals in ResolvedOption, where we would not want to
       // print them as a casted literal.
       return std::string("NULL");
@@ -507,19 +573,6 @@ absl::StatusOr<std::string> SQLBuilder::GetSQL(
 
     // For typed hints, we can't print a CAST for enums because the parser
     // won't accept it back in.
-    bool is_opaque_enum_not_in_catalog = type->AsEnum()->IsOpaque();
-    if (options_.catalog != nullptr) {
-      const Type* ignored = nullptr;
-      absl::Status find_type_status =
-          options_.catalog->FindType({type->TypeName(mode)}, &ignored);
-      if (find_type_status.code() == absl::StatusCode::kInternal) {
-        return find_type_status;
-      }
-      if (find_type_status.ok()) {
-        is_opaque_enum_not_in_catalog = false;
-      }
-    }
-
     if (is_constant_value || is_opaque_enum_not_in_catalog) {
       // For opaque enums (such as ROUNDING_MODE) should render fine with
       // GetSQL which will include a CAST(). Otherwise, the opaque type is
@@ -722,14 +775,31 @@ absl::StatusOr<std::string> SQLBuilder::GetFunctionCallSQL(
 absl::Status SQLBuilder::VisitResolvedFunctionCall(
     const ResolvedFunctionCall* node) {
   std::vector<std::string> inputs;
-  if (node->function()->IsZetaSQLBuiltin() &&
-      node->function()->GetSignature(0)->context_id() == FN_MAKE_ARRAY) {
-    // For MakeArray function we explicitly prepend the array type to the
-    // function sql, and is passed as a part of the inputs.
-    inputs.push_back(
-        node->type()->TypeName(options_.language_options.product_mode(),
-                               options_.use_external_float32));
+  if (node->function()->IsZetaSQLBuiltin()) {
+    if (node->function()->GetSignature(0)->context_id() == FN_MAKE_ARRAY) {
+      // For MakeArray function we explicitly prepend the array type to the
+      // function sql, and is passed as a part of the inputs.
+      inputs.push_back(
+          node->type()->TypeName(options_.language_options.product_mode(),
+                                 options_.use_external_float32));
+    } else if (node->function()->GetSignature(0)->context_id() ==
+               FN_WITH_SIDE_EFFECTS) {
+      // The $with_side_effects() function is just symbolic to represent side
+      // effect scopes.
+      ZETASQL_RET_CHECK(!node->argument_list().empty());
+
+      // Dummy access all other args.
+      for (const auto& argument : node->argument_list()) {
+        argument->MarkFieldsAccessed();
+      }
+
+      ZETASQL_RET_CHECK(node->argument_list(0)->Is<ResolvedColumnRef>());
+      ZETASQL_RETURN_IF_ERROR(VisitResolvedColumnRef(
+          node->argument_list(0)->GetAs<ResolvedColumnRef>()));
+      return absl::OkStatus();
+    }
   }
+
   for (const auto& argument : node->argument_list()) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(argument.get()));
@@ -805,7 +875,7 @@ absl::Status SQLBuilder::VisitResolvedAggregateFunctionCall(
   std::string with_group_rows;
   if (node->with_group_rows_subquery() != nullptr) {
     std::unique_ptr<QueryExpression> subquery_result;
-    // While resolving a subquery in WITH GROUP_ROWS we should start with a
+    // While resolving a subquery in WITH GROUP ROWS we should start with a
     // fresh scope, i.e. it should not see any columns (except which are
     // correlated) outside the query. To ensure that, we clear the
     // pending_columns_ after maintaining a copy of it locally. We then copy it
@@ -832,7 +902,7 @@ absl::Status SQLBuilder::VisitResolvedAggregateFunctionCall(
     // would be generated if the existing full path is used. Simplified example:
     //              Unrecognized name: grouprowsscan_6 (in COUNT())
     //              v
-    // SELECT COUNT(grouprowsscan_6.a_5) WITH GROUP_ROWS(
+    // SELECT COUNT(grouprowsscan_6.a_5) WITH GROUP ROWS(
     //     SELECT grouprowsscan_6.a_5 AS a_5
     //     FROM (SELECT a_1 AS a_5 FROM GROUP_ROWS()) AS grouprowsscan_6
     //    )
@@ -850,7 +920,7 @@ absl::Status SQLBuilder::VisitResolvedAggregateFunctionCall(
     }
 
     with_group_rows =
-        absl::StrCat(" WITH GROUP_ROWS (", subquery_result->GetSQLQuery(), ")");
+        absl::StrCat(" WITH GROUP ROWS (", subquery_result->GetSQLQuery(), ")");
   }
   std::vector<std::string> inputs;
   if (node->argument_list_size() > 0) {
@@ -1555,19 +1625,25 @@ absl::Status SQLBuilder::VisitResolvedWithExpr(const ResolvedWithExpr* node) {
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr,
                    ProcessNode(node->expr()));
-  std::vector<std::string> assignments;
+  std::vector<std::string> column_aliases;
+  std::string sql;
   for (int i = 0; i < node->assignment_list_size(); ++i) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> assignment,
                      ProcessNode(node->assignment_list(i)));
     const ResolvedColumn& col = node->assignment_list(i)->column();
     std::string column_alias = zetasql_base::FindWithDefault(
         computed_column_alias_, col.column_id(), col.name());
-    assignments.push_back(
-        absl::StrCat(assignment->GetSQL(), " AS ", column_alias));
+    if (i == 0) {
+      sql = absl::Substitute("(SELECT $0 AS $1)", assignment->GetSQL(),
+                             column_alias);
+    } else {
+      sql = absl::Substitute("(SELECT $0 AS $1, $2 FROM $3)",
+                             assignment->GetSQL(), column_alias,
+                             absl::StrJoin(column_aliases, ", "), sql);
+    }
+    column_aliases.push_back(std::move(column_alias));
   }
-  std::string sql =
-      absl::Substitute("(SELECT $0 FROM (SELECT $1))", expr->GetSQL(),
-                       absl::StrJoin(assignments, ", "));
+  sql = absl::Substitute("(SELECT $0 FROM $1)", expr->GetSQL(), sql);
   PushQueryFragment(node, sql);
   return absl::OkStatus();
 }
@@ -1743,7 +1819,7 @@ absl::StatusOr<std::string> SQLBuilder::GetHintListString(
 }
 
 absl::Status SQLBuilder::AppendOptions(
-    const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+    absl::Span<const std::unique_ptr<const ResolvedOption>> option_list,
     std::string* sql) {
   ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
                    GetHintListString(option_list));
@@ -1761,7 +1837,7 @@ absl::Status SQLBuilder::AppendOptionsIfPresent(
 }
 
 absl::Status SQLBuilder::AppendHintsIfPresent(
-    const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list,
+    absl::Span<const std::unique_ptr<const ResolvedOption>> hint_list,
     std::string* text) {
   ZETASQL_RET_CHECK(text != nullptr);
   if (!hint_list.empty()) {
@@ -2315,6 +2391,19 @@ absl::Status SQLBuilder::VisitResolvedUnpivotScan(
   return absl::OkStatus();
 }
 
+// A ProjectScan is degenerate if it does not add any new information over its
+// input scan.
+static bool IsDegenerateProjectScan(const ResolvedProjectScan* node,
+                                    const QueryExpression* query_expression) {
+  return node->expr_list_size() == 0     // no computed columns
+         && node->hint_list_size() == 0  // no hints
+         // same column list as the input scan
+         && node->input_scan()->column_list() == node->column_list()
+         // same number of columns as in the select list generated from the
+         // input scan
+         && node->column_list().size() == query_expression->SelectList().size();
+}
+
 absl::Status SQLBuilder::VisitResolvedProjectScan(
     const ResolvedProjectScan* node) {
   std::unique_ptr<QueryExpression> query_expression;
@@ -2326,6 +2415,17 @@ absl::Status SQLBuilder::VisitResolvedProjectScan(
                      ProcessNode(node->input_scan()));
     query_expression = std::move(result->query_expression);
   }
+
+  if (absl::GetFlag(FLAGS_zetasql_remove_degenerate_projectscans) &&
+      IsDegenerateProjectScan(node, query_expression.get()) &&
+      query_expression->CanFormSQLQuery()) {
+    // NOTE: any future fields added to ProjectScan that are not IGNORABLE will
+    // fail at CheckFieldsAccessed() when this condition is met.
+    PushSQLForQueryExpression(node, query_expression.release());
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(!scans_to_collapse_.contains(node)) << node->DebugString();
 
   if (query_expression->CanFormSQLQuery()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -2659,8 +2759,17 @@ absl::Status SQLBuilder::VisitResolvedAnalyticScan(
   for (const auto& function_group : node->function_group_list()) {
     ZETASQL_RETURN_IF_ERROR(function_group->Accept(this));
   }
-  ZETASQL_RETURN_IF_ERROR(
-      AddSelectListIfNeeded(node->column_list(), query_expression.get()));
+
+  if (!scans_to_collapse_.contains(node)) {
+    ZETASQL_RETURN_IF_ERROR(
+        AddSelectListIfNeeded(node->column_list(), query_expression.get()));
+  } else {
+    // We do not yet support conditional evaluation on analytic functions, so
+    // for now we detect this case. When they are implemented, this branch
+    // should simply be removed: there are no SelectLists() to add.
+    ZETASQL_RET_CHECK_FAIL() << "ResolvedASTs with deferred columns on analytic scans "
+                        "are not yet supported";
+  }
 
   PushSQLForQueryExpression(node, query_expression.release());
   return absl::OkStatus();
@@ -4077,6 +4186,15 @@ absl::Status SQLBuilder::VisitResolvedComputedColumn(
   return node->expr()->Accept(this);
 }
 
+absl::Status SQLBuilder::VisitResolvedDeferredComputedColumn(
+    const ResolvedDeferredComputedColumn* node) {
+  // The side effect column does not shows up in the generated SQL.
+  // The ResolvedAST is presumed valid, so no need to validate it here.
+  // Only a dummy access is needed.
+  node->side_effect_column();
+  return node->expr()->Accept(this);
+}
+
 absl::Status SQLBuilder::VisitResolvedOrderByScan(
     const ResolvedOrderByScan* node) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> input_result,
@@ -4107,6 +4225,62 @@ absl::Status SQLBuilder::VisitResolvedOrderByScan(
   return absl::OkStatus();
 }
 
+class SideEffectColRefCollector : public ResolvedASTVisitor {
+ public:
+  static bool ExpressionReferencesSideEffectColumns(const ResolvedExpr* expr) {
+    SideEffectColRefCollector collector;
+    absl::Status status = expr->Accept(&collector);
+    ZETASQL_DCHECK_OK(status);
+    return collector.references_side_effect_columns_;
+  }
+
+  absl::Status VisitResolvedFunctionCall(
+      const ResolvedFunctionCall* node) override {
+    if (node->function()->IsZetaSQLBuiltin(FN_WITH_SIDE_EFFECTS)) {
+      references_side_effect_columns_ = true;
+      // No need to continue recursing.
+      return absl::OkStatus();
+    }
+    return node->ChildrenAccept(this);
+  }
+
+ private:
+  explicit SideEffectColRefCollector() = default;
+
+  bool references_side_effect_columns_ = false;
+};
+
+// The anonymization rewrite with conditional evaluation may introduce an extra
+// aggregation, which could result in an unbuildable ResolvedAST (i.e., one that
+// is inexpressible in SQL)
+// To differentiate those rewritten ASTs from the authentic ones (which by
+// definition are buildable since they were expressed in SQL by the user), we
+// look at a deferred aggregations on the current AnonymizedScan that themselves
+// are deferring computations from a deferred inner aggregate.
+//
+// Note: we may need to expand this condition if other scans could come in-
+// between due to the rewrite.
+static absl::Status CheckNoSuccessiveAggregateScansWithDeferredColumns(
+    const ResolvedAggregateScanBase* node) {
+  if (!node->input_scan()->Is<ResolvedAggregateScanBase>() &&
+      !node->input_scan()->Is<ResolvedSampleScan>() &&
+      !node->input_scan()->Is<ResolvedJoinScan>()) {
+    return absl::OkStatus();
+  }
+  for (const auto& outer_agg : node->aggregate_list()) {
+    if (outer_agg->Is<ResolvedDeferredComputedColumn>() &&
+        SideEffectColRefCollector::ExpressionReferencesSideEffectColumns(
+            outer_agg->GetAs<ResolvedDeferredComputedColumn>()->expr())) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "SqlBuilder cannot generate SQL for ResolvedASTs rewritten "
+                "by the anonymization rewriter when enforcing conditional "
+                "evaluation at node: "
+             << node->DebugString();
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status SQLBuilder::ProcessAggregateScanBase(
     const ResolvedAggregateScanBase* node,
     const std::vector<GroupingSetIds>& grouping_set_ids_list,
@@ -4116,6 +4290,8 @@ absl::Status SQLBuilder::ProcessAggregateScanBase(
   if (!query_expression->CanSetGroupByClause()) {
     ZETASQL_RETURN_IF_ERROR(WrapQueryExpression(node->input_scan(), query_expression));
   }
+
+  ZETASQL_RETURN_IF_ERROR(CheckNoSuccessiveAggregateScansWithDeferredColumns(node));
 
   std::map<int, std::string> group_by_list;
   int64_t pending_columns_before_grouping_columns = pending_columns_.size();
@@ -4147,6 +4323,14 @@ absl::Status SQLBuilder::ProcessAggregateScanBase(
   for (const auto& computed_column : node->aggregate_list()) {
     const auto* computed_col =
         computed_column->GetAs<ResolvedComputedColumnImpl>();
+
+    // The side effect column does not shows up in the generated SQL.
+    // The ResolvedAST is presumed valid, so no need to validate it here.
+    // Only a dummy access is needed.
+    if (computed_col->Is<ResolvedDeferredComputedColumn>()) {
+      computed_col->GetAs<ResolvedDeferredComputedColumn>()
+          ->side_effect_column();
+    }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(computed_col->expr()));
     zetasql_base::InsertOrDie(&pending_columns_, computed_col->column().column_id(),
@@ -4167,7 +4351,10 @@ absl::Status SQLBuilder::ProcessAggregateScanBase(
         group_by_list, group_by_hints, grouping_set_ids_list,
         rollup_column_id_list));
   }
-  ZETASQL_RETURN_IF_ERROR(AddSelectListIfNeeded(node->column_list(), query_expression));
+  if (!scans_to_collapse_.contains(node)) {
+    ZETASQL_RETURN_IF_ERROR(
+        AddSelectListIfNeeded(node->column_list(), query_expression));
+  }
   return absl::OkStatus();
 }
 
@@ -5353,6 +5540,7 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
       const ResolvedComputedColumn* transform_element = node->transform_list(i);
       const ResolvedOutputColumn* transform_output_col =
           node->transform_output_column_list(i);
+
       // Dummy access.
       transform_output_col->column();
       ZETASQL_ASSIGN_OR_RETURN(

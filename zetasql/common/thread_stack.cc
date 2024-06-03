@@ -39,7 +39,7 @@
 #include "absl/strings/string_view.h"
 
 ABSL_FLAG(size_t, zetasql_enough_stack_bytes,
-          PTHREAD_STACK_MIN, "Error if available stack falls below this"
+          2 * PTHREAD_STACK_MIN, "Error if available stack falls below this"
 );
 
 namespace zetasql {

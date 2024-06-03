@@ -1,0 +1,448 @@
+# The parser permits usage of {ROLLUP|CUBE|GROUPING SETS} in the grouping
+# modifier and GROUP_ROWS() in the aggregate expression, but the resolver will
+# not.
+[language_features=V_1_3_WITH_GROUP_ROWS]
+select sum(avg(value)
+group by {{key1|key1,key2|()|rollup (key1)|cube (key1)|grouping sets (key1)}}
+) with group rows(select 1)
+from T group by key3
+--
+ALTERNATION GROUP: key1
+--
+QueryStatement [0-84] [select sum...group by key3]
+  Query [0-84] [select sum...group by key3]
+    Select [0-84] [select sum...group by key3]
+      SelectList [7-63] [sum(avg(value...(select 1)]
+        SelectColumn [7-63] [sum(avg(value...(select 1)]
+          FunctionCall [7-63] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-35] [group by key1]
+              GroupingItem [31-35] [key1]
+                PathExpression [31-35] [key1]
+                  Identifier(key1) [31-35] [key1]
+            WithGroupRows [7-63] [sum(avg(value...(select 1)]
+              Query [54-62] [select 1]
+                Select [54-62] [select 1]
+                  SelectList [61-62] [1]
+                    SelectColumn [61-62] [1]
+                      IntLiteral(1) [61-62] [1]
+      FromClause [64-70] [from T]
+        TablePathExpression [69-70] [T]
+          PathExpression [69-70] [T]
+            Identifier(T) [69-70] [T]
+      GroupBy [71-84] [group by key3]
+        GroupingItem [80-84] [key3]
+          PathExpression [80-84] [key3]
+            Identifier(key3) [80-84] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY key1) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+--
+ALTERNATION GROUP: key1,key2
+--
+QueryStatement [0-89] [select sum...group by key3]
+  Query [0-89] [select sum...group by key3]
+    Select [0-89] [select sum...group by key3]
+      SelectList [7-68] [sum(avg(value...(select 1)]
+        SelectColumn [7-68] [sum(avg(value...(select 1)]
+          FunctionCall [7-68] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-40] [group by key1,key2]
+              GroupingItem [31-35] [key1]
+                PathExpression [31-35] [key1]
+                  Identifier(key1) [31-35] [key1]
+              GroupingItem [36-40] [key2]
+                PathExpression [36-40] [key2]
+                  Identifier(key2) [36-40] [key2]
+            WithGroupRows [7-68] [sum(avg(value...(select 1)]
+              Query [59-67] [select 1]
+                Select [59-67] [select 1]
+                  SelectList [66-67] [1]
+                    SelectColumn [66-67] [1]
+                      IntLiteral(1) [66-67] [1]
+      FromClause [69-75] [from T]
+        TablePathExpression [74-75] [T]
+          PathExpression [74-75] [T]
+            Identifier(T) [74-75] [T]
+      GroupBy [76-89] [group by key3]
+        GroupingItem [85-89] [key3]
+          PathExpression [85-89] [key3]
+            Identifier(key3) [85-89] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY key1, key2) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+--
+ALTERNATION GROUP: ()
+--
+QueryStatement [0-82] [select sum...group by key3]
+  Query [0-82] [select sum...group by key3]
+    Select [0-82] [select sum...group by key3]
+      SelectList [7-61] [sum(avg(value...(select 1)]
+        SelectColumn [7-61] [sum(avg(value...(select 1)]
+          FunctionCall [7-61] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-33] [group by ()]
+              GroupingItem [31-33] [()]
+            WithGroupRows [7-61] [sum(avg(value...(select 1)]
+              Query [52-60] [select 1]
+                Select [52-60] [select 1]
+                  SelectList [59-60] [1]
+                    SelectColumn [59-60] [1]
+                      IntLiteral(1) [59-60] [1]
+      FromClause [62-68] [from T]
+        TablePathExpression [67-68] [T]
+          PathExpression [67-68] [T]
+            Identifier(T) [67-68] [T]
+      GroupBy [69-82] [group by key3]
+        GroupingItem [78-82] [key3]
+          PathExpression [78-82] [key3]
+            Identifier(key3) [78-82] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY ()) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+--
+ALTERNATION GROUP: rollup (key1)
+--
+QueryStatement [0-93] [select sum...group by key3]
+  Query [0-93] [select sum...group by key3]
+    Select [0-93] [select sum...group by key3]
+      SelectList [7-72] [sum(avg(value...(select 1)]
+        SelectColumn [7-72] [sum(avg(value...(select 1)]
+          FunctionCall [7-72] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-44] [group by rollup (key1)]
+              GroupingItem [31-44] [rollup (key1)]
+                Rollup [31-44] [rollup (key1)]
+                  PathExpression [39-43] [key1]
+                    Identifier(key1) [39-43] [key1]
+            WithGroupRows [7-72] [sum(avg(value...(select 1)]
+              Query [63-71] [select 1]
+                Select [63-71] [select 1]
+                  SelectList [70-71] [1]
+                    SelectColumn [70-71] [1]
+                      IntLiteral(1) [70-71] [1]
+      FromClause [73-79] [from T]
+        TablePathExpression [78-79] [T]
+          PathExpression [78-79] [T]
+            Identifier(T) [78-79] [T]
+      GroupBy [80-93] [group by key3]
+        GroupingItem [89-93] [key3]
+          PathExpression [89-93] [key3]
+            Identifier(key3) [89-93] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY ROLLUP(key1)) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+--
+ALTERNATION GROUP: cube (key1)
+--
+QueryStatement [0-91] [select sum...group by key3]
+  Query [0-91] [select sum...group by key3]
+    Select [0-91] [select sum...group by key3]
+      SelectList [7-70] [sum(avg(value...(select 1)]
+        SelectColumn [7-70] [sum(avg(value...(select 1)]
+          FunctionCall [7-70] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-42] [group by cube (key1)]
+              GroupingItem [31-42] [cube (key1)]
+                Cube [31-42] [cube (key1)]
+                  PathExpression [37-41] [key1]
+                    Identifier(key1) [37-41] [key1]
+            WithGroupRows [7-70] [sum(avg(value...(select 1)]
+              Query [61-69] [select 1]
+                Select [61-69] [select 1]
+                  SelectList [68-69] [1]
+                    SelectColumn [68-69] [1]
+                      IntLiteral(1) [68-69] [1]
+      FromClause [71-77] [from T]
+        TablePathExpression [76-77] [T]
+          PathExpression [76-77] [T]
+            Identifier(T) [76-77] [T]
+      GroupBy [78-91] [group by key3]
+        GroupingItem [87-91] [key3]
+          PathExpression [87-91] [key3]
+            Identifier(key3) [87-91] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY CUBE(key1)) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+--
+ALTERNATION GROUP: grouping sets (key1)
+--
+QueryStatement [0-100] [select sum...group by key3]
+  Query [0-100] [select sum...group by key3]
+    Select [0-100] [select sum...group by key3]
+      SelectList [7-79] [sum(avg(value...(select 1)]
+        SelectColumn [7-79] [sum(avg(value...(select 1)]
+          FunctionCall [7-79] [sum(avg(value...(select 1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-51] [group by grouping sets (key1)]
+              GroupingItem [31-51] [grouping sets (key1)]
+                GroupingSetList [31-51] [grouping sets (key1)]
+                  GroupingSet [46-50] [key1]
+                    PathExpression [46-50] [key1]
+                      Identifier(key1) [46-50] [key1]
+            WithGroupRows [7-79] [sum(avg(value...(select 1)]
+              Query [70-78] [select 1]
+                Select [70-78] [select 1]
+                  SelectList [77-78] [1]
+                    SelectColumn [77-78] [1]
+                      IntLiteral(1) [77-78] [1]
+      FromClause [80-86] [from T]
+        TablePathExpression [85-86] [T]
+          PathExpression [85-86] [T]
+            Identifier(T) [85-86] [T]
+      GroupBy [87-100] [group by key3]
+        GroupingItem [96-100] [key3]
+          PathExpression [96-100] [key3]
+            Identifier(key3) [96-100] [key3]
+--
+SELECT
+  sum(avg(value)
+    GROUP BY GROUPING SETS(key1)) WITH GROUP ROWS (
+    SELECT
+      1
+  )
+FROM
+  T
+GROUP BY key3
+==
+
+# The parser allows group by with a hint, but the resolver will not.
+select sum(avg(value) group @1 by key1) from T
+--
+QueryStatement [0-46] [select sum...key1) from T]
+  Query [0-46] [select sum...key1) from T]
+    Select [0-46] [select sum...key1) from T]
+      SelectList [7-39] [sum(avg(value...1 by key1)]
+        SelectColumn [7-39] [sum(avg(value...1 by key1)]
+          FunctionCall [7-39] [sum(avg(value...1 by key1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-21] [avg(value)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              PathExpression [15-20] [value]
+                Identifier(value) [15-20] [value]
+            GroupBy [22-38] [group @1 by key1]
+              Hint [28-30] [@1]
+                IntLiteral(1) [29-30] [1]
+              GroupingItem [34-38] [key1]
+                PathExpression [34-38] [key1]
+                  Identifier(key1) [34-38] [key1]
+      FromClause [40-46] [from T]
+        TablePathExpression [45-46] [T]
+          PathExpression [45-46] [T]
+            Identifier(T) [45-46] [T]
+--
+SELECT
+  sum(avg(value)
+    GROUP @1 BY key1)
+FROM
+  T
+==
+
+# group by cannot be used alongside having min/max.
+select sum(avg(value) having {{max|min}} group by key1) from T
+--
+ALTERNATION GROUP: max
+--
+ERROR: Syntax error: Unexpected keyword GROUP [at 1:34]
+select sum(avg(value) having max group by key1) from T
+                                 ^
+--
+ALTERNATION GROUP: min
+--
+ERROR: Syntax error: Unexpected keyword GROUP [at 1:34]
+select sum(avg(value) having min group by key1) from T
+                                 ^
+==
+
+# Aggregate modifiers are allowed at any nesting of a multi-level aggregate
+# function call. The resolver permits these clauses, but disallows the group by
+# modifier to be used alongside the over clause.
+select
+  sum(
+    distinct
+      avg(distinct value respect nulls group by key2 order by key3) over ()
+    ignore nulls group by key1 order by key2
+  ) over ()
+from T
+--
+QueryStatement [0-166] [select   sum...() from T]
+  Query [0-166] [select   sum...() from T]
+    Select [0-166] [select   sum...() from T]
+      SelectList [9-159] [sum(     distinct...) over ()]
+        SelectColumn [9-159] [sum(     distinct...) over ()]
+          AnalyticFunctionCall [9-159] [sum(     distinct...) over ()]
+            FunctionCall(distinct=true) [9-151] [sum(     distinct...y key2   )]
+              PathExpression [9-12] [sum]
+                Identifier(sum) [9-12] [sum]
+              AnalyticFunctionCall [33-102] [avg(distinct...key3) over ()]
+                FunctionCall(distinct=true) [33-94] [avg(distinct...order by key3)]
+                  PathExpression [33-36] [avg]
+                    Identifier(avg) [33-36] [avg]
+                  PathExpression [46-51] [value]
+                    Identifier(value) [46-51] [value]
+                  GroupBy [66-79] [group by key2]
+                    GroupingItem [75-79] [key2]
+                      PathExpression [75-79] [key2]
+                        Identifier(key2) [75-79] [key2]
+                  OrderBy [80-93] [order by key3]
+                    OrderingExpression(ASC) [89-93] [key3]
+                      PathExpression [89-93] [key3]
+                        Identifier(key3) [89-93] [key3]
+                WindowSpecification [100-102] [()]
+              GroupBy [120-133] [group by key1]
+                GroupingItem [129-133] [key1]
+                  PathExpression [129-133] [key1]
+                    Identifier(key1) [129-133] [key1]
+              OrderBy [134-147] [order by key2]
+                OrderingExpression(ASC) [143-147] [key2]
+                  PathExpression [143-147] [key2]
+                    Identifier(key2) [143-147] [key2]
+            WindowSpecification [157-159] [()]
+      FromClause [160-166] [from T]
+        TablePathExpression [165-166] [T]
+          PathExpression [165-166] [T]
+            Identifier(T) [165-166] [T]
+--
+SELECT
+  sum(DISTINCT avg(DISTINCT value RESPECT NULLS
+      GROUP BY key2
+      ORDER BY key3) OVER () IGNORE NULLS
+    GROUP BY key1
+    ORDER BY key2) OVER ()
+FROM
+  T
+==
+
+# The parser allows this, but the resolver will not.
+select count(* group by key2)
+--
+QueryStatement [0-29] [select count(* group by key2)]
+  Query [0-29] [select count(* group by key2)]
+    Select [0-29] [select count(* group by key2)]
+      SelectList [7-29] [count(* group by key2)]
+        SelectColumn [7-29] [count(* group by key2)]
+          FunctionCall [7-29] [count(* group by key2)]
+            PathExpression [7-12] [count]
+              Identifier(count) [7-12] [count]
+            Star(*) [13-14] [*]
+            GroupBy [15-28] [group by key2]
+              GroupingItem [24-28] [key2]
+                PathExpression [24-28] [key2]
+                  Identifier(key2) [24-28] [key2]
+--
+SELECT
+  count(*
+    GROUP BY key2)
+==
+
+# 3-level aggregate
+select sum(avg(max(value) group by key1) group by key2) from T
+--
+QueryStatement [0-62] [select sum...key2) from T]
+  Query [0-62] [select sum...key2) from T]
+    Select [0-62] [select sum...key2) from T]
+      SelectList [7-55] [sum(avg(max...group by key2)]
+        SelectColumn [7-55] [sum(avg(max...group by key2)]
+          FunctionCall [7-55] [sum(avg(max...group by key2)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            FunctionCall [11-40] [avg(max(value) group by key1)]
+              PathExpression [11-14] [avg]
+                Identifier(avg) [11-14] [avg]
+              FunctionCall [15-25] [max(value)]
+                PathExpression [15-18] [max]
+                  Identifier(max) [15-18] [max]
+                PathExpression [19-24] [value]
+                  Identifier(value) [19-24] [value]
+              GroupBy [26-39] [group by key1]
+                GroupingItem [35-39] [key1]
+                  PathExpression [35-39] [key1]
+                    Identifier(key1) [35-39] [key1]
+            GroupBy [41-54] [group by key2]
+              GroupingItem [50-54] [key2]
+                PathExpression [50-54] [key2]
+                  Identifier(key2) [50-54] [key2]
+      FromClause [56-62] [from T]
+        TablePathExpression [61-62] [T]
+          PathExpression [61-62] [T]
+            Identifier(T) [61-62] [T]
+--
+SELECT
+  sum(avg(max(value)
+      GROUP BY key1)
+    GROUP BY key2)
+FROM
+  T

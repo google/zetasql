@@ -1178,3 +1178,56 @@ QueryStmt
         | +-Literal(type=ARRAY<INT64>, value=[1, 2])
         +-element_column_list=[$array.legacy_alias#1]
 ==
+
+# Tests implicit coercion from STRING literal to BYTES.
+[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+SELECT 'abc' IN UNNEST([b'abc', b'def'])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<BYTES>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:14]
+SELECT 'abc' IN UNNEST([b'abc', b'def'])
+             ^
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"def"])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,V_1_1_CAST_DIFFERENT_ARRAY_TYPES|}}]
+SELECT b'abc' IN UNNEST (['abc', 'def'])
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES,V_1_1_CAST_DIFFERENT_ARRAY_TYPES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in_array(BYTES, ARRAY<BYTES>) -> BOOL)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Literal(type=ARRAY<BYTES>, value=[b"abc", b"def"])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator IN UNNEST for argument types: BYTES, ARRAY<STRING>. STRING and BYTES are different types that are not directly comparable. To write a BYTES literal, use a b-prefixed literal such as b'bytes value' [at 1:15]
+SELECT b'abc' IN UNNEST (['abc', 'def'])
+              ^
+==

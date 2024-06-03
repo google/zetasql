@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 # Placeholder: load py_proto_library
 # Placeholder: load py_binary
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
@@ -348,6 +349,7 @@ cc_library(
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -366,8 +368,10 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:simple_catalog",
-        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:value",
         "//zetasql/public/types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -544,8 +548,6 @@ java_proto_library(
     deps = [":resolved_ast_enums_proto"],
 )
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-
 py_proto_library(
     name = "resolved_ast_enums_py_pb2",
     srcs = ["resolved_ast_enums.proto"],
@@ -604,8 +606,10 @@ cc_library(
     srcs = ["rewrite_utils.cc"],
     hdrs = ["rewrite_utils.h"],
     deps = [
+        ":column_factory",
         ":resolved_ast",
         ":resolved_ast_builder",
+        ":resolved_ast_rewrite_visitor",
         "//zetasql/analyzer:annotation_propagator",
         "//zetasql/base:logging",
         "//zetasql/base:ret_check",
@@ -616,6 +620,8 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/types",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -629,24 +635,29 @@ cc_test(
     size = "small",
     srcs = ["rewrite_utils_test.cc"],
     deps = [
+        ":column_factory",
         ":resolved_ast",
         ":resolved_ast_builder",
         ":rewrite_utils",
         ":test_utils",
+        "//zetasql/base:ret_check",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:builtin_function_options",
+        "//zetasql/public:function_headers",
         "//zetasql/public:id_string",
         "//zetasql/public:numeric_value",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:value",
         "//zetasql/public/types",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -705,5 +716,31 @@ cc_library(
     deps = [
         ":resolved_ast",
         "@com_google_absl//absl/container:flat_hash_map",
+    ],
+)
+
+cc_library(
+    name = "column_factory",
+    srcs = ["column_factory.cc"],
+    hdrs = ["column_factory.h"],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:id_string",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "column_factory_test",
+    srcs = ["column_factory_test.cc"],
+    deps = [
+        ":column_factory",
+        ":resolved_ast",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/types",
     ],
 )

@@ -25,6 +25,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -66,6 +67,16 @@ class InternalValue {
         /*already_validated=*/false, array_type, order_kind, std::move(values));
     ZETASQL_CHECK_OK(value);
     return std::move(value).value();
+  }
+
+  // A version of Value::MakeArray that allows setting the
+  // OrderPreservationKind. This method is identical to
+  // InternalValue::ArrayChecked except it returns an absl::StatusOr.
+  static absl::StatusOr<Value> MakeArray(const ArrayType* array_type,
+                                         OrderPreservationKind order_kind,
+                                         std::vector<Value>&& values) {
+    return Value::MakeArrayInternal(
+        /*already_validated=*/false, array_type, order_kind, std::move(values));
   }
 
   // DEPRECATED: use ArrayNotChecked/ArrayChecked() instead. (For some reason,

@@ -69,6 +69,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/flags/declare.h"
+#include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -83,9 +85,14 @@
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/status_payload.h"
 
+ABSL_DECLARE_FLAG(bool, zetasql_redact_error_messages_for_tests);
+ABSL_DECLARE_FLAG(zetasql::ErrorMessageStability,
+                  zetasql_default_error_message_stability);
+
 namespace zetasql {
 
 using testing::_;
+using testing::AllOf;
 using testing::ElementsAre;
 using testing::Eq;
 using testing::ExplainMatchResult;
@@ -659,9 +666,9 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageStability_ResolutionError) {
   const std::string query = "select *\nfrom BadTable";
   const std::string expr = "1 +\n2 + BadCol +\n3";
 
-  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
             options_.error_message_stability());
-  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
             options_.error_message_options().stability);
 
   EXPECT_THAT(
@@ -688,9 +695,9 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageStability_SyntaxError) {
   const std::string query = "select 1 1 1";
   const std::string expr = "1 + + + ";
 
-  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
             options_.error_message_stability());
-  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
             options_.error_message_options().stability);
 
   EXPECT_THAT(
@@ -710,6 +717,116 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageStability_SyntaxError) {
   EXPECT_THAT(
       AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
       HasInvalidArgumentError("SQL ERROR"));
+}
+
+TEST_F(AnalyzerOptionsTest, ErrorMessageStability_RecationFlag) {
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  constexpr absl::string_view query = "select 1 1 1";
+  constexpr absl::string_view expr = "1 + + + ";
+
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_stability());
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_options().stability);
+
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, true);
+  options_ = AnalyzerOptions();
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_stability());
+  EXPECT_EQ(ErrorMessageStability::ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_options().stability);
+
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      HasInvalidArgumentError("SQL ERROR"));
+
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, false);
+}
+
+class ErrorStabilityFlagTest : public AnalyzerOptionsTest {
+ protected:
+  void SetStabilityFlag(ErrorMessageStability stability) {
+    absl::SetFlag(&FLAGS_zetasql_default_error_message_stability, stability);
+    this->options_ = AnalyzerOptions();
+    this->options_.set_error_message_mode(
+        ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD);
+  };
+};
+
+MATCHER(HasPayload, "") { return internal::HasPayload(arg); }
+
+TEST_F(ErrorStabilityFlagTest, ErrorMessageStability_Flag) {
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  constexpr absl::string_view query = "select 1 1 1";
+  constexpr absl::string_view expr = "1 + + + ";
+
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_stability());
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_options().stability);
+
+  // UNSPECIFIED should have the same behavior as not being set.
+  SetStabilityFlag(ERROR_MESSAGE_STABILITY_UNSPECIFIED);
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_stability());
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_PRODUCTION,
+            options_.error_message_options().stability);
+
+  // This mode should redact both message and payloads.
+  SetStabilityFlag(ERROR_MESSAGE_STABILITY_TEST_REDACTED);
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_stability());
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_options().stability);
+
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      AllOf(
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")),
+          Not(HasPayload())));
+
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      AllOf(
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")),
+          Not(HasPayload())));
+
+  // This mode will redact only message preserving payloads.
+  SetStabilityFlag(ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS);
+  // This will be ignored for now.
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, true);
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS,
+            options_.error_message_stability());
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS,
+            options_.error_message_options().stability);
+
+  EXPECT_THAT(
+      AnalyzeStatement(query, options_, catalog(), &type_factory_, &output),
+      AllOf(
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")),
+          HasPayload()));
+
+  EXPECT_THAT(
+      AnalyzeExpression(expr, options_, catalog(), &type_factory_, &output),
+      AllOf(
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("SQL ERROR")),
+          HasPayload()));
+
+  // Now that --zetasql_default_error_message_stability is set, it will have
+  // effect when this flag is set to unspecified.c
+  SetStabilityFlag(ERROR_MESSAGE_STABILITY_UNSPECIFIED);
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_stability());
+  EXPECT_EQ(ERROR_MESSAGE_STABILITY_TEST_REDACTED,
+            options_.error_message_options().stability);
+
+  absl::SetFlag(&FLAGS_zetasql_redact_error_messages_for_tests, false);
 }
 
 TEST_F(AnalyzerOptionsTest, NestedCatalogTypesErrorMessageFormat) {
@@ -1914,10 +2031,11 @@ TEST(SQLBuilderTest, TableScanPrefersColumnIndexList) {
   ZETASQL_ASSERT_OK(sql_builder.Process(*query));
   std::string formatted_sql;
   ZETASQL_ASSERT_OK(FormatSql(sql_builder.sql(), &formatted_sql));
-  EXPECT_EQ(
-      "SELECT\n  t1_2.a_1 AS a_1\nFROM\n  (\n"
-      "    SELECT\n      T1.C AS a_1\n    FROM\n      T1\n  ) AS t1_2;",
-      formatted_sql);
+  EXPECT_EQ(R"(SELECT
+  T1.C AS a_1
+FROM
+  T1;)",
+            formatted_sql);
 }
 
 // Adding specific unit test to input provided by Random Query Generator tree.

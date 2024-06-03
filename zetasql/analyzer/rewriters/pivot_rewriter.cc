@@ -540,7 +540,9 @@ PivotRewriterVisitor::RewriteAnyValuePivotExpr(
       ResolvedNonScalarFunctionCallBaseEnums::IGNORE_NULLS,
       call->release_having_modifier(), call->release_order_by_item_list(),
       /*limit=*/MakeResolvedLiteral(Value::Int64(1)),
-      call->function_call_info());
+      call->function_call_info(),
+      /*group_by_list=*/{},
+      /*group_by_aggregate_list=*/{});
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -578,7 +580,9 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
       types::Int64Type(), countif_fn, countif_sig, std::move(countif_args), {},
       call->error_mode(), call->distinct(), call->null_handling_modifier(),
       call->release_having_modifier(), call->release_order_by_item_list(),
-      call->release_limit(), call->function_call_info());
+      call->release_limit(), call->function_call_info(),
+      /*group_by_list=*/{},
+      /*group_by_aggregate_list=*/{});
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
@@ -672,7 +676,9 @@ PivotRewriterVisitor::MakeAggregateExpr(
       {}, call->error_mode(), call->distinct(), call->null_handling_modifier(),
       call_copy->release_having_modifier(),
       call_copy->release_order_by_item_list(), call_copy->release_limit(),
-      call->function_call_info());
+      call->function_call_info(),
+      /*group_by_list=*/{},
+      /*group_by_aggregate_list=*/{});
 }
 }  // namespace
 

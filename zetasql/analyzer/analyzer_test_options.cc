@@ -30,6 +30,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/test_case_options.h"
+#include "google/protobuf/text_format.h"
 
 namespace zetasql {
 
@@ -106,6 +107,9 @@ const char* const kShowReferencedPropertyGraphs =
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
+  std::string rewrite_options_string;
+  google::protobuf::TextFormat::PrintToString(RewriteOptions::default_instance(),
+                                    &rewrite_options_string);
   test_case_options->RegisterString(kModeOption, "statement");
   test_case_options->RegisterBool(kUseSharedIdSequence, false);
   test_case_options->RegisterBool(kExpectErrorLocation, true);
@@ -165,8 +169,7 @@ void RegisterAnalyzerTestOptions(
       kReplaceTableNotFoundErrorWithTvfErrorIfApplicable, true);
   test_case_options->RegisterBool(kIdStringAllowUnicodeCharacters, false);
   test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
-  test_case_options->RegisterString(
-      kRewriteOptions, RewriteOptions::default_instance().DebugString());
+  test_case_options->RegisterString(kRewriteOptions, rewrite_options_string);
   test_case_options->RegisterBool(kShowReferencedPropertyGraphs, false);
 }
 
@@ -204,6 +207,11 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
       zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
+  const zetasql::Type* approx_distance_function_options_proto_type;
+  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+      zetasql_test__::TestApproxDistanceFunctionOptionsProto::descriptor(),
+      &approx_distance_function_options_proto_type));
+
   const zetasql::Type* enum_type;
   ZETASQL_CHECK_OK(type_factory->MakeEnumType(zetasql_test__::TestEnum_descriptor(),
                                       &enum_type));
@@ -233,9 +241,12 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
       {"test_param_string", type_factory->get_string()},
       {"test_param_MixEdCaSe", type_factory->get_string()},
       {"test_param_proto", proto_type},
+      {"test_param_approx_distance_function_options_proto",
+       approx_distance_function_options_proto_type},
       {"test_param_struct", struct_type},
       {"test_param_empty_struct", empty_struct_type},
       {"test_param_struct_two_int64", struct_two_int64_type},
+      {"test_param_json", type_factory->get_json()},
       {"test_param_enum", enum_type},
       {"test_param_array", array_type},
       {"test_param_array_int64", array_int64_type},
@@ -256,7 +267,7 @@ absl::StatusOr<AnalyzerTestRewriteGroups> GetEnabledRewrites(
     const file_based_test_driver::TestCaseOptions& test_case_options) {
   AnalyzerTestRewriteGroups rewrite_groups;
   absl::flat_hash_set<std::string> seen_rewrite_group_keys;
-  const std::string raw_rewrites =
+  const std::string& raw_rewrites =
       test_case_options.GetString(kEnabledASTRewrites);
   if (raw_rewrites.empty()) {
     return rewrite_groups;

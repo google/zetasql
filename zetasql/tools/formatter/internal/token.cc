@@ -34,6 +34,7 @@
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -42,9 +43,11 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "unicode/chariter.h"
 #include "unicode/schriter.h"
 #include "unicode/uchar.h"
 #include "unicode/unistr.h"
+#include "unicode/utypes.h"
 #include "zetasql/base/flat_set.h"
 #include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
@@ -883,7 +886,7 @@ void MaybeUpdateGroupingStateForGormBindStatement(
 void MaybeUpdateGroupingStateForLoadOrSourceStatement(
     const ParseToken& parse_token, absl::string_view sql,
     TokenGroupingState* grouping_state) {
-  // The pattern makes sure that LOAD/SOURCE keword is followed by a single
+  // The pattern makes sure that LOAD/SOURCE keyword is followed by a single
   // parameter. It also has two capture groups:
   // 1st - captures spaces before load parameter;
   // 2nd - captures the parameter. E.g.:
@@ -1018,10 +1021,15 @@ ParseToken CreateParseToken(absl::string_view sql, int start_position,
   location.set_start(ParseLocationPoint::FromByteOffset(start_position));
   location.set_end(ParseLocationPoint::FromByteOffset(end_position));
   std::string image(sql.substr(start_position, end_position - start_position));
+  // The calling code is operating on non-SQL tokens. Presumably non-SQL tokens
+  // may be considered non-adjacent.
+  bool adjacent_to_prior_token = false;
   if (kind == ParseToken::VALUE) {
-    return ParseToken(location, std::move(image), kind, std::move(value));
+    return ParseToken(location, adjacent_to_prior_token, std::move(image), kind,
+                      std::move(value));
   } else {
-    return ParseToken(location, std::move(image), kind);
+    return ParseToken(location, adjacent_to_prior_token, std::move(image),
+                      kind);
   }
 }
 
@@ -1030,7 +1038,8 @@ ParseToken EndOfInputToken(int position) {
   ParseLocationRange location;
   location.set_start(ParseLocationPoint::FromByteOffset(position));
   location.set_end(ParseLocationPoint::FromByteOffset(position));
-  return ParseToken(location, "", ParseToken::END_OF_INPUT);
+  return ParseToken(location, /*adjacent_to_prior_token=*/true, "",
+                    ParseToken::END_OF_INPUT);
 }
 
 // Returns i'th non comment token in `tokens` or nullptr if such token doesn't
@@ -1427,7 +1436,8 @@ Token ParseInvalidToken(ParseResumeLocation* resume_location,
       resume_location->set_byte_position(
           ByteOffsetFromUtfIterator(*resume_location, txt, it));
     }
-    return Token(ParseToken(location, "", ParseToken::END_OF_INPUT));
+    return Token(ParseToken(location, /*adjacent_to_prior_token=*/true, "",
+                            ParseToken::END_OF_INPUT));
   }
 
   const icu::StringCharacterIterator token_start = it;
@@ -1453,8 +1463,8 @@ Token ParseInvalidToken(ParseResumeLocation* resume_location,
 
   // Mark the token as identifier even if we know it was a string literal or a
   // comment: this is a broken token and the type is not important.
-  Token token(
-      ParseToken(token_location, std::move(image), ParseToken::IDENTIFIER));
+  Token token(ParseToken(token_location, /*adjacent_to_prior_token=*/false,
+                         std::move(image), ParseToken::IDENTIFIER));
   token.SetType(Token::Type::INVALID_TOKEN);
   return token;
 }
@@ -1554,6 +1564,17 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
 
 bool SpaceBetweenTokensInInput(const ParseToken& left,
                                const ParseToken& right) {
+  if (TokenEndOffset(left) == TokenStartOffset(right) &&
+      left.GetLocationRange().end().filename() !=
+          right.GetLocationRange().start().filename()) {
+    // The tokens come from different files and their relative offsets are
+    // meaningless. For formatting purposes, assume different files consistitues
+    // whitespace between the tokens.
+    ABSL_LOG(ERROR) << "For now, this path is only expected to be relevant when "
+                << "the macro expander is active. The formatter does not use "
+                << "macro expansion, so we don't expect this path to be taken.";
+    return true;
+  }
   return TokenEndOffset(left) < TokenStartOffset(right);
 }
 
@@ -1597,12 +1618,10 @@ bool Token::IsReservedKeyword() const {
 }
 
 bool Token::IsNonPunctuationKeyword() const {
-  return IsKeyword() && absl::ascii_isalpha(GetImage()[0]);
+  return IsMacroCall() || (IsKeyword() && absl::ascii_isalpha(GetImage()[0]));
 }
 
-bool Token::IsMacroCall() const {
-  return IsIdentifier() && GetImage()[0] == '$';
-}
+bool Token::IsMacroCall() const { return IsKeyword() && GetImage()[0] == '$'; }
 
 bool Token::IsCaseExprKeyword() const {
   static const auto* kCaseClauseKeywords =

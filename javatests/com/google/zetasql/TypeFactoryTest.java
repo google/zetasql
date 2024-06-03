@@ -65,6 +65,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UINT64)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UNKNOWN)).isFalse();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_RANGE)).isFalse();
+    assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UUID)).isTrue();
   }
 
   @Test
@@ -89,6 +90,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleTypeName("DATETIME", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("TIME", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("INTERVAL", ProductMode.PRODUCT_EXTERNAL)).isTrue();
+    assertThat(TypeFactory.isSimpleTypeName("UUID", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT32", ProductMode.PRODUCT_EXTERNAL)).isFalse();
     assertThat(TypeFactory.isSimpleTypeName("UINT64", ProductMode.PRODUCT_EXTERNAL)).isFalse();
     assertThat(TypeFactory.isSimpleTypeName("UNKNOWN", ProductMode.PRODUCT_EXTERNAL)).isFalse();
@@ -113,6 +115,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleTypeName("DATETIME", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("TIME", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("INTERVAL", ProductMode.PRODUCT_INTERNAL)).isTrue();
+    assertThat(TypeFactory.isSimpleTypeName("UUID", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT32", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT64", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UNKNOWN", ProductMode.PRODUCT_INTERNAL)).isFalse();

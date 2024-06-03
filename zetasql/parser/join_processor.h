@@ -38,7 +38,7 @@ namespace parser {
 //
 //   In this case, an ASTJoin with no clause is returned by the rule actions.
 //
-// - There is exactly one ON/USING cluase. That is
+// - There is exactly one ON/USING clause. That is
 //
 //     t1 JOIN t2 ON cond1
 //

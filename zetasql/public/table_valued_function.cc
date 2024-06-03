@@ -154,7 +154,7 @@ std::string TableValuedFunction::DebugString() const {
 
 std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     absl::string_view tvf_name_string,
-    const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
+    absl::Span<const InputArgumentType> input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
     const LanguageOptions& language_options,
     bool show_function_signature_mismatch_details) const {

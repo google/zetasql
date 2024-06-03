@@ -1123,7 +1123,7 @@ absl::Status ZetaSqlLocalServiceImpl::GetDescriptorPools(
               absl::StatusCode::kInvalidArgument,
               absl::StrCat("Invalid DescriptorPoolList::Definition: unknown "
                            "registered_id",
-                           definition.DebugString()));
+                           definition));
         }
         break;
       }
@@ -1137,7 +1137,7 @@ absl::Status ZetaSqlLocalServiceImpl::GetDescriptorPools(
             absl::StrCat(
                 "Invalid DescriptorPoolList::Definition contains unknown "
                 "definition type",
-                definition.DebugString()));
+                definition));
     }
     descriptor_pool_states.push_back(state);
     ZETASQL_RET_CHECK_NE(state->pool(), nullptr);

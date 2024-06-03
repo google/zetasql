@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -3008,7 +3009,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(25);
+        .hasSize(26);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")
@@ -3028,7 +3029,22 @@ public class ValueTest {
             "The number of fields in Value class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(Value.class))
-        .isEqualTo(9);
+        .isEqualTo(10);
+  }
+
+  @Test
+  public void testUuidValue() {
+    UUID uuid = new UUID(0x9d3da3234c20360fL, 0xbd9bec54feec54f0L);
+    Value value = Value.createUuidValue(uuid);
+    assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_UUID);
+    assertThat(value.isNull()).isFalse();
+    assertThat(value.isValid()).isTrue();
+    assertThat(value.getUuidValue()).isEqualTo(uuid);
+
+    Value anotherValue = Value.createUuidValue(uuid);
+    assertThat(value).isEqualTo(anotherValue);
+    assertThat(value.hashCode()).isEqualTo(anotherValue.hashCode());
+    checkSerializeAndDeserialize(value, anotherValue);
   }
 
   private static TypeProto typeProtoFromText(String textProto) {

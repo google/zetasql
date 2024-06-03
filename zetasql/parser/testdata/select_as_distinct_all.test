@@ -325,7 +325,7 @@ select as struct
 
 select struct
 --
-ERROR: Syntax error: Expected "(" or "<" or "{" but got end of statement [at 1:14]
+ERROR: Syntax error: Expected "<" but got end of statement [at 1:14]
 select struct
              ^
 ==

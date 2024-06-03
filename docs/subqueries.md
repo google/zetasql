@@ -271,7 +271,7 @@ FROM (SELECT * FROM Players) AS results;
  *-----------*/
 ```
 
- In this example, a list of [`NPCs`][example-tables]
+In this example, a list of [`NPCs`][example-tables]
 assigned to the red team are returned.
 
 ```sql

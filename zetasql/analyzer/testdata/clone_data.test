@@ -31,7 +31,7 @@ CLONE DATA INTO Int64ValueTable
 CLONE DATA INTO KeyValue
 FROM SimpleTypes
 --
-ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 18 vs. 2 [at 2:6]
+ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 19 vs. 2 [at 2:6]
 FROM SimpleTypes
      ^
 ==
@@ -72,7 +72,7 @@ FROM TwoIntegers
 CLONE DATA INTO KeyValue
 FROM SimpleTypes WHERE int32 = 1
 --
-ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 18 vs. 2 [at 2:6]
+ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 19 vs. 2 [at 2:6]
 FROM SimpleTypes WHERE int32 = 1
      ^
 ==
@@ -83,7 +83,7 @@ FROM SimpleTypes WHERE int32 = 1
 CLONE DATA INTO KeyValue
 FROM SimpleTypes FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP()
 --
-ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 18 vs. 2 [at 2:6]
+ERROR: Source table SimpleTypes has different number of columns than destination table KeyValue: 19 vs. 2 [at 2:6]
 FROM SimpleTypes FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP()
      ^
 ==

@@ -18,8 +18,6 @@
 
 #include <string>
 
-#include "google/protobuf/descriptor_database.h"
-#include "google/protobuf/message.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -139,6 +137,24 @@ std::string StatusToString(const absl::Status& status) {
     absl::StrAppend(&ret, " ", PayloadToString(status));
   }
   return ret;
+}
+
+void SaveStatusToProto(const absl::Status& status,
+                       ::google::rpc::Status* proto) {
+  proto->set_code(static_cast<int>(status.code()));
+  proto->set_message(status.message());
+
+  // TODO: how to attach payloads to the proto?
+}
+
+// Deserialize the given status with all of its payloads.
+absl::Status MakeStatusFromProto(
+    const ::google::rpc::Status& proto) {
+  absl::Status status(static_cast<absl::StatusCode>(proto.code()),
+                      proto.message());
+
+  // TODO: how to load the payloads?
+  return status;
 }
 
 }  // namespace internal

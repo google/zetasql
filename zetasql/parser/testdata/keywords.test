@@ -385,7 +385,7 @@ select {{array|`array`}} from foo;
 --
 ALTERNATION GROUP: array
 --
-ERROR: Syntax error: Expected "(" or "<" or "[" but got keyword FROM [at 1:14]
+ERROR: Syntax error: Expected "<" but got keyword FROM [at 1:14]
 select array from foo;
              ^
 --
@@ -638,7 +638,7 @@ select {{array|`array`}}.foo from foo;
 --
 ALTERNATION GROUP: array
 --
-ERROR: Syntax error: Expected "(" or "<" or "[" but got "." [at 1:13]
+ERROR: Syntax error: Expected "<" but got "." [at 1:13]
 select array.foo from foo;
             ^
 --
@@ -1905,7 +1905,7 @@ VALUES
 --
 ALTERNATION GROUP: REPLACE
 --
-ERROR: Syntax error: Expected column name [at 1:23]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:23]
 INSERT REPLACE VALUES(1, 2, 3)
                       ^
 --
@@ -1958,7 +1958,7 @@ VALUES
 --
 ALTERNATION GROUP: UPDATE
 --
-ERROR: Syntax error: Expected column name [at 1:22]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:22]
 INSERT UPDATE VALUES(1, 2, 3)
                      ^
 --
@@ -1993,7 +1993,6 @@ InsertStatement [0-35] [INSERT `update...LUES(1, 2, 3)]
 INSERT INTO `update`.foo
 VALUES
   (1, 2, 3)
-
 ==
 
 # The parser gets further than we think it ought to in this case.
@@ -2003,7 +2002,7 @@ VALUES
 # There may also be an artefact of Bison's default-reduce semantics here.
 INSERT REPLACE VALUES(1, 2, 3)
 --
-ERROR: Syntax error: Expected column name [at 1:23]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:23]
 INSERT REPLACE VALUES(1, 2, 3)
                       ^
 ==
@@ -2011,6 +2010,6 @@ INSERT REPLACE VALUES(1, 2, 3)
 # This is related to the INSERT REPLACE VALUES(1) test.
 INSERT REPLACE SELECT 1
 --
-ERROR: Syntax error: Expecting INSERT target name [at 1:16]
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:16]
 INSERT REPLACE SELECT 1
                ^

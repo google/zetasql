@@ -50,19 +50,19 @@ AssertStmt
     +-subquery_type=SCALAR
     +-subquery=
       +-ProjectScan
-        +-column_list=[$expr_subquery.$col1#20]
+        +-column_list=[$expr_subquery.$col1#21]
         +-expr_list=
-        | +-$col1#20 :=
+        | +-$col1#21 :=
         |   +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-        |     +-ColumnRef(type=INT32, column=$aggregate.$agg1#19)
+        |     +-ColumnRef(type=INT32, column=$aggregate.$agg1#20)
         |     +-Literal(type=INT32, value=1)
         +-input_scan=
           +-AggregateScan
-            +-column_list=[$aggregate.$agg1#19]
+            +-column_list=[$aggregate.$agg1#20]
             +-input_scan=
             | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
             +-aggregate_list=
-              +-$agg1#19 :=
+              +-$agg1#20 :=
                 +-AggregateFunctionCall(ZetaSQL:max(INT32) -> INT32)
                   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
 ==
@@ -77,14 +77,14 @@ AssertStmt
     | +-subquery_type=SCALAR
     | +-subquery=
     |   +-ProjectScan
-    |     +-column_list=[$aggregate.$agg1#19]
+    |     +-column_list=[$aggregate.$agg1#20]
     |     +-input_scan=
     |       +-AggregateScan
-    |         +-column_list=[$aggregate.$agg1#19]
+    |         +-column_list=[$aggregate.$agg1#20]
     |         +-input_scan=
     |         | +-TableScan(table=SimpleTypes)
     |         +-aggregate_list=
-    |           +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |           +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-Literal(type=INT64, value=0)
 ==
 
@@ -124,10 +124,10 @@ AssertStmt
     | +-subquery_type=SCALAR
     | +-subquery=
     |   +-ProjectScan
-    |     +-column_list=[$aggregate.$agg1#19]
+    |     +-column_list=[$aggregate.$agg1#20]
     |     +-input_scan=
     |       +-AggregateScan
-    |         +-column_list=[$aggregate.$agg1#19]
+    |         +-column_list=[$aggregate.$agg1#20]
     |         +-input_scan=
     |         | +-FilterScan
     |         |   +-column_list=[SimpleTypes.int32#1]
@@ -138,7 +138,7 @@ AssertStmt
     |         |       +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |         |       +-Parameter(type=INT32, name="test_param_int32")
     |         +-aggregate_list=
-    |           +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    |           +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-Literal(type=INT64, value=0)
 ==
 

@@ -700,7 +700,7 @@ class ResolvedNonScalarFunctionCallBase : public <a href="#ResolvedFunctionCallB
   // values.</font>
   <a href="#ResolvedNonScalarFunctionCallBase">ResolvedNonScalarFunctionCallBase</a>::NullHandlingModifier null_handling_modifier() const;
 
-<font color="brown">  // Holds a table subquery defined in WITH GROUP_ROWS(...) that is
+<font color="brown">  // Holds a table subquery defined in WITH GROUP ROWS(...) that is
   // evaluated over the input rows of a ResolvedAggregateScan
   // corresponding to the current group. The function itself is
   // evaluated over the rows returned from the subquery.
@@ -2813,7 +2813,7 @@ class ResolvedTVFScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 
 <p><pre><code class="lang-c++">
 <font color="brown">// ResolvedGroupRowsScan represents a call to a special TVF GROUP_ROWS().
-// It can only show up inside WITH GROUP_ROWS clause, which is resolved as
+// It can only show up inside WITH GROUP ROWS clause, which is resolved as
 // the field with_group_rows_subquery in ResolvedNonScalarFunctionCallBase
 // ResolvedGroupRowsScan. This scan produces rows corresponding to the input
 // of ResolvedAggregateScan that belong to the current group.

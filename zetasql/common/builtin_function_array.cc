@@ -524,7 +524,7 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
         {input_array_arg, n_arg},
         FN_ARRAY_FIRST_N,
         SetDefinitionForInlining(kArrayFirstNSql, true)
-            .add_required_language_feature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayLastNSql = R"sql(
       CASE
@@ -550,7 +550,7 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
         {input_array_arg, n_arg},
         FN_ARRAY_LAST_N,
         SetDefinitionForInlining(kArrayLastNSql, true)
-            .add_required_language_feature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayRemoveFirstNSql = R"sql(
       CASE
@@ -574,7 +574,7 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
         {input_array_arg, n_arg},
         FN_ARRAY_REMOVE_FIRST_N,
         SetDefinitionForInlining(kArrayRemoveFirstNSql, true)
-            .add_required_language_feature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
 
   constexpr absl::string_view kArrayRemoveLastNSql = R"sql(
       CASE
@@ -601,7 +601,7 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
         {input_array_arg, n_arg},
         FN_ARRAY_REMOVE_LAST_N,
         SetDefinitionForInlining(kArrayRemoveLastNSql, true)
-            .add_required_language_feature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
+            .AddRequiredLanguageFeature(FEATURE_V_1_4_FIRST_AND_LAST_N)}});
 }
 
 absl::Status GetArrayFindFunctions(
@@ -1182,16 +1182,17 @@ static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
   ZETASQL_RET_CHECK_EQ(result_type->AsArray()->element_type()->AsStruct()->num_fields(),
                array_annotations.size());
 
-  // Currently collation is the only supported annotation in the resolver.
-  const int kCollationAnnotationId = CollationAnnotation::GetId();
   for (const AnnotationMap* argument : array_annotations) {
     if (argument == nullptr) {
       continue;
     }
     ZETASQL_RET_CHECK(argument->IsArrayMap());
-    // Only the array elements may have collations, not the array themselves.
-    ZETASQL_RET_CHECK_EQ(argument->AsArrayMap()->GetAnnotation(kCollationAnnotationId),
-                 nullptr);
+    // Only the array elements may have annotations, not the array themselves.
+    if (!argument->IsTopLevelColumnAnnotationEmpty()) {
+      return absl::InvalidArgumentError(
+          "Input arrays to function ARRAY_ZIP cannot have annotations on the "
+          "arrays themselves");
+    }
   }
 
   std::unique_ptr<AnnotationMap> annotation_map =
@@ -1213,14 +1214,8 @@ static absl::StatusOr<const AnnotationMap*> ComputeArrayZipOutputAnnotations(
     }
     const AnnotationMap* argument_element_annotation_map =
         array_annotations[i]->AsArrayMap()->element();
-    if (argument_element_annotation_map == nullptr ||
-        argument_element_annotation_map->GetAnnotation(
-            kCollationAnnotationId) == nullptr) {
-      continue;
-    }
-    element_struct_annotation_map->mutable_field(i)->SetAnnotation(
-        kCollationAnnotationId, *argument_element_annotation_map->GetAnnotation(
-                                    kCollationAnnotationId));
+    ZETASQL_RETURN_IF_ERROR(element_struct_annotation_map->CloneIntoField(
+        i, argument_element_annotation_map));
   }
   if (annotation_map->Empty()) {
     // Use nullptr rather than an empty annotation map when there are no

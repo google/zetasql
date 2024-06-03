@@ -84,6 +84,7 @@ public abstract class TypeFactory implements Serializable {
           .put("numeric", TypeKind.TYPE_NUMERIC) // external
           .put("bignumeric", TypeKind.TYPE_BIGNUMERIC) // external
           .put("json", TypeKind.TYPE_JSON) // external
+          .put("uuid", TypeKind.TYPE_UUID) // external
           .build();
 
   // See (broken link) for approved list of externally visible types.
@@ -103,7 +104,8 @@ public abstract class TypeFactory implements Serializable {
           "geography",
           "numeric",
           "bignumeric",
-          "json");
+          "json",
+          "uuid");
 
   private static final ImmutableSet<TypeKind> SIMPLE_TYPE_KINDS =
       ImmutableSet.copyOf(SIMPLE_TYPE_KIND_NAMES.values());

@@ -1896,3 +1896,18 @@ ARRAY<STRUCT<
                     }
                   }
                 }}]
+==
+
+# Approx bounds with not enough data returns NULL.
+[name=differential_privacy_approx_bounds_on_no_data_returns_null]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
+  int64_val, COUNT(*)
+FROM TestTableWithUid
+RIGHT OUTER JOIN (
+    SELECT DISTINCT int64_val FROM UNNEST([9999]) AS int64_val
+  ) using(int64_val)
+GROUP BY int64_val;
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[{9999, NULL}]

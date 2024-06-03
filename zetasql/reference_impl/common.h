@@ -24,18 +24,10 @@
 #include "zetasql/public/collator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
-#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
-
-// Returns OK if 'type' supports equality comparison, error status otherwise.
-absl::Status ValidateTypeSupportsEqualityComparison(const Type* type);
-
-// Returns OK if 'type' supports less/greater comparison, error status
-// otherwise.
-absl::Status ValidateTypeSupportsOrderComparison(const Type* type);
 
 // Returns a collation name from input <resolved_collation>.
 absl::StatusOr<std::string>

@@ -55,6 +55,8 @@ BuiltinFunctionOptions::BuiltinFunctionOptions(
     rewrite_enabled.insert({proto.enabled_rewrites_map_entry(i).key(),
                             proto.enabled_rewrites_map_entry(i).value()});
   }
+  // TODO: b/332322078 - Implement serialization/deserialization logic for
+  // `proto_arg_map`.
 }
 
 }  // namespace zetasql

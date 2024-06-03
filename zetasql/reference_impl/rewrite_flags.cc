@@ -44,6 +44,9 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // both implementations.
       // clang-format off
       // (broken link) start
+      // TODO: Remove this once the aggregation threshold rewriter
+      // and anonymization rewriter are updated to follow the correct pattern.
+      REWRITE_AGGREGATION_THRESHOLD,
       REWRITE_INLINE_SQL_TVFS,
       // TODO: Remove this after resolving memory leak in direct UDA eval.
       REWRITE_INLINE_SQL_UDAS,

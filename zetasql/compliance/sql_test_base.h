@@ -490,7 +490,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Sets result type name. Make it protected so a TEST_F(...) defined in a
   // subclass can access it.
-  void SetResultTypeName(const std::string& result_type_name);
+  void SetResultTypeName(absl::string_view result_type_name);
 
   // Generates a name for a code-based statement.
   virtual std::string GenerateCodeBasedStatementName(

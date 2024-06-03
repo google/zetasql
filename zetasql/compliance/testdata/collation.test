@@ -776,8 +776,6 @@ select string_agg(col order by collate(col, 'und:ci'))
 from TestTable
 --
 ARRAY<STRUCT<STRING>>[{"a,B,C,d,e"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
@@ -793,8 +791,6 @@ select string_agg(col order by collate(col, 'binary'))
 from TestTable
 --
 ARRAY<STRUCT<STRING>>[{"B,C,a,d,e"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=array_agg_distinct_with_collation_binary]

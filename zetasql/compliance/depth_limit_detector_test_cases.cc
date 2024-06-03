@@ -42,6 +42,7 @@
 #include "absl/log/log.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 
 // Small limit as we are experimenting with these tests.
 // This customary limit is used for manually controlling the compliance tests.

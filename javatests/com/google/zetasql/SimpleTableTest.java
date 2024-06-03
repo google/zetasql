@@ -249,7 +249,7 @@ public class SimpleTableTest {
   @Test
   public void testPrimaryKey() {
     SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
-    assertThat(table1.getPrimaryKey().isPresent()).isFalse();
+    assertThat(table1.getPrimaryKey()).isEmpty();
 
     table1.setPrimaryKey(ImmutableList.of(1));
     assertThat(table1.getPrimaryKey().get()).containsExactly(1);

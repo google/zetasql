@@ -60,7 +60,20 @@ CallStatement [0-32]
 CALL myprocedure(MODEL my.model)
 ==
 
-# Connection-typed parameters.
+# Connection-typed parameters (default).
+call myprocedure(CONNECTION DEFAULT)
+--
+CallStatement [0-36]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-35]
+    ConnectionClause [17-35]
+      DefaultLiteral [28-35]
+--
+CALL myprocedure(CONNECTION DEFAULT)
+==
+
+# Connection-typed parameters (custom).
 call myprocedure(CONNECTION my.connection)
 --
 CallStatement [0-42]

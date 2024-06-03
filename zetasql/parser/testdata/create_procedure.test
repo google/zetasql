@@ -406,7 +406,7 @@ BEGIN
 SELEC 1;
 END;
 --
-ERROR: Syntax error: Expected keyword END but got identifier "SELEC" [at 3:1]
+ERROR: Syntax error: Unexpected identifier "SELEC" [at 3:1]
 SELEC 1;
 ^
 ==
@@ -436,7 +436,7 @@ CREATE PROCEDURE procedure_name(param_name_without_type)
 CREATE PROCEDURE procedure_name()
 BEGIN
 --
-ERROR: Syntax error: Expected keyword END but got end of statement [at 2:6]
+ERROR: Syntax error: Unexpected end of statement [at 2:6]
 BEGIN
      ^
 ==
@@ -558,7 +558,55 @@ BEGIN
 END
 ==
 
-# Valid procedure with the connection and language as clause
+# Valid procedure with a default connection and language as clause
+CREATE PROCEDURE procedure_name(
+  param_a int32,
+  OUT param_b string,
+  INOUT param_c ANY TYPE)
+WITH CONNECTION DEFAULT
+OPTIONS(a = b, c = d)
+LANGUAGE PYTHON AS "python code"
+--
+CreateProcedureStatement [0-176] [CREATE PROCEDURE...ython code"]
+  PathExpression [17-31] [procedure_name]
+    Identifier(procedure_name) [17-31] [procedure_name]
+  FunctionParameters [31-97] [(   param_a...ANY TYPE)]
+    FunctionParameter [32-48] [param_a int32]
+      Identifier(param_a) [35-42] [param_a]
+      SimpleType [43-48] [int32]
+        PathExpression [43-48] [int32]
+          Identifier(int32) [43-48] [int32]
+    FunctionParameter(mode=OUT) [52-70] [OUT param_b string]
+      Identifier(param_b) [56-63] [param_b]
+      SimpleType [64-70] [string]
+        PathExpression [64-70] [string]
+          Identifier(string) [64-70] [string]
+    FunctionParameter(mode=INOUT) [74-96] [INOUT param_c ANY TYPE]
+      Identifier(param_c) [80-87] [param_c]
+      TemplatedParameterType [88-96] [ANY TYPE]
+  OptionsList [129-143] [(a = b, c = d)]
+    OptionsEntry [130-135] [a = b]
+      Identifier(a) [130-131] [a]
+      PathExpression [134-135] [b]
+        Identifier(b) [134-135] [b]
+    OptionsEntry [137-142] [c = d]
+      Identifier(c) [137-138] [c]
+      PathExpression [141-142] [d]
+        Identifier(d) [141-142] [d]
+  WithConnectionClause [98-121] [WITH CONNECTION DEFAULT]
+    ConnectionClause [103-121] [CONNECTION DEFAULT]
+      DefaultLiteral [114-121] [DEFAULT]
+  Identifier(PYTHON) [153-159] [PYTHON]
+  StringLiteral [163-176] ["python code"]
+    StringLiteralComponent("python code") [163-176] ["python code"]
+--
+CREATE PROCEDURE procedure_name(param_a int32, OUT param_b string, INOUT param_c ANY TYPE)
+WITH CONNECTION DEFAULT OPTIONS
+  (a = b, c = d)
+LANGUAGE PYTHON AS "python code"
+==
+
+# Valid procedure with a custom connection and language as clause
 CREATE PROCEDURE procedure_name(
   param_a int32,
   OUT param_b string,

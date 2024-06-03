@@ -16,12 +16,14 @@
 
 #include "zetasql/base/status_builder.h"
 
-#include <iostream>
-#include <unordered_map>
+#include <string>
+#include <utility>
 
+#include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/logging.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 
 namespace zetasql_base {
@@ -37,6 +39,13 @@ StatusBuilder& StatusBuilder::SetErrorCode(absl::StatusCode code) {
   CopyStatusPayloads(status_, &tmp);
   status_ = std::move(tmp);
   return *this;
+}
+
+StatusBuilder& StatusBuilder::SetCode(absl::StatusCode code) & {
+  return SetErrorCode(code);
+}
+StatusBuilder&& StatusBuilder::SetCode(absl::StatusCode code) && {
+  return std::move(SetCode(code));
 }
 
 StatusBuilder::Rep::Rep(const Rep& r)

@@ -20,23 +20,18 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
-#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
-#include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -45,6 +40,8 @@
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -77,7 +74,7 @@ absl::Status GetToJsonStackOverflowStatus() {
 // If the value is int64_t or uint64_t, use the corresponding value directly.
 // If double, checks whether NumericValue/BigNumericValue can be
 // converted to DOUBLE without precision loss and use the double value to
-// construct the json if no loss. Otherwide returns the rounded value iff
+// construct the json if no loss. Otherwise returns the rounded value iff
 // FEATURE_JSON_STRICT_NUMBER_PARSING is false.
 template <typename T>
 absl::StatusOr<JSONValue> ToJsonFromNumeric(
@@ -289,6 +286,27 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       } else {
         return JSONValue(static_cast<int64_t>(value.enum_value()));
       }
+    }
+    case TYPE_RANGE: {
+      JSONValue json_value;
+      JSONValueRef json_value_ref = json_value.GetRef();
+      json_value_ref.SetToEmptyObject();
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValue json_member_value,
+          ToJsonHelper(value.start(), stringify_wide_numbers, language_options,
+                       current_nesting_level + 1, canonicalize_zero));
+      JSONValueRef member_value_ref = json_value_ref.GetMember("start");
+      member_value_ref.Set(std::move(json_member_value));
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          json_member_value,
+          ToJsonHelper(value.end(), stringify_wide_numbers, language_options,
+                       current_nesting_level + 1, canonicalize_zero));
+      member_value_ref = json_value_ref.GetMember("end");
+      member_value_ref.Set(std::move(json_member_value));
+
+      return json_value;
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

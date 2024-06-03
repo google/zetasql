@@ -6,6 +6,7 @@
 # 5. Array inputs of the same length or different lengths.
 # 6. Unordered array input in multiway UNNEST.
 # 7. Array inputs of literals or column references, with and without explicit alias.
+# 8. Array inputs with collation, with the same or different collations.
 [default required_features=V_1_4_MULTIWAY_UNNEST]
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB]
@@ -225,16 +226,12 @@ WITH T1 AS (
 ), T2 AS (
   SELECT ["hello", "world"] AS arr2
 )
-SELECT unordered_arr1, arr2
+SELECT COUNT(*)
 FROM T1, T2, UNNEST(
   T1.unordered_arr1,
   T2.arr2 AS arr2)
 --
-ARRAY<STRUCT<unordered_arr1 INT64, arr2 STRING>>[unknown order:
-  {1, "world"},
-  {2, "hello"},
-  {3, NULL}
-]
+ARRAY<STRUCT<INT64>>[{3}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -257,16 +254,12 @@ WITH T1 AS (
     SELECT "world" AS y
   )
 )
-SELECT unordered_arr1, unordered_arr2
+SELECT COUNT(*)
 FROM T1, T2, UNNEST(
   T1.unordered_arr1,
   T2.unordered_arr2 AS unordered_arr2)
 --
-ARRAY<STRUCT<
-        unordered_arr1 INT64,
-        unordered_arr2 STRING
-      >>
-[unknown order:{1, "hello"}, {2, "world"}, {3, NULL}]
+ARRAY<STRUCT<INT64>>[{3}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -284,16 +277,12 @@ WITH T1 AS (
 ), T2 AS (
   SELECT ["hello", "world"] AS arr2
 )
-SELECT unordered_arr1, arr2, offset
+SELECT COUNT(*)
 FROM T1, T2, UNNEST(
   T1.unordered_arr1 AS unordered_arr1,
   T2.arr2 AS arr2) WITH OFFSET
 --
-ARRAY<STRUCT<unordered_arr1 INT64, arr2 STRING, offset INT64>>[unknown order:
-  {1, "world", 1},
-  {2, "hello", 0},
-  {3, NULL, 2}
-]
+ARRAY<STRUCT<INT64>>[{3}]
 
 NOTE: Reference implementation reports non-determinism.
 ==
@@ -720,5 +709,163 @@ FROM T, UNNEST(
   mode => CAST(NULL AS ARRAY_ZIP_MODE)) WITH OFFSET
 --
 ERROR: generic::out_of_range: UNNEST does not allow NULL mode argument
+==
+
+# Zipping literal arrays with equal length, with only one of the arrays having collation.
+[name=multiway_unnest_two_literal_arrays_equal_length_with_collation_strict_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT arr1 = 'a', arr2 = 'a'
+FROM UNNEST(
+  [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci'), COLLATE('B', 'und:ci')] AS arr1,
+  ['a', 'A', 'B'] AS arr2,
+  mode => "STRICT"
+) WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:
+  {true, true},
+  {true, false},
+  {false, false}
+]
+==
+
+# Zipping literal arrays with different length, with only one of the arrays having collation.
+[name=multiway_unnest_two_literal_arrays_unequal_length_with_collation_truncate_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT arr1 = 'a', arr2 = 'a'
+FROM UNNEST(
+  [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci'), COLLATE('B', 'und:ci')] AS arr1,
+  ['a', 'A'] AS arr2,
+  mode => "TRUNCATE"
+) WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:{true, true}, {true, false}]
+==
+
+# Zipping literal arrays with different length, with only one of the arrays having collation.
+[name=multiway_unnest_two_literal_arrays_unequal_length_with_collation_pad_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+SELECT arr1 = 'a', arr2 = 'a'
+FROM UNNEST(
+  [COLLATE('a', 'und:ci'), COLLATE('A', 'und:ci')] AS arr1,
+  ['a', 'A', 'B'] AS arr2,
+  mode => "PAD"
+) WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL>>[known order:
+  {true, true},
+  {true, false},
+  {NULL, false}
+]
+==
+
+# Zipping column referenced arrays with different length, with only one of the arrays having collation.
+[name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_strict_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+WITH T AS (
+  SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
+  ['a', 'b', 'B'] AS str_array,
+  [1.0, 5.0] AS double_array
+)
+SELECT arr1 = 'B', arr2 = 'B', arr3
+FROM T, UNNEST(
+  T.collated_array AS arr1,
+  T.str_array AS arr2,
+  T.double_array AS arr3,
+  mode => "STRICT") WITH OFFSET
+ORDER BY offset
+--
+ERROR: generic::out_of_range: Unnested arrays under STRICT mode must have equal lengths
+==
+
+# Zipping column referenced arrays with different length, with only one of the arrays having collation.
+[name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_truncate_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+WITH T AS (
+  SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
+  ['a', 'b', 'B'] AS str_array,
+  [1.0, 5.0] AS double_array
+)
+SELECT arr1 = 'B', arr2 = 'B', arr3
+FROM T, UNNEST(
+  T.collated_array AS arr1,
+  T.str_array AS arr2,
+  T.double_array AS arr3,
+  mode => "TRUNCATE") WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL, arr3 DOUBLE>>[known order:
+  {false, false, 1},
+  {true, false, 5}
+]
+==
+
+# Zipping column referenced arrays with different length, with only one of the arrays having collation.
+[name=multiway_unnest_three_unequal_arrays_column_ref_with_collation_pad_mode]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+WITH T AS (
+  SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array,
+  ['a', 'b', 'B'] AS str_array,
+  [1.0, 5.0] AS double_array
+)
+SELECT arr1 = 'B', arr2 = 'B', arr3
+FROM T, UNNEST(
+  T.collated_array AS arr1,
+  T.str_array AS arr2,
+  T.double_array AS arr3,
+  mode => "PAD") WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL, arr3 DOUBLE>>[known order:
+  {false, false, 1},
+  {true, false, 5},
+  {true, true, NULL}
+]
+==
+
+# Zipping column referenced arrays with same length, with the same collation.
+[name=multiway_unnest_three_equal_arrays_column_ref_with_same_collation]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+WITH T AS (
+  SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array1,
+  [COLLATE('x', 'und:ci'), COLLATE('Y', 'und:ci'), COLLATE('y', 'und:ci')] AS collated_array2,
+  [COLLATE('m', 'und:ci'), COLLATE('n', 'und:ci'), COLLATE('N', 'und:ci')] AS collated_array3,
+)
+SELECT arr1 = 'B', arr2 = 'Y', arr3 = 'M'
+FROM T, UNNEST(
+  T.collated_array1 AS arr1,
+  T.collated_array2 AS arr2,
+  T.collated_array3 AS arr3) WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {false, false, true},
+  {true, true, false},
+  {true, true, false}
+]
+==
+
+# Zipping column referenced arrays with same length, with different collation.
+[name=multiway_unnest_three_equal_arrays_column_ref_with_different_collation]
+[required_features=V_1_4_MULTIWAY_UNNEST,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+WITH T AS (
+  SELECT [COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci'), COLLATE('B', 'und:ci')] AS collated_array1,
+  [COLLATE('x', 'und:cs'), COLLATE('Y', 'und:cs'), COLLATE('y', 'und:cs')] AS collated_array2,
+  [COLLATE('m', 'und:cs'), COLLATE('n', 'und:cs'), COLLATE('N', 'und:cs')] AS collated_array3,
+)
+SELECT arr1 = 'B', arr2 = 'Y', arr3 = 'M'
+FROM T, UNNEST(
+  T.collated_array1 AS arr1,
+  T.collated_array2 AS arr2,
+  T.collated_array3 AS arr3) WITH OFFSET
+ORDER BY offset
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[known order:
+  {false, false, false},
+  {true, true, false},
+  {true, false, false}
+]
 ==
 

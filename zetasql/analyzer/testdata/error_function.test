@@ -165,11 +165,32 @@ QueryStmt
       +-SingleRowScan
 ==
 
+[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select coalesce('abc', cast(error('def') as bytes))
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for function COALESCE for argument types: STRING, BYTES. Supported signature: COALESCE([ANY, ...]) [at 1:8]
 select coalesce('abc', cast(error('def') as bytes))
        ^
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) BYTES) -> BYTES)
+    |     +-Literal(type=BYTES, value=b"abc")
+    |     +-Cast(BYTES -> BYTES)
+    |       +-FunctionCall(ZetaSQL:error(STRING) -> BYTES)
+    |         +-Literal(type=STRING, value="def")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select coalesce('abc', cast(error('def') as string))
@@ -273,12 +294,12 @@ select coalesce(error('xxx'), int32) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [INT32]
+| +-$query.$col1#20 AS `$col1` [INT32]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT32) -> INT32)
     |     +-Cast(INT32 -> INT32)
     |     | +-FunctionCall(ZetaSQL:error(STRING) -> INT32)

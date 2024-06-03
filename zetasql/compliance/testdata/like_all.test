@@ -843,4 +843,3 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {NULL, false, false, false, false, false, false}
 ]
-==

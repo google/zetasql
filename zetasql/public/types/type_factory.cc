@@ -57,6 +57,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
@@ -68,6 +69,7 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
@@ -205,6 +207,7 @@ static const auto* StaticTypeSet() {
       types::BigNumericType(),
       types::JsonType(),
       types::TokenListType(),
+      types::UuidType(),
   };
   return kStaticTypeSet;
 }
@@ -333,6 +336,7 @@ const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
 const Type* TypeFactory::get_tokenlist() { return types::TokenListType(); }
+const Type* TypeFactory::get_uuid() { return types::UuidType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   ABSL_CHECK(Type::IsSimpleType(kind))
@@ -589,12 +593,11 @@ absl::Status TypeFactory::MakeRangeType(const google::protobuf::FieldDescriptor*
   return absl::OkStatus();
 }
 
-// Note: all future MakeType methods should use absl::StatusOr.
-absl::StatusOr<const Type*> TypeFactory::MakeMapType(const Type* key_type,
-                                                     const Type* value_type) {
+absl::StatusOr<const Type*> TypeFactory::MakeMapTypeImpl(
+    const Type* key_type, const Type* value_type) {
   if (this != s_type_factory() && StaticTypeSet()->contains(key_type) &&
       StaticTypeSet()->contains(value_type)) {
-    return s_type_factory()->MakeMapType(key_type, value_type);
+    return s_type_factory()->MakeMapTypeImpl(key_type, value_type);
   }
 
   AddDependency(key_type);
@@ -619,6 +622,41 @@ absl::StatusOr<const Type*> TypeFactory::MakeMapType(const Type* key_type,
     it = inserted_it;
   }
   return it->second;
+}
+
+namespace {
+
+// Determines if a given input for `key` and `value` will create a valid map
+// type, with error messages.
+static absl::Status IsValidMapTypeKeyAndValue(
+    const LanguageOptions& language_options, const Type* key_type,
+    const Type* value_type) {
+  if (!language_options.LanguageFeatureEnabled(FEATURE_V_1_4_MAP_TYPE)) {
+    return absl::InvalidArgumentError("MAP datatype is not supported");
+  }
+
+  std::string no_grouping_type;
+  if (!key_type->SupportsGrouping(language_options, &no_grouping_type)) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("MAP key type ", no_grouping_type, " is not groupable"));
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
+ABSL_DEPRECATED("Use MakeMapType(key, value, language_options) instead.")
+absl::StatusOr<const Type*> TypeFactory::MakeMapType(const Type* key_type,
+                                                     const Type* value_type) {
+  return this->MakeMapTypeImpl(key_type, value_type);
+}
+
+absl::StatusOr<const Type*> TypeFactory::MakeMapType(
+    const Type* key_type, const Type* value_type,
+    const LanguageOptions& language_options) {
+  ZETASQL_RETURN_IF_ERROR(
+      IsValidMapTypeKeyAndValue(language_options, key_type, value_type));
+  return MakeMapTypeImpl(key_type, value_type);
 }
 
 absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
@@ -1050,6 +1088,11 @@ static const EnumType* s_rounding_mode_enum_type() {
   return s_rounding_mode_enum_type;
 }
 
+static const Type* s_uuid_type() {
+  static const Type* s_uuid_type = new SimpleType(s_type_factory(), TYPE_UUID);
+  return s_uuid_type;
+}
+
 static const EnumType* GetArrayFindModeEnumType() {
   static const EnumType* s_array_find_mode_enum_type = [] {
     const EnumType* enum_type;
@@ -1228,6 +1271,12 @@ static const ArrayType* s_tokenlist_array_type() {
   return s_tokenlist_array_type;
 }
 
+static const ArrayType* s_uuid_array_type() {
+  static const ArrayType* s_uuid_array_type =
+      MakeArrayType(s_type_factory()->get_uuid());
+  return s_uuid_array_type;
+}
+
 static const EnumType* GetArrayZipModeEnumType() {
   static const EnumType* s_array_zip_mode_enum_type = [] {
     const EnumType* enum_type;
@@ -1276,6 +1325,7 @@ const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType() {
 const EnumType* RangeSessionizeModeEnumType() {
   return GetRangeSessionizeModeEnumType();
 }
+const Type* UuidType() { return s_uuid_type(); }
 
 const ArrayType* Int32ArrayType() { return s_int32_array_type(); }
 const ArrayType* Int64ArrayType() { return s_int64_array_type(); }
@@ -1305,6 +1355,8 @@ const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
 const ArrayType* JsonArrayType() { return s_json_array_type(); }
 
 const ArrayType* TokenListArrayType() { return s_tokenlist_array_type(); }
+
+const ArrayType* UuidArrayType() { return s_uuid_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -1346,6 +1398,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return JsonType();
     case TYPE_TOKENLIST:
       return TokenListType();
+    case TYPE_UUID:
+      return UuidType();
     default:
       ZETASQL_VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -1393,6 +1447,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return JsonArrayType();
     case TYPE_TOKENLIST:
       return TokenListArrayType();
+    case TYPE_UUID:
+      return UuidArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);

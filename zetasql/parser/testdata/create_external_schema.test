@@ -15,6 +15,20 @@ CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar.baz
 OPTIONS()
 ==
 
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION DEFAULT OPTIONS ()
+--
+CreateExternalSchemaStatement [0-61] [CREATE EXTERNAL...OPTIONS ()]
+  PathExpression [23-26] [foo]
+    Identifier(foo) [23-26] [foo]
+  WithConnectionClause [27-50] [WITH CONNECTION DEFAULT]
+    ConnectionClause [32-50] [CONNECTION DEFAULT]
+      DefaultLiteral [43-50] [DEFAULT]
+  OptionsList [59-61] [()]
+--
+CREATE EXTERNAL SCHEMA foo WITH CONNECTION DEFAULT
+OPTIONS()
+==
+
 CREATE EXTERNAL SCHEMA `foo` WITH CONNECTION bar.baz OPTIONS ()
 --
 CreateExternalSchemaStatement [0-63] [CREATE EXTERNAL...OPTIONS ()]
@@ -197,9 +211,13 @@ OPTIONS()
 
 CREATE EXTERNAL SCHEMA foo OPTIONS()
 --
-ERROR: Syntax error: Expected "." or keyword WITH but got keyword OPTIONS [at 1:28]
-CREATE EXTERNAL SCHEMA foo OPTIONS()
-                           ^
+CreateExternalSchemaStatement [0-36] [CREATE EXTERNAL...OPTIONS()]
+  PathExpression [23-26] [foo]
+    Identifier(foo) [23-26] [foo]
+  OptionsList [34-36] [()]
+--
+CREATE EXTERNAL SCHEMA foo
+OPTIONS()
 ==
 
 CREATE EXTERNAL SCHEMA foo WITH CONNECTION bar

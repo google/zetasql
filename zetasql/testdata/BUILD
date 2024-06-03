@@ -203,6 +203,7 @@ cc_library(
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:anon_function",
+        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
         "//zetasql/public:cycle_detector",

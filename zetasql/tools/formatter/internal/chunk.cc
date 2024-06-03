@@ -64,7 +64,7 @@ namespace {
 
 // Limits the size of the lhs operand that can be followed with the operator on
 // the same line even if the line gets too big. The number is arbitrary and can
-// be adjusted based on the onwers taste :) For instance:
+// be adjusted based on the owners taste :) For instance:
 //
 // T.a_column_name.sub_field IN (   # "IN (" stays on the same line with lhs.
 //   1, 2, 3)
@@ -223,7 +223,7 @@ bool CanFollowTypeDeclaration(absl::string_view keyword) {
 // Returns true if the given keyword can start a type declaration.
 bool CanBeTypeDeclarationStart(absl::string_view keyword) {
   static const auto* allowed = new zetasql_base::flat_set<absl::string_view>(
-      {"ARRAY", "ENUM", "PROTO", "STRUCT", "TABLE"});
+      {"ARRAY", "ENUM", "MAP", "PROTO", "RANGE", "STRUCT", "TABLE"});
   return allowed->contains(keyword);
 }
 
@@ -905,6 +905,15 @@ bool TokenIsOperatorThatCanBeFusedWithLeftOperand(
     return false;
   }
 
+  if (tokens[next_index]->GetKeyword() == ">" &&
+      tokens[next_index]->Is(Token::Type::COMPLEX_TOKEN_CONTINUATION)) {
+    // This is the second half of a broken `<>` or `>>` operator. Skip to the
+    // next real token.
+    if (!FindNextNonCommentToken(tokens, &next_index)) {
+      return false;
+    }
+  }
+
   // If the operator is IS, allow "IS NOT(".
   if (token->GetKeyword() == "IS" &&
       tokens[next_index]->GetKeyword() == "NOT") {
@@ -1193,6 +1202,13 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
       // like "STRUCT<ARRAY<INT64>>".
       return current == ">";
     }
+    if (previous_token->Is(Token::Type::COMPLEX_TOKEN_CONTINUATION)) {
+      // This is the second half of a broken `<>` or `>>` operators. Look back
+      // one more token to figure out which.
+      ABSL_DCHECK_GE(previous_non_comment_token_index, 1);
+      previous_token = tokens[previous_non_comment_token_index - 1];
+      return previous_token->GetKeyword() == ">";
+    }
     // Arithmetic expression like "> 1".
     return true;
   }
@@ -1284,6 +1300,7 @@ void MarkAllTypeDeclarations(const TokensView& tokens_view) {
       type_starts.pop_back();
     } else if (IsTopLevelClauseKeyword(*tokens[t - 1]) ||
                IsChainableOperator(*tokens[t - 1])) {
+      // TODO: b/298028709 - Allow keywords in type declarations.
       // Found a token that cannot be inside a type declaration. Drop all type
       // declaration starts found so far.
       type_starts.clear();
@@ -1952,6 +1969,33 @@ void MarkAllMacroBodiesThatShouldBeFused(const TokensView& tokens_view) {
   }
 }
 
+// GetParseTokens sometimes returns operators as multiple subsequent tokens
+// instead of a single token. This function marks the trailing tokens of such
+// operators as complex token continuations.
+void MarkSqlTokensThatArePartOfBrokenOperator(const TokensView& tokens_view) {
+  const std::vector<Token*>& tokens = tokens_view.WithoutComments();
+  for (int t = 1; t < tokens.size(); ++t) {
+    // We already marked '>' tokens that close type declarations. Otherwise
+    // when two '>' occur without space they are the bitwise right-shift token,
+    // and '<>' is the sql style not-equal operator.
+    if (!tokens[t]->Is(Token::Type::CLOSE_BRACKET) &&
+        tokens[t]->GetKeyword() == ">" &&
+        !SpaceBetweenTokensInInput(*tokens[t - 1], *tokens[t])) {
+      if (!tokens[t - 1]->Is(Token::Type::CLOSE_BRACKET) &&
+          tokens[t - 1]->GetKeyword() == ">") {
+        // This is a broken `>>` bitwise shift operator.
+        tokens[t]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+      }
+      if (!tokens[t - 1]->Is(Token::Type::OPEN_BRACKET) &&
+          tokens[t - 1]->GetKeyword() == "<") {
+        // This is a broken `<>` comparison operator.
+        tokens[t - 1]->SetType(Token::Type::COMPARISON_OPERATOR);
+        tokens[t]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+      }
+    }
+  }
+}
+
 // $MACRO calls, ${parameters} and various {templates} can appear anywhere in
 // the query. We check if the original input had spaces to determine if they
 // should be a part of the previous token.
@@ -2385,6 +2429,7 @@ void AnnotateTokens(const TokensView& tokens,
                     const FormatterOptions& formatter_options) {
   MarkAllKeywordsInComplexIdentifiers(tokens);
   MarkAllTypeDeclarations(tokens);
+  MarkSqlTokensThatArePartOfBrokenOperator(tokens);
   MarkNonSqlTokensThatArePartOfComplexToken(tokens);
   MarkAllMacroAndTableDefinitions(tokens);
   MarkAllMacroCallsThatShouldBeFused(tokens);

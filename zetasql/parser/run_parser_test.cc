@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <stack>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/testing/test_case_options_util.h"
@@ -688,6 +690,19 @@ class RunParserTest : public ::testing::Test {
     }
   }
 
+  // Returns true if `token1` is adjacent to `token2` and `token1` precedes
+  // `token2`.
+  static bool IsAdjacentPrecedingToken(const ParseToken& token1,
+                                       const ParseToken& token2) {
+    const ParseLocationRange& location1 = token1.GetLocationRange();
+    const ParseLocationRange& location2 = token2.GetLocationRange();
+    // Two tokens must be from the same file to be adjacent.
+    if (location1.start().filename() != location2.start().filename()) {
+      return false;
+    }
+    return location1.end().GetByteOffset() == location2.start().GetByteOffset();
+  }
+
   void HandleOneParseTree(
       absl::string_view test_case, absl::string_view mode,
       const absl::Status& status, const ASTNode* parsed_root,
@@ -774,11 +789,17 @@ class RunParserTest : public ::testing::Test {
             << token_status;
       } else {
         std::string rebuilt;
+        std::optional<ParseToken> last_token;
         for (const ParseToken& parse_token : parse_tokens) {
-          if (!rebuilt.empty()) {
+          // If two tokens are originally adjacent, do not insert a whitespace
+          // in between. For example, two adjacent ">"s can represent a single
+          // right shift token and should not be printed as "> >".
+          if (last_token.has_value() &&
+              !IsAdjacentPrecedingToken(*last_token, parse_token)) {
             rebuilt += " ";
           }
           rebuilt += parse_token.GetSQL();
+          last_token = parse_token;
         }
         ZETASQL_VLOG(1) << "Rebuilt from tokens:\n" << rebuilt;
 

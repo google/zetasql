@@ -216,6 +216,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"lookup", KW_LOOKUP, kReserved},
     {"loop", KW_LOOP},
     {"macro", KW_MACRO, kNotReserved},
+    {"map", KW_MAP, kNotReserved},
     {"match", KW_MATCH},
     {"matched", KW_MATCHED},
     {"materialized", KW_MATERIALIZED},

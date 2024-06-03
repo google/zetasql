@@ -100,7 +100,6 @@ ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE
   ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 TRUNCATE TABLE foo-567-bar.baz;
 --

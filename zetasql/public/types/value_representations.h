@@ -30,9 +30,11 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/token_list.h"  
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value_content.h"
 #include "absl/strings/cord.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/compact_reference_counted.h"
 
@@ -53,11 +55,10 @@ class Type;
 
 namespace internal {  // For ZetaSQL internal use only
 
-class ValueContentContainerElement {
+class NullableValueContent {
  public:
-  ValueContentContainerElement() = default;
-  explicit ValueContentContainerElement(ValueContent content)
-      : content_(content) {}
+  NullableValueContent() = default;
+  explicit NullableValueContent(ValueContent content) : content_(content) {}
   bool is_null() const { return !content_.has_value(); }
   ValueContent value_content() const { return content_.value(); }
 
@@ -73,12 +74,12 @@ class ValueContentContainerElement {
 // recursively do these operations for its elements, and those elements can't
 // be accessed as Value since then there will be a circular dependency
 // (Value uses Type, and ArrayType, StructType, RangeType use Value)
-class ValueContentContainer {
+class ValueContentOrderedList {
  public:
-  virtual ~ValueContentContainer() = default;
+  virtual ~ValueContentOrderedList() = default;
   // Returns a value content of i-th element if the element
   // or nullopt if element is null
-  virtual ValueContentContainerElement element(int i) const = 0;
+  virtual NullableValueContent element(int i) const = 0;
   virtual int64_t num_elements() const = 0;
   virtual uint64_t physical_byte_size() const = 0;
 
@@ -96,8 +97,8 @@ class ValueContentMap {
   virtual ~ValueContentMap() = default;
   virtual int64_t num_elements() const = 0;
   virtual uint64_t physical_byte_size() const = 0;
-  virtual std::vector<std::pair<internal::ValueContentContainerElement,
-                                internal::ValueContentContainerElement>>
+  virtual std::vector<
+      std::pair<internal::NullableValueContent, internal::NullableValueContent>>
   value_content_entries() const = 0;
 
   // Returns this container as const SubType*. Must only be used when it
@@ -109,30 +110,32 @@ class ValueContentMap {
 };
 
 // -------------------------------------------------------
-// ValueContentContainerRef is a ref count wrapper around a pointer to
-// ValueContentContainer.
+// ValueContentOrderedListRef is a ref count wrapper around a pointer to
+// ValueContentOrderedList.
 // -------------------------------------------------------
-class ValueContentContainerRef final
-    : public zetasql_base::refcount::CompactReferenceCounted<ValueContentContainerRef,
+class ValueContentOrderedListRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<ValueContentOrderedListRef,
                                                int64_t> {
  public:
-  explicit ValueContentContainerRef(
-      std::unique_ptr<ValueContentContainer> container, bool preserves_order)
+  explicit ValueContentOrderedListRef(
+      std::unique_ptr<ValueContentOrderedList> container, bool preserves_order)
       : container_(std::move(container)), preserves_order_(preserves_order) {}
 
-  ValueContentContainerRef(const ValueContentContainerRef&) = delete;
-  ValueContentContainerRef& operator=(const ValueContentContainerRef&) = delete;
+  ValueContentOrderedListRef(const ValueContentOrderedListRef&) = delete;
+  ValueContentOrderedListRef& operator=(const ValueContentOrderedListRef&) =
+      delete;
 
-  const ValueContentContainer* const value() const { return container_.get(); }
+  const ValueContentOrderedList* value() const { return container_.get(); }
 
   const uint64_t physical_byte_size() const {
-    return sizeof(ValueContentContainerRef) + container_->physical_byte_size();
+    return sizeof(ValueContentOrderedListRef) +
+           container_->physical_byte_size();
   }
 
   const bool preserves_order() const { return preserves_order_; }
 
  private:
-  const std::unique_ptr<ValueContentContainer> container_;
+  const std::unique_ptr<ValueContentOrderedList> container_;
   const bool preserves_order_ = false;
 };
 
@@ -327,6 +330,24 @@ class TokenListRef final
 
  private:
   tokens::TokenList value_;
+};
+
+// -------------------------------------------------------
+// UuidRef is ref count wrapper around UuidValue.
+// -------------------------------------------------------
+class UuidRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<UuidRef, int64_t> {
+ public:
+  UuidRef() = default;
+  explicit UuidRef(const UuidValue& value) : value_(value) {}
+
+  UuidRef(const UuidRef&) = delete;
+  UuidRef& operator=(const UuidRef&) = delete;
+
+  const UuidValue& value() { return value_; }
+
+ private:
+  UuidValue value_;
 };
 
 // -------------------------------------------------------

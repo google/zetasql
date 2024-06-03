@@ -49,7 +49,8 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
-// This flag is an escape hatch to disable running the
+// This flag is an escape hatch to disable running the rewriter relevance
+// checker invoked by `FindRelevantRewriters`.
 ABSL_FLAG(bool, zetasql_disable_rewriter_checker, false,
           "Disables post resolution detection of applicable ZetaSQL "
           "rewriters.");
@@ -162,9 +163,9 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
     ZETASQL_ASSIGN_OR_RETURN(checker_detected_rewrites,
                      FindRelevantRewriters(rewrite_input));
     // This check is trying to catch any cases where the resolver is updated to
-    // identify an applicable rewrite but FindApplicableRewrites is not. The
+    // identify an applicable rewrite but FindRelevantRewriters is not. The
     // resolver's output is used on the first rewrite pass, but
-    // FindAppliableRewites is used on subsequent passes. If the logic diverges
+    // FindRelevantRewriters is used on subsequent passes. If the logic diverges
     // between those components, we could miss rewrites.
     if (ZETASQL_DEBUG_MODE && !resolver_detected_rewrites.empty()) {
       ZETASQL_RET_CHECK(
@@ -287,6 +288,9 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       // anonymization rewriter from its input.
       // TODO: Improve the checker to avoid false positives.
       rewrites_to_apply.erase(REWRITE_ANONYMIZATION);
+      // TODO: Add a rewrite state enum to remove this. Currently
+      // needed to halt rewriter iterations before resource is exhausted.
+      rewrites_to_apply.erase(REWRITE_AGGREGATION_THRESHOLD);
     } while (!rewrites_to_apply.empty());
   }
 

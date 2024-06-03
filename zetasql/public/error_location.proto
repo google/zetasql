@@ -42,6 +42,18 @@ message ErrorLocation {
   // probably avoid whitespace).
   optional string filename = 3;
 
+  // Optional offsets of the input in its original source. `line` and `column`
+  // above are relative to the start of the input, but that input itself may
+  // be extracted from a much larger source which is not available. These
+  // offsets are added when printing the locations to reflect the position to
+  // the beginning of the original source, instead of the available input.
+  // Note that this is the offset of the input string itself, not of this
+  // location.
+  // Note that `input_start_column_offset` is only relevant when `line`  is 1.
+  // After the first line, the text starts from the first column anyway.
+  optional int32 input_start_line_offset = 5;
+  optional int32 input_start_column_offset = 6;
+
   // An optional list of error source information for the related Status.
   // The last element in this list is the immediate error cause, with
   // the previous element being its cause, etc.  These error sources should

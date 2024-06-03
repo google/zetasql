@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -4012,6 +4013,10 @@ absl::Status ArrayScanOp::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(array_expr->mutable_value_expr()->SetSchemasForEvaluation(
         params_schemas));
   }
+  ValueExpr* mode_expr = mutable_zip_mode_expr();
+  if (mode_expr != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(mode_expr->SetSchemasForEvaluation(params_schemas));
+  }
   return absl::OkStatus();
 }
 
@@ -4107,7 +4112,7 @@ class ArrayScanTupleIterator : public TupleIterator {
              next_element_idx_ >= array_values_[i].num_elements())
                 ? Null(array_values_[i].type()->AsArray()->element_type())
                 : array_values_[i].element(next_element_idx_);
-        current_.mutable_slot(next_slot_idx)->SetValue(value);
+        current_.mutable_slot(next_slot_idx)->SetValue(std::move(value));
         next_slot_idx++;
       }
     }
@@ -4356,6 +4361,12 @@ int ArrayScanOp::num_arrays() const {
 
 const ValueExpr* ArrayScanOp::zip_mode_expr() const {
   return GetArg(kMode) != nullptr ? GetArg(kMode)->value_expr() : nullptr;
+}
+
+ValueExpr* ArrayScanOp::mutable_zip_mode_expr() {
+  return GetMutableArg(kMode) != nullptr
+             ? GetMutableArg(kMode)->mutable_value_expr()
+             : nullptr;
 }
 
 // -------------------------------------------------------
@@ -4808,7 +4819,9 @@ RelationalOp* UnionAllOp::mutable_rel(int i) {
 absl::StatusOr<std::unique_ptr<LoopOp>> LoopOp::Create(
     std::vector<std::unique_ptr<ExprArg>> initial_assign,
     std::unique_ptr<RelationalOp> body,
-    std::vector<std::unique_ptr<ExprArg>> loop_assign) {
+    std::vector<std::unique_ptr<ExprArg>> loop_assign,
+    std::unique_ptr<ValueExpr> lower_bound,
+    std::unique_ptr<ValueExpr> upper_bound) {
   // Make sure all variable targets of <loop_assign> are in <initial_assign>
   // and populate loop_assign_indexes_.
   absl::flat_hash_map<VariableId, int> varid_to_index;
@@ -4827,19 +4840,35 @@ absl::StatusOr<std::unique_ptr<LoopOp>> LoopOp::Create(
         << " in <loop_assign>, but not <initial_assign>";
     loop_assign_indexes.push_back(it->second);
   }
-  return absl::WrapUnique(new LoopOp(std::move(initial_assign), std::move(body),
-                                     std::move(loop_assign),
-                                     std::move(loop_assign_indexes)));
+
+  if (lower_bound != nullptr) {
+    ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
+  }
+  if (upper_bound != nullptr) {
+    ZETASQL_RET_CHECK(upper_bound->output_type()->IsInt64());
+  }
+  return absl::WrapUnique(
+      new LoopOp(std::move(initial_assign), std::move(body),
+                 std::move(loop_assign), std::move(loop_assign_indexes),
+                 std::move(lower_bound), std::move(upper_bound)));
 }
 
 LoopOp::LoopOp(std::vector<std::unique_ptr<ExprArg>> initial_assign,
                std::unique_ptr<RelationalOp> body,
                std::vector<std::unique_ptr<ExprArg>> loop_assign,
-               std::vector<int> loop_assign_indexes)
+               std::vector<int> loop_assign_indexes,
+               std::unique_ptr<ValueExpr> lower_bound,
+               std::unique_ptr<ValueExpr> upper_bound)
     : loop_assign_indexes_(std::move(loop_assign_indexes)) {
   SetArgs(kInitialAssign, std::move(initial_assign));
   SetArg(kBody, std::make_unique<RelationalArg>(std::move(body)));
   SetArgs(kLoopAssign, std::move(loop_assign));
+  SetArg(kLowerBound, lower_bound != nullptr
+                          ? std::make_unique<ExprArg>(std::move(lower_bound))
+                          : nullptr);
+  SetArg(kUpperBound, upper_bound != nullptr
+                          ? std::make_unique<ExprArg>(std::move(upper_bound))
+                          : nullptr);
 }
 
 absl::StatusOr<int> LoopOp::GetVariableIndexFromLoopAssignIndex(int i) const {
@@ -4850,10 +4879,21 @@ absl::StatusOr<int> LoopOp::GetVariableIndexFromLoopAssignIndex(int i) const {
 
 std::string LoopOp::DebugInternal(const std::string& indent,
                                   bool verbose) const {
-  return absl::StrCat("LoopOp(",
-                      ArgDebugString({"initial_assign", "body", "loop_assign"},
-                                     {kN, k1, kN}, indent, verbose),
-                      ")");
+  std::vector<std::string> arg_names = {"initial_assign", "body",
+                                        "loop_assign"};
+  std::vector<ArgPrintMode> arg_modes = {kN, k1, kN};
+
+  // Conditionally add lower_bound and upper_bound to debug strings.
+  // Otherwise, the debug string will contain redundant kIndentBars when no
+  // bounds are specified.
+  if (lower_bound() != nullptr || upper_bound() != nullptr) {
+    arg_names.push_back("lower_bound");
+    arg_names.push_back("upper_bound");
+    arg_modes.push_back(kOpt);
+    arg_modes.push_back(kOpt);
+  }
+  return absl::StrCat(
+      "LoopOp(", ArgDebugString(arg_names, arg_modes, indent, verbose), ")");
 }
 
 const RelationalOp* LoopOp::body() const {
@@ -4892,8 +4932,36 @@ ValueExpr* LoopOp::mutable_loop_assign_expr(int i) {
   return GetMutableArgs<ExprArg>(kLoopAssign).at(i)->mutable_value_expr();
 }
 
+ValueExpr* LoopOp::mutable_lower_bound() {
+  auto* arg = GetMutableArg(kLowerBound);
+  return arg == nullptr ? nullptr : arg->mutable_node()->AsMutableValueExpr();
+}
+
+ValueExpr* LoopOp::mutable_upper_bound() {
+  auto* arg = GetMutableArg(kUpperBound);
+  return arg == nullptr ? nullptr : arg->mutable_node()->AsMutableValueExpr();
+}
+
+const ValueExpr* LoopOp::lower_bound() const {
+  auto* arg = GetArg(kLowerBound);
+  return arg == nullptr ? nullptr : arg->node()->AsValueExpr();
+}
+
+const ValueExpr* LoopOp::upper_bound() const {
+  auto* arg = GetArg(kUpperBound);
+  return arg == nullptr ? nullptr : arg->node()->AsValueExpr();
+}
+
 absl::Status LoopOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
+  if (lower_bound() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        mutable_lower_bound()->SetSchemasForEvaluation(params_schemas));
+  }
+  if (upper_bound() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        mutable_upper_bound()->SetSchemasForEvaluation(params_schemas));
+  }
   std::vector<const TupleSchema*> all_schemas(params_schemas.begin(),
                                               params_schemas.end());
 
@@ -4952,9 +5020,10 @@ class LoopTupleIterator : public TupleIterator {
  public:
   static absl::StatusOr<std::unique_ptr<LoopTupleIterator>> Create(
       const LoopOp* op, absl::Span<const TupleData* const> params,
-      int num_extra_slots, EvaluationContext* context) {
-    return absl::WrapUnique(
-        new LoopTupleIterator(op, params, num_extra_slots, context));
+      int num_extra_slots, EvaluationContext* context, int64_t lower_bound,
+      int64_t upper_bound) {
+    return absl::WrapUnique(new LoopTupleIterator(
+        op, params, num_extra_slots, context, lower_bound, upper_bound));
   }
 
   const TupleSchema& Schema() const override { return *output_schema_; }
@@ -4979,7 +5048,8 @@ class LoopTupleIterator : public TupleIterator {
 
  private:
   LoopTupleIterator(const LoopOp* op, absl::Span<const TupleData* const> params,
-                    int num_extra_slots, EvaluationContext* context)
+                    int num_extra_slots, EvaluationContext* context,
+                    int64_t lower_bound, int64_t upper_bound)
       : op_(op),
         loop_variables_(std::make_unique<TupleData>(op->num_variables())),
         params_and_loop_variables_(
@@ -4987,33 +5057,24 @@ class LoopTupleIterator : public TupleIterator {
                         {loop_variables_.get()})),
         num_extra_slots_(num_extra_slots),
         context_(context),
-        output_schema_(op_->CreateOutputSchema()) {}
+        output_schema_(op_->CreateOutputSchema()),
+        lower_bound_(lower_bound),
+        upper_bound_(upper_bound),
+        current_iteration_(-1) {}
 
   // Returns the next tuple in the enumeration(), nullptr if enumeration is
   // complete, or a failed status if an error occurs.
   //
   // Invoked by Next(); caller is responsible for updating status_ based on the
   // result.
-  absl::StatusOr<TupleData*> NextInternal() {
+  absl::StatusOr<TupleData*> YieldNext() {
     TupleData* data = nullptr;
     if (iter_ == nullptr) {
-      // We are beginning the first iteration.
-      // Initialize loop variables by evaluating op_->initial_assign_expr().
-      for (int i = 0; i < op_->num_variables(); ++i) {
-        absl::Status status;
-        if (!op_->initial_assign_expr(i)->EvalSimple(
-                params_and_loop_variables_, context_,
-                loop_variables_->mutable_slot(i), &status)) {
-          return status;
-        }
-      }
+      ZETASQL_RETURN_IF_ERROR(UpdateLoopVariables());
       ZETASQL_ASSIGN_OR_RETURN(data, BeginNextIteration());
 
-      if (!first_iteration_ || data != nullptr) {
+      if (!first_iteration() || data != nullptr) {
         return data;
-      }
-      if (first_iteration_) {
-        first_iteration_ = false;
       }
     }
     // An iteration is already in progress; fetch the next tuple.
@@ -5027,9 +5088,39 @@ class LoopTupleIterator : public TupleIterator {
     return data;
   }
 
+  absl::StatusOr<TupleData*> NextInternal() {
+    TupleData* data = nullptr;
+
+    // Skips iterations that below the lower bound.
+    while (current_iteration_ < lower_bound_) {
+      ZETASQL_RETURN_IF_ERROR(UpdateLoopVariables());
+      ZETASQL_ASSIGN_OR_RETURN(data, BeginNextIteration());
+    }
+    if (data != nullptr) {
+      return data;
+    }
+    return YieldNext();
+  }
+
   // Updates loop variables after each loop iteration in preparation for the
   // next one by evaluating each expression in op_->loop_assign_expr().
+  //
+  // When at the beginning of loop, initialize the loop vars with
+  // op_->initial_assign_expr().
   absl::Status UpdateLoopVariables() {
+    if (should_initialize()) {
+      // We are beginning the first iteration.
+      // Initialize loop variables by evaluating op_->initial_assign_expr().
+      for (int i = 0; i < op_->num_variables(); ++i) {
+        absl::Status status;
+        if (!op_->initial_assign_expr(i)->EvalSimple(
+                params_and_loop_variables_, context_,
+                loop_variables_->mutable_slot(i), &status)) {
+          return status;
+        }
+      }
+      return absl::OkStatus();
+    }
     for (int i = 0; i < op_->num_loop_assign(); ++i) {
       ZETASQL_ASSIGN_OR_RETURN(int var_index,
                        op_->GetVariableIndexFromLoopAssignIndex(i));
@@ -5051,10 +5142,15 @@ class LoopTupleIterator : public TupleIterator {
   //  - nullptr if the next iteration is empty (and terminates the loop)
   //  - An error status if an error occurred.
   absl::StatusOr<TupleData*> BeginNextIteration() {
+    // Stop the loop when it is already done with the upper bound iteration.
+    if (current_iteration_ >= upper_bound_) {
+      return nullptr;
+    }
     // Create a new iterator for the body
     ZETASQL_ASSIGN_OR_RETURN(iter_,
                      op_->body()->CreateIterator(params_and_loop_variables_,
                                                  num_extra_slots_, context_));
+    ++current_iteration_;
 
     // Fetch the first TupleData of the next iteration
     TupleData* data = iter_->Next();
@@ -5063,6 +5159,9 @@ class LoopTupleIterator : public TupleIterator {
     }
     return data;
   }
+
+  bool first_iteration() const { return current_iteration_ == 0; }
+  bool should_initialize() const { return current_iteration_ < 0; }
 
   // The underlying LoopOp which produced this iterator.
   const LoopOp* op_;
@@ -5092,7 +5191,11 @@ class LoopTupleIterator : public TupleIterator {
   // Current status of loop iteration.
   absl::Status status_;
 
-  bool first_iteration_ = true;
+  const int64_t lower_bound_;
+  const int64_t upper_bound_;
+
+  // The iteration number of current iter_.
+  int64_t current_iteration_;
 };
 
 }  // namespace
@@ -5100,7 +5203,32 @@ class LoopTupleIterator : public TupleIterator {
 absl::StatusOr<std::unique_ptr<TupleIterator>> LoopOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
-  return LoopTupleIterator::Create(this, params, num_extra_slots, context);
+  int64_t lower_bound_val = 0,
+          upper_bound_val = std::numeric_limits<int64_t>::max();
+  if (lower_bound() != nullptr) {
+    TupleSlot bound_slot;
+    absl::Status status;
+    ZETASQL_RET_CHECK(lower_bound()->EvalSimple(params, context, &bound_slot, &status))
+        << status;
+
+    // These validations are already done in resolver.
+    ZETASQL_RET_CHECK(!bound_slot.value().is_null());
+    ZETASQL_RET_CHECK_GE(lower_bound_val, 0);
+    lower_bound_val = bound_slot.value().int64_value();
+  }
+  if (upper_bound() != nullptr) {
+    TupleSlot bound_slot;
+    absl::Status status;
+    ZETASQL_RET_CHECK(upper_bound()->EvalSimple(params, context, &bound_slot, &status))
+        << status;
+
+    // These validations are already done in resolver.
+    ZETASQL_RET_CHECK(!bound_slot.value().is_null());
+    ZETASQL_RET_CHECK_GE(upper_bound_val, lower_bound_val);
+    upper_bound_val = bound_slot.value().int64_value();
+  }
+  return LoopTupleIterator::Create(this, params, num_extra_slots, context,
+                                   lower_bound_val, upper_bound_val);
 }
 
 // -------------------------------------------------------

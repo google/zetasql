@@ -35,8 +35,6 @@ inline constexpr char kNodeSourceResolverSetOperationCorresponding[] =
 inline constexpr char kNodeSourceSingleTableArrayNamePath[] =
     "single_table_array_name_path";
 
-inline constexpr char kGqlLetOperatorScan[] = "gql_let_operator";
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_NODE_SOURCES_H_

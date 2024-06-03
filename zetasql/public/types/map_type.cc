@@ -22,10 +22,12 @@
 
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
@@ -39,6 +41,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -60,13 +63,49 @@ std::string MapType::TypeName(ProductMode mode,
 absl::StatusOr<std::string> MapType::TypeNameWithModifiers(
     const TypeModifiers& type_modifiers, ProductMode mode,
     bool use_external_float32) const {
-  // TODO: Implement TypeNameWithModifiers.
-  return absl::UnimplementedError(
-      "MapType::TypeNameWithModifiers is not yet supported.");
+  const TypeParameters& type_params = type_modifiers.type_parameters();
+  const Collation& collation = type_modifiers.collation();
+
+  // TODO: b/323931806 - Implement collation support for key and value.
+  if (!collation.Empty()) {
+    return MakeSqlError() << "MAP does not support collation on key and value";
+  }
+
+  TypeModifiers key_type_modifiers;
+  TypeModifiers value_type_modifiers;
+
+  if (type_params.num_children() == 2) {
+    key_type_modifiers =
+        TypeModifiers::MakeTypeModifiers(type_params.child(0), collation);
+    value_type_modifiers =
+        TypeModifiers::MakeTypeModifiers(type_params.child(1), collation);
+  } else {
+    if (!type_params.IsEmpty()) {
+      return MakeSqlError() << "Type parameters are only supported on MAP key "
+                               "and value, not on MAP itself";
+    }
+    key_type_modifiers =
+        TypeModifiers::MakeTypeModifiers(TypeParameters(), Collation());
+    value_type_modifiers =
+        TypeModifiers::MakeTypeModifiers(TypeParameters(), Collation());
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(absl::string_view key_type_name,
+                   key_type_->TypeNameWithModifiers(key_type_modifiers, mode,
+                                                    use_external_float32));
+  ZETASQL_ASSIGN_OR_RETURN(absl::string_view value_type_name,
+                   value_type_->TypeNameWithModifiers(
+                       value_type_modifiers, mode, use_external_float32));
+
+  return absl::StrCat("MAP<", key_type_name, ", ", value_type_name, ">");
 }
 
 bool MapType::SupportsOrdering(const LanguageOptions& language_options,
                                std::string* type_description) const {
+  if (type_description != nullptr) {
+    *type_description =
+        TypeKindToString(this->kind(), language_options.product_mode());
+  }
   return false;
 }
 bool MapType::SupportsEquality() const { return false; }
@@ -84,7 +123,9 @@ int MapType::nesting_depth() const {
 
 MapType::MapType(const TypeFactory* factory, const Type* key_type,
                  const Type* value_type)
-    : Type(factory, TYPE_MAP), key_type_(key_type), value_type_(value_type) {}
+    : ContainerType(factory, TYPE_MAP),
+      key_type_(key_type),
+      value_type_(value_type) {}
 MapType::~MapType() = default;
 
 bool MapType::SupportsGroupingImpl(const LanguageOptions& language_options,
@@ -203,9 +244,9 @@ std::string MapType::FormatValueContent(
                    map_entries, ", ",
                    [options, this](std::string* out, const auto& map_entry) {
                      auto& [key, value] = map_entry;
-                     std::string key_str = FormatValueContentContainerElement(
+                     std::string key_str = FormatNullableValueContent(
                          key, this->key_type_, options);
-                     std::string value_str = FormatValueContentContainerElement(
+                     std::string value_str = FormatNullableValueContent(
                          value, this->value_type_, options);
                      absl::StrAppend(out, key_str, ": ", value_str);
                    }));
@@ -214,10 +255,12 @@ std::string MapType::FormatValueContent(
 }
 
 const Type* GetMapKeyType(const Type* map_type) {
-  return static_cast<const MapType*>(map_type)->key_type();
+  ABSL_DCHECK(map_type->AsMap() != nullptr);
+  return map_type->AsMap()->key_type();
 }
 const Type* GetMapValueType(const Type* map_type) {
-  return static_cast<const MapType*>(map_type)->value_type();
+  ABSL_DCHECK(map_type->AsMap() != nullptr);
+  return map_type->AsMap()->value_type();
 }
 
 }  // namespace zetasql

@@ -214,7 +214,9 @@ Value MakeNullStringKeyArray() {
   return MakeArray(std::vector<StringDoubleKeyValuePair>{}, /*is_null=*/true);
 }
 
-static constexpr FloatMargin kDistanceFloatMargin = FloatMargin::UlpMargin(12);
+// This setting maches the RandomQueryTestBase::kMaxUlpBits which is enabled
+// for vector distance functions in random queries.
+static constexpr FloatMargin kDistanceFloatMargin = FloatMargin::UlpMargin(33);
 
 }  // namespace
 

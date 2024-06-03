@@ -8,6 +8,25 @@
 #
 [default also_show_signature_mismatch_details]
 [default language_features=TABLE_VALUED_FUNCTIONS]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:67]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection ``)
+                                                                  ^
+==
+
+[default also_show_signature_mismatch_details]
+[default language_features=TABLE_VALUED_FUNCTIONS]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
+--
+ERROR: CONNECTION DEFAULT is not supported [at 1:67]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection default)
+                                                                  ^
+==
+
+
+[default also_show_signature_mismatch_details]
+[default language_features=TABLE_VALUED_FUNCTIONS]
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection connection1)
 --
 QueryStmt
@@ -27,6 +46,7 @@ QueryStmt
         |     +-Connection(connection=connection1)
         +-column_index_list=[0]
 ==
+
 
 SELECT * FROM tvf_one_connection_arg_with_fixed_output(
     connection nested_catalog.NestedConnection)

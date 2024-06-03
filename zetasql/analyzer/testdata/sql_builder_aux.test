@@ -110,16 +110,10 @@ EXPLAIN export data as select key, value from KeyValue
 [UNPARSED_SQL]
 EXPLAIN EXPORT DATA AS
 SELECT
-  keyvalue_3.a_1 AS key,
-  keyvalue_3.a_2 AS value
+  KeyValue.Key AS key,
+  KeyValue.Value AS value
 FROM
-  (
-    SELECT
-      KeyValue.Key AS a_1,
-      KeyValue.Value AS a_2
-    FROM
-      KeyValue
-  ) AS keyvalue_3;
+  KeyValue;
 ==
 
 grant select on table foo to "bar@google.com"

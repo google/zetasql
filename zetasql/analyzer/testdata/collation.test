@@ -7185,12 +7185,12 @@ select cast(`string` as bytes format CAST(123 as STRING(MAX) COLLATE 'und:ci')) 
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BYTES]
+| +-$query.$col1#20 AS `$col1` [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(STRING -> BYTES)
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
@@ -7210,12 +7210,12 @@ select cast(b'string' as STRING(10) COLLATE 'und:ci' format 'hex') from SimpleTy
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19{Collation:"und:ci"} AS `$col1` [STRING]
+| +-$query.$col1#20{Collation:"und:ci"} AS `$col1` [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19{Collation:"und:ci"}]
+    +-column_list=[$query.$col1#20{Collation:"und:ci"}]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-Cast(BYTES -> STRING)
     |     +-type_annotation_map={Collation:"und:ci"}
     |     +-Literal(type=BYTES, value=b"string")

@@ -6,8 +6,9 @@
 # TODO: Add tests for other function constraints callbacks.
 #
 # The following cases test with a function that has a
-# FunctionSignatureArgumentConstraints callback associated which does the sanity
-# check on the passed in signature and arguments and rejects NULL arguments.
+# FunctionSignatureArgumentConstraints callback associated which does the
+# consistency check on the passed in signature and arguments and rejects NULL
+# arguments.
 #
 # The function signature is like:
 #   fn_named_opt_args_nonnull_nonnegative_constraints(optional o1_string STRING,
@@ -218,8 +219,10 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPT_ARGS_NON
 ==
 
 # The following cases test with a function that has unnamed arguments and a
-# FunctionSignatureArgumentConstraints callback associated which does the sanity
-# check on the passed in signature and arguments and rejects NULL args.
+# FunctionSignatureArgumentConstraints callback associated which does the
+# consistency check on the passed in signature and arguments and rejects NULL
+# args.
+#
 # The function signature is like:
 #   fn_unnamed_opt_args_nonnull_nonnegative_constraints(optional STRING,
 #                                                       optional INT64,

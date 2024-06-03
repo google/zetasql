@@ -2197,16 +2197,16 @@ SELECT 1 IS NOT DISTINCT FROM NULL
 <a id="like_operator"></a>
 
 ```sql
-expression_1 IS [NOT] LIKE expression_2
+expression_1 [NOT] LIKE expression_2
 ```
 
 **Description**
 
-`IS LIKE` returns `TRUE` if the string in the first operand `expression_1`
+`LIKE` returns `TRUE` if the string in the first operand `expression_1`
 matches a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
-`IS NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
+`NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
 does not match a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
@@ -2223,9 +2223,26 @@ This operator supports [collation][collation], but caveats apply:
 +   Each `%` character in `expression_2` represents an
     _arbitrary string specifier_. An arbitrary string specifier can represent
     any sequence of `0` or more characters.
-+   When an operand has collation, a character in the expression that is not a
-    `_` or `%` character represents itself and is considered a
-    _single character specifier_.
++   A character in the expression represents itself and is considered a
+    _single character specifier_ unless:
+
+    +   The character is a percent sign (`%`).
+
+    +   The character is an underscore (`_`) and the collator is not `und:ci`.
++   These additional rules apply to the underscore (`_`) character:
+
+    +   If the collator is not `und:ci`, an error is produced when an underscore
+        is not escaped in `expression_2`.
+
+    +   If the collator is not `und:ci`, the underscore is not allowed when the
+        operands have collation specified.
+
+    +   Some _compatibility composites_, such as the fi-ligature (`ﬁ`) and the
+        telephone sign (`℡`), will produce a match if they are compared to an
+        underscore.
+
+    +   A single underscore matches the idea of what a character is, based on
+        an approximation known as a [_grapheme cluster_][grapheme-cluster].
 +   For a contiguous sequence of single character specifiers, equality
     depends on the collator and its language tags and tailoring.
 
@@ -2233,8 +2250,8 @@ This operator supports [collation][collation], but caveats apply:
         Some canonically equivalent strings are considered unequal for
         both the `=` and `LIKE` operators.
 
-    +   The `LIKE` operator with collation has the same behavior as the `=` operator
-        when there are no wildcards in the strings.
+    +   The `LIKE` operator with collation has the same behavior as the `=`
+        operator when there are no wildcards in the strings.
 
     +   Character sequences with secondary or higher-weighted differences are
         considered unequal. This includes accent differences and some
@@ -2255,9 +2272,6 @@ This operator supports [collation][collation], but caveats apply:
         kana subtype differences, which are considered equal.
 +   There are [ignorable characters][ignorable-chars] defined in Unicode.
     Ignorable characters are ignored in the pattern matching.
-+   An error is returned when `_` is not escaped in `expression_2`.
-+   `_` is not allowed when the operands have collation specified and the
-    collator is performing a binary comparison.
 
 **Return type**
 
@@ -2544,10 +2558,11 @@ following semantics apply in this order:
 + For `pattern_subquery`, returns `TRUE` if `patterns` is empty.
 + For `pattern_array`, returns `TRUE` if `patterns` is empty.
 + Returns `NULL` if `search_value` is `NULL`.
-+ Returns `FALSE` if `search_value` matches at least one value in `patterns`.
++ Returns `TRUE` if `search_value` doesn't match at least one value in
+  `patterns`.
 + Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
   in `patterns` don't match.
-+ Returns `TRUE`.
++ Returns `FALSE`.
 
 When using the quantified `NOT LIKE` operator with `ALL`, the following
 semantics apply in this order:
@@ -2555,10 +2570,10 @@ semantics apply in this order:
 + For `pattern_subquery`, returns `FALSE` if `patterns` is empty.
 + For `pattern_array`, returns `TRUE` if `patterns` is empty.
 + Returns `NULL` if `search_value` is `NULL`.
-+ Returns `FALSE` if `search_value` matches all values in `patterns`.
++ Returns `TRUE` if `search_value` matches none of the values in `patterns`.
 + Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
   in `patterns` don't match.
-+ Returns `TRUE`.
++ Returns `FALSE`.
 
 **Return Data Type**
 
@@ -2697,94 +2712,66 @@ The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator:
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE ANY ('a', 'b')
+SELECT
+  NULL LIKE ANY ('a', 'b'), -- NULL
+  'a' LIKE ANY ('a', 'c'), -- TRUE
+  'a' LIKE ANY ('b', 'c'), -- FALSE
+  'a' LIKE ANY ('a', NULL), -- TRUE
+  'a' LIKE ANY ('b', NULL), -- NULL
+  NULL NOT LIKE ANY ('a', 'b'), -- NULL
+  'a' NOT LIKE ANY ('a', 'b'), -- TRUE
+  'a' NOT LIKE ANY ('a', '%a%'), -- FALSE
+  'a' NOT LIKE ANY ('a', NULL), -- NULL
+  'a' NOT LIKE ANY ('b', NULL); -- TRUE
 ```
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE SOME ('a', 'b')
+SELECT
+  NULL LIKE SOME ('a', 'b'), -- NULL
+  'a' LIKE SOME ('a', 'c'), -- TRUE
+  'a' LIKE SOME ('b', 'c'), -- FALSE
+  'a' LIKE SOME ('a', NULL), -- TRUE
+  'a' LIKE SOME ('b', NULL), -- NULL
+  NULL NOT LIKE SOME ('a', 'b'), -- NULL
+  'a' NOT LIKE SOME ('a', 'b'), -- TRUE
+  'a' NOT LIKE SOME ('a', '%a%'), -- FALSE
+  'a' NOT LIKE SOME ('a', NULL), -- NULL
+  'a' NOT LIKE SOME ('b', NULL); -- TRUE
 ```
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE ALL ('a', 'b')
+SELECT
+  NULL LIKE ALL ('a', 'b'), -- NULL
+  'a' LIKE ALL ('a', '%a%'), -- TRUE
+  'a' LIKE ALL ('a', 'c'), -- FALSE
+  'a' LIKE ALL ('a', NULL), -- NULL
+  'a' LIKE ALL ('b', NULL), -- FALSE
+  NULL NOT LIKE ALL ('a', 'b'), -- NULL
+  'a' NOT LIKE ALL ('b', 'c'), -- TRUE
+  'a' NOT LIKE ALL ('a', 'c'), -- FALSE
+  'a' NOT LIKE ALL ('a', NULL), -- FALSE
+  'a' NOT LIKE ALL ('b', NULL); -- NULL
+```
+
+The following queries illustrate some of the semantic rules for the
+quantified `LIKE` operator and collation:
+
+```sql
+SELECT
+  COLLATE('a', 'und:ci') LIKE ALL ('a', 'A'), -- TRUE
+  'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A'), -- TRUE
+  'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci')); -- TRUE
 ```
 
 ```sql
--- Returns TRUE
-SELECT 'a' LIKE ANY ('a', NULL)
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE SOME ('a', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE ANY ('b', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE SOME ('b', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE ALL ('a', NULL)
-```
-
-```sql
--- Returns FALSE
-SELECT 'a' LIKE ALL ('b', NULL)
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ANY ('a', 'b')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE SOME ('a', 'b')
-```
-
-```sql
--- Returns FALSE
-SELECT 'a' LIKE ALL ('a', 'b')
-```
-
-```sql
--- Returns TRUE
-SELECT 'abc' LIKE ANY ('a', '%a%')
-```
-
-```sql
--- Returns TRUE
-SELECT COLLATE('a', 'und:ci') LIKE ALL ('a', 'A')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci'))
-```
-
-```sql
--- Produces an error
-SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
+-- ERROR: BYTES and STRING values can't be used together.
+SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
 
 ### `NEW` operator 
 <a id="new_operator"></a>
 
-The `NEW` operator supports only protocol buffers and uses the following syntax:
+The `NEW` operator only supports protocol buffers and uses the following syntax:
 
  + `NEW protocol_buffer {...}`: Creates a
 protocol buffer using a map constructor.
@@ -2794,8 +2781,6 @@ protocol buffer using a map constructor.
     field_name: literal_or_expression
     field_name { ... }
     repeated_field_name: [literal_or_expression, ... ]
-    map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
-    (extension_name): literal_or_expression
   }
   ```
 +   `NEW protocol_buffer (...)`: Creates a protocol buffer using a parenthesized
@@ -2807,7 +2792,7 @@ protocol buffer using a map constructor.
 
 **Examples**
 
-Example with a map constructor:
+The following example uses the `NEW` operator with a map constructor:
 
 ```sql
 NEW Universe {
@@ -2824,21 +2809,12 @@ NEW Universe {
     name: "Scorpio"
     index: 1
   }]
-  planet_distances: [{
-    key: "Mercury"
-    distance: 46,507,000
-  }, {
-    key: "Venus"
-    distance: 107,480,000
-  }],
-  (UniverseExtraInfo.extension) {
-    ...
-  }
   all_planets: (SELECT planets FROM SolTable)
 }
 ```
 
-Example with a parenthesized list of arguments:
+The following example uses the `NEW` operator with a parenthesized list of
+arguments:
 
 ```sql
 SELECT
@@ -3039,6 +3015,8 @@ FROM UNNEST([
 [json-functions]: https://github.com/google/zetasql/blob/master/docs/json_functions.md
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 

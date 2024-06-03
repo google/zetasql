@@ -2145,6 +2145,34 @@ absl::Status ValidateFormatStringForFormatting(absl::string_view format_string,
   }
 }
 
+absl::Status ValidateFormatStringContainsYearAndMonth(
+    absl::string_view format_string) {
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<cast_date_time_internal::DateTimeFormatElement>
+          format_elements,
+      cast_date_time_internal::GetDateTimeFormatElements(format_string));
+  bool year_seen = false;
+  bool month_seen = false;
+  for (const DateTimeFormatElement& element : format_elements) {
+    switch (element.category) {
+      case FormatElementCategory::kYear:
+        year_seen = true;
+        break;
+      case FormatElementCategory::kMonth:
+        month_seen = true;
+        break;
+      default:
+        continue;
+    }
+  }
+  if (year_seen && month_seen) {
+    return absl::OkStatus();
+  }
+  return MakeEvalError() << "Year and month format elements are required.";
+}
+
 absl::StatusOr<DateToStringCaster> DateToStringCaster::Create(
     absl::string_view format_string) {
   ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));

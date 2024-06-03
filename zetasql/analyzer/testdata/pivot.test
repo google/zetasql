@@ -5987,3 +5987,73 @@ SELECT * FROM
 ERROR: Unrecognized name: product [at 16:20]
   PIVOT(STRING_AGG(product, "," ORDER BY sales) FOR quarter IN ('Q1', 'Q2', '...
                    ^
+==
+
+[language_features=V_1_3_PIVOT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+# Regression test for b/330921238: IN expr used with constant FLATTEN expression
+SELECT * FROM KeyValue
+PIVOT(SUM(Key) FOR Key IN (
+  1 AS v1,
+  FLATTEN(STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales).sales.quantity)[OFFSET(0)] AS v2
+));
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.Value#4 AS Value [STRING]
+| +-$pivot.v1#5 AS v1 [INT64]
+| +-$pivot.v2#6 AS v2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.Value#4, $pivot.v1#5, $pivot.v2#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.Value#4, $pivot.v1#5, $pivot.v2#6]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=110-118
+        |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=123-126, type=INT64, column=KeyValue.Key#1)
+        +-pivot_value_list=
+        | +-Literal(type=INT64, value=1)
+        | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+        |   +-Flatten
+        |   | +-type=ARRAY<INT64>
+        |   | +-expr=
+        |   | | +-GetStructField
+        |   | |   +-type=ARRAY<STRUCT<quantity INT64>>
+        |   | |   +-expr=
+        |   | |   | +-Literal(type=STRUCT<sales ARRAY<STRUCT<quantity INT64>>>, value={sales:[{quantity:1}, {quantity:2}]})
+        |   | |   +-field_idx=0
+        |   | +-get_field_list=
+        |   |   +-GetStructField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-FlattenedArg(type=STRUCT<quantity INT64>)
+        |   |     +-field_idx=0
+        |   +-Literal(type=INT64, value=0)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.v1#5, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.v2#6, pivot_expr_index=0, pivot_value_index=1)
+==
+
+[language_features=V_1_3_PIVOT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+# Regression test for b/330921238: IN expr used with constant FLATTEN expression
+WITH T AS (
+  SELECT 'hello' AS x, STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales) AS y, 100 AS z, 1 AS quantity
+)
+SELECT * FROM T
+PIVOT(SUM(z) FOR quantity IN (
+  1 AS v1,
+  FLATTEN(y.sales.quantity)[OFFSET(1)] AS v2
+));
+--
+ERROR: IN expression in PIVOT clause must be constant [at 8:3]
+  FLATTEN(y.sales.quantity)[OFFSET(1)] AS v2
+  ^
+==
+

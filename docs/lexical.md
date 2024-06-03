@@ -1073,9 +1073,9 @@ see
 ### Enum literals 
 <a id="enum_literals"></a>
 
-There is no syntax for enum literals, but integer or string literals will coerce
-to enum type when necessary, or can be explicitly CAST to a specific
-enum type name. For more information, see [Literal coercion][coercion].
+There is no syntax for enum literals. Integer or string literals are coerced to
+the enum type when necessary, or explicitly cast to a specific enum type name.
+ For more information, see [Literal coercion][coercion].
 
 An enum literal represents a constant value of the
 [enum data type][enum-data-type].
@@ -1205,6 +1205,7 @@ ZetaSQL follows these rules for case sensitivity:
       <td>Yes</td>
       <td>&nbsp;</td>
     </tr>
+    
   </tbody>
 </table>
 

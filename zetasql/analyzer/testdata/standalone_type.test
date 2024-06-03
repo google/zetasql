@@ -1255,3 +1255,130 @@ STRUCT<x FUNCTION<()->INT64>>
 ERROR: FUNCTION type not supported [at 1:10]
 STRUCT<x FUNCTION<()->INT64>>
          ^
+==
+
+[language_features={{|V_1_4_MAP_TYPE}}]
+MAP<STRING, STRING>
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: MAP datatype is not supported [at 1:1]
+MAP<STRING, STRING>
+^
+--
+ALTERNATION GROUP: V_1_4_MAP_TYPE
+--
+MAP<STRING, STRING>
+==
+
+[language_features=V_1_4_MAP_TYPE]
+MAP<STRING, MAP<STRING, STRING>>
+--
+MAP<STRING, MAP<STRING, STRING>>
+==
+
+[language_features=V_1_4_MAP_TYPE]
+MAP<STRING, MAP<STRING, STRING> >
+--
+MAP<STRING, MAP<STRING, STRING>>
+==
+
+[language_features=V_1_4_MAP_TYPE]
+MAP<STRING, ARRAY<STRUCT<a STRING>>>
+--
+MAP<STRING, ARRAY<STRUCT<a STRING>>>
+==
+
+[language_features=V_1_4_MAP_TYPE,GEOGRAPHY]
+MAP<GEOGRAPHY, STRING>
+--
+ERROR: MAP key type GEOGRAPHY is not groupable [at 1:1]
+MAP<GEOGRAPHY, STRING>
+^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+MAP<STRUCT<a ARRAY<STRING>>, INT64>
+--
+ERROR: MAP key type STRUCT is not groupable [at 1:1]
+MAP<STRUCT<a ARRAY<STRING>>, INT64>
+^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
+MAP<STRUCT<a ARRAY<STRING>>, INT64>
+--
+MAP<STRUCT<a ARRAY<STRING>>, INT64>
+==
+
+[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+MAP<STRING, STRING>(5)
+--
+ERROR: Type MAP<STRING, STRING> does not support type parameters [at 1:20]
+MAP<STRING, STRING>(5)
+                   ^
+==
+
+[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+MAP<STRING, STRING(5)>
+--
+MAP<STRING, STRING(5)>
+==
+
+[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+MAP<STRING(5), STRING>
+--
+MAP<STRING(5), STRING>
+==
+
+[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+MAP<STRING, STRUCT<a STRING(5)>>
+--
+MAP<STRING, STRUCT<a STRING(5)>>
+==
+
+[language_features=V_1_4_MAP_TYPE,PARAMETERIZED_TYPES]
+MAP<STRING, ARRAY<STRUCT<a STRING(5)>>>
+--
+MAP<STRING, ARRAY<STRUCT<a STRING(5)>>>
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+MAP<STRING, STRING> collate 'und:ci'
+--
+ERROR: Collation is not supported on MAP or its key and value types [at 1:21]
+MAP<STRING, STRING> collate 'und:ci'
+                    ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+MAP<STRING collate 'und:ci', STRING>
+--
+ERROR: Collation is not supported on MAP or its key and value types [at 1:5]
+MAP<STRING collate 'und:ci', STRING>
+    ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+MAP<STRING, STRING collate 'und:ci'>
+--
+ERROR: Collation is not supported on MAP or its key and value types [at 1:13]
+MAP<STRING, STRING collate 'und:ci'>
+            ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+MAP<STRING, ARRAY<STRUCT<a STRING collate 'und:ci'>>>
+--
+ERROR: Collation is not supported on MAP or its key and value types [at 1:13]
+MAP<STRING, ARRAY<STRUCT<a STRING collate 'und:ci'>>>
+            ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
+MAP<STRUCT<a ARRAY<STRING collate 'und:ci'>>, STRING>
+--
+ERROR: Collation is not supported on MAP or its key and value types [at 1:5]
+MAP<STRUCT<a ARRAY<STRING collate 'und:ci'>>, STRING>
+    ^

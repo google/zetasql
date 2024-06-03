@@ -1,0 +1,1106 @@
+# Test cases for floating point literals.
+[default no_test_get_parse_tokens]
+SELECT 1.;
+--
+QueryStatement [0-9] [SELECT 1.]
+  Query [0-9] [SELECT 1.]
+    Select [0-9] [SELECT 1.]
+      SelectList [7-9] [1.]
+        SelectColumn [7-9] [1.]
+          FloatLiteral(1.) [7-9] [1.]
+--
+SELECT
+  1.
+==
+
+SELECT 1.1;
+--
+QueryStatement [0-10] [SELECT 1.1]
+  Query [0-10] [SELECT 1.1]
+    Select [0-10] [SELECT 1.1]
+      SelectList [7-10] [1.1]
+        SelectColumn [7-10] [1.1]
+          FloatLiteral(1.1) [7-10] [1.1]
+--
+SELECT
+  1.1
+==
+
+SELECT 1.E1;
+--
+QueryStatement [0-11] [SELECT 1.E1]
+  Query [0-11] [SELECT 1.E1]
+    Select [0-11] [SELECT 1.E1]
+      SelectList [7-11] [1.E1]
+        SelectColumn [7-11] [1.E1]
+          FloatLiteral(1.E1) [7-11] [1.E1]
+--
+SELECT
+  1.E1
+==
+
+SELECT 1.E+1;
+--
+QueryStatement [0-12] [SELECT 1.E+1]
+  Query [0-12] [SELECT 1.E+1]
+    Select [0-12] [SELECT 1.E+1]
+      SelectList [7-12] [1.E+1]
+        SelectColumn [7-12] [1.E+1]
+          FloatLiteral(1.E+1) [7-12] [1.E+1]
+--
+SELECT
+  1.E+1
+==
+
+SELECT 1.E-1;
+--
+QueryStatement [0-12] [SELECT 1.E-1]
+  Query [0-12] [SELECT 1.E-1]
+    Select [0-12] [SELECT 1.E-1]
+      SelectList [7-12] [1.E-1]
+        SelectColumn [7-12] [1.E-1]
+          FloatLiteral(1.E-1) [7-12] [1.E-1]
+--
+SELECT
+  1.E-1
+==
+
+SELECT 1.1E1;
+--
+QueryStatement [0-12] [SELECT 1.1E1]
+  Query [0-12] [SELECT 1.1E1]
+    Select [0-12] [SELECT 1.1E1]
+      SelectList [7-12] [1.1E1]
+        SelectColumn [7-12] [1.1E1]
+          FloatLiteral(1.1E1) [7-12] [1.1E1]
+--
+SELECT
+  1.1E1
+==
+
+SELECT 1.1E+1;
+--
+QueryStatement [0-13] [SELECT 1.1E+1]
+  Query [0-13] [SELECT 1.1E+1]
+    Select [0-13] [SELECT 1.1E+1]
+      SelectList [7-13] [1.1E+1]
+        SelectColumn [7-13] [1.1E+1]
+          FloatLiteral(1.1E+1) [7-13] [1.1E+1]
+--
+SELECT
+  1.1E+1
+==
+
+SELECT 1.1E-1;
+--
+QueryStatement [0-13] [SELECT 1.1E-1]
+  Query [0-13] [SELECT 1.1E-1]
+    Select [0-13] [SELECT 1.1E-1]
+      SelectList [7-13] [1.1E-1]
+        SelectColumn [7-13] [1.1E-1]
+          FloatLiteral(1.1E-1) [7-13] [1.1E-1]
+--
+SELECT
+  1.1E-1
+==
+
+SELECT .1;
+--
+QueryStatement [0-9] [SELECT .1]
+  Query [0-9] [SELECT .1]
+    Select [0-9] [SELECT .1]
+      SelectList [7-9] [.1]
+        SelectColumn [7-9] [.1]
+          FloatLiteral(.1) [7-9] [.1]
+--
+SELECT
+  .1
+==
+
+SELECT .1E1;
+--
+QueryStatement [0-11] [SELECT .1E1]
+  Query [0-11] [SELECT .1E1]
+    Select [0-11] [SELECT .1E1]
+      SelectList [7-11] [.1E1]
+        SelectColumn [7-11] [.1E1]
+          FloatLiteral(.1E1) [7-11] [.1E1]
+--
+SELECT
+  .1E1
+==
+
+SELECT .1E+1;
+--
+QueryStatement [0-12] [SELECT .1E+1]
+  Query [0-12] [SELECT .1E+1]
+    Select [0-12] [SELECT .1E+1]
+      SelectList [7-12] [.1E+1]
+        SelectColumn [7-12] [.1E+1]
+          FloatLiteral(.1E+1) [7-12] [.1E+1]
+--
+SELECT
+  .1E+1
+==
+
+SELECT .1E-1;
+--
+QueryStatement [0-12] [SELECT .1E-1]
+  Query [0-12] [SELECT .1E-1]
+    Select [0-12] [SELECT .1E-1]
+      SelectList [7-12] [.1E-1]
+        SelectColumn [7-12] [.1E-1]
+          FloatLiteral(.1E-1) [7-12] [.1E-1]
+--
+SELECT
+  .1E-1
+==
+
+SELECT 1E1;
+--
+QueryStatement [0-10] [SELECT 1E1]
+  Query [0-10] [SELECT 1E1]
+    Select [0-10] [SELECT 1E1]
+      SelectList [7-10] [1E1]
+        SelectColumn [7-10] [1E1]
+          FloatLiteral(1E1) [7-10] [1E1]
+--
+SELECT
+  1E1
+==
+
+SELECT 1E+1;
+--
+QueryStatement [0-11] [SELECT 1E+1]
+  Query [0-11] [SELECT 1E+1]
+    Select [0-11] [SELECT 1E+1]
+      SelectList [7-11] [1E+1]
+        SelectColumn [7-11] [1E+1]
+          FloatLiteral(1E+1) [7-11] [1E+1]
+--
+SELECT
+  1E+1
+==
+
+SELECT 1E-1;
+--
+QueryStatement [0-11] [SELECT 1E-1]
+  Query [0-11] [SELECT 1E-1]
+    Select [0-11] [SELECT 1E-1]
+      SelectList [7-11] [1E-1]
+        SelectColumn [7-11] [1E-1]
+          FloatLiteral(1E-1) [7-11] [1E-1]
+--
+SELECT
+  1E-1
+==
+
+SELECT .1
+--
+QueryStatement [0-9] [SELECT .1]
+  Query [0-9] [SELECT .1]
+    Select [0-9] [SELECT .1]
+      SelectList [7-9] [.1]
+        SelectColumn [7-9] [.1]
+          FloatLiteral(.1) [7-9] [.1]
+--
+SELECT
+  .1
+==
+
+SELECT .0x1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1
+       ^
+==
+
+SELECT .1E1
+--
+QueryStatement [0-11] [SELECT .1E1]
+  Query [0-11] [SELECT .1E1]
+    Select [0-11] [SELECT .1E1]
+      SelectList [7-11] [.1E1]
+        SelectColumn [7-11] [.1E1]
+          FloatLiteral(.1E1) [7-11] [.1E1]
+--
+SELECT
+  .1E1
+==
+
+SELECT .1E+1
+--
+QueryStatement [0-12] [SELECT .1E+1]
+  Query [0-12] [SELECT .1E+1]
+    Select [0-12] [SELECT .1E+1]
+      SelectList [7-12] [.1E+1]
+        SelectColumn [7-12] [.1E+1]
+          FloatLiteral(.1E+1) [7-12] [.1E+1]
+--
+SELECT
+  .1E+1
+==
+
+SELECT .1E-1
+--
+QueryStatement [0-12] [SELECT .1E-1]
+  Query [0-12] [SELECT .1E-1]
+    Select [0-12] [SELECT .1E-1]
+      SelectList [7-12] [.1E-1]
+        SelectColumn [7-12] [.1E-1]
+          FloatLiteral(.1E-1) [7-12] [.1E-1]
+--
+SELECT
+  .1E-1
+==
+
+SELECT 1E1
+--
+QueryStatement [0-10] [SELECT 1E1]
+  Query [0-10] [SELECT 1E1]
+    Select [0-10] [SELECT 1E1]
+      SelectList [7-10] [1E1]
+        SelectColumn [7-10] [1E1]
+          FloatLiteral(1E1) [7-10] [1E1]
+--
+SELECT
+  1E1
+==
+
+SELECT 1E+1
+--
+QueryStatement [0-11] [SELECT 1E+1]
+  Query [0-11] [SELECT 1E+1]
+    Select [0-11] [SELECT 1E+1]
+      SelectList [7-11] [1E+1]
+        SelectColumn [7-11] [1E+1]
+          FloatLiteral(1E+1) [7-11] [1E+1]
+--
+SELECT
+  1E+1
+==
+
+SELECT 1E-1
+--
+QueryStatement [0-11] [SELECT 1E-1]
+  Query [0-11] [SELECT 1E-1]
+    Select [0-11] [SELECT 1E-1]
+      SelectList [7-11] [1E-1]
+        SelectColumn [7-11] [1E-1]
+          FloatLiteral(1E-1) [7-11] [1E-1]
+--
+SELECT
+  1E-1
+==
+
+# Floating point literals do not allow hex integers.
+SELECT 0x1.
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:12]
+SELECT 0x1.
+           ^
+==
+
+SELECT 1.0x1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1" [at 1:10]
+SELECT 1.0x1
+         ^
+==
+
+SELECT 0x1.1
+--
+ERROR: Syntax error: Expected end of input but got floating point literal ".1" [at 1:11]
+SELECT 0x1.1
+          ^
+==
+
+SELECT 0x1.0x1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1" [at 1:12]
+SELECT 0x1.0x1
+           ^
+==
+
+SELECT 1.E0x1
+--
+QueryStatement [0-13] [SELECT 1.E0x1]
+  Query [0-13] [SELECT 1.E0x1]
+    Select [0-13] [SELECT 1.E0x1]
+      SelectList [7-13] [1.E0x1]
+        SelectColumn [7-13] [1.E0x1]
+          FloatLiteral(1.) [7-9] [1.]
+          Alias [9-13] [E0x1]
+            Identifier(E0x1) [9-13] [E0x1]
+--
+SELECT
+  1.AS E0x1
+==
+
+SELECT 1.E-0x1
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:11]
+SELECT 1.E-0x1
+          ^
+==
+
+SELECT 1.E+0x1
+--
+ERROR: Syntax error: Expected end of input but got "+" [at 1:11]
+SELECT 1.E+0x1
+          ^
+==
+
+# Interpreted as dot identifiers.
+SELECT 0x1.E1
+--
+QueryStatement [0-13] [SELECT 0x1.E1]
+  Query [0-13] [SELECT 0x1.E1]
+    Select [0-13] [SELECT 0x1.E1]
+      SelectList [7-13] [0x1.E1]
+        SelectColumn [7-13] [0x1.E1]
+          DotIdentifier [7-13] [0x1.E1]
+            IntLiteral(0x1) [7-10] [0x1]
+            Identifier(E1) [11-13] [E1]
+--
+SELECT
+  (0x1).E1
+==
+
+SELECT 0x1.E+1
+--
+QueryStatement [0-14] [SELECT 0x1.E+1]
+  Query [0-14] [SELECT 0x1.E+1]
+    Select [0-14] [SELECT 0x1.E+1]
+      SelectList [7-14] [0x1.E+1]
+        SelectColumn [7-14] [0x1.E+1]
+          BinaryExpression(+) [7-14] [0x1.E+1]
+            DotIdentifier [7-12] [0x1.E]
+              IntLiteral(0x1) [7-10] [0x1]
+              Identifier(E) [11-12] [E]
+            IntLiteral(1) [13-14] [1]
+--
+SELECT
+  (0x1).E + 1
+==
+
+SELECT 0x1.E-1
+--
+QueryStatement [0-14] [SELECT 0x1.E-1]
+  Query [0-14] [SELECT 0x1.E-1]
+    Select [0-14] [SELECT 0x1.E-1]
+      SelectList [7-14] [0x1.E-1]
+        SelectColumn [7-14] [0x1.E-1]
+          BinaryExpression(-) [7-14] [0x1.E-1]
+            DotIdentifier [7-12] [0x1.E]
+              IntLiteral(0x1) [7-10] [0x1]
+              Identifier(E) [11-12] [E]
+            IntLiteral(1) [13-14] [1]
+--
+SELECT
+  (0x1).E - 1
+==
+
+SELECT 0x1.E0x1
+--
+QueryStatement [0-15] [SELECT 0x1.E0x1]
+  Query [0-15] [SELECT 0x1.E0x1]
+    Select [0-15] [SELECT 0x1.E0x1]
+      SelectList [7-15] [0x1.E0x1]
+        SelectColumn [7-15] [0x1.E0x1]
+          DotIdentifier [7-15] [0x1.E0x1]
+            IntLiteral(0x1) [7-10] [0x1]
+            Identifier(E0x1) [11-15] [E0x1]
+--
+SELECT
+  (0x1).E0x1
+==
+
+SELECT 0x1.E-0x1
+--
+QueryStatement [0-16] [SELECT 0x1.E-0x1]
+  Query [0-16] [SELECT 0x1.E-0x1]
+    Select [0-16] [SELECT 0x1.E-0x1]
+      SelectList [7-16] [0x1.E-0x1]
+        SelectColumn [7-16] [0x1.E-0x1]
+          BinaryExpression(-) [7-16] [0x1.E-0x1]
+            DotIdentifier [7-12] [0x1.E]
+              IntLiteral(0x1) [7-10] [0x1]
+              Identifier(E) [11-12] [E]
+            IntLiteral(0x1) [13-16] [0x1]
+--
+SELECT
+  (0x1).E - 0x1
+==
+
+SELECT 0x1.E+0x1
+--
+QueryStatement [0-16] [SELECT 0x1.E+0x1]
+  Query [0-16] [SELECT 0x1.E+0x1]
+    Select [0-16] [SELECT 0x1.E+0x1]
+      SelectList [7-16] [0x1.E+0x1]
+        SelectColumn [7-16] [0x1.E+0x1]
+          BinaryExpression(+) [7-16] [0x1.E+0x1]
+            DotIdentifier [7-12] [0x1.E]
+              IntLiteral(0x1) [7-10] [0x1]
+              Identifier(E) [11-12] [E]
+            IntLiteral(0x1) [13-16] [0x1]
+--
+SELECT
+  (0x1).E + 0x1
+==
+
+SELECT 1.1E0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1E0x1
+          ^
+==
+
+SELECT 1.1E-0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1E-0x1
+          ^
+==
+
+SELECT 1.1E+0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+SELECT 1.1E+0x1
+          ^
+==
+
+SELECT 1.0x1E1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E1" [at 1:10]
+SELECT 1.0x1E1
+         ^
+==
+
+SELECT 1.0x1E+1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E" [at 1:10]
+SELECT 1.0x1E+1
+         ^
+==
+
+SELECT 1.0x1E-1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E" [at 1:10]
+SELECT 1.0x1E-1
+         ^
+==
+
+SELECT 1.0x1E0x1
+--
+ERROR: Syntax error: Expected end of input but got "0x1E0x1" [at 1:10]
+SELECT 1.0x1E0x1
+         ^
+==
+
+SELECT 1.0x1E-0x1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E" [at 1:10]
+SELECT 1.0x1E-0x1
+         ^
+==
+
+SELECT 1.0x1E+0x1
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E" [at 1:10]
+SELECT 1.0x1E+0x1
+         ^
+==
+
+SELECT 0x1.1E1
+--
+ERROR: Syntax error: Expected end of input but got floating point literal ".1E1" [at 1:11]
+SELECT 0x1.1E1
+          ^
+==
+
+SELECT 0x1.1E+1
+--
+ERROR: Syntax error: Expected end of input but got floating point literal ".1E+1" [at 1:11]
+SELECT 0x1.1E+1
+          ^
+==
+
+SELECT 0x1.1E-1
+--
+ERROR: Syntax error: Expected end of input but got floating point literal ".1E-1" [at 1:11]
+SELECT 0x1.1E-1
+          ^
+==
+
+SELECT 0x1.1E0x1
+--
+ERROR: Syntax error: Expected end of input but got ".1E0x1" [at 1:11]
+SELECT 0x1.1E0x1
+          ^
+==
+
+SELECT 0x1.1E-0x1
+--
+ERROR: Syntax error: Expected end of input but got ".1E" [at 1:11]
+SELECT 0x1.1E-0x1
+          ^
+==
+
+SELECT 0x1.1E+0x1
+--
+ERROR: Syntax error: Expected end of input but got ".1E" [at 1:11]
+SELECT 0x1.1E+0x1
+          ^
+==
+
+SELECT 0x1.0x1E1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1E1" [at 1:12]
+SELECT 0x1.0x1E1
+           ^
+==
+
+SELECT 0x1.0x1E+1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1E" [at 1:12]
+SELECT 0x1.0x1E+1
+           ^
+==
+
+SELECT 0x1.0x1E-1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1E" [at 1:12]
+SELECT 0x1.0x1E-1
+           ^
+==
+
+SELECT 0x1.0x1E0x1
+--
+ERROR: Syntax error: Unexpected "0x1E0x1" [at 1:12]
+SELECT 0x1.0x1E0x1
+           ^
+==
+
+SELECT 0x1.0x1E-0x1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1E" [at 1:12]
+SELECT 0x1.0x1E-0x1
+           ^
+==
+
+SELECT 0x1.0x1E+0x1
+--
+ERROR: Syntax error: Unexpected integer literal "0x1E" [at 1:12]
+SELECT 0x1.0x1E+0x1
+           ^
+==
+
+SELECT .1E0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1E0x1
+         ^
+==
+
+SELECT .1E-0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1E-0x1
+         ^
+==
+
+SELECT .1E+0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+SELECT .1E+0x1
+         ^
+==
+
+SELECT .0x1E1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E1
+       ^
+==
+
+SELECT .0x1E+1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E+1
+       ^
+==
+
+SELECT .0x1E-1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E-1
+       ^
+==
+
+SELECT .0x1E0x1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E0x1
+       ^
+==
+
+SELECT .0x1E-0x1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E-0x1
+       ^
+==
+
+SELECT .0x1E+0x1
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+SELECT .0x1E+0x1
+       ^
+==
+
+SELECT 1E0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+SELECT 1E0x1
+        ^
+==
+
+SELECT 1E-0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+SELECT 1E-0x1
+        ^
+==
+
+SELECT 1E+0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+SELECT 1E+0x1
+        ^
+==
+
+# E is a valid "digit" in a hex number.
+SELECT 0x1E1
+--
+QueryStatement [0-12] [SELECT 0x1E1]
+  Query [0-12] [SELECT 0x1E1]
+    Select [0-12] [SELECT 0x1E1]
+      SelectList [7-12] [0x1E1]
+        SelectColumn [7-12] [0x1E1]
+          IntLiteral(0x1E1) [7-12] [0x1E1]
+--
+SELECT
+  0x1E1
+==
+
+SELECT 0x1E+1
+--
+QueryStatement [0-13] [SELECT 0x1E+1]
+  Query [0-13] [SELECT 0x1E+1]
+    Select [0-13] [SELECT 0x1E+1]
+      SelectList [7-13] [0x1E+1]
+        SelectColumn [7-13] [0x1E+1]
+          BinaryExpression(+) [7-13] [0x1E+1]
+            IntLiteral(0x1E) [7-11] [0x1E]
+            IntLiteral(1) [12-13] [1]
+--
+SELECT
+  0x1E + 1
+==
+
+SELECT 0x1E-1
+--
+QueryStatement [0-13] [SELECT 0x1E-1]
+  Query [0-13] [SELECT 0x1E-1]
+    Select [0-13] [SELECT 0x1E-1]
+      SelectList [7-13] [0x1E-1]
+        SelectColumn [7-13] [0x1E-1]
+          BinaryExpression(-) [7-13] [0x1E-1]
+            IntLiteral(0x1E) [7-11] [0x1E]
+            IntLiteral(1) [12-13] [1]
+--
+SELECT
+  0x1E - 1
+==
+
+SELECT 0x1E0x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:13]
+SELECT 0x1E0x1
+            ^
+==
+
+SELECT 0x1E-0x1
+--
+QueryStatement [0-15] [SELECT 0x1E-0x1]
+  Query [0-15] [SELECT 0x1E-0x1]
+    Select [0-15] [SELECT 0x1E-0x1]
+      SelectList [7-15] [0x1E-0x1]
+        SelectColumn [7-15] [0x1E-0x1]
+          BinaryExpression(-) [7-15] [0x1E-0x1]
+            IntLiteral(0x1E) [7-11] [0x1E]
+            IntLiteral(0x1) [12-15] [0x1]
+--
+SELECT
+  0x1E - 0x1
+==
+
+SELECT 0x1E+0x1
+--
+QueryStatement [0-15] [SELECT 0x1E+0x1]
+  Query [0-15] [SELECT 0x1E+0x1]
+    Select [0-15] [SELECT 0x1E+0x1]
+      SelectList [7-15] [0x1E+0x1]
+        SelectColumn [7-15] [0x1E+0x1]
+          BinaryExpression(+) [7-15] [0x1E+0x1]
+            IntLiteral(0x1E) [7-11] [0x1E]
+            IntLiteral(0x1) [12-15] [0x1]
+--
+SELECT
+  0x1E + 0x1
+==
+
+# Decimal integers used as identifiers.
+SELECT a.123;
+--
+QueryStatement [0-12] [SELECT a.123]
+  Query [0-12] [SELECT a.123]
+    Select [0-12] [SELECT a.123]
+      SelectList [7-12] [a.123]
+        SelectColumn [7-12] [a.123]
+          PathExpression [7-12] [a.123]
+            Identifier(a) [7-8] [a]
+            Identifier(`123`) [9-12] [123]
+--
+SELECT
+  a.`123`
+==
+
+SELECT a.123a;
+--
+QueryStatement [0-13] [SELECT a.123a]
+  Query [0-13] [SELECT a.123a]
+    Select [0-13] [SELECT a.123a]
+      SelectList [7-13] [a.123a]
+        SelectColumn [7-13] [a.123a]
+          PathExpression [7-13] [a.123a]
+            Identifier(a) [7-8] [a]
+            Identifier(`123a`) [9-13] [123a]
+--
+SELECT
+  a.`123a`
+==
+
+SELECT a.123FULL;
+--
+QueryStatement [0-16] [SELECT a.123FULL]
+  Query [0-16] [SELECT a.123FULL]
+    Select [0-16] [SELECT a.123FULL]
+      SelectList [7-16] [a.123FULL]
+        SelectColumn [7-16] [a.123FULL]
+          PathExpression [7-16] [a.123FULL]
+            Identifier(a) [7-8] [a]
+            Identifier(`123FULL`) [9-16] [123FULL]
+--
+SELECT
+  a.`123FULL`
+==
+
+SELECT a.123BEGIN;
+--
+QueryStatement [0-17] [SELECT a.123BEGIN]
+  Query [0-17] [SELECT a.123BEGIN]
+    Select [0-17] [SELECT a.123BEGIN]
+      SelectList [7-17] [a.123BEGIN]
+        SelectColumn [7-17] [a.123BEGIN]
+          PathExpression [7-17] [a.123BEGIN]
+            Identifier(a) [7-8] [a]
+            Identifier(`123BEGIN`) [9-17] [123BEGIN]
+--
+SELECT
+  a.`123BEGIN`
+==
+
+SELECT a.123`quoted`;
+--
+QueryStatement [0-20] [SELECT a.123`quoted`]
+  Query [0-20] [SELECT a.123`quoted`]
+    Select [0-20] [SELECT a.123`quoted`]
+      SelectList [7-20] [a.123`quoted`]
+        SelectColumn [7-20] [a.123`quoted`]
+          PathExpression [7-12] [a.123]
+            Identifier(a) [7-8] [a]
+            Identifier(`123`) [9-12] [123]
+          Alias [12-20] [`quoted`]
+            Identifier(quoted) [12-20] [`quoted`]
+--
+SELECT
+  a.`123` AS quoted
+==
+
+SELECT a.123E;
+--
+QueryStatement [0-13] [SELECT a.123E]
+  Query [0-13] [SELECT a.123E]
+    Select [0-13] [SELECT a.123E]
+      SelectList [7-13] [a.123E]
+        SelectColumn [7-13] [a.123E]
+          PathExpression [7-13] [a.123E]
+            Identifier(a) [7-8] [a]
+            Identifier(`123E`) [9-13] [123E]
+--
+SELECT
+  a.`123E`
+==
+
+SELECT a.123E10;
+--
+QueryStatement [0-15] [SELECT a.123E10]
+  Query [0-15] [SELECT a.123E10]
+    Select [0-15] [SELECT a.123E10]
+      SelectList [7-15] [a.123E10]
+        SelectColumn [7-15] [a.123E10]
+          PathExpression [7-15] [a.123E10]
+            Identifier(a) [7-8] [a]
+            Identifier(`123E10`) [9-15] [123E10]
+--
+SELECT
+  a.`123E10`
+==
+
+SELECT a.123E+10;
+--
+QueryStatement [0-16] [SELECT a.123E+10]
+  Query [0-16] [SELECT a.123E+10]
+    Select [0-16] [SELECT a.123E+10]
+      SelectList [7-16] [a.123E+10]
+        SelectColumn [7-16] [a.123E+10]
+          BinaryExpression(+) [7-16] [a.123E+10]
+            PathExpression [7-13] [a.123E]
+              Identifier(a) [7-8] [a]
+              Identifier(`123E`) [9-13] [123E]
+            IntLiteral(10) [14-16] [10]
+--
+SELECT
+  a.`123E` + 10
+==
+
+SELECT a.123E-10;
+--
+QueryStatement [0-16] [SELECT a.123E-10]
+  Query [0-16] [SELECT a.123E-10]
+    Select [0-16] [SELECT a.123E-10]
+      SelectList [7-16] [a.123E-10]
+        SelectColumn [7-16] [a.123E-10]
+          BinaryExpression(-) [7-16] [a.123E-10]
+            PathExpression [7-13] [a.123E]
+              Identifier(a) [7-8] [a]
+              Identifier(`123E`) [9-13] [123E]
+            IntLiteral(10) [14-16] [10]
+--
+SELECT
+  a.`123E` - 10
+==
+
+# Hex integers used as identifiers.
+SELECT a.0x123;
+--
+QueryStatement [0-14] [SELECT a.0x123]
+  Query [0-14] [SELECT a.0x123]
+    Select [0-14] [SELECT a.0x123]
+      SelectList [7-14] [a.0x123]
+        SelectColumn [7-14] [a.0x123]
+          PathExpression [7-14] [a.0x123]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123`) [9-14] [0x123]
+--
+SELECT
+  a.`0x123`
+==
+
+SELECT a.0x123a;
+--
+QueryStatement [0-15] [SELECT a.0x123a]
+  Query [0-15] [SELECT a.0x123a]
+    Select [0-15] [SELECT a.0x123a]
+      SelectList [7-15] [a.0x123a]
+        SelectColumn [7-15] [a.0x123a]
+          PathExpression [7-15] [a.0x123a]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123a`) [9-15] [0x123a]
+--
+SELECT
+  a.`0x123a`
+==
+
+SELECT a.0x123FULL;
+--
+QueryStatement [0-18] [SELECT a.0x123FULL]
+  Query [0-18] [SELECT a.0x123FULL]
+    Select [0-18] [SELECT a.0x123FULL]
+      SelectList [7-18] [a.0x123FULL]
+        SelectColumn [7-18] [a.0x123FULL]
+          PathExpression [7-18] [a.0x123FULL]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123FULL`) [9-18] [0x123FULL]
+--
+SELECT
+  a.`0x123FULL`
+==
+
+SELECT a.0x123BEGIN;
+--
+QueryStatement [0-19] [SELECT a.0x123BEGIN]
+  Query [0-19] [SELECT a.0x123BEGIN]
+    Select [0-19] [SELECT a.0x123BEGIN]
+      SelectList [7-19] [a.0x123BEGIN]
+        SelectColumn [7-19] [a.0x123BEGIN]
+          PathExpression [7-19] [a.0x123BEGIN]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123BEGIN`) [9-19] [0x123BEGIN]
+--
+SELECT
+  a.`0x123BEGIN`
+==
+
+SELECT a.0x123`quoted`;
+--
+QueryStatement [0-22] [SELECT a.0x123`quoted`]
+  Query [0-22] [SELECT a.0x123`quoted`]
+    Select [0-22] [SELECT a.0x123`quoted`]
+      SelectList [7-22] [a.0x123`quoted`]
+        SelectColumn [7-22] [a.0x123`quoted`]
+          PathExpression [7-14] [a.0x123]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123`) [9-14] [0x123]
+          Alias [14-22] [`quoted`]
+            Identifier(quoted) [14-22] [`quoted`]
+--
+SELECT
+  a.`0x123` AS quoted
+==
+
+SELECT a.0x123E;
+--
+QueryStatement [0-15] [SELECT a.0x123E]
+  Query [0-15] [SELECT a.0x123E]
+    Select [0-15] [SELECT a.0x123E]
+      SelectList [7-15] [a.0x123E]
+        SelectColumn [7-15] [a.0x123E]
+          PathExpression [7-15] [a.0x123E]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123E`) [9-15] [0x123E]
+--
+SELECT
+  a.`0x123E`
+==
+
+SELECT a.0x123E10;
+--
+QueryStatement [0-17] [SELECT a.0x123E10]
+  Query [0-17] [SELECT a.0x123E10]
+    Select [0-17] [SELECT a.0x123E10]
+      SelectList [7-17] [a.0x123E10]
+        SelectColumn [7-17] [a.0x123E10]
+          PathExpression [7-17] [a.0x123E10]
+            Identifier(a) [7-8] [a]
+            Identifier(`0x123E10`) [9-17] [0x123E10]
+--
+SELECT
+  a.`0x123E10`
+==
+
+SELECT a.0x123E+10;
+--
+QueryStatement [0-18] [SELECT a.0x123E+10]
+  Query [0-18] [SELECT a.0x123E+10]
+    Select [0-18] [SELECT a.0x123E+10]
+      SelectList [7-18] [a.0x123E+10]
+        SelectColumn [7-18] [a.0x123E+10]
+          BinaryExpression(+) [7-18] [a.0x123E+10]
+            PathExpression [7-15] [a.0x123E]
+              Identifier(a) [7-8] [a]
+              Identifier(`0x123E`) [9-15] [0x123E]
+            IntLiteral(10) [16-18] [10]
+--
+SELECT
+  a.`0x123E` + 10
+==
+
+SELECT a.0x123E-10;
+--
+QueryStatement [0-18] [SELECT a.0x123E-10]
+  Query [0-18] [SELECT a.0x123E-10]
+    Select [0-18] [SELECT a.0x123E-10]
+      SelectList [7-18] [a.0x123E-10]
+        SelectColumn [7-18] [a.0x123E-10]
+          BinaryExpression(-) [7-18] [a.0x123E-10]
+            PathExpression [7-15] [a.0x123E]
+              Identifier(a) [7-8] [a]
+              Identifier(`0x123E`) [9-15] [0x123E]
+            IntLiteral(10) [16-18] [10]
+--
+SELECT
+  a.`0x123E` - 10
+==
+
+SELECT E10.1;
+--
+QueryStatement [0-12] [SELECT E10.1]
+  Query [0-12] [SELECT E10.1]
+    Select [0-12] [SELECT E10.1]
+      SelectList [7-12] [E10.1]
+        SelectColumn [7-12] [E10.1]
+          PathExpression [7-12] [E10.1]
+            Identifier(E10) [7-10] [E10]
+            Identifier(`1`) [11-12] [1]
+--
+SELECT
+  E10.`1`
+==
+
+SELECT E10.1A;
+--
+QueryStatement [0-13] [SELECT E10.1A]
+  Query [0-13] [SELECT E10.1A]
+    Select [0-13] [SELECT E10.1A]
+      SelectList [7-13] [E10.1A]
+        SelectColumn [7-13] [E10.1A]
+          PathExpression [7-13] [E10.1A]
+            Identifier(E10) [7-10] [E10]
+            Identifier(`1A`) [11-13] [1A]
+--
+SELECT
+  E10.`1A`
+==
+
+SELECT E.1;
+--
+QueryStatement [0-10] [SELECT E.1]
+  Query [0-10] [SELECT E.1]
+    Select [0-10] [SELECT E.1]
+      SelectList [7-10] [E.1]
+        SelectColumn [7-10] [E.1]
+          PathExpression [7-10] [E.1]
+            Identifier(E) [7-8] [E]
+            Identifier(`1`) [9-10] [1]
+--
+SELECT
+  E.`1`
+==
+
+SELECT E.1A;
+--
+QueryStatement [0-11] [SELECT E.1A]
+  Query [0-11] [SELECT E.1A]
+    Select [0-11] [SELECT E.1A]
+      SelectList [7-11] [E.1A]
+        SelectColumn [7-11] [E.1A]
+          PathExpression [7-11] [E.1A]
+            Identifier(E) [7-8] [E]
+            Identifier(`1A`) [9-11] [1A]
+--
+SELECT
+  E.`1A`

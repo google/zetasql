@@ -807,37 +807,37 @@ select {{'a'|"a"|`a`|'''a'''||"""a"""}}\
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:11]
 select 'a'\
           ^
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:11]
 select "a"\
           ^
 --
 ALTERNATION GROUP: `a`
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:11]
 select `a`\
           ^
 --
 ALTERNATION GROUP: '''a'''
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:15]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:15]
 select '''a'''\
               ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:8]
+ERROR: Syntax error: Unexpected "\" [at 1:8]
 select \
        ^
 --
 ALTERNATION GROUP: """a"""
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:15]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:15]
 select """a"""\
               ^
 ==
@@ -848,25 +848,25 @@ select b{{'a'|"a"|'''a'''|"""a"""}}\
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:12]
 select b'a'\
            ^
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:12]
 select b"a"\
            ^
 --
 ALTERNATION GROUP: '''a'''
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:16]
 select b'''a'''\
                ^
 --
 ALTERNATION GROUP: """a"""
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:16]
 select b"""a"""\
                ^
 ==
@@ -877,25 +877,25 @@ select r{{'a'|"a"|'''a'''|"""a"""}}\
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:12]
 select r'a'\
            ^
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:12]
 select r"a"\
            ^
 --
 ALTERNATION GROUP: '''a'''
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:16]
 select r'''a'''\
                ^
 --
 ALTERNATION GROUP: """a"""
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:16]
 select r"""a"""\
                ^
 ==
@@ -906,25 +906,25 @@ select rb{{'a'|"a"|'''a'''|"""a"""}}\
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:13]
 select rb'a'\
             ^
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:13]
 select rb"a"\
             ^
 --
 ALTERNATION GROUP: '''a'''
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:17]
 select rb'''a'''\
                 ^
 --
 ALTERNATION GROUP: """a"""
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:17]
 select rb"""a"""\
                 ^
 ==
@@ -935,25 +935,25 @@ select br{{'a'|"a"|'''a'''|"""a"""}}\
 --
 ALTERNATION GROUP: 'a'
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:13]
 select br'a'\
             ^
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:13]
 select br"a"\
             ^
 --
 ALTERNATION GROUP: '''a'''
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:17]
 select br'''a'''\
                 ^
 --
 ALTERNATION GROUP: """a"""
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:17]
 select br"""a"""\
                 ^
 ==

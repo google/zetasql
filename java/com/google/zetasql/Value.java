@@ -53,6 +53,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -61,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Represents a value in the ZetaSQL type system. Each valid value has a type. A value object has
@@ -102,6 +105,8 @@ public class Value implements Serializable {
   private final BigDecimal numericValue;
   // Deserialized INTERVAL value if the type is TYPE_INTERVAL.
   private final IntervalValue intervalValue;
+  // Deserialized UUID value if the type is TYPE_UUID.
+  private final UUID uuidValue;
 
   // Number of digits after the decimal point supported by the NUMERIC data type.
   private static final int NUMERIC_SCALE = 9;
@@ -121,6 +126,8 @@ public class Value implements Serializable {
       new BigDecimal(
           "-578960446186580977117854925043439539266.34992332820282019728792003956564819968");
 
+  private static final int UUID_VALUE_SIZE_IN_BYTES = 16;
+
   /** Creates an invalid Value */
   public Value() {
     this.type = new SimpleType(); // Invalid type
@@ -132,6 +139,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
   }
 
   /** Creates a Value of given type and proto value. */
@@ -145,6 +153,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
   }
 
   /**
@@ -161,6 +170,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
   }
 
   /**
@@ -177,6 +187,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
   }
 
   /**
@@ -193,6 +204,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = start;
     this.end = end;
+    this.uuidValue = null;
   }
 
   /** Creates a value of type NUMERIC or BIGNUMERIC. */
@@ -206,6 +218,7 @@ public class Value implements Serializable {
     this.intervalValue = null;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
   }
 
   /** Creates a value of type INTERVAL. */
@@ -219,6 +232,21 @@ public class Value implements Serializable {
     this.intervalValue = intervalValue;
     this.start = null;
     this.end = null;
+    this.uuidValue = null;
+  }
+
+  /** Creates a value of type UUID. */
+  private Value(TypeKind typeKind, ValueProto proto, UUID uuidValue) {
+    this.type = TypeFactory.createSimpleType(typeKind);
+    this.proto = checkNotNull(proto);
+    this.isNull = Value.isNullValue(proto);
+    this.fields = null;
+    this.elements = null;
+    this.numericValue = null;
+    this.intervalValue = null;
+    this.start = null;
+    this.end = null;
+    this.uuidValue = uuidValue;
   }
 
   private static IllegalArgumentException typeMismatchException(Type type, ValueProto proto) {
@@ -302,6 +330,13 @@ public class Value implements Serializable {
     checkValueHasKind(TypeKind.TYPE_INTERVAL);
     checkValueNotNull();
     return intervalValue;
+  }
+
+  /** Returns the uuid value if the type is UUID. */
+  public UUID getUuidValue() {
+    checkValueHasKind(TypeKind.TYPE_UUID);
+    checkValueNotNull();
+    return uuidValue;
   }
 
   /** Returns the String value if the type is string. */
@@ -629,6 +664,11 @@ public class Value implements Serializable {
           return other.start().equals(start()) && other.end().equals(end());
         }
         return false;
+      case TYPE_UUID:
+        if (other.getType().equivalent(type)) {
+          return other.getUuidValue().compareTo(getUuidValue()) == 0;
+        }
+        return false;
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -710,6 +750,8 @@ public class Value implements Serializable {
             ImmutableList.of(
                 HashCode.fromInt(start().hashCode()), HashCode.fromInt(end().hashCode()));
         return Hashing.combineOrdered(hashCodes).asInt();
+      case TYPE_UUID:
+        return uuidValue.hashCode();
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
         return super.hashCode();
@@ -755,6 +797,7 @@ public class Value implements Serializable {
       case TYPE_BIGNUMERIC:
       case TYPE_JSON:
       case TYPE_INTERVAL:
+      case TYPE_UUID:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM:
         {
@@ -946,7 +989,7 @@ public class Value implements Serializable {
       // Use literal syntax for DATE, DATETIME, TIME and TIMESTAMP.
       return String.format("%s %s", type.typeName(), ZetaSQLStrings.toStringLiteral(s));
     }
-    if (type.isNumeric() || type.isBigNumeric()) {
+    if (type.isNumeric() || type.isBigNumeric() || type.isUuid()) {
       return getSQLLiteral();
     }
     if (type.isGeography()) {
@@ -1041,6 +1084,9 @@ public class Value implements Serializable {
     }
     if (type.isJson()) {
       return String.format("JSON %s", ZetaSQLStrings.toStringLiteral(s));
+    }
+    if (type.isUuid()) {
+      return String.format("CAST(%s AS UUID)", ZetaSQLStrings.toSingleQuotedStringLiteral(s));
     }
 
     if (type.isSimpleType()) {
@@ -1150,6 +1196,20 @@ public class Value implements Serializable {
       throw new IllegalArgumentException(typeName + " overflow: " + decimalValue.toPlainString());
     }
     return decimalValue;
+  }
+
+  private static UUID deserializeUuid(ByteString serializedValue) {
+    byte[] bytes = serializedValue.toByteArray();
+    if (bytes.length != UUID_VALUE_SIZE_IN_BYTES) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Unexpected UUID value length in bytes: %s. The value is %s.",
+              bytes.length, serializedValue));
+    }
+
+    long msb = ByteBuffer.wrap(bytes, 0, 8).order(ByteOrder.LITTLE_ENDIAN).getLong();
+    long lsb = ByteBuffer.wrap(bytes, 8, 8).order(ByteOrder.LITTLE_ENDIAN).getLong();
+    return new UUID(msb, lsb);
   }
 
   @CanIgnoreReturnValue // TODO: consider removing this?
@@ -1345,6 +1405,11 @@ public class Value implements Serializable {
             proto,
             deserialize(elementType, proto.getRangeValue().getStart()),
             deserialize(elementType, proto.getRangeValue().getEnd()));
+      case TYPE_UUID:
+        if (!proto.hasUuidValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        return new Value(TypeKind.TYPE_UUID, proto, deserializeUuid(proto.getUuidValue()));
 
       default:
         throw new IllegalArgumentException("Should not happen: unsupported type " + type);
@@ -1373,6 +1438,7 @@ public class Value implements Serializable {
       case TYPE_BIGNUMERIC:
       case TYPE_INTERVAL:
       case TYPE_JSON:
+      case TYPE_UUID:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());
@@ -1510,6 +1576,22 @@ public class Value implements Serializable {
     Preconditions.checkNotNull(v);
     ValueProto proto = ValueProto.newBuilder().setBytesValue(v).build();
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_BYTES), proto);
+  }
+
+  /** Returns a Uuid Value that equals to {@code v}. */
+  private static ByteString serializeUuid(UUID v) {
+    ByteBuffer buffer = ByteBuffer.allocate(UUID_VALUE_SIZE_IN_BYTES);
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putLong(0, v.getMostSignificantBits());
+    buffer.putLong(8, v.getLeastSignificantBits());
+    return ByteString.copyFrom(buffer);
+  }
+
+  /** Returns an UUID Value that equals to {@code v}. */
+  public static Value createUuidValue(UUID v) {
+    ByteString serializedValue = serializeUuid(v);
+    ValueProto proto = ValueProto.newBuilder().setUuidValue(serializedValue).build();
+    return new Value(TypeKind.TYPE_UUID, proto, v);
   }
 
   /**

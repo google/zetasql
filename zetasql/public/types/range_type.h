@@ -23,9 +23,10 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
-#include "zetasql/public/types/container_type.h"
+#include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/types/value_representations.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -46,7 +47,7 @@ class TypeModifiers;
 // partitionable, and orderable. Range element types must be orderable,
 // groupable, and partitionable. Only ranges of DATE, DATETIME, and TIMESTAMP
 // are supported.
-class RangeType : public ContainerType {
+class RangeType : public ListBackedType {
  public:
 #ifndef SWIG
   RangeType(const RangeType&) = delete;
@@ -146,8 +147,8 @@ class RangeType : public ContainerType {
   absl::HashState HashTypeParameter(absl::HashState state) const override;
   absl::HashState HashValueContent(const ValueContent& value,
                                    absl::HashState state) const override;
-  std::string FormatValueContentContainerElement(
-      const internal::ValueContentContainerElement& element,
+  std::string FormatNullableValueContent(
+      const internal::NullableValueContent& element,
       const Type::FormatValueContentOptions& options) const;
   std::string FormatValueContent(
       const ValueContent& value,

@@ -21,8 +21,6 @@
 #include <string>
 #include <utility>
 
-#include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
@@ -33,7 +31,6 @@
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/algorithm/container.h"
-#include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -236,10 +233,17 @@ bool EnumType::EqualsImpl(const EnumType* const type1,
   return false;
 }
 
+// TODO: b/328508766 - respect is_opaque_ for builtin enum type instead of
+// language feature
 bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
   if (Equivalent(types::DifferentialPrivacyReportFormatEnumType())) {
     return language_options.LanguageFeatureEnabled(
         FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
+  }
+  // If ARRAY_ZIP_MODE enum is not created as a builtin type, falls through to
+  // the generic logic below.
+  if (is_opaque_ && Equivalent(types::ArrayZipModeEnumType())) {
+    return true;
   }
 
   if (Equivalent(types::RangeSessionizeModeEnumType())) {

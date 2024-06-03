@@ -840,3 +840,330 @@ ERROR: Array scan is not allowed with RIGHT JOIN: s.arr2 [at 3:26]
                          ^
 ==
 
+# Repro for b/310752376
+WITH t AS (SELECT [1] AS arr)
+SELECT 1
+FROM t, (t.arr CROSS JOIN (SELECT 1));
+--
+ERROR: Table not found: t.arr; Table name t.arr starts with a WITH clause alias and references a column from that table, which is invalid in the FROM clause [at 3:10]
+FROM t, (t.arr CROSS JOIN (SELECT 1));
+         ^
+==
+
+# Repro for b/310752376
+WITH t AS (SELECT [1] AS arr)
+SELECT 1
+FROM t AS t2, (t2.arr CROSS JOIN (SELECT 1));
+--
+
+ERROR: Table not found: t2.arr [at 3:16]
+FROM t AS t2, (t2.arr CROSS JOIN (SELECT 1));
+               ^
+==
+
+# Repro for b/310752376
+[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[no_test_extract_table_names]
+SELECT 1
+FROM ArrayTypes, (ArrayTypes.Int32Array CROSS JOIN (SELECT 1))
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: Table not found: ArrayTypes.Int32Array [at 2:19]
+FROM ArrayTypes, (ArrayTypes.Int32Array CROSS JOIN (SELECT 1))
+                  ^
+--
+ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#43 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#43]
+    +-expr_list=
+    | +-$col1#43 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$subquery1.$col1#42]
+        +-left_scan=
+        | +-TableScan(table=ArrayTypes)
+        +-right_scan=
+          +-JoinScan
+            +-column_list=[$subquery1.$col1#42]
+            +-left_scan=
+            | +-ArrayScan
+            |   +-node_source="single_table_array_name_path"
+            |   +-input_scan=
+            |   | +-TableScan(column_list=[ArrayTypes.Int32Array#21], table=ArrayTypes, column_index_list=[0])
+            |   +-array_expr_list=
+            |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#21)
+            |   +-element_column_list=[$array.Int32Array#41]
+            +-right_scan=
+              +-ProjectScan
+                +-column_list=[$subquery1.$col1#42]
+                +-expr_list=
+                | +-$col1#42 := Literal(type=INT64, value=1)
+                +-input_scan=
+                  +-SingleRowScan
+==
+
+# Repro for b/310752376
+[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
+[no_test_extract_table_names]
+SELECT 1
+FROM ArrayTypes, ((SELECT 1) CROSS JOIN ArrayTypes.Int32Array)
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: Table not found: ArrayTypes.Int32Array [at 2:41]
+FROM ArrayTypes, ((SELECT 1) CROSS JOIN ArrayTypes.Int32Array)
+                                        ^
+--
+ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#43 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#43]
+    +-expr_list=
+    | +-$col1#43 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$subquery1.$col1#21]
+        +-left_scan=
+        | +-TableScan(table=ArrayTypes)
+        +-right_scan=
+          +-JoinScan
+            +-column_list=[$subquery1.$col1#21]
+            +-left_scan=
+            | +-ProjectScan
+            |   +-column_list=[$subquery1.$col1#21]
+            |   +-expr_list=
+            |   | +-$col1#21 := Literal(type=INT64, value=1)
+            |   +-input_scan=
+            |     +-SingleRowScan
+            +-right_scan=
+              +-ArrayScan
+                +-node_source="single_table_array_name_path"
+                +-input_scan=
+                | +-TableScan(column_list=[ArrayTypes.Int32Array#22], table=ArrayTypes, column_index_list=[0])
+                +-array_expr_list=
+                | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#22)
+                +-element_column_list=[$array.Int32Array#42]
+==
+
+[language_features=V_1_3_ALLOW_CONSECUTIVE_ON]
+WITH t1 AS (SELECT 1 AS c),t2 AS (SELECT 1 AS c), u AS (SELECT 1 AS c) SELECT * FROM u JOIN t1 JOIN t2 USING (c) USING (c)
+--
+QueryStmt
++-output_column_list=
+| +-u.c#4 AS c [INT64]
++-query=
+  +-WithScan
+    +-column_list=[u.c#4]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t1"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t1.c#1]
+    | |     +-expr_list=
+    | |     | +-c#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    | | +-with_query_name="t2"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t2.c#2]
+    | |     +-expr_list=
+    | |     | +-c#2 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="u"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[u.c#3]
+    |       +-expr_list=
+    |       | +-c#3 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[u.c#4]
+        +-input_scan=
+          +-JoinScan
+            +-column_list=[u.c#4, t1.c#5, t2.c#6]
+            +-left_scan=
+            | +-WithRefScan(column_list=[u.c#4], with_query_name="u")
+            +-right_scan=
+            | +-JoinScan
+            |   +-column_list=[t1.c#5, t2.c#6]
+            |   +-left_scan=
+            |   | +-WithRefScan(column_list=[t1.c#5], with_query_name="t1")
+            |   +-right_scan=
+            |   | +-WithRefScan(column_list=[t2.c#6], with_query_name="t2")
+            |   +-join_expr=
+            |   | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   |   +-ColumnRef(type=INT64, column=t1.c#5)
+            |   |   +-ColumnRef(type=INT64, column=t2.c#6)
+            |   +-has_using=TRUE
+            +-join_expr=
+            | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |   +-ColumnRef(type=INT64, column=u.c#4)
+            |   +-ColumnRef(type=INT64, column=t1.c#5)
+            +-has_using=TRUE
+
+==
+
+[language_features={{|V_1_3_ALLOW_CONSECUTIVE_ON,}}V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[no_test_extract_table_names]
+SELECT ArrayTypes.Int32Array, i
+FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i {{|JOIN (SELECT 1) ON TRUE}} ON TRUE
+--
+ALTERNATION GROUPS:
+    <empty>
+    V_1_3_ALLOW_CONSECUTIVE_ON,,
+--
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-$array.i#21 AS i [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.Int32Array#1, $array.i#21]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[ArrayTypes.Int32Array#1, $array.i#21]
+        +-input_scan=
+        | +-TableScan(column_list=[ArrayTypes.Int32Array#1], table=ArrayTypes, column_index_list=[0])
+        +-array_expr_list=
+        | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        +-element_column_list=[$array.i#21]
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+--
+ALTERNATION GROUP: JOIN (SELECT 1) ON TRUE
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 2:73]
+FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i JOIN (SELECT 1) ON TRUE ON TRUE
+                                                                        ^
+--
+ALTERNATION GROUP: V_1_3_ALLOW_CONSECUTIVE_ON,,JOIN (SELECT 1) ON TRUE
+--
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-$array.i#41 AS i [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.Int32Array#1, $array.i#41]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[ArrayTypes.Int32Array#1, $array.i#41, $subquery1.$col1#42]
+        +-left_scan=
+        | +-TableScan(column_list=[ArrayTypes.Int32Array#1], table=ArrayTypes, column_index_list=[0])
+        +-right_scan=
+        | +-JoinScan
+        |   +-column_list=[$array.i#41, $subquery1.$col1#42]
+        |   +-left_scan=
+        |   | +-ArrayScan
+        |   |   +-column_list=[$array.i#41]
+        |   |   +-node_source="single_table_array_name_path"
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=[ArrayTypes.Int32Array#21], table=ArrayTypes, column_index_list=[0], alias="ArrayTypes")
+        |   |   +-array_expr_list=
+        |   |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#21)
+        |   |   +-element_column_list=[$array.i#41]
+        |   +-right_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.$col1#42]
+        |   |   +-expr_list=
+        |   |   | +-$col1#42 := Literal(type=INT64, value=1)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-join_expr=
+        |     +-Literal(type=BOOL, value=true)
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+
+==
+
+[language_features=V_1_3_ALLOW_CONSECUTIVE_ON,V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[no_test_extract_table_names]
+SELECT ArrayTypes.Int32Array, i
+FROM ArrayTypes JOIN ArrayTypes.Int32Array AS i JOIN (SELECT 1) ON TRUE {{|ON TRUE}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-$array.i#21 AS i [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.Int32Array#1, $array.i#21]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[ArrayTypes.Int32Array#1, $array.i#21, $subquery1.$col1#22]
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[ArrayTypes.Int32Array#1, $array.i#21]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[ArrayTypes.Int32Array#1], table=ArrayTypes, column_index_list=[0])
+        |   +-array_expr_list=
+        |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        |   +-element_column_list=[$array.i#21]
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.$col1#22]
+        |   +-expr_list=
+        |   | +-$col1#22 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+--
+ALTERNATION GROUP: ON TRUE
+--
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-$array.i#41 AS i [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.Int32Array#1, $array.i#41]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[ArrayTypes.Int32Array#1, $array.i#41, $subquery1.$col1#42]
+        +-left_scan=
+        | +-TableScan(column_list=[ArrayTypes.Int32Array#1], table=ArrayTypes, column_index_list=[0])
+        +-right_scan=
+        | +-JoinScan
+        |   +-column_list=[$array.i#41, $subquery1.$col1#42]
+        |   +-left_scan=
+        |   | +-ArrayScan
+        |   |   +-column_list=[$array.i#41]
+        |   |   +-node_source="single_table_array_name_path"
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=[ArrayTypes.Int32Array#21], table=ArrayTypes, column_index_list=[0], alias="ArrayTypes")
+        |   |   +-array_expr_list=
+        |   |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#21)
+        |   |   +-element_column_list=[$array.i#41]
+        |   +-right_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.$col1#42]
+        |   |   +-expr_list=
+        |   |   | +-$col1#42 := Literal(type=INT64, value=1)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-join_expr=
+        |     +-Literal(type=BOOL, value=true)
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)

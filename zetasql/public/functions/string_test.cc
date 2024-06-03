@@ -309,6 +309,18 @@ TEST(TestFirstCharOfStringToAscii, Raw) {
   EXPECT_EQ(out, int64_t{239});
 }
 
+TEST(SafeConvertBytes, Capacity) {
+  std::string out;
+  absl::Status error;
+
+  // 20 valid characters + trailing invalid one.
+  EXPECT_TRUE(SafeConvertBytes("abcde12345abcde12345\xff", &out, &error));
+  ZETASQL_EXPECT_OK(error);
+  const int required_capacity = 20 + 3;
+  EXPECT_GE(out.capacity(), required_capacity);
+  EXPECT_LT(out.capacity(), 2 * required_capacity);
+}
+
 INSTANTIATE_TEST_SUITE_P(String, StringTemplateTest,
                          testing::ValuesIn(GetFunctionTestsString()));
 

@@ -48,6 +48,7 @@
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
+#include "zetasql/base/case.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
@@ -234,6 +235,12 @@ Value::Value(const ExtendedType* extended_type, const ValueContent& value) {
   SetContent(value);
 }
 
+const absl::StatusOr<UuidValue> Value::uuid_value() const {
+  ZETASQL_RET_CHECK_EQ(TYPE_UUID, metadata_.type_kind()) << "Not a uuid type";
+  ZETASQL_RET_CHECK(!metadata_.is_null()) << "Null value";
+  return uuid_ptr_->value();
+}
+
 #ifdef NDEBUG
 static constexpr bool kDebugMode = false;
 #else
@@ -253,7 +260,7 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
   }
 
   Value result(array_type, /*is_null=*/false, order_kind);
-  result.container_ptr_ = new internal::ValueContentContainerRef(
+  result.container_ptr_ = new internal::ValueContentOrderedListRef(
       std::make_unique<TypedList>(std::move(values)),
       order_kind == kPreservesOrder);
   return result;
@@ -275,7 +282,7 @@ absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
   }
 
   Value result(struct_type, /*is_null=*/false, kPreservesOrder);
-  result.container_ptr_ = new internal::ValueContentContainerRef(
+  result.container_ptr_ = new internal::ValueContentOrderedListRef(
       std::make_unique<TypedList>(std::move(values)), /*preserves_order=*/true);
   return result;
 }
@@ -305,7 +312,7 @@ absl::StatusOr<Value> Value::MakeRangeInternal(bool is_validated,
   values.push_back(end);
 
   Value result(range_type, /*is_null=*/false, kPreservesOrder);
-  result.container_ptr_ = new internal::ValueContentContainerRef(
+  result.container_ptr_ = new internal::ValueContentOrderedListRef(
       std::make_unique<TypedList>(std::move(values)), /*preserves_order=*/true);
   return result;
 }
@@ -361,7 +368,7 @@ const Type* Value::type() const {
 const std::vector<Value>& Value::fields() const {
   ABSL_CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
   ABSL_CHECK(!is_null()) << "Null value";
-  const internal::ValueContentContainer* const container_ptr =
+  const internal::ValueContentOrderedList* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
       static_cast<const TypedList* const>(container_ptr);
@@ -371,7 +378,7 @@ const std::vector<Value>& Value::fields() const {
 const std::vector<Value>& Value::elements() const {
   ABSL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
   ABSL_CHECK(!is_null()) << "Null value";
-  const internal::ValueContentContainer* const container_ptr =
+  const internal::ValueContentOrderedList* const container_ptr =
       container_ptr_->value();
   const TypedList* const list_ptr =
       static_cast<const TypedList* const>(container_ptr);
@@ -742,6 +749,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_DOUBLE, TYPE_DOUBLE):
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
     case TYPE_KIND_PAIR(TYPE_UINT64, TYPE_INT64):
+    case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return true;
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       const StructType* struct_type1 = type1->AsStruct();
@@ -792,6 +800,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return Value::Bool(Equals(that));
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       if (num_fields() != that.num_fields()) {
@@ -897,6 +906,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_DOUBLE, TYPE_DOUBLE):
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
     case TYPE_KIND_PAIR(TYPE_UINT64, TYPE_INT64):
+    case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return true;
     case TYPE_KIND_PAIR(TYPE_ARRAY, TYPE_ARRAY):
       return TypesSupportSqlLessThan(type1->AsArray()->element_type(),
@@ -933,6 +943,7 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
+    case TYPE_KIND_PAIR(TYPE_UUID, TYPE_UUID):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(LessThan(that));

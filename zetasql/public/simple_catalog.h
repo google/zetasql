@@ -249,7 +249,7 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddTableValuedFunction(const TableValuedFunction* function)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedTableValuedFunction(
-      const std::string& name,
+      absl::string_view name,
       std::unique_ptr<const TableValuedFunction> function);
   void AddOwnedTableValuedFunction(
       std::unique_ptr<const TableValuedFunction> function);
@@ -541,7 +541,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // to use a common locked implementation, similar to these for Function.
   void AddFunctionLocked(absl::string_view name, const Function* function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddOwnedFunctionLocked(const std::string& name,
+  void AddOwnedFunctionLocked(absl::string_view name,
                               std::unique_ptr<const Function> function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddTableValuedFunctionLocked(absl::string_view name,
@@ -656,7 +656,7 @@ class SimpleTable : public Table {
   // the same catalog.
   typedef std::pair<std::string, const Type*> NameAndType;
   typedef std::pair<std::string, AnnotatedType> NameAndAnnotatedType;
-  SimpleTable(absl::string_view name, const std::vector<NameAndType>& columns,
+  SimpleTable(absl::string_view name, absl::Span<const NameAndType> columns,
               int64_t serialization_id = 0);
   SimpleTable(absl::string_view name,
               absl::Span<const NameAndAnnotatedType> columns,

@@ -91,6 +91,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
+        "//zetasql/proto:script_exception_cc_proto",
         "//zetasql/public:analyzer",
         "//zetasql/public:coercer",
         "//zetasql/public:error_helpers",
@@ -107,7 +108,6 @@ cc_library(
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/scripting:error_helpers",
         "//zetasql/scripting:parsed_script",
-        "//zetasql/scripting:script_exception_cc_proto",
         "//zetasql/scripting:script_executor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
@@ -136,7 +136,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
@@ -264,6 +264,7 @@ cc_library(
         "//zetasql/base:exactfloat",
         "@com_googlesource_code_re2//:re2",
         "//zetasql/base:status",
+        "@com_google_googleapis//google/rpc:status_cc_proto",
         "//zetasql/base:ret_check",
         "//zetasql/base:clock",
     ],
@@ -300,14 +301,21 @@ cc_test(
     name = "function_evaluation_test",
     srcs = ["function_test.cc"],
     deps = [
+        ":common",
         ":evaluation",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:evaluator_registration_utils",
+        "//zetasql/common:internal_value",
         "//zetasql/public:interval_value",
+        "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/reference_impl/functions:hash",
+        "//zetasql/resolved_ast",
+        "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -350,6 +358,7 @@ cc_library(
         "//zetasql/base:check",
         "//zetasql/base:flat_set",
         "//zetasql/base:map_util",
+        "//zetasql/base:no_destructor",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:stl_util",
@@ -510,7 +519,9 @@ cc_library(
     srcs = ["use_reference_driver_for_compliance_test.cc"],
     deps = [
         ":reference_driver",
+        ":rewrite_flags",
         "//zetasql/compliance:test_driver",
+        "@com_google_absl//absl/flags:flag",
     ],
 )
 
@@ -559,14 +570,10 @@ zetasql_compliance_test(
     args = [
         "--rewrites=all",
         "--zetasql_compliance_print_array_orderedness",
-        # Four files contain tests that do not work pass all rewrites enabled.
-        # Do not add to this list. Write compliance tests that work with all
-        # rewriters enabled.
-        # TODO: Remove these files
-        "--query_name_pattern='^(?!(pivot_test|unpivot_test|anonymization_test|anonymization_errors_test)).*$$'",
     ],
     known_error_files = [
         ":reference_impl_known_errors.textproto",
+        ":reference_impl_all_rewrites_known_errors.textproto",
         "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:zetasql_known_errors.textproto",
     ],

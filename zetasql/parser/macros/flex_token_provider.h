@@ -18,12 +18,13 @@
 #define ZETASQL_PARSER_MACROS_FLEX_TOKEN_PROVIDER_H_
 
 #include <memory>
+#include <optional>
 #include <queue>
 
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/flex_tokenizer.h"
+#include "zetasql/parser/macros/token_provider_base.h"
 #include "zetasql/parser/macros/token_with_location.h"
-#include "zetasql/public/language_options.h"
+#include "zetasql/public/parse_location.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
@@ -35,17 +36,21 @@ namespace macros {
 // Provides the next token from a Flex tokenizer without any macro expansion.
 // This is the normal case, where we only have the text and we need to
 // tokenize it from the start.
-class FlexTokenProvider {
+class FlexTokenProvider : public TokenProviderBase {
  public:
-  FlexTokenProvider(BisonParserMode mode, absl::string_view filename,
-                    absl::string_view input, int start_offset,
-                    const LanguageOptions& language_options);
+  FlexTokenProvider(absl::string_view filename, absl::string_view input,
+                    bool preserve_comments, int start_offset,
+                    std::optional<int> end_offset);
 
   FlexTokenProvider(const FlexTokenProvider&) = delete;
   FlexTokenProvider& operator=(const FlexTokenProvider&) = delete;
 
+  std::unique_ptr<TokenProviderBase> CreateNewInstance(
+      absl::string_view filename, absl::string_view input, int start_offset,
+      std::optional<int> end_offset) const override;
+
   // Peeks the next token, but does not consume it.
-  absl::StatusOr<TokenWithLocation> PeekNextToken() {
+  absl::StatusOr<TokenWithLocation> PeekNextToken() override {
     if (input_token_buffer_.empty()) {
       ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation next_token, GetFlexToken());
       input_token_buffer_.push(next_token);
@@ -54,50 +59,28 @@ class FlexTokenProvider {
     return input_token_buffer_.front();
   }
 
-  absl::string_view filename() const { return tokenizer_->filename(); }
-  absl::string_view input() const { return tokenizer_->input(); }
-  int num_consumed_tokens() const { return num_consumed_tokens_; }
-  const LanguageOptions& language_options() const { return language_options_; }
-
-  absl::StatusOr<TokenWithLocation> ConsumeNextToken() {
-    ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation next_token, ConsumeNextTokenImpl());
-    num_consumed_tokens_++;
-    return next_token;
-  }
-
- private:
+ protected:
   // Consumes the next token from the buffer, or pull one from Flex if the
   // buffer is empty.
-  absl::StatusOr<TokenWithLocation> ConsumeNextTokenImpl() {
-    if (!input_token_buffer_.empty()) {
-      // Check for any unused tokens first, before we pull any more
-      const TokenWithLocation front_token = input_token_buffer_.front();
-      input_token_buffer_.pop();
-      return front_token;
-    }
+  absl::StatusOr<TokenWithLocation> ConsumeNextTokenImpl() override;
 
-    return GetFlexToken();
-  }
-
+ private:
   // Pulls the next token from Flex.
   absl::StatusOr<TokenWithLocation> GetFlexToken();
 
-  // The parsing mode used when creating this object.
-  const BisonParserMode mode_;
+  // The ZetaSQL tokenizer which gives us all the tokens.
+  std::unique_ptr<ZetaSqlFlexTokenizer> tokenizer_;
 
-  const LanguageOptions& language_options_;
+  // Whether the tokenizer should preserve comments. This is passed to the
+  // tokenizer and is only cached here for CreateNewInstance().
+  bool preserve_comments_;
 
   // Used as a buffer when we need a lookahead from the tokenizer.
   // Any tokens here are still unprocessed by the expander.
   std::queue<TokenWithLocation> input_token_buffer_;
 
-  // The ZetaSQL tokenizer which gives us all the tokens.
-  std::unique_ptr<ZetaSqlFlexTokenizer> tokenizer_;
-
   // Location into the current input, used by the tokenizer.
-  Location location_;
-
-  int num_consumed_tokens_ = 0;
+  ParseLocationRange location_;
 };
 
 }  // namespace macros

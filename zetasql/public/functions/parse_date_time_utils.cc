@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/parse_date_time_utils.h"
 
+#include <stdint.h>
+#include <string.h>
 #include <time.h>
 
 #include <limits>

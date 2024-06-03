@@ -396,14 +396,14 @@ select replace_fields()
 
 select replace_fields(some_proto)
 --
-ERROR: Syntax error: Unexpected ")" [at 1:33]
+ERROR: Syntax error: Expected "," but got ")" [at 1:33]
 select replace_fields(some_proto)
                                 ^
 ==
 
 select replace_fields(some_proto, modified_value)
 --
-ERROR: Syntax error: Unexpected ")" [at 1:49]
+ERROR: Syntax error: Expected keyword AS but got ")" [at 1:49]
 select replace_fields(some_proto, modified_value)
                                                 ^
 ==
@@ -417,7 +417,7 @@ select replace_fields(some_proto, modified_value as)
 
 select replace_fields(some_proto, (path.to.field))
 --
-ERROR: Syntax error: Unexpected ")" [at 1:50]
+ERROR: Syntax error: Expected keyword AS but got ")" [at 1:50]
 select replace_fields(some_proto, (path.to.field))
                                                  ^
 ==

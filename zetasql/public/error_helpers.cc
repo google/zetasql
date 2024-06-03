@@ -26,6 +26,8 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/proto/script_exception.pb.h"
+#include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -50,8 +52,13 @@ namespace zetasql {
 // ErrorSource information is ignored (if present).
 static std::string FormatErrorLocation(const ErrorLocation& location,
                                        const absl::string_view format) {
-  return absl::Substitute(format, location.filename(), location.line(),
-                          location.column());
+  // `input_start_column_offset` is only relevant when `line` is 1.
+  // After the first line, the text starts from the first column anyway.
+  int effective_column_offset =
+      location.line() == 1 ? location.input_start_column_offset() : 0;
+  return absl::Substitute(format, location.filename(),
+                          location.line() + location.input_start_line_offset(),
+                          location.column() + effective_column_offset);
 }
 
 std::string FormatErrorLocation(const ErrorLocation& location) {
@@ -214,11 +221,15 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
                            location.column())) -
       1;
 
-  if (truncated_input->size() > max_width) {
+  // `input_start_column_offset` is only relevant when `line` is 1.
+  // After the first line, the text starts from the first column anyway.
+  int effective_column_offset =
+      location.line() == 1 ? location.input_start_column_offset() : 0;
+  if (effective_column_offset + truncated_input->size() > max_width) {
     const int one_half = max_width / 2;
     const int one_third = max_width / 3;
     // If the error is near the start, just use a prefix of the string.
-    if (*error_column > max_width - one_third) {
+    if (*error_column + effective_column_offset > max_width - one_third) {
       // Otherwise, try to find a word boundary to start the string on
       // that puts the caret in the middle third of the output line.
       int found_start = -1;
@@ -236,7 +247,7 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
       }
 
       // Add ... prefix if necessary.
-      if (found_start < 3) {
+      if (effective_column_offset + found_start < 3) {
         found_start = 0;
       } else {
         *truncated_input =
@@ -342,6 +353,16 @@ static absl::Status UpdateErrorFromPayload(absl::Status status,
   return new_status;
 }
 
+// Remove ZetaSql-owned payloads from `status`. Returns true if all payloads
+// are removed, or false if some non-ZetaSql-owned payloads remain.
+static bool RedactZetaSqlOwnedPayloads(absl::Status& status) {
+  status.ErasePayload(kErrorMessageModeUrl);
+  internal::ErasePayloadTyped<ErrorLocation>(&status);
+  internal::ErasePayloadTyped<DeprecationWarning>(&status);
+  internal::ErasePayloadTyped<ScriptException>(&status);
+  return !internal::HasPayload(status);
+}
+
 // Returns a status with the same payloads, but the message changed if needed
 // to apply the given stability_mode. For example: TEST_REDACTED ensures the
 // relevant errors are redacted, usually for file-based tests that depend on
@@ -356,12 +377,47 @@ static absl::Status ApplyErrorMessageStabilityMode(
     case ERROR_MESSAGE_STABILITY_UNSPECIFIED:
     case ERROR_MESSAGE_STABILITY_PRODUCTION:
       return status;
+    case ERROR_MESSAGE_STABILITY_TEST_REDACTED_WITH_PAYLOADS:
+      switch (status.code()) {
+        case absl::StatusCode::kInvalidArgument:
+        case absl::StatusCode::kAlreadyExists:
+        case absl::StatusCode::kNotFound: {
+          // Erase ZetaSQL payloads
+          ZETASQL_RET_CHECK(
+              !internal::HasPayloadWithType<InternalErrorLocation>(status));
+          // Make a copy so that we don't remove the payloads from 'status'
+          absl::Status for_payload_stripping = status;
+          if (RedactZetaSqlOwnedPayloads(for_payload_stripping)) {
+            // All of the payloads attached to 'status' are ZetaSQL-owned.
+            // Redact the error message from the original status with all
+            // payloads to return.
+            return UpdateMessage(status, "SQL ERROR");
+          }
+          // There are still payloads after removing the ZetaSQL-owned ones,
+          // so return the original status.
+          return status;
+        }
+        default:
+          return status;
+      }
+      break;
     case ERROR_MESSAGE_STABILITY_TEST_REDACTED:
       switch (status.code()) {
         case absl::StatusCode::kInvalidArgument:
         case absl::StatusCode::kAlreadyExists:
-        case absl::StatusCode::kNotFound:
-          return UpdateMessage(status, "SQL ERROR");
+        case absl::StatusCode::kNotFound: {
+          ZETASQL_RET_CHECK(
+              !internal::HasPayloadWithType<InternalErrorLocation>(status));
+          // Make a non-const copy.
+          absl::Status redacted = status;
+          if (RedactZetaSqlOwnedPayloads(redacted)) {
+            // Redact the message only if there are no other payloads. If there
+            // are, it is likely the message comes from a dependency outside of
+            // ZetaSQL.
+            redacted = UpdateMessage(redacted, "SQL ERROR");
+          }
+          return redacted;
+        }
         default:
           return status;
       }
@@ -417,8 +473,9 @@ absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
   return copy;
 }
 
-absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
-                                                    absl::string_view query) {
+absl::Status ConvertInternalErrorLocationToExternal(
+    absl::Status status, absl::string_view query, int input_start_line_offset,
+    int input_start_column_offset) {
   if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
     // Nothing to do.
     return status;
@@ -444,6 +501,9 @@ absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
   }
   error_location.set_line(line_and_column.first);
   error_location.set_column(line_and_column.second);
+  error_location.set_input_start_line_offset(input_start_line_offset);
+  error_location.set_input_start_column_offset(input_start_column_offset);
+
   // Copy ErrorSource information if present.
   *error_location.mutable_error_source() =
       internal_error_location.error_source();

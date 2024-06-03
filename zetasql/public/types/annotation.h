@@ -156,7 +156,28 @@ class AnnotationMap {
   }
 
   // Returns true if this and all the nested AnnotationMap are empty.
+  //
+  // Compare to `IsTopLevelColumnAnnotationEmpty`, which only checks the top
+  // level AnnotationMap.
+  //
+  // For example, the SQL array [COLLATE('s', 'und:ci')] itself does not have
+  // annotations, but its elements have the collation annotation. Empty() will
+  // return false because the nested annotation map, i.e. the element
+  // annotation map is not empty, but IsTopLevelColumnAnnotationEmpty() will
+  // return true because the array itself does not have annotations.
   bool Empty() const { return EmptyInternal(/*annotation_spec_id=*/{}); }
+
+  // Returns true if the top level AnnotationMap is empty, ignoring nested
+  // annotation maps.
+  //
+  // Compare to `Empty()`, which also considers the nested annotation maps.
+  //
+  // For example, the SQL array [COLLATE('s', 'und:ci')] itself does not have
+  // annotations, but its elements have the collation annotation. Empty() will
+  // return false because the nested annotation map, i.e. the element
+  // annotation map is not empty, but IsTopLevelColumnAnnotationEmpty() will
+  // return true because the array itself does not have annotations.
+  bool IsTopLevelColumnAnnotationEmpty() const { return annotations_.empty(); }
 
   // Returns true if this or any of the nested AnnotationMaps have an annotation
   // for the given AnnotationSpec type.

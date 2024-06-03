@@ -17,6 +17,9 @@
 
 package com.google.zetasql;
 
+import static java.util.Map.entry;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
@@ -47,39 +50,35 @@ public abstract class Type implements Serializable {
   @SuppressWarnings("GoodTime") // should be a java.time.Instant
   public static final long TIMESTAMP_MICROS_MAX = 253402300800L * 1000000 - 1;
 
-  // The order should be the same as the order in zetasql.TypeKind
-  static final String[] TYPE_KIND_NAMES = {
-    "UNKNOWN", // Not a valid type.
-    "INT32",
-    "INT64",
-    "UINT32",
-    "UINT64",
-    "BOOL",
-    "FLOAT",
-    "DOUBLE",
-    "STRING",
-    "BYTES",
-    "DATE",
-    "TIMESTAMP_SECONDS",
-    "TIMESTAMP_MILLIS",
-    "TIMESTAMP_MICROS",
-    "", // Used to be TIMESTAMP_NANOS, removed.
-    "ENUM",
-    "ARRAY",
-    "STRUCT",
-    "PROTO",
-    "TIMESTAMP",
-    "TIME",
-    "DATETIME",
-    "GEOGRAPHY",
-    "NUMERIC",
-    "BIGNUMERIC",
-    "EXTENDED",
-    "JSON",
-    "INTERVAL",
-    "RANGE",
-    "MAP",
-  };
+  static final ImmutableMap<TypeKind, String> TYPE_KIND_NAMES =
+      ImmutableMap.ofEntries(
+          entry(TypeKind.TYPE_UNKNOWN, "UNKNOWN"), // Not a valid type.
+          entry(TypeKind.TYPE_INT32, "INT32"),
+          entry(TypeKind.TYPE_INT64, "INT64"),
+          entry(TypeKind.TYPE_UINT32, "UINT32"),
+          entry(TypeKind.TYPE_UINT64, "UINT64"),
+          entry(TypeKind.TYPE_BOOL, "BOOL"),
+          entry(TypeKind.TYPE_FLOAT, "FLOAT"),
+          entry(TypeKind.TYPE_DOUBLE, "DOUBLE"),
+          entry(TypeKind.TYPE_STRING, "STRING"),
+          entry(TypeKind.TYPE_BYTES, "BYTES"),
+          entry(TypeKind.TYPE_DATE, "DATE"),
+          entry(TypeKind.TYPE_ENUM, "ENUM"),
+          entry(TypeKind.TYPE_ARRAY, "ARRAY"),
+          entry(TypeKind.TYPE_STRUCT, "STRUCT"),
+          entry(TypeKind.TYPE_PROTO, "PROTO"),
+          entry(TypeKind.TYPE_TIMESTAMP, "TIMESTAMP"),
+          entry(TypeKind.TYPE_TIME, "TIME"),
+          entry(TypeKind.TYPE_DATETIME, "DATETIME"),
+          entry(TypeKind.TYPE_GEOGRAPHY, "GEOGRAPHY"),
+          entry(TypeKind.TYPE_NUMERIC, "NUMERIC"),
+          entry(TypeKind.TYPE_BIGNUMERIC, "BIGNUMERIC"),
+          entry(TypeKind.TYPE_EXTENDED, "EXTENDED"),
+          entry(TypeKind.TYPE_JSON, "JSON"),
+          entry(TypeKind.TYPE_INTERVAL, "INTERVAL"),
+          entry(TypeKind.TYPE_RANGE, "RANGE"),
+          entry(TypeKind.TYPE_MAP, "MAP"),
+          entry(TypeKind.TYPE_UUID, "UUID"));
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
   @SuppressWarnings("GoodTime") // should accept a java.time.LocalDate (?)
@@ -207,6 +206,10 @@ public abstract class Type implements Serializable {
 
   public boolean isMap() {
     return kind == TypeKind.TYPE_MAP;
+  }
+
+  public boolean isUuid() {
+    return kind == TypeKind.TYPE_UUID;
   }
 
   public boolean isStructOrProto() {

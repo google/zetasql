@@ -22,7 +22,6 @@ ERROR: Syntax error: Unexpected identifier `sdfds` [at 1:1]
 ==
 
 # Strings and bytes are not quoted again in the error message.
-[no_test_get_parse_tokens]
 {{r|b|rb}}'sdfd{{"|}}s'
 --
 ALTERNATION GROUP: r,"
@@ -62,7 +61,6 @@ rb'sdfds'
 ^
 ==
 
-[no_test_get_parse_tokens]
 {{r|b|rb}}"sdfd{{'|}}s"
 --
 ALTERNATION GROUP: r,'
@@ -102,7 +100,6 @@ rb"sdfds"
 ^
 ==
 
-[no_test_get_parse_tokens]
 {{r|b|rb}}"""sdfds
 
 foo
@@ -163,7 +160,6 @@ rb"""sdfds
 
 ==
 
-[no_test_get_parse_tokens]
 {{r|b|rb}}'''sdfds
 
 foo
@@ -295,7 +291,7 @@ select 'some char\xyy'
 
 select abcd\nefg;
 --
-ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+ERROR: Syntax error: Expected end of input but got "\" [at 1:12]
 select abcd\nefg;
            ^
 ==
@@ -449,7 +445,7 @@ select x from abc group by
 
 select cast(x 1);
 --
-ERROR: Syntax error: Unexpected integer literal "1" [at 1:15]
+ERROR: Syntax error: Expected keyword AS but got integer literal "1" [at 1:15]
 select cast(x 1);
               ^
 ==
@@ -505,7 +501,7 @@ select cast(x as prot<a.b>);
 
 select cast(x, int32);
 --
-ERROR: Syntax error: Unexpected "," [at 1:14]
+ERROR: Syntax error: Expected keyword AS but got "," [at 1:14]
 select cast(x, int32);
              ^
 ==

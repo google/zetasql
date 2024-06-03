@@ -1099,17 +1099,17 @@ std::vector<AnalyticFunctionTestCase> GetLeadLagTestCases() {
       GenerateWindowOrderingComparatorBySlot(input_variables, 0);
 
   const absl::Status null_offset_lead_error =
-      ::zetasql_base::InvalidArgumentErrorBuilder()
+      ::zetasql_base::OutOfRangeErrorBuilder()
       << "The offset to the function LEAD must not be null";
   const absl::Status negative_offset_lead_error =
-      ::zetasql_base::InvalidArgumentErrorBuilder()
+      ::zetasql_base::OutOfRangeErrorBuilder()
       << "The offset to the function LEAD must not be negative";
 
   const absl::Status null_offset_lag_error =
-      ::zetasql_base::InvalidArgumentErrorBuilder()
+      ::zetasql_base::OutOfRangeErrorBuilder()
       << "The offset to the function LAG must not be null";
   const absl::Status negative_offset_lag_error =
-      ::zetasql_base::InvalidArgumentErrorBuilder()
+      ::zetasql_base::OutOfRangeErrorBuilder()
       << "The offset to the function LAG must not be negative";
 
   return {// {function_kind, input_variables, input_tuples, arguments, windows,

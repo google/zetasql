@@ -28,7 +28,6 @@
 #include <set>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <variant>
@@ -36,6 +35,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
@@ -45,6 +45,7 @@
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/warning_sink.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -55,19 +56,24 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -83,6 +89,7 @@
 #include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -93,9 +100,9 @@
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "google/protobuf/repeated_ptr_field.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -137,10 +144,10 @@ void Resolver::Reset(absl::string_view sql) {
   analyzing_nonvolatile_stored_expression_columns_ = false;
   analyzing_check_constraint_expression_ = false;
   default_expr_access_error_name_scope_.reset();
-  unique_deprecation_warnings_.clear();
-  deprecation_warnings_.clear();
+  warning_sink_.Reset();
   function_argument_info_ = nullptr;
   resolved_columns_from_table_scans_.clear();
+  side_effect_scope_depth_ = 0;
 
   if (analyzer_options_.column_id_sequence_number() != nullptr) {
     next_column_id_sequence_ = analyzer_options_.column_id_sequence_number();
@@ -238,7 +245,7 @@ Resolver::MakeResolvedLiteralWithoutLocation(const Value& value) {
 absl::Status Resolver::AddAdditionalDeprecationWarningsForCalledFunction(
     const ASTNode* ast_location, const FunctionSignature& signature,
     absl::string_view function_name, bool is_tvf) {
-  std::set<DeprecationWarning_Kind> warning_kinds_seen;
+  absl::flat_hash_set<DeprecationWarning_Kind> warning_kinds_seen;
   for (const FreestandingDeprecationWarning& warning :
        signature.AdditionalDeprecationWarnings()) {
     const DeprecationWarning_Kind warning_kind =
@@ -246,67 +253,45 @@ absl::Status Resolver::AddAdditionalDeprecationWarningsForCalledFunction(
     // To facilitate log analysis, we record a warning for every deprecation
     // warning kind present in the body. But to avoid creating too many
     // warnings, we only record the first warning for each kind.
-    if (zetasql_base::InsertIfNotPresent(&warning_kinds_seen, warning_kind)) {
-      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-          ast_location, warning_kind,
-          // For non-TVFs, 'function_name' starts with "Function ".
-          absl::StrCat(is_tvf ? "Table-valued function " : "", function_name,
-                       " triggers a deprecation warning with kind ",
-                       DeprecationWarning_Kind_Name(warning_kind)),
-          &warning));
+    if (!warning_kinds_seen.emplace(warning_kind).second) {
+      continue;
     }
+    // For non-TVFs, 'function_name' starts with "Function ".
+    std::string warning_message =
+        absl::StrCat(is_tvf ? "Table-valued function " : "", function_name,
+                     " triggers a deprecation warning with kind ",
+                     DeprecationWarning_Kind_Name(warning_kind));
+    absl::Status warning_status = MakeSqlErrorAt(ast_location)
+                                  << warning_message;
+    ZETASQL_RET_CHECK(
+        internal::HasPayloadWithType<InternalErrorLocation>(warning_status));
+    auto internal_error_location =
+        internal::GetPayload<InternalErrorLocation>(warning_status);
+    // Add the error sources from `warning` to `internal_error_location`.
+    google::protobuf::RepeatedPtrField<ErrorSource>* error_sources =
+        internal_error_location.mutable_error_source();
+    ZETASQL_RET_CHECK(error_sources->empty());
+    error_sources->CopyFrom(warning.error_location().error_source());
+
+    // Add a new error source corresponding to `warning`.
+    ErrorSource* new_error_source = error_sources->Add();
+    new_error_source->set_error_message(warning.message());
+    new_error_source->set_error_message_caret_string(warning.caret_string());
+    *new_error_source->mutable_error_location() = warning.error_location();
+
+    // Override existing error location
+    internal::AttachPayload(&warning_status, internal_error_location);
+    ZETASQL_RETURN_IF_ERROR(warning_sink_.AddWarning(warning_kind, warning_status));
   }
 
   return absl::OkStatus();
 }
 
-absl::Status Resolver::AddDeprecationWarning(
-    const ASTNode* ast_location, DeprecationWarning::Kind kind,
-    const std::string& message,
-    const FreestandingDeprecationWarning* source_warning) {
-  if (zetasql_base::InsertIfNotPresent(&unique_deprecation_warnings_,
-                              std::make_pair(kind, message))) {
-    DeprecationWarning warning_proto;
-    warning_proto.set_kind(kind);
-
-    absl::Status warning = MakeSqlErrorAt(ast_location) << message;
-    zetasql::internal::AttachPayload(&warning, warning_proto);
-    if (source_warning != nullptr) {
-      ZETASQL_RET_CHECK_EQ(kind, source_warning->deprecation_warning().kind());
-
-      ZETASQL_RET_CHECK(zetasql::internal::HasPayloadWithType<InternalErrorLocation>(
-          warning));
-      auto internal_error_location =
-          zetasql::internal::GetPayload<InternalErrorLocation>(warning);
-
-      // Add the error sources from 'source_warning' to
-      // 'internal_error_location'.
-      google::protobuf::RepeatedPtrField<ErrorSource>* error_sources =
-          internal_error_location.mutable_error_source();
-      ZETASQL_RET_CHECK(error_sources->empty());
-      error_sources->CopyFrom(source_warning->error_location().error_source());
-
-      // Add a new error source corresponding to 'source_warning'.
-      ErrorSource* new_error_source = error_sources->Add();
-      new_error_source->set_error_message(source_warning->message());
-      new_error_source->set_error_message_caret_string(
-          source_warning->caret_string());
-      *new_error_source->mutable_error_location() =
-          source_warning->error_location();
-
-      // Overwrites the previous InternalErrorLocation.
-      zetasql::internal::AttachPayload(&warning, internal_error_location);
-    }
-
-    deprecation_warnings_.push_back(warning);
-  }
-
-  return absl::OkStatus();
-}
-
-bool Resolver::TypeSupportsGrouping(const Type* type,
-                                    std::string* no_grouping_type) const {
-  return type->SupportsGrouping(language(), no_grouping_type);
+absl::Status Resolver::AddDeprecationWarning(const ASTNode* ast_location,
+                                             DeprecationWarning::Kind kind,
+                                             const std::string& message) {
+  return warning_sink_.AddWarning(kind, MakeSqlErrorAt(ast_location)
+                                            << message);
 }
 
 absl::Status Resolver::ResolveStandaloneExpr(
@@ -1109,6 +1094,19 @@ absl::Status Resolver::ResolveOptionsList(
     absl::flat_hash_set<std::string> specified_options;
     for (const ASTOptionsEntry* options_entry :
          options_list->options_entries()) {
+      if (!language().LanguageFeatureEnabled(
+              FEATURE_ENABLE_ALTER_ARRAY_OPTIONS)) {
+        switch (options_entry->assignment_op()) {
+          case ASTOptionsEntry::ADD_ASSIGN:
+            return MakeSqlErrorAt(options_entry)
+                   << "Operator `+=` is not supported";
+          case ASTOptionsEntry::SUB_ASSIGN:
+            return MakeSqlErrorAt(options_entry)
+                   << "Operator `-=` is not supported";
+          default:
+            break;
+        }
+      }
       const std::string option_name =
           absl::AsciiStrToLower(options_entry->name()->GetAsString());
       if (analyzer_options_.allowed_hints_and_options()
@@ -1402,6 +1400,13 @@ absl::Status Resolver::ResolveType(
     case AST_FUNCTION_TYPE: {
       return MakeSqlErrorAt(type) << "FUNCTION type not supported";
     }
+
+    case AST_MAP_TYPE: {
+      return ResolveMapType(type->GetAsOrDie<ASTMapType>(),
+                            resolve_type_modifier_options, resolved_type,
+                            resolved_type_modifiers);
+    }
+
     default:
       break;
   }
@@ -1788,6 +1793,80 @@ Resolver::ResolveParameterLiterals(
   return resolved_literals;
 }
 
+constexpr absl::string_view kMapCollationError =
+    "Collation is not supported on MAP or its key and value types";
+
+absl::Status Resolver::ResolveMapType(
+    const ASTMapType* map_type,
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const Type** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  if (map_type->collate() != nullptr) {
+    return MakeSqlErrorAt(map_type->collate()) << kMapCollationError;
+  }
+
+  const Type* resolved_key_type;
+  TypeModifiers resolved_key_type_modifiers;
+  ZETASQL_RETURN_IF_ERROR(ResolveType(map_type->key_type(),
+                              resolve_type_modifier_options, &resolved_key_type,
+                              &resolved_key_type_modifiers));
+
+  const Type* resolved_value_type;
+  TypeModifiers resolved_value_type_modifiers;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveType(map_type->value_type(), resolve_type_modifier_options,
+                  &resolved_value_type, &resolved_value_type_modifiers));
+
+  if (!resolved_key_type_modifiers.collation().Empty()) {
+    return MakeSqlErrorAt(map_type->key_type()) << kMapCollationError;
+  }
+  if (!resolved_value_type_modifiers.collation().Empty()) {
+    return MakeSqlErrorAt(map_type->value_type()) << kMapCollationError;
+  }
+
+  TypeParameters resolved_key_type_params =
+      resolved_key_type_modifiers.release_type_parameters();
+  TypeParameters resolved_value_type_params =
+      resolved_value_type_modifiers.release_type_parameters();
+
+  ZETASQL_ASSIGN_OR_RETURN(*resolved_type,
+                   type_factory_->MakeMapType(resolved_key_type,
+                                              resolved_value_type, language()),
+                   _.With(LocationOverride(map_type)));
+
+  if (!(*resolved_type)->IsSupportedType(language())) {
+    return MakeSqlErrorAt(map_type)
+           << (*resolved_type)->ShortTypeName(language().product_mode())
+           << " is not supported";
+  }
+
+  std::vector<TypeParameters> child_parameter_list = {};
+
+  if (!resolved_key_type_params.IsEmpty() ||
+      !resolved_value_type_params.IsEmpty()) {
+    child_parameter_list = {std::move(resolved_key_type_params),
+                            std::move(resolved_value_type_params)};
+  }
+
+  TypeParameters resolved_type_params;
+  if (resolve_type_modifier_options.allow_type_parameters) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_type_params,
+        ResolveTypeParameters(map_type->type_parameters(), **resolved_type,
+                              std::move(child_parameter_list)));
+  } else {
+    ZETASQL_RET_CHECK(map_type->type_parameters() == nullptr)
+        << "Type parameters are not allowed directly on MAP";
+  }
+
+  ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+  *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+      std::move(resolved_type_params), Collation{});
+
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
     const ASTNode* error_location, ResolvedFunctionCallBase* function_call) {
   ZETASQL_RET_CHECK_NE(function_call, nullptr);
@@ -2149,7 +2228,7 @@ absl::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
 
   // INT64 and UINT64 support equality but cannot be coerced to a common type.
   // INT32 also implicitly coerces to INT64 and supports equality with UINT64.
-  // Although not all numerical types are coerceable to all other numerical
+  // Although not all numerical types are coercible to all other numerical
   // types, we nonetheless support equality between all numerical types.
   if (type1->IsNumerical() && type2->IsNumerical()) {
     return type1->SupportsEquality(analyzer_options_.language()) &&

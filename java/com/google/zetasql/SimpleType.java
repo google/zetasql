@@ -54,11 +54,11 @@ public class SimpleType extends Type {
     if (productMode == ProductMode.PRODUCT_EXTERNAL && getKind() == TypeKind.TYPE_DOUBLE) {
       return "FLOAT64";
     }
-    return TYPE_KIND_NAMES[getKind().getNumber()];
+    return TYPE_KIND_NAMES.get(getKind());
   }
 
   @Override
   public String debugString(boolean details) {
-    return TYPE_KIND_NAMES[getKind().getNumber()];
+    return TYPE_KIND_NAMES.get(getKind());
   }
 }

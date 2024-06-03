@@ -1,6 +1,6 @@
 # Positive simplest case
 [default language_features=V_1_3_WITH_GROUP_ROWS]
-SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
 
 QueryStatement [0-63] [SELECT f(x...()) FROM T]
@@ -30,7 +30,7 @@ QueryStatement [0-63] [SELECT f(x...()) FROM T]
             Identifier(T) [62-63] [T]
 --
 SELECT
-  f(x) WITH GROUP_ROWS (
+  f(x) WITH GROUP ROWS (
     SELECT
       x
     FROM
@@ -41,8 +41,8 @@ FROM
 
 ==
 
-# Two param function with ORDER BY referring 2 columns in WITH GROUP_ROWS
-SELECT f(x ORDER BY y) WITH GROUP_ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
+# Two param function with ORDER BY referring 2 columns in WITH GROUP ROWS
+SELECT f(x ORDER BY y) WITH GROUP ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
 --
 
 QueryStatement [0-77] [SELECT f(x...()) FROM T]
@@ -80,7 +80,7 @@ QueryStatement [0-77] [SELECT f(x...()) FROM T]
 --
 SELECT
   f(x
-    ORDER BY y) WITH GROUP_ROWS (
+    ORDER BY y) WITH GROUP ROWS (
     SELECT
       x,
       y
@@ -92,8 +92,8 @@ FROM
 
 ==
 
-# Two param function referring 2 columns in WITH GROUP_ROWS
-SELECT f(x, y) WITH GROUP_ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
+# Two param function referring 2 columns in WITH GROUP ROWS
+SELECT f(x, y) WITH GROUP ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
 --
 QueryStatement [0-69] [SELECT f(x...()) FROM T]
   Query [0-69] [SELECT f(x...()) FROM T]
@@ -127,7 +127,7 @@ QueryStatement [0-69] [SELECT f(x...()) FROM T]
             Identifier(T) [68-69] [T]
 --
 SELECT
-  f(x, y) WITH GROUP_ROWS (
+  f(x, y) WITH GROUP ROWS (
     SELECT
       x,
       y
@@ -144,7 +144,7 @@ FROM
 SELECT
   SUM(f2),
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT SUM(f2) AS x
       FROM GROUP_ROWS()
       GROUP BY f3
@@ -213,7 +213,7 @@ QueryStatement [0-202] [SELECT   SUM...GROUP BY f1]
 --
 SELECT
   SUM(f2),
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       SUM(f2) AS x
     FROM
@@ -231,7 +231,7 @@ GROUP BY f1
 # group_rows can be used as identifier.
 SELECT
   `with` group_rows,
-  sum(group_rows) with group_rows(
+  sum(group_rows) WITH GROUP ROWS(
     SELECT group_rows
     FROM group_rows())
 FROM (
@@ -286,7 +286,7 @@ QueryStatement [0-175] [SELECT   `...group_rows]
 --
 SELECT
   `with` AS group_rows,
-  sum(group_rows) WITH GROUP_ROWS (
+  sum(group_rows) WITH GROUP ROWS (
     SELECT
       group_rows
     FROM
@@ -305,7 +305,7 @@ GROUP BY group_rows
 SELECT
   SUM(f2),
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT SUM(f2) AS x
       FROM (SELECT f1, f2, f3 FROM GROUP_ROWS())
       GROUP BY f3)
@@ -372,7 +372,7 @@ QueryStatement [0-161] [SELECT   SUM...GROUP BY f1]
 --
 SELECT
   SUM(f2),
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       SUM(f2) AS x
     FROM
@@ -396,7 +396,7 @@ GROUP BY f1
 SELECT
   SUM(f2),
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT (SELECT SUM(f2) FROM GROUP_ROWS()) AS x)
 FROM T GROUP BY f1;
 --
@@ -448,7 +448,7 @@ QueryStatement [0-121] [SELECT   SUM...GROUP BY f1]
 --
 SELECT
   SUM(f2),
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       (
         SELECT
@@ -463,13 +463,13 @@ GROUP BY f1
 
 ==
 
-# Nested WITH GROUP_ROWS
+# Nested WITH GROUP ROWS
 SELECT
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT
         MAX(y)
-          WITH GROUP_ROWS (
+          WITH GROUP ROWS (
             SELECT MIN(f4) AS y
             FROM GROUP_ROWS()
             GROUP BY f3
@@ -540,9 +540,9 @@ QueryStatement [0-271] [SELECT   AVG...GROUP BY f1]
             Identifier(f1) [269-271] [f1]
 --
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
-      MAX(y) WITH GROUP_ROWS (
+      MAX(y) WITH GROUP ROWS (
         SELECT
           MIN(f4) AS y
         FROM
@@ -559,10 +559,10 @@ GROUP BY f1
 
 ==
 
-# WITH GROUP_ROWS without GROUP_ROWS()
+# WITH GROUP ROWS without GROUP_ROWS()
 SELECT
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT SUM(f2) AS x FROM P)
 FROM T
 GROUP BY f1;
@@ -603,7 +603,7 @@ QueryStatement [0-90] [SELECT   AVG...GROUP BY f1]
             Identifier(f1) [88-90] [f1]
 --
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       SUM(f2) AS x
     FROM
@@ -615,7 +615,7 @@ GROUP BY f1
 
 ==
 
-# GROUP_ROWS() without WITH GROUP_ROWS
+# GROUP_ROWS() without WITH GROUP ROWS
 SELECT
   AVG(x)
      (
@@ -654,14 +654,14 @@ SELECT
       GROUP BY f3)
 FROM T GROUP BY f1;
 --
-ERROR: Saw WITH directly after a function call, which is not allowed. Did you forget to put a comma before the WITH, or did you mean "WITH GROUP_ROWS"? [at 2:10]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 2:10]
   AVG(x) WITH
          ^
 ==
 
 # GROUP_ROWS(): missing () next to FROM GROUP_ROWS
 SELECT
-  AVG(x) WITH GROUP_ROWS
+  AVG(x) WITH GROUP ROWS
      (
       SELECT SUM(f2) AS x
       FROM GROUP_ROWS
@@ -708,7 +708,7 @@ QueryStatement [0-124] [SELECT   AVG...GROUP BY f1]
             Identifier(f1) [122-124] [f1]
 --
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       SUM(f2) AS x
     FROM
@@ -721,9 +721,9 @@ GROUP BY f1
 
 ==
 
-# GROUP_ROWS(): added () next to WITH GROUP_ROWS
+# GROUP_ROWS(): added () next to WITH GROUP ROWS
 SELECT
-  AVG(x) WITH GROUP_ROWS()
+  AVG(x) WITH GROUP ROWS()
      (
       SELECT SUM(f2) AS x
       FROM GROUP_ROWS()
@@ -731,27 +731,27 @@ SELECT
 FROM T GROUP BY f1;
 --
 ERROR: Syntax error: Unexpected ")" [at 2:26]
-  AVG(x) WITH GROUP_ROWS()
+  AVG(x) WITH GROUP ROWS()
                          ^
 
 ==
 
-# WITH GROUP_ROWS and analytic function first
-SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP_ROWS(SELECT SUM(f2) AS x
+# WITH GROUP ROWS and analytic function first
+SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP ROWS(SELECT SUM(f2) AS x
       FROM GROUP_ROWS()
       GROUP BY f3)
 FROM T
 --
 ERROR: Syntax error: Expected end of input but got keyword WITH [at 1:45]
-SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP_ROWS(SELECT SUM(f2) AS x
+SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP ROWS(SELECT SUM(f2) AS x
                                             ^
 
 ==
 
-# WITH GROUP_ROWS followed by analytic function window
+# WITH GROUP ROWS followed by analytic function window
 SELECT
   f()
-    WITH GROUP_ROWS(SELECT SUM(f2) AS x FROM GROUP_ROWS() GROUP BY f3)
+    WITH GROUP ROWS(SELECT SUM(f2) AS x FROM GROUP_ROWS() GROUP BY f3)
     OVER (PARTITION BY a ORDER BY a)
 FROM T
 --
@@ -798,7 +798,7 @@ QueryStatement [0-127] [SELECT   f...a) FROM T]
             Identifier(T) [126-127] [T]
 --
 SELECT
-  f() WITH GROUP_ROWS (
+  f() WITH GROUP ROWS (
     SELECT
       SUM(f2) AS x
     FROM
@@ -811,20 +811,20 @@ FROM
 
 ==
 
-# Analytic function inside WITH GROUP_ROWS
-SELECT f() WITH GROUP_ROWS(SELECT g(f2) OVER (PARTITION BY a ORDER BY a) AS x
+# Analytic function inside WITH GROUP ROWS
+SELECT f() WITH GROUP ROWS(SELECT g(f2) OVER (PARTITION BY a ORDER BY a) AS x
       FROM GROUP_ROWS())
 FROM T
 --
 QueryStatement [0-109] [SELECT f()...()) FROM T]
   Query [0-109] [SELECT f()...()) FROM T]
     Select [0-109] [SELECT f()...()) FROM T]
-      SelectList [7-102] [f() WITH GROUP_RO...UP_ROWS())]
-        SelectColumn [7-102] [f() WITH GROUP_RO...UP_ROWS())]
-          FunctionCall [7-102] [f() WITH GROUP_RO...UP_ROWS())]
+      SelectList [7-102] [f() WITH GROUP...GROUP_ROWS())]
+        SelectColumn [7-102] [f() WITH GROUP...GROUP_ROWS())]
+          FunctionCall [7-102] [f() WITH GROUP...GROUP_ROWS())]
             PathExpression [7-8] [f]
               Identifier(f) [7-8] [f]
-            WithGroupRows [7-102] [f() WITH GROUP_RO...UP_ROWS())]
+            WithGroupRows [7-102] [f() WITH GROUP...GROUP_ROWS())]
               Query [27-101] [SELECT g(f2...GROUP_ROWS()]
                 Select [27-101] [SELECT g(f2...GROUP_ROWS()]
                   SelectList [34-77] [g(f2) OVER...BY a) AS x]
@@ -855,7 +855,7 @@ QueryStatement [0-109] [SELECT f()...()) FROM T]
             Identifier(T) [108-109] [T]
 --
 SELECT
-  f() WITH GROUP_ROWS (
+  f() WITH GROUP ROWS (
     SELECT
       g(f2) OVER (PARTITION BY a
         ORDER BY a) AS x
@@ -932,7 +932,7 @@ FROM
 # GROUP_ROWS() joined with the original table
 SELECT
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT f2 AS x
       FROM GROUP_ROWS() g, t1
       WHERE t1.f4 = g.f4
@@ -993,7 +993,7 @@ QueryStatement [0-154] [SELECT   AVG...GROUP BY f1]
             Identifier(f1) [152-154] [f1]
 --
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       f2 AS x
     FROM
@@ -1009,10 +1009,10 @@ GROUP BY f1
 
 ==
 
-# WITH GROUP_ROWS and subquery joining with outer table, no GROUP_ROWS()
+# WITH GROUP ROWS and subquery joining with outer table, no GROUP_ROWS()
 SELECT
   AVG(x)
-    WITH GROUP_ROWS (
+    WITH GROUP ROWS (
       SELECT f2 AS x
       FROM T t2, t1
       WHERE t2.f4 = t1.f4
@@ -1073,7 +1073,7 @@ QueryStatement [0-145] [SELECT   AVG...GROUP BY f1]
             Identifier(f1) [143-145] [f1]
 --
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       f2 AS x
     FROM
@@ -1146,9 +1146,9 @@ FROM
 # WITH OFFSET after CURRENT_TIMESTAMP()
 SELECT * FROM GROUP_ROWS FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WITH OFFSET;
 --
-ERROR: Syntax error: Expected GROUP_ROWS but got keyword OFFSET [at 1:73]
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 1:68]
 SELECT * FROM GROUP_ROWS FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WITH OFFSET;
-                                                                        ^
+                                                                   ^
 ==
 
 # WITH OFFSET after UNNEST() works
@@ -1185,7 +1185,7 @@ FROM
 
 # WITH WEIGHT after RESERVOIR() works
 SELECT
-  f(x) WITH GROUP_ROWS (SELECT 1 as x FROM GROUP_ROWS()s)
+  f(x) WITH GROUP ROWS (SELECT 1 as x FROM GROUP_ROWS()s)
 FROM
   T1 TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT
 --
@@ -1225,7 +1225,7 @@ QueryStatement [0-116] [SELECT   f...WITH WEIGHT]
               WithWeight [105-116] [WITH WEIGHT]
 --
 SELECT
-  f(x) WITH GROUP_ROWS (
+  f(x) WITH GROUP ROWS (
     SELECT
       1 AS x
     FROM
@@ -1238,7 +1238,7 @@ FROM
 
 # WITH used for temporary table definition works
 WITH nums AS
-  (SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) x FROM T)
+  (SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) x FROM T)
 SELECT some_numbers
 FROM nums;
 --
@@ -1286,7 +1286,7 @@ QueryStatement [0-112] [WITH nums...FROM nums]
 WITH
   nums AS (
     SELECT
-      f(x) WITH GROUP_ROWS (
+      f(x) WITH GROUP ROWS (
         SELECT
           x
         FROM
@@ -1304,7 +1304,7 @@ FROM
 
 # WITH used to define query referring GROUP_ROWS()
 WITH t1 AS (SELECT MAX(x) x FROM GROUP_ROWS())
-SELECT AVG(x) WITH GROUP_ROWS (SELECT * FROM t1)
+SELECT AVG(x) WITH GROUP ROWS (SELECT * FROM t1)
 FROM T;
 --
 QueryStatement [0-102] [WITH t1 AS...t1) FROM T]
@@ -1358,7 +1358,7 @@ WITH
       GROUP_ROWS()
   )
 SELECT
-  AVG(x) WITH GROUP_ROWS (
+  AVG(x) WITH GROUP ROWS (
     SELECT
       *
     FROM
@@ -1368,12 +1368,12 @@ FROM
   T
 ==
 
-# WITH GROUP_ROWS feature disabled
+# WITH GROUP ROWS feature disabled
 [language_features=]
-SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
-ERROR: WITH GROUP_ROWS is not supported [at 1:13]
-SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+ERROR: WITH GROUP ROWS is not supported [at 1:13]
+SELECT f(x) WITH GROUP ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
             ^
 ==
 

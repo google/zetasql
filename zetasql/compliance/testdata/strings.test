@@ -464,13 +464,6 @@ SELECT "a" || "b" || "c"
 --
 ARRAY<STRUCT<STRING>>[{"abc"}]
 ==
-[name=strings_function_concat_1]
-SELECT CONCAT()
---
-ERROR: generic::invalid_argument: No matching signature for function CONCAT with no arguments. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
-SELECT CONCAT()
-       ^
-==
 
 [name=strings_function_strpos]
 SELECT STRPOS("abc", "b")
@@ -1113,23 +1106,6 @@ ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT must be a literal o
   json_extract('{"a": "foo"}', (select '$.a')),
                                ^
 ==
-[name=json_extract_no_arguments]
-select
-  json_extract(),
-  json_extract_scalar()
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
-  json_extract(),
-  ^
-==
-[name=json_extract_one_argument]
-select
-  json_extract('{"a": "foo"}')
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
-  json_extract('{"a": "foo"}')
-  ^
-==
 [name=json_extract_array_literal_path]
 select
   json_extract_array('{"a": ["foo"]}', '$.a')
@@ -1176,14 +1152,6 @@ select
 ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_ARRAY must be a literal or query parameter [at 2:40]
   json_extract_array('{"a": ["foo"]}', (select '$.a'))
                                        ^
-==
-[name=json_extract_array_no_arguments]
-select
-  json_extract_array()
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT_ARRAY. Supported signature: JSON_EXTRACT_ARRAY(STRING, [STRING]) [at 2:3]
-  json_extract_array()
-  ^
 ==
 [name=json_extract_array_one_argument_valid]
 select
@@ -1253,15 +1221,6 @@ select
 ERROR: generic::invalid_argument: Argument 2 to JSON_EXTRACT_STRING_ARRAY must be a literal or query parameter [at 2:47]
   json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
                                               ^
-==
-[required_features=JSON_ARRAY_FUNCTIONS]
-[name=json_extract_string_array_no_arguments]
-select
-  json_extract_string_array()
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT_STRING_ARRAY. Supported signature: JSON_EXTRACT_STRING_ARRAY(STRING, [STRING]) [at 2:3]
-  json_extract_string_array()
-  ^
 ==
 [required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_one_argument_valid]

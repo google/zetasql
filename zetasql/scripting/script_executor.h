@@ -36,6 +36,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/control_flow_graph.h"
+#include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/procedure_extension.pb.h"
 #include "zetasql/scripting/script_executor_state.pb.h"
 #include "zetasql/scripting/script_segment.h"
@@ -567,11 +568,11 @@ class ScriptExecutorOptions {
     return query_parameters_;
   }
 
-  const VariableWithTypeParameterMap& script_variables() const {
-    return script_variables_;
+  const ParsedScriptOptions& parsed_script_options() const {
+    return parsed_script_options_;
   }
-  void set_script_variables(const VariableWithTypeParameterMap& variables) {
-    script_variables_ = std::move(variables);
+  void set_parsed_script_options(ParsedScriptOptions options) {
+    parsed_script_options_ = std::move(options);
   }
 
   ErrorMessageMode error_message_mode() const { return error_message_mode_; }
@@ -596,10 +597,7 @@ class ScriptExecutorOptions {
   LanguageOptions language_options_;
   SystemVariablesMap engine_owned_system_variables_;
   ParsedScript::QueryParameters query_parameters_;
-  // Script variables declared before the script starts. For example, when a
-  // script runs as part of a session, the script will inherit the session
-  // variables.
-  VariableWithTypeParameterMap script_variables_;
+  ParsedScriptOptions parsed_script_options_;
   ErrorMessageMode error_message_mode_ = ERROR_MESSAGE_ONE_LINE;
 
   MemoryLimitOptions variable_size_limit_options_ =

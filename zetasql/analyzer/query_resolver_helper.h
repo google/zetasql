@@ -186,6 +186,50 @@ struct OrderByItemInfo {
   ResolvedOrderByItemEnums::NullOrderMode null_order;
 };
 
+// A struct representing the state of group by columns.
+struct GroupByColumnState {
+  // The computed column that will be used as group by keys.
+  std::unique_ptr<const ResolvedComputedColumn> computed_column;
+
+  // The pre-group-by expression from the select list without being converted to
+  // a reference of the pre-group-by computed column.
+  // For example
+  //
+  // SELECT key+1 AS key1
+  // FROM KeyValue
+  // GROUP BY key
+  // ORDER BY 1
+  //
+  // The computed column above will contain a column reference of the computed
+  // column named `key1`, whose the original form of pre-group-by expression in
+  // the select list is `key+1`.
+  const ResolvedExpr* pre_group_by_expr = nullptr;
+
+  GroupByColumnState(
+      std::unique_ptr<const ResolvedComputedColumn> computed_column,
+      const ResolvedExpr* pre_group_by_expr)
+      : computed_column(std::move(computed_column)),
+        pre_group_by_expr(pre_group_by_expr) {}
+
+  GroupByColumnState(const GroupByColumnState&) = delete;
+  GroupByColumnState& operator=(const GroupByColumnState&) = delete;
+  GroupByColumnState(GroupByColumnState&&) = default;
+  GroupByColumnState& operator=(GroupByColumnState&&) = default;
+
+  std::string DebugString(absl::string_view indent) const {
+    std::string debug_string;
+    if (computed_column != nullptr) {
+      absl::StrAppend(&debug_string, indent, computed_column->DebugString(),
+                      "\n");
+    }
+    if (pre_group_by_expr != nullptr) {
+      absl::StrAppend(&debug_string, indent, pre_group_by_expr->DebugString(),
+                      "\n");
+    }
+    return debug_string;
+  }
+};
+
 // QueryGroupByAndAggregateInfo is used (and mutated) to store info related
 // to grouping/distinct and aggregation analysis for a single SELECT query
 // block.
@@ -203,12 +247,11 @@ struct QueryGroupByAndAggregateInfo {
   // computed columns for the given aggregate expression.
   // Not owned.
   // The ResolvedComputedColumns are owned by <aggregate_columns_>.
-  std::map<const ASTFunctionCall*, const ResolvedComputedColumn*>
+  std::map<const ASTFunctionCall*, const ResolvedComputedColumnBase*>
       aggregate_expr_map;
 
-  // Group by expressions that must be computed.
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
-      group_by_columns_to_compute;
+  // A list of GroupByColumnState containing expressions that must be computed.
+  std::vector<GroupByColumnState> group_by_column_state_list;
 
   // Map of group by expressions to entries within group_by_columns_to_compute.
   // TODO: FieldPathExpressionEqualsOperator is not 100% compatible
@@ -234,7 +277,7 @@ struct QueryGroupByAndAggregateInfo {
   // resolution, aggregate functions are moved into <aggregate_columns_> and
   // replaced by a ResolvedColumnRef pointing at the ResolvedColumn created
   // here.
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
       aggregate_columns_to_compute;
 
   // A list of unique pointers that need to stick around until being cleaned
@@ -463,13 +506,14 @@ class QueryResolutionInfo {
   QueryResolutionInfo& operator=(const QueryResolutionInfo&) = delete;
   ~QueryResolutionInfo();
 
-  // Adds group by column <column>, which is computed from <expr>. If a field
-  // path expression that is equivalent to <expr> is already present in the
-  // list of group by computed columns, the column is not added to the list.
-  // Returns an unowned pointer to the ResolvedComputedColumn for this
-  // expression.
+  // Adds group by column <column>, which is computed from <expr>, and the
+  // pre-group-by format of <expr> from the select list. If a field path
+  // expression that is equivalent to <expr> is already present in the list of
+  // group by computed columns, the column is not added to the list. Returns an
+  // unowned pointer to the ResolvedComputedColumn for this expression.
   const ResolvedComputedColumn* AddGroupByComputedColumnIfNeeded(
-      const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr);
+      const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr,
+      const ResolvedExpr* pre_group_by_expr);
 
   // Returns a pointer to an existing equivalent ResolvedComputedColumn in
   // group_by_columns_to_compute(), as determined by IsSameFieldPath(), or
@@ -510,7 +554,7 @@ class QueryResolutionInfo {
   // <column>.
   void AddAggregateComputedColumn(
       const ASTFunctionCall* ast_function_call,
-      std::unique_ptr<const ResolvedComputedColumn> column);
+      std::unique_ptr<const ResolvedComputedColumnBase> column);
 
   // Creates a new AnalyticFunctionResolver, but preserves the
   // NamedWindowInfoMap from the existing one.
@@ -580,16 +624,20 @@ class QueryResolutionInfo {
 
   bool is_group_by_all() const { return group_by_info_.is_group_by_all; }
 
-  const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
-  group_by_columns_to_compute() const {
-    return group_by_info_.group_by_columns_to_compute;
+  const std::vector<GroupByColumnState>& group_by_column_state_list() const {
+    return group_by_info_.group_by_column_state_list;
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
   release_group_by_columns_to_compute() {
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
-    group_by_info_.group_by_columns_to_compute.swap(tmp);
-    return tmp;
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> result;
+    result.reserve(group_by_info_.group_by_column_state_list.size());
+    for (int i = 0; i < group_by_info_.group_by_column_state_list.size(); ++i) {
+      result.push_back(std::move(
+          group_by_info_.group_by_column_state_list[i].computed_column));
+    }
+    group_by_info_.group_by_column_state_list.clear();
+    return result;
   }
 
   std::vector<std::unique_ptr<const ResolvedGroupingCall>>
@@ -604,16 +652,16 @@ class QueryResolutionInfo {
     return group_by_info_.grouping_call_list;
   }
 
-  const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+  const std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>&
   aggregate_columns_to_compute() const {
     return group_by_info_.aggregate_columns_to_compute;
   }
 
   // Transfer ownership of aggregate_columns_to_compute, clearing the
   // internal storage.
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
   release_aggregate_columns_to_compute() {
-    std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
+    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>> tmp;
     group_by_info_.aggregate_columns_to_compute.swap(tmp);
     return tmp;
   }
@@ -634,7 +682,7 @@ class QueryResolutionInfo {
     return &select_list_valid_field_info_map_;
   }
 
-  const std::map<const ASTFunctionCall*, const ResolvedComputedColumn*>&
+  const std::map<const ASTFunctionCall*, const ResolvedComputedColumnBase*>&
   aggregate_expr_map() {
     return group_by_info_.aggregate_expr_map;
   }

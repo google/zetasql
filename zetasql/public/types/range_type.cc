@@ -26,7 +26,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/collation.h"
-#include "zetasql/public/types/container_type.h"
+#include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
@@ -86,7 +86,7 @@ bool RangeType::IsSupportedType(const LanguageOptions& language_options) const {
 const Type* RangeType::GetElementType(int i) const { return element_type(); }
 
 RangeType::RangeType(const TypeFactory* factory, const Type* element_type)
-    : ContainerType(factory, TYPE_RANGE), element_type_(element_type) {
+    : ListBackedType(factory, TYPE_RANGE), element_type_(element_type) {
   // Also blocked in TypeFactory::MakeRangeType.
   ABSL_DCHECK(IsValidElementType(element_type_));
 }
@@ -134,12 +134,12 @@ void RangeType::DebugStringImpl(bool details, TypeOrStringVector* stack,
 
 void RangeType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
-  from.GetAs<internal::ValueContentContainerRef*>()->Ref();
+  from.GetAs<internal::ValueContentOrderedListRef*>()->Ref();
   *to = from;
 }
 
 void RangeType::ClearValueContent(const ValueContent& value) const {
-  value.GetAs<internal::ValueContentContainerRef*>()->Unref();
+  value.GetAs<internal::ValueContentOrderedListRef*>()->Unref();
 }
 
 absl::HashState RangeType::HashTypeParameter(absl::HashState state) const {
@@ -151,19 +151,19 @@ absl::HashState RangeType::HashTypeParameter(absl::HashState state) const {
 absl::HashState RangeType::HashValueContent(const ValueContent& value,
                                             absl::HashState state) const {
   absl::HashState result = absl::HashState::Create(&state);
-  const internal::ValueContentContainer* container =
-      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* container =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
   ABSL_DCHECK_EQ(container->num_elements(), 2);
-  ValueContentContainerElementHasher hasher(element_type());
-  const internal::ValueContentContainerElement& start = container->element(0);
+  NullableValueContentHasher hasher(element_type());
+  const internal::NullableValueContent& start = container->element(0);
   result = absl::HashState::combine(std::move(result), hasher(start));
-  const internal::ValueContentContainerElement& end = container->element(1);
+  const internal::NullableValueContent& end = container->element(1);
   result = absl::HashState::combine(std::move(result), hasher(end));
   return result;
 }
 
-std::string RangeType::FormatValueContentContainerElement(
-    const internal::ValueContentContainerElement& element,
+std::string RangeType::FormatNullableValueContent(
+    const internal::NullableValueContent& element,
     const Type::FormatValueContentOptions& options) const {
   std::string result;
   if (element.is_null()) {
@@ -190,14 +190,14 @@ std::string RangeType::FormatValueContentContainerElement(
 std::string RangeType::FormatValueContent(
     const ValueContent& value,
     const Type::FormatValueContentOptions& options) const {
-  const internal::ValueContentContainer* container =
-      value.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainerElement& start = container->element(0);
-  const internal::ValueContentContainerElement& end = container->element(1);
+  const internal::ValueContentOrderedList* container =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::NullableValueContent& start = container->element(0);
+  const internal::NullableValueContent& end = container->element(1);
 
   std::string boundaries =
-      absl::StrCat("[", FormatValueContentContainerElement(start, options),
-                   ", ", FormatValueContentContainerElement(end, options), ")");
+      absl::StrCat("[", FormatNullableValueContent(start, options), ", ",
+                   FormatNullableValueContent(end, options), ")");
   if (options.mode == Type::FormatValueContentOptions::Mode::kDebug) {
     return boundaries;
   }
@@ -208,42 +208,38 @@ std::string RangeType::FormatValueContent(
 bool RangeType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  const internal::ValueContentContainer* x_container =
-      x.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainer* y_container =
-      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* x_container =
+      x.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::ValueContentOrderedList* y_container =
+      y.GetAs<internal::ValueContentOrderedListRef*>()->value();
 
-  const internal::ValueContentContainerElement& x_start =
-      x_container->element(0);
-  const internal::ValueContentContainerElement& x_end = x_container->element(1);
-  const internal::ValueContentContainerElement& y_start =
-      y_container->element(0);
-  const internal::ValueContentContainerElement& y_end = y_container->element(1);
+  const internal::NullableValueContent& x_start = x_container->element(0);
+  const internal::NullableValueContent& x_end = x_container->element(1);
+  const internal::NullableValueContent& y_start = y_container->element(0);
+  const internal::NullableValueContent& y_end = y_container->element(1);
 
-  ValueContentContainerElementEq eq(options, element_type());
+  NullableValueContentEq eq(options, element_type());
 
   return eq(x_start, y_start) && eq(x_end, y_end);
 }
 
 bool RangeType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  const internal::ValueContentContainer* x_container =
-      x.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainer* y_container =
-      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentOrderedList* x_container =
+      x.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::ValueContentOrderedList* y_container =
+      y.GetAs<internal::ValueContentOrderedListRef*>()->value();
 
-  const internal::ValueContentContainerElement& x_start =
-      x_container->element(0);
-  const internal::ValueContentContainerElement& x_end = x_container->element(1);
-  const internal::ValueContentContainerElement& y_start =
-      y_container->element(0);
-  const internal::ValueContentContainerElement& y_end = y_container->element(1);
+  const internal::NullableValueContent& x_start = x_container->element(0);
+  const internal::NullableValueContent& x_end = x_container->element(1);
+  const internal::NullableValueContent& y_start = y_container->element(0);
+  const internal::NullableValueContent& y_end = y_container->element(1);
 
   const Type* x_element_type = element_type();
   const Type* y_element_type = other_type->AsRange()->element_type();
 
   ValueEqualityCheckOptions options;
-  ValueContentContainerElementEq eq(options, element_type());
+  NullableValueContentEq eq(options, element_type());
 
   if (!eq(x_start, y_start)) {
     // [x_start, x_end) > [UNBOUNDED, y_end)
@@ -256,8 +252,8 @@ bool RangeType::ValueContentLess(const ValueContent& x, const ValueContent& y,
     // Unbounded start orders smallest, so if x has an unbounded start, then x
     // is always smaller than y.
     return x_start.is_null() ||
-           ValueContentContainerElementLess(x_start, y_start, x_element_type,
-                                            y_element_type)
+           NullableValueContentLess(x_start, y_start, x_element_type,
+                                    y_element_type)
                .value_or(false);  // Otherwise, compare the start values.
   } else {
     // Starts are equal, so compare the ends.
@@ -275,8 +271,8 @@ bool RangeType::ValueContentLess(const ValueContent& x, const ValueContent& y,
       // equal start, y is always larger than x.
       return true;
     }
-    return ValueContentContainerElementLess(x_end, y_end, x_element_type,
-                                            y_element_type)
+    return NullableValueContentLess(x_end, y_end, x_element_type,
+                                    y_element_type)
         .value_or(false);
   }
 }
@@ -284,18 +280,16 @@ bool RangeType::ValueContentLess(const ValueContent& x, const ValueContent& y,
 absl::Status RangeType::SerializeValueContent(const ValueContent& value,
                                               ValueProto* value_proto) const {
   auto* range_proto = value_proto->mutable_range_value();
-  const internal::ValueContentContainer* range_container =
-      value.GetAs<internal::ValueContentContainerRef*>()->value();
-  const internal::ValueContentContainerElement& start =
-      range_container->element(0);
+  const internal::ValueContentOrderedList* range_container =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  const internal::NullableValueContent& start = range_container->element(0);
   if (start.is_null()) {
     range_proto->mutable_start()->Clear();
   } else {
     ZETASQL_RETURN_IF_ERROR(element_type()->SerializeValueContent(
         start.value_content(), range_proto->mutable_start()));
   }
-  const internal::ValueContentContainerElement& end =
-      range_container->element(1);
+  const internal::NullableValueContent& end = range_container->element(1);
   if (end.is_null()) {
     range_proto->mutable_end()->Clear();
   } else {

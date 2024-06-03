@@ -22,10 +22,13 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -226,32 +229,45 @@ TEST_F(BuilderTest, CanBuildFunctionCallsIncrementally) {
       << "FunctionSignature should be copied by value";
 }
 
-TEST_F(BuilderTest, SetterAcceptsBuilder) {
+TEST_F(BuilderTest, SetterAcceptsBuilderAndStatusOr) {
+  absl::StatusOr<std::unique_ptr<const ResolvedLiteral>> literal_status_or =
+      ResolvedLiteralBuilder()
+          .set_value(Value::Bool(false))
+          .set_type(types::BoolType())
+          .Build();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto filter_scan,
       ResolvedFilterScanBuilder()
           .set_input_scan(ResolvedTableScanBuilder()
                               .set_table(&t1_)
                               .set_for_system_time_expr(nullptr))
-          .set_filter_expr(nullptr)
+          .set_filter_expr(std::move(literal_status_or))
           .Build());
 
   EXPECT_EQ(&t1_,
             filter_scan->input_scan()->GetAs<ResolvedTableScan>()->table());
 }
 
-TEST_F(BuilderTest, AdderAcceptsBuilder) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto column_ref1, ResolvedColumnRefBuilder()
-                                             .set_column({})
-                                             .set_is_correlated(false)
-                                             .set_type(types::StringType())
-                                             .Build());
+TEST_F(BuilderTest, AdderAcceptsBuilderAndStatusOr) {
+  absl::StatusOr<std::unique_ptr<const ResolvedColumnRef>>
+      column_ref1_status_or = ResolvedColumnRefBuilder()
+                                  .set_column(ResolvedColumn{})
+                                  .set_is_correlated(false)
+                                  .set_type(types::StringType())
+                                  .Build();
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lambda_arg,
-                       ResolvedInlineLambdaBuilder()
-                           .add_parameter_list(std::move(column_ref1))
-                           .set_body(nullptr)
-                           .Build());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto lambda_arg,
+      ResolvedInlineLambdaBuilder()
+          .add_parameter_list(std::move(column_ref1_status_or))
+          .add_parameter_list(ResolvedColumnRefBuilder()
+                                  .set_column(ResolvedColumn{})
+                                  .set_is_correlated(false)
+                                  .set_type(types::StringType()))
+          .set_body(ResolvedLiteralBuilder()
+                        .set_value(Value::Bool(false))
+                        .set_type(types::BoolType()))
+          .Build());
 
   EXPECT_EQ(types::StringType(), lambda_arg->parameter_list(0)->type());
 }
@@ -294,7 +310,21 @@ TEST_F(BuilderTest, RequiredFieldsAreSatisfiedEvenWithABadBuilder) {
               // Body was set, even if the value turned out to be bad and we
               // we couldn't build it.
               Not(HasSubstr(
-                  "ResolvedInlineLambda::type was not set on the builder")))));
+                  "ResolvedInlineLambda::body was not set on the builder")))));
+}
+
+TEST_F(BuilderTest, RequiredFieldsAreSatisfiedEvenWithABadInputStatus) {
+  absl::StatusOr<std::unique_ptr<const ResolvedLiteral>> bad_literal =
+      absl::InternalError("Some ZETASQL_RET_CHECK() failure");
+
+  EXPECT_THAT(
+      ResolvedInlineLambdaBuilder().set_body(std::move(bad_literal)).Build(),
+      StatusIs(absl::StatusCode::kInternal,
+               AllOf(HasSubstr("Some ZETASQL_RET_CHECK() failure"),
+                     // Body was set, even if the value turned out to be bad and
+                     // we we couldn't build it.
+                     Not(HasSubstr("ResolvedInlineLambda::body was not set on "
+                                   "the builder")))));
 }
 
 }  // namespace

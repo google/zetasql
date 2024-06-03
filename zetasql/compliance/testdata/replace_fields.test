@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry, zetasql_test__.OneofProto]
 
 [name=replace_fields_proto_top_level]
 [required_features=V_1_3_REPLACE_FIELDS]
@@ -55,6 +55,18 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
      }
    }}
 ]
+==
+
+[name=replace_fields_proto_null]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT
+  REPLACE_FIELDS(
+    CAST(NULL as zetasql_test__.KitchenSinkPB),
+    11 as int64_val, "abc" as string_val, true as bool_val,
+    13 as nested_value.nested_int64
+  )
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[{NULL}]
 ==
 
 [name=replace_fields_proto_complex_nested]
@@ -329,6 +341,303 @@ ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
 ]
 ==
 
+# Multiple fields of a oneof are specified. The last non-null field is set
+# in the output.
+[name=replace_fields_proto_multiple_oneofs]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 int32_one_of: 2"
+        as zetasql_test__.OneofProto
+    ),
+    1 as int32_one_of, "oneof_field" as string_one_of, true as bool_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 int32_one_of: 2"
+        as zetasql_test__.OneofProto
+    ),
+    "oneof_field" as string_one_of, true as bool_one_of, 1 as int32_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 int32_one_of: 2"
+        as zetasql_test__.OneofProto
+    ),
+    "oneof_field" as string_one_of, true as bool_one_of,
+    CAST("" as zetasql_test__.OneofProto) as recursive_oneof
+  ),
+--
+ARRAY<STRUCT<
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>
+      >>
+[{{
+    non_oneof: 1
+    bool_one_of: true
+  },
+  {
+    non_oneof: 1
+    int32_one_of: 1
+  },
+  {
+    non_oneof: 1
+    recursive_oneof {
+    }
+  }}]
+==
+
+# All oneof fields are NULL. The oneof in the input is cleared only if the oneof
+# case is specified in the replace_fields.
+[name=replace_fields_proto_null_oneofs]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 int32_one_of: 2"
+        as zetasql_test__.OneofProto
+    ),
+    NULL as string_one_of, NULL as bool_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 int32_one_of: 2"
+        as zetasql_test__.OneofProto
+    ),
+    NULL as string_one_of, NULL as int32_one_of, NULL as bool_one_of
+  ),
+--
+ARRAY<STRUCT<
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>
+      >>
+[{{
+    non_oneof: 1
+    int32_one_of: 2
+  },
+  {non_oneof: 1}}]
+==
+
+# Update the children of a message-type oneof field.
+[name=replace_fields_proto_msg_oneof]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    2 as recursive_oneof.non_oneof
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    2 as recursive_oneof.non_oneof, 'oneof_string' as string_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    2 as recursive_oneof.non_oneof, 1 as recursive_oneof.int32_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    2 as recursive_oneof.non_oneof, 1 as recursive_oneof.int32_one_of, 'oneof_string' as string_one_of
+  ),
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    'oneof_string' as string_one_of, CAST('' as zetasql_test__.OneofProto) as recursive_oneof
+  )
+--
+ARRAY<STRUCT<
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>,
+        PROTO<zetasql_test__.OneofProto>
+      >>
+[{{
+    non_oneof: 1
+    recursive_oneof {
+      non_oneof: 2
+    }
+  },
+  {
+    non_oneof: 1
+    string_one_of: "oneof_string"
+  },
+  {
+    non_oneof: 1
+    recursive_oneof {
+      non_oneof: 2
+      int32_one_of: 1
+    }
+  },
+  {
+    non_oneof: 1
+    string_one_of: "oneof_string"
+  },
+  {
+    non_oneof: 1
+    recursive_oneof {
+    }
+  }}]
+==
+
+# We cannot update recursive_oneof.non_oneof because recursive_oneof is unset
+# by the preceding string_one_of update.
+[name=replace_fields_proto_msg_oneof_after_other_oneof]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    'oneof_string' as string_one_of, 2 as recursive_oneof.non_oneof
+  )
+--
+ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fields of an unset proto
+==
+
+# recursive_oneof.non_oneof is updated because the preceding string_one_of is
+# NULL.
+[name=replace_fields_proto_msg_oneof_after_null_oneof]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    NULL as string_one_of, 2 as recursive_oneof.non_oneof
+  )
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+  {{
+     non_oneof: 1
+     recursive_oneof {
+       non_oneof: 2
+     }
+   }}
+]
+==
+
+# The change to recursive_oneof is discarded after int32_one_of is set in
+# the output.
+[name=replace_fields_proto_msg_oneof_before_another_oneof]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    NULL as string_one_of, 2 as recursive_oneof.non_oneof, 2 as int32_one_of
+  )
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+  {{
+     non_oneof: 1
+     int32_one_of: 2
+   }}
+]
+==
+
+# Cannot update children of multiple message-type oneof fields because
+# at least one must be NULL.
+[name=replace_fields_proto_multi_msg_oneofs]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    2 as recursive_oneof.non_oneof, 1 as kitchen_sink_oneof.int64_key_1, 2 as kitchen_sink_oneof.int64_key_2
+  )
+--
+ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fields of an unset proto
+==
+
+[name=replace_fields_proto_multi_msg_oneofs_null_input]
+[required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
+SELECT
+  REPLACE_FIELDS(
+    CAST(NULL as zetasql_test__.OneofProto),
+    2 as recursive_oneof.non_oneof, 1 as kitchen_sink_oneof.int64_key_1, 2 as kitchen_sink_oneof.int64_key_2
+  )
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[{NULL}]
+==
+
+# Update the child of a GROUP-type message in a oneof.
+[name=replace_fields_proto_oneof_group]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      "non_oneof: 1 NestedGroup { int64_field: 1 }"
+        as zetasql_test__.OneofProto
+    ),
+    10 as NestedGroup.int64_field
+  )
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+  {{
+     non_oneof: 1
+     NestedGroup {
+       int64_field: 10
+     }
+   }}
+]
+==
+
+# The input contains multiple instances of recursive_oneof.
+# int64_repeated should be updated only once.
+[name=replace_fields_proto_multi_oneof_in_input]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT
+  REPLACE_FIELDS(
+    CAST(
+      CONCAT(
+        CAST(
+          CAST(
+            'non_oneof: 1 recursive_oneof { non_oneof: 10 }'
+            AS zetasql_test__.OneofProto)
+          AS BYTES),
+        CAST(
+          CAST(
+            'non_oneof: 1 recursive_oneof { int64_repeated: 1 int64_repeated: 2 }'
+            AS zetasql_test__.OneofProto)
+          AS BYTES))
+      AS zetasql_test__.OneofProto),
+    [3, 4, 5] AS recursive_oneof.int64_repeated)
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+  {{
+     non_oneof: 1
+     recursive_oneof {
+       non_oneof: 10
+       int64_repeated: 3
+       int64_repeated: 4
+       int64_repeated: 5
+     }
+   }}
+]
+==
+
 [name=replace_fields_struct_top_level]
 [required_features=V_1_3_REPLACE_FIELDS]
 SELECT
@@ -399,6 +708,23 @@ ARRAY<STRUCT<STRUCT<nested_struct STRUCT<
      true,
      ARRAY<INT64>[known order:1, 2, 3]
    }}}]
+==
+
+
+
+[name=replace_fields_struct_null]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT
+  REPLACE_FIELDS(
+    CAST(NULL as STRUCT<int64_val INT64, bool_val BOOL, struct_val STRUCT<int64_val INT64>>),
+    1 as int64_val, 2 as struct_val.int64_val
+  )
+--
+ARRAY<STRUCT<STRUCT<
+                    int64_val INT64,
+                    bool_val BOOL,
+                    struct_val STRUCT<int64_val INT64>
+                  >>>[{NULL}]
 ==
 
 [name=replace_fields_struct_clear]
@@ -699,17 +1025,3 @@ SELECT
   )
 --
 ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear a field of a map entry
-
-==
-[name=replace_fields_unset_cast_test]
-[required_features=V_1_3_REPLACE_FIELDS]
-SELECT REPLACE_FIELDS(CAST(b'' AS zetasql_test__.KitchenSinkPB), 1 AS int64_key_1) AS c
---
-ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used on a proto with missing fields: int64_key_1, int64_key_2
-
-==
-[name=replace_fields_unset_safe_cast_test]
-[required_features=V_1_3_REPLACE_FIELDS]
-SELECT REPLACE_FIELDS(SAFE_CAST(b'' AS zetasql_test__.KitchenSinkPB), 1 AS int64_key_1) AS c
---
-ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used on a proto with missing fields: int64_key_1, int64_key_2

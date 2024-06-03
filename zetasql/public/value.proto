@@ -113,6 +113,9 @@ message ValueProto {
     bytes tokenlist_value = 25;
     // Encoded range value. See (broken link).
     Range range_value = 26;
+    // Encoded uuid value. For the encoding format see documentation for
+    // UuidValue::SerializeAsBytes().
+    bytes uuid_value = 27;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

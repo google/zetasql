@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
@@ -43,9 +44,8 @@ ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
 
 namespace zetasql {
 
-bool StringVectorCaseLess::operator()(
-    const std::vector<std::string>& v1,
-    const std::vector<std::string>& v2) const {
+bool StringVectorCaseLess::operator()(absl::Span<const std::string> v1,
+                                      absl::Span<const std::string> v2) const {
   auto common_length = std::min(v1.size(), v2.size());
   for (int idx = 0; idx < common_length; ++idx) {
     const int cmp = zetasql_base::CaseCompare(v1[idx], v2[idx]);
@@ -303,9 +303,11 @@ absl::Status AllowedHintsAndOptions::Serialize(
 AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
-    : data_(new Data{.language_options = language_options,
-                     .validate_resolved_ast = absl::GetFlag(
-                         FLAGS_zetasql_validate_resolved_ast)}) {
+    : data_(new Data{
+          .language_options = language_options,
+          .validate_resolved_ast =
+              absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
+          .error_message_stability = GetDefaultErrorMessageStability()}) {
   ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
                               &data_->default_timezone));
 }

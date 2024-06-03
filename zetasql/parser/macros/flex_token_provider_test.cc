@@ -16,13 +16,12 @@
 
 #include "zetasql/parser/macros/flex_token_provider.h"
 
+#include <optional>
 #include <ostream>
 
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/bison_token_codes.h"
 #include "zetasql/parser/macros/token_with_location.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_format.h"
@@ -43,45 +42,49 @@ using ::zetasql_base::testing::StatusIs;
 // Template specialization to print tokens in failed test messages.
 static void PrintTo(const TokenWithLocation& token, std::ostream* os) {
   *os << absl::StrFormat(
-      "(kind: %i, location: %s, text: '%s', prev_spaces: '%s')", token.kind,
-      token.location.GetString(), token.text, token.preceding_whitespaces);
+      "(kind: %i, location: %s, topmost_invocation_location:%s, text: '%s', "
+      "prev_spaces: '%s')",
+      token.kind, token.location.GetString(),
+      token.topmost_invocation_location.GetString(), token.text,
+      token.preceding_whitespaces);
 }
 
 MATCHER_P(IsOkAndHoldsToken, expected, "") {
   return ExplainMatchResult(IsOk(), arg, result_listener) &&
          ExplainMatchResult(
              FieldsAre(Eq(expected.kind), Eq(expected.location),
-                       Eq(expected.text), Eq(expected.preceding_whitespaces)),
+                       Eq(expected.text), Eq(expected.preceding_whitespaces),
+                       Eq(expected.topmost_invocation_location)),
              arg.value(), result_listener);
 }
 
 static absl::string_view kFileName = "<filename>";
 
-static Location MakeLocation(int start_offset, int end_offset) {
-  Location location;
+static ParseLocationRange MakeLocation(int start_offset, int end_offset) {
+  ParseLocationRange location;
   location.set_start(
       ParseLocationPoint::FromByteOffset(kFileName, start_offset));
   location.set_end(ParseLocationPoint::FromByteOffset(kFileName, end_offset));
   return location;
 }
 
-static FlexTokenProvider MakeTokenProvider(BisonParserMode mode,
-                                           absl::string_view input) {
-  return FlexTokenProvider(mode, kFileName, input,
-                           /*start_offset=*/0, LanguageOptions());
+static FlexTokenProvider MakeTokenProvider(absl::string_view input,
+                                           bool preserve_comments) {
+  return FlexTokenProvider(kFileName, input, preserve_comments,
+                           /*start_offset=*/0, /*end_offset=*/std::nullopt);
 }
 
 static FlexTokenProvider MakeTokenProvider(absl::string_view input) {
-  return MakeTokenProvider(BisonParserMode::kTokenizer, input);
+  return MakeTokenProvider(input, /*preserve_comments=*/false);
 }
 
 TEST(FlexTokenProviderTest, RawTokenizerMode) {
   absl::string_view input = "/*comment*/ 123";
 
   EXPECT_THAT(
-      MakeTokenProvider(BisonParserMode::kTokenizer, input).ConsumeNextToken(),
+      MakeTokenProvider(input, /*preserve_comments=*/false).ConsumeNextToken(),
       IsOkAndHoldsToken(TokenWithLocation{
-          .kind = INTEGER_LITERAL,
+          .kind = DECIMAL_INTEGER_LITERAL,
           .location = MakeLocation(12, 15),
           .text = "123",
           .preceding_whitespaces = "/*comment*/ ",
@@ -91,7 +94,7 @@ TEST(FlexTokenProviderTest, RawTokenizerMode) {
 TEST(FlexTokenProviderTest, RawTokenizerPreserveCommentsMode) {
   absl::string_view input = "/*comment*/ 123";
   FlexTokenProvider provider =
-      MakeTokenProvider(BisonParserMode::kTokenizerPreserveComments, input);
+      MakeTokenProvider(input, /*preserve_comments=*/true);
   EXPECT_THAT(provider.ConsumeNextToken(), IsOkAndHoldsToken(TokenWithLocation{
                                                .kind = COMMENT,
                                                .location = MakeLocation(0, 11),
@@ -99,30 +102,11 @@ TEST(FlexTokenProviderTest, RawTokenizerPreserveCommentsMode) {
                                                .preceding_whitespaces = "",
                                            }));
   EXPECT_THAT(provider.ConsumeNextToken(), IsOkAndHoldsToken(TokenWithLocation{
-                                               .kind = INTEGER_LITERAL,
+                                               .kind = DECIMAL_INTEGER_LITERAL,
                                                .location = MakeLocation(12, 15),
                                                .text = "123",
                                                .preceding_whitespaces = " ",
                                            }));
-}
-
-TEST(FlexTokenProviderTest, RawTokenizerNextStatementMode) {
-  absl::string_view input = "/*comment*/ 123";
-  FlexTokenProvider provider =
-      MakeTokenProvider(BisonParserMode::kNextStatement, input);
-  EXPECT_THAT(provider.ConsumeNextToken(), IsOkAndHoldsToken(TokenWithLocation{
-                                               .kind = CUSTOM_MODE_START,
-                                               .location = MakeLocation(0, 0),
-                                               .text = "",
-                                               .preceding_whitespaces = "",
-                                           }));
-  EXPECT_THAT(provider.ConsumeNextToken(),
-              IsOkAndHoldsToken(TokenWithLocation{
-                  .kind = INTEGER_LITERAL,
-                  .location = MakeLocation(12, 15),
-                  .text = "123",
-                  .preceding_whitespaces = "/*comment*/ ",
-              }));
 }
 
 TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
@@ -135,15 +119,21 @@ TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
                   .text = "",
                   .preceding_whitespaces = "\t\t",
               }));
+  // No preceding whitespaces for the second EOF.
   EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
-              StatusIs(_, HasSubstr("Internal error: Encountered real EOF")));
+              IsOkAndHoldsToken(TokenWithLocation{
+                  .kind = TokenKinds::YYEOF,
+                  .location = MakeLocation(2, 2),
+                  .text = "",
+                  .preceding_whitespaces = "",
+              }));
 }
 
 TEST(FlexTokenProviderTest, CanPeekToken) {
   absl::string_view input = "\t123 identifier";
   FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
   const TokenWithLocation int_token{
-      .kind = TokenKinds::INTEGER_LITERAL,
+      .kind = TokenKinds::DECIMAL_INTEGER_LITERAL,
       .location = MakeLocation(1, 4),
       .text = "123",
       .preceding_whitespaces = "\t",

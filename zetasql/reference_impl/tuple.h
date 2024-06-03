@@ -435,7 +435,10 @@ class VirtualTupleSlot {
   // Initializes the SharedProtoState for the internal value if we should be
   // storing it.
   void MaybeResetSharedProtoState() {
-    if (TupleSlot::ShouldStoreSharedProtoStateFor(value_->type_kind())) {
+    // Value may be invalid when a computation fails and its side effect is
+    // deferred.
+    if (value_->is_valid() &&
+        TupleSlot::ShouldStoreSharedProtoStateFor(value_->type_kind())) {
       *shared_proto_state_ = std::make_shared<TupleSlot::SharedProtoState>();
     }
   }
@@ -444,7 +447,10 @@ class VirtualTupleSlot {
   // triggering shared_ptr's refcounting logic except when necessary.
   void MaybeUpdateSharedProtoStateAfterSettingValue(
       std::shared_ptr<TupleSlot::SharedProtoState>* shared_proto_state) {
-    if (TupleSlot::ShouldStoreSharedProtoStateFor(value_->type_kind())) {
+    // Value may be invalid when a computation fails and its side effect is
+    // deferred.
+    if (value_->is_valid() &&
+        TupleSlot::ShouldStoreSharedProtoStateFor(value_->type_kind())) {
       *shared_proto_state_ = *shared_proto_state;
     }
   }

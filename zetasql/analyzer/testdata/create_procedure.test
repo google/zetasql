@@ -70,6 +70,31 @@ END;
 CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(STRING {procedure_argument_mode: OUT} param_a) -> <void>, procedure_body='BEGIN\n  DECLARE a int32;\n  SET a = 1;\n  SET param_a = "test";\nEND')
 ==
 
+CREATE PROCEDURE procedure_name(OUT param_a string)
+WITH CONNECTION ``
+OPTIONS (a = 'option a', b = 100, c = @test_param_string)
+BEGIN
+  SET param_a = "test";
+END;
+--
+ERROR: Syntax error: Invalid empty identifier [at 2:17]
+WITH CONNECTION ``
+                ^
+==
+
+CREATE PROCEDURE procedure_name(OUT param_a string)
+WITH CONNECTION DEFAULT
+OPTIONS (a = 'option a', b = 100, c = @test_param_string)
+BEGIN
+  SET param_a = "test";
+END;
+--
+ERROR: WITH CONNECTION clause is not supported [at 1:1]
+CREATE PROCEDURE procedure_name(OUT param_a string)
+^
+==
+
+
 # valid statement with options
 CREATE PROCEDURE procedure_name(OUT param_a string)
 OPTIONS (a = 'option a', b = 100, c = @test_param_string)

@@ -17,24 +17,33 @@
 #include "zetasql/public/types/map_type.h"
 
 #include <initializer_list>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type_parameters.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "google/protobuf/descriptor.h"
 
 namespace zetasql {
@@ -43,6 +52,9 @@ namespace {
 using google::protobuf::EnumDescriptor;
 using testing::HasSubstr;
 using testing::NotNull;
+using zetasql_base::testing::IsOk;
+using zetasql_base::testing::IsOkAndHolds;
+using zetasql_base::testing::StatusIs;
 using MapTestAllSimpleTypes = testing::TestWithParam<TypeKind>;
 
 using MapTestFormatValueContentDebugMode =
@@ -174,6 +186,66 @@ TEST(TypeTest, TestNamesValid) {
   EXPECT_EQ(map_type->TypeName(PRODUCT_INTERNAL),
             "MAP<STRING, "
             "`zetasql_test__.KitchenSinkPB`>");
+}
+
+TEST(TypeTest, TestNamesValidWithModifiers) {
+  TypeFactory factory;
+  zetasql_test__::KitchenSinkPB kitchen_sink;
+  const ProtoType* proto_type;
+  ZETASQL_EXPECT_OK(factory.MakeProtoType(kitchen_sink.GetDescriptor(), &proto_type));
+  EXPECT_THAT(proto_type, NotNull());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       factory.MakeMapType(factory.get_string(), proto_type));
+
+  TypeModifiers empty_modifiers =
+      TypeModifiers::MakeTypeModifiers(TypeParameters(), Collation());
+
+  // Make a MAP type modifier with a string length parameter on the key.
+  StringTypeParametersProto string_parameters_proto;
+  string_parameters_proto.set_max_length(10);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      TypeParameters string_parameters,
+      TypeParameters::MakeStringTypeParameters(string_parameters_proto));
+  TypeParameters map_parameters_string_key_max_length =
+      TypeParameters::MakeTypeParametersWithChildList(
+          {string_parameters, TypeParameters()});
+  TypeModifiers map_modifiers_string_key_max_length =
+      TypeModifiers::MakeTypeModifiers(map_parameters_string_key_max_length,
+                                       Collation());
+
+  // Make a MAP type modifier with a type parameter directly on the map type.
+  // Since MAP doesn't actually support direct type parameters, we reuse the
+  // string parameter here.
+  TypeModifiers map_modifiers_confused_type_param_on_map =
+      TypeModifiers::MakeTypeModifiers(string_parameters, Collation());
+
+  // Make a MAP type modifier with a collation annotation on the key.
+  std::unique_ptr<AnnotationMap> annotation_map =
+      AnnotationMap::Create(types::StringType());
+  annotation_map->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
+                                SimpleValue::String("und:ci"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Collation collation,
+                       Collation::MakeCollation(*annotation_map));
+  TypeModifiers map_modifiers_collation =
+      TypeModifiers::MakeTypeModifiers(TypeParameters(), collation);
+
+  EXPECT_THAT(
+      map_type->TypeNameWithModifiers(empty_modifiers, PRODUCT_INTERNAL),
+      IsOkAndHolds("MAP<STRING, `zetasql_test__.KitchenSinkPB`>"));
+  EXPECT_THAT(map_type->TypeNameWithModifiers(
+                  map_modifiers_string_key_max_length, PRODUCT_INTERNAL),
+              IsOkAndHolds("MAP<STRING(10), `zetasql_test__.KitchenSinkPB`>"));
+  EXPECT_THAT(
+      map_type->TypeNameWithModifiers(map_modifiers_confused_type_param_on_map,
+                                      PRODUCT_INTERNAL),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(
+                   "Type parameters are only supported on MAP key and value")));
+  EXPECT_THAT(
+      map_type->TypeNameWithModifiers(map_modifiers_collation,
+                                      PRODUCT_INTERNAL),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("MAP does not support collation on key and value")));
 }
 
 TEST(TypeTest, TestNamesValidWithNesting) {
@@ -358,6 +430,63 @@ TEST(MapTest, FormatValueContentDebugModeEmptyMap) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(Value map_value, Value::MakeMap(map_type, {}));
   EXPECT_EQ(map_type->FormatValueContent(map_value.GetContent(), options),
             "{}");
+}
+
+TEST(MapTest, MakeMapWithLanguageOptions) {
+  TypeFactory factory;
+
+  LanguageOptions language_map_enabled;
+  language_map_enabled.EnableLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
+
+  LanguageOptions language_map_enabled_geography_enabled = language_map_enabled;
+  language_map_enabled_geography_enabled.EnableLanguageFeature(
+      FEATURE_GEOGRAPHY);
+
+  LanguageOptions language_map_enabled_array_grouping_enabled =
+      language_map_enabled;
+  language_map_enabled_array_grouping_enabled.EnableLanguageFeature(
+      FEATURE_V_1_2_GROUP_BY_ARRAY);
+
+  LanguageOptions language_map_array_struct_grouping_enabled =
+      language_map_enabled_array_grouping_enabled;
+  language_map_array_struct_grouping_enabled.EnableLanguageFeature(
+      FEATURE_V_1_2_GROUP_BY_STRUCT);
+
+  const StructType* struct_type;
+  ZETASQL_ASSERT_OK(factory.MakeStructType({{"a", types::Int32Type()}}, &struct_type));
+  const ArrayType* array_of_struct_type;
+  ZETASQL_ASSERT_OK(factory.MakeArrayType(struct_type, &array_of_struct_type));
+
+  EXPECT_THAT(factory.MakeMapType(types::StringType(), types::StringType(),
+                                  LanguageOptions()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "MAP datatype is not supported"));
+  EXPECT_THAT(factory.MakeMapType(types::StringType(), types::StringType(),
+                                  language_map_enabled),
+              IsOk());
+  EXPECT_THAT(factory.MakeMapType(types::GeographyType(), types::StringType(),
+                                  language_map_enabled_geography_enabled),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "MAP key type GEOGRAPHY is not groupable"));
+  EXPECT_THAT(factory.MakeMapType(types::StringType(), types::GeographyType(),
+                                  language_map_enabled_geography_enabled),
+              IsOk())
+      << "MAP should still be valid when value type is not groupable";
+  EXPECT_THAT(factory.MakeMapType(array_of_struct_type, types::StringType(),
+                                  language_map_enabled),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "MAP key type ARRAY is not groupable"));
+  EXPECT_THAT(
+      factory.MakeMapType(array_of_struct_type, types::StringType(),
+                          language_map_enabled_array_grouping_enabled),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "MAP key type ARRAY containing STRUCT is not groupable"));
+  EXPECT_THAT(factory.MakeMapType(types::Int64ArrayType(), types::StringType(),
+                                  language_map_enabled_array_grouping_enabled),
+              IsOk());
+  EXPECT_THAT(factory.MakeMapType(array_of_struct_type, types::StringType(),
+                                  language_map_array_struct_grouping_enabled),
+              IsOk());
 }
 
 TEST(TypeFactoryTest, MapTypesAreCached) {

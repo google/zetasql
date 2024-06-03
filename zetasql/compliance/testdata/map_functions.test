@@ -1,4 +1,6 @@
 [default required_features=V_1_4_MAP_TYPE]
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 
 [name=map_from_array_basic]
 SELECT MAP_FROM_ARRAY([('a', true), ('b', false)]);
@@ -111,3 +113,371 @@ ARRAY<STRUCT<MAP<STRING, INT64>>>[unknown order:
   {{"c": 1}}
 ]
 ==
+
+[name=map_entries_sorted_basic]
+SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([('a', true), ('Z', false)]));
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<key STRING, value BOOL>>[known order:{"Z", false}, {"a", true}]}
+]
+==
+
+[name=map_entries_unsorted_basic]
+SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([('a', true), ('Z', false)]));
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {
+    ARRAY<STRUCT<key STRING, value BOOL>>[unknown order:{"Z", false}, {"a", true}]
+  }
+]
+==
+
+[name=map_entries_unsorted_single_element_known_order]
+SELECT MAP_ENTRIES_UNSORTED(MAP_FROM_ARRAY([('a', true)]));
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<key STRING, value BOOL>>[{"a", true}]}]
+==
+
+[name=map_entries_sorted_nested]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+SELECT
+  MAP_ENTRIES_SORTED(
+    MAP_FROM_ARRAY([
+      (
+        ['a', 'b', 'c'],
+        MAP_FROM_ARRAY([
+          (['b', 'c', 'd'], MAP_FROM_ARRAY([(100, ('baz', 'hello'))]))
+        ])
+      )
+    ])
+  );
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<
+           key ARRAY<>,
+           value MAP<ARRAY<STRING>, MAP<INT64, STRUCT<STRING, STRING>>>
+         >>
+   [{
+          ARRAY<STRING>[known order:"a", "b", "c"],
+          {["b", "c", "d"]: {100: {"baz", "hello"}}}
+        }]}
+]
+==
+
+[name=map_entries_unsorted_nested]
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY]
+SELECT
+  MAP_ENTRIES_UNSORTED(
+    MAP_FROM_ARRAY([
+      (
+        ['a', 'b', 'c'],
+        MAP_FROM_ARRAY([
+          (['b', 'c', 'd'], MAP_FROM_ARRAY([(100, ('baz', 'hello'))]))
+        ])
+      )
+    ])
+  );
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<
+           key ARRAY<>,
+           value MAP<ARRAY<STRING>, MAP<INT64, STRUCT<STRING, STRING>>>
+         >>
+   [{
+          ARRAY<STRING>[known order:"a", "b", "c"],
+          {["b", "c", "d"]: {100: {"baz", "hello"}}}
+        }]}
+]
+==
+
+[name=map_entries_sorted_infinite_float]
+SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1), (CAST('inf' AS DOUBLE), 2), (CAST('-inf' AS DOUBLE), 3), (1.1, 4), (NULL, 5)]));
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<key DOUBLE, value INT64>>[known order:
+     {NULL, 5},
+     {nan, 1},
+     {-inf, 3},
+     {1.1, 4},
+     {inf, 2}
+   ]}
+]
+==
+
+[required_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+[name=map_entries_sorted_array_key]
+SELECT MAP_ENTRIES_SORTED(MAP_FROM_ARRAY([(['b'], 1), (['a'], 2), (['a', 'b'], 3)]));
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<key ARRAY<>, value INT64>>[known order:
+     {ARRAY<STRING>["a"], 2},
+     {
+       ARRAY<STRING>[known order:"a", "b"],
+       3
+     },
+     {ARRAY<STRING>["b"], 1}
+   ]}
+]
+==
+
+[name=map_get_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([('a', 1)]), 'a');
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=map_get_not_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([('a', 1)]), 'absent');
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=map_get_with_default]
+SELECT
+  MAP_GET(MAP_FROM_ARRAY([('a', 1)]), 'a', -1) as found,
+  MAP_GET(MAP_FROM_ARRAY([('a', 1)]), 'absent', -2) as not_found;
+--
+ARRAY<STRUCT<found INT64, not_found INT64>>[{1, -2}]
+==
+
+[name=map_get_null_key]
+SELECT
+  MAP_GET(MAP_FROM_ARRAY([(NULL, 1)]), NULL) as found,
+  MAP_GET(MAP_FROM_ARRAY([('a', 1)]), NULL) as not_found,
+  MAP_GET(MAP_FROM_ARRAY([('a', 1)]), NULL, -1) as not_found_with_default;
+--
+ARRAY<STRUCT<
+        found INT64,
+        not_found INT64,
+        not_found_with_default INT64
+      >>[{1, NULL, -1}]
+==
+
+[name=map_get_key_null_map]
+SELECT
+  MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)), 1) as with_no_default,
+  MAP_GET(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<INT64, STRING>>)), 1, "foo") as with_default;
+--
+ARRAY<STRUCT<
+        with_no_default STRING,
+        with_default STRING
+      >>[{NULL, NULL}]
+==
+
+[name=map_get_bytes_to_string_coercion]
+[required_features=V_1_4_MAP_TYPE,V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES]
+SELECT MAP_GET(MAP_FROM_ARRAY([(b'a', 1)]), 'a');
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=map_get_float_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([(1.5, 'a'), (1.51, 'b')]), 1.5);
+--
+ARRAY<STRUCT<STRING>>[{"a"}]
+==
+
+[name=map_get_float_coerced_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([(1.5, 'a'), (1.0, 'b')]), 1);
+--
+ARRAY<STRUCT<STRING>>[{"b"}]
+==
+
+[required_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[name=map_get_json_null_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1'), (NULL, NULL)]), NULL);
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+
+[required_features=V_1_4_MAP_TYPE,JSON_TYPE]
+[name=map_get_json_null_not_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([('a', JSON '1'), ('b', NULL)]), NULL, JSON '-1');
+--
+ARRAY<STRUCT<JSON>>[{-1}]
+==
+
+[name=map_get_proto_enum_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([(CAST('TESTENUM0' as zetasql_test__.TestEnum), NEW zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2)), ('TESTENUM1', 'int64_key_1: 3 int64_key_2: 4')]), 'TESTENUM1');
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
+  {{
+     int64_key_1: 3
+     int64_key_2: 4
+   }}
+]
+==
+
+[name=map_get_proto_enum_not_found]
+SELECT MAP_GET(MAP_FROM_ARRAY([(CAST('TESTENUM0' as zetasql_test__.TestEnum), NEW zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2)), ('TESTENUM1', 'int64_key_1: 3 int64_key_2: 4')]), NULL, 'int64_key_1: 5 int64_key_2: 6');
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
+  {{
+     int64_key_1: 5
+     int64_key_2: 6
+   }}
+]
+==
+
+[name=map_subscript_bare_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])['a'];
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=map_subscript_bare_not_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])['b'];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=map_subscript_bare_null_key_found]
+SELECT MAP_FROM_ARRAY([('a', 1), (NULL, 2)])[NULL];
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=map_subscript_bare_null_key_not_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])[NULL];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=map_subscript_with_key_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])[KEY('a')];
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=map_subscript_with_key_not_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])[KEY('b')];
+--
+ERROR: generic::out_of_range: Key not found in map: "b"
+==
+
+[name=map_subscript_with_key_null_key_found]
+SELECT MAP_FROM_ARRAY([('a', 1), (NULL, 2)])[KEY(NULL)];
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=map_subscript_key_null_key_not_found]
+SELECT MAP_FROM_ARRAY([('a', 1)])[KEY(NULL)];
+--
+ERROR: generic::out_of_range: Key not found in map: NULL
+==
+
+[name=map_subscript_safe_key_found]
+[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY('a')];
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=map_subscript_safe_key_not_found]
+[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY('b')];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=map_subscript_safe_key_null_key_found]
+[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+SELECT MAP_FROM_ARRAY([('a', 1), (NULL, 2)])[SAFE_KEY(NULL)];
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=map_subscript_safe_key_null_key_not_found]
+[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+SELECT MAP_FROM_ARRAY([('a', 1)])[SAFE_KEY(NULL)];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=null_map_subscript_bare_access]
+[required_features=V_1_4_MAP_TYPE]
+SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))['a'];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=null_map_subscript_with_key]
+[required_features=V_1_4_MAP_TYPE]
+SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))[KEY('a')];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=null_map_subscript_safe_key]
+[required_features=V_1_4_MAP_TYPE,V_1_2_SAFE_FUNCTION_CALL]
+SELECT MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))[SAFE_KEY('a')];
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=map_contains_key_null_map]
+SELECT
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY(
+      CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), 'foo') as null_map,
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY(
+      CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), NULL) as null_map_null_key,
+--
+ARRAY<STRUCT<
+        null_map BOOL,
+        null_map_null_key BOOL
+      >>[{NULL, NULL}]
+==
+
+[name=map_contains_key]
+SELECT
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([('foo', 1), ('bar', 2)]), 'foo') as map_found,
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([('foo', 1), ('bar', 2)]), 'not_present') as map_not_found,
+--
+ARRAY<STRUCT<map_found BOOL, map_not_found BOOL>>[{true, false}]
+==
+
+[name=map_contains_key_null_key]
+SELECT
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([(NULL, 1)]), NULL) as map_null_key_found,
+  MAP_CONTAINS_KEY(
+    MAP_FROM_ARRAY([('foo', 1)]), NULL) as map_null_key_not_found;
+--
+ARRAY<STRUCT<
+        map_null_key_found BOOL,
+        map_null_key_not_found BOOL
+      >>[{true, false}]
+==
+
+[name=cast_basic_null]
+SELECT CAST(NULL AS MAP<STRING, STRING>);
+--
+ARRAY<STRUCT<MAP<STRING, STRING>>>[{NULL}]
+==
+
+[name=cast_basic_same_type]
+SELECT CAST(MAP_FROM_ARRAY([("a", 1)]) AS MAP<STRING, INT64>);
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 1}}]
+==
+
+[name=cast_nested_same_type]
+[required_features=V_1_4_MAP_TYPE]
+SELECT CAST(MAP_FROM_ARRAY([("a", [('a', new zetasql_test__.EmptyMessage())])]) AS MAP<STRING, ARRAY<STRUCT<STRING, zetasql_test__.EmptyMessage>>>);
+--
+ARRAY<STRUCT<
+        MAP<STRING, ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage, file name: zetasql/testdata/test_schema.proto, <message EmptyMessage {
+}
+>>>>>
+      >>[{{"a": [{"a", {}}]}}]
+==
+
+[name=cast_map_nested_space]
+SELECT CAST(NULL AS MAP<STRING, MAP<STRING, STRING> >);
+--
+ARRAY<STRUCT<MAP<STRING, MAP<STRING, STRING>>>>[{NULL}]

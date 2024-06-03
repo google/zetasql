@@ -28,15 +28,6 @@ SELECT
   1 << 3 & 2 >> 1 | ~2 ^ 2
 ==
 
-# Left shift and right shift operators are considered as two tokens in the
-# JavaCC tokenizer. Not defining separate tokens for shift operators allows us
-# to use two or more consecutive right angle brackets at the end during
-# STRUCT<...> and ARRAY<...> safely. This is solved differently in the Bison
-# parser, using a tokenizer mode for array/struct type constructors.
-# We also test the other two-character operators with a space in between.
-# The GetParseTokens() test is disabled because the reconstructed query puts
-# the << together, which makes the reconstructed query succeed instead of fail.
-[no_test_get_parse_tokens]
 select 1 {{< <|> >|> =|< =|< >|! =}} 2
 --
 ALTERNATION GROUP: < <
@@ -239,6 +230,6 @@ select 1 > 3 > 5
 
 select 1>>>>3;
 --
-ERROR: Syntax error: Unexpected ">>" [at 1:11]
+ERROR: Syntax error: Unexpected ">" [at 1:11]
 select 1>>>>3;
           ^

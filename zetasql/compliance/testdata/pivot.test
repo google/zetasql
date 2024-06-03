@@ -281,7 +281,7 @@ ARRAY<STRUCT<
 ]
 ==
 
-[labels=bug_in_reference_impl]
+[required_features=V_1_3_PIVOT,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
 [name=pivot_conditional_evaluation]
 SELECT IF(SUM(pivot_min_100) >= 0, SUM(pivot_min_100), SUM(1/pivot_min_100)) FROM (SELECT x, y, z FROM t1)
   PIVOT(
@@ -289,7 +289,7 @@ SELECT IF(SUM(pivot_min_100) >= 0, SUM(pivot_min_100), SUM(1/pivot_min_100)) FRO
     MAX(z - 1000) AS pivot_max
     FOR y IN (100, 101, 103 AS yy103yy, NULL, NULL AS yyNULLyy));
 --
-ARRAY<STRUCT<INT64>>[{0}]
+ARRAY<STRUCT<DOUBLE>>[{0}]
 ==
 [required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=pivot_string_agg_with_delimiter]
@@ -315,8 +315,6 @@ ARRAY<STRUCT<
                  NULL
                },
                {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
-
-NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]

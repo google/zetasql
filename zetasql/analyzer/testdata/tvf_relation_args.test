@@ -1672,23 +1672,23 @@ from tvf_one_relation_arg_int64_string_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#20 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#21 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#22 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_int64_string_input_columns((TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   |   +-column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         |   |   +-expr_list=
-        |   |   | +-int64#19 :=
+        |   |   | +-int64#20 :=
         |   |   |   +-Cast(INT32 -> INT64)
         |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   |   +-input_scan=
@@ -1696,7 +1696,7 @@ QueryStmt
         |   |       +-column_list=SimpleTypes.[string#5, string#5, int32#1]
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=SimpleTypes.[int32#1, string#5], table=SimpleTypes, column_index_list=[0, 4])
-        |   +-argument_column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   +-argument_column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         +-column_index_list=[0, 1]
 ==
 
@@ -1711,14 +1711,14 @@ from tvf_one_relation_arg_three_int64_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#20 AS column_bytes [BYTES]
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#19 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#20 AS column_bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#20, column_bool#19]
+    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#21, column_bool#20]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#19, column_bytes#20]
+        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#20, column_bytes#21]
         +-tvf=tvf_one_relation_arg_three_int64_input_columns((TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
@@ -1744,14 +1744,14 @@ from tvf_one_relation_arg_three_int64_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#20 AS column_bytes [BYTES]
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#19 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#20 AS column_bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#20, column_bool#19]
+    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#21, column_bool#20]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#19, column_bytes#20]
+        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#20, column_bytes#21]
         +-tvf=tvf_one_relation_arg_three_int64_input_columns((TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
@@ -1779,29 +1779,29 @@ from tvf_one_relation_arg_three_int64_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#23 AS column_bytes [BYTES]
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#22 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#24 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#23 AS column_bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#23, column_bool#22]
+    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#24, column_bool#23]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#22, column_bytes#23]
+        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#23, column_bytes#24]
         +-tvf=tvf_one_relation_arg_three_int64_input_columns((TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=$subquery2.[int64a#19, int64b#20, int64c#21]
+        |   |   +-column_list=$subquery2.[int64a#20, int64b#21, int64c#22]
         |   |   +-expr_list=
-        |   |   | +-int64a#19 :=
+        |   |   | +-int64a#20 :=
         |   |   | | +-Cast(INT32 -> INT64)
         |   |   | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-        |   |   | +-int64b#20 :=
+        |   |   | +-int64b#21 :=
         |   |   | | +-Cast(INT32 -> INT64)
         |   |   | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-        |   |   | +-int64c#21 :=
+        |   |   | +-int64c#22 :=
         |   |   |   +-Cast(INT32 -> INT64)
         |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   |   +-input_scan=
@@ -1809,7 +1809,7 @@ QueryStmt
         |   |       +-column_list=SimpleTypes.[int32#1, int32#1, int32#1]
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-        |   +-argument_column_list=$subquery2.[int64a#19, int64b#20, int64c#21]
+        |   +-argument_column_list=$subquery2.[int64a#20, int64b#21, int64c#22]
         +-column_index_list=[0, 1]
 ==
 
@@ -1826,14 +1826,14 @@ from tvf_one_relation_arg_three_int64_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#21 AS column_bytes [BYTES]
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#20 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#22 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#21 AS column_bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#21, column_bool#20]
+    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#22, column_bool#21]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_three_int64_input_columns((TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
@@ -1843,9 +1843,9 @@ QueryStmt
         |   |   +-column_list=SimpleTypes.[int64#2, int64#2, int64#2]
         |   |   +-input_scan=
         |   |     +-ProjectScan
-        |   |       +-column_list=[SimpleTypes.int64#2, SimpleTypes.int64#2, SimpleTypes.int64#2, $subquery1.extra_col#19]
+        |   |       +-column_list=[SimpleTypes.int64#2, SimpleTypes.int64#2, SimpleTypes.int64#2, $subquery1.extra_col#20]
         |   |       +-expr_list=
-        |   |       | +-extra_col#19 := Literal(type=INT64, value=42)
+        |   |       | +-extra_col#20 := Literal(type=INT64, value=42)
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         |   +-argument_column_list=SimpleTypes.[int64#2, int64#2, int64#2]
@@ -1865,14 +1865,14 @@ from tvf_one_relation_arg_three_int64_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#21 AS column_bytes [BYTES]
-| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#20 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bytes#22 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_three_int64_input_columns.column_bool#21 AS column_bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#21, column_bool#20]
+    +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bytes#22, column_bool#21]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_three_int64_input_columns.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_three_int64_input_columns((TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64a INT64, int64b INT64, int64c INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
@@ -1882,9 +1882,9 @@ QueryStmt
         |   |   +-column_list=SimpleTypes.[int64#2, int64#2, int64#2]
         |   |   +-input_scan=
         |   |     +-ProjectScan
-        |   |       +-column_list=[SimpleTypes.int64#2, $subquery1.extra_col#19, SimpleTypes.int64#2, SimpleTypes.int64#2]
+        |   |       +-column_list=[SimpleTypes.int64#2, $subquery1.extra_col#20, SimpleTypes.int64#2, SimpleTypes.int64#2]
         |   |       +-expr_list=
-        |   |       | +-extra_col#19 := Literal(type=INT64, value=42)
+        |   |       | +-extra_col#20 := Literal(type=INT64, value=42)
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         |   +-argument_column_list=SimpleTypes.[int64#2, int64#2, int64#2]
@@ -1901,27 +1901,27 @@ from tvf_one_relation_arg_required_input_schema_many_types(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_required_input_schema_many_types.column_bool#21 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_required_input_schema_many_types.column_bytes#22 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_required_input_schema_many_types.column_bool#22 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_required_input_schema_many_types.column_bytes#23 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_required_input_schema_many_types.[column_bool#21, column_bytes#22]
+    +-column_list=tvf_one_relation_arg_required_input_schema_many_types.[column_bool#22, column_bytes#23]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_required_input_schema_many_types.[column_bool#21, column_bytes#22]
+        +-column_list=tvf_one_relation_arg_required_input_schema_many_types.[column_bool#22, column_bytes#23]
         +-tvf=tvf_one_relation_arg_required_input_schema_many_types((TABLE<bool BOOL, bytes BYTES, date DATE, double DOUBLE, float FLOAT, int32 INT32, int64 INT64, string STRING, time TIMESTAMP, uint32 UINT32, uint64 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<bool BOOL, bytes BYTES, date DATE, double DOUBLE, float FLOAT, int32 INT32, int64 INT64, string STRING, time TIMESTAMP, uint32 UINT32, uint64 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery1.bool#19, SimpleTypes.bytes#6, SimpleTypes.date#10, SimpleTypes.double#9, SimpleTypes.float#8, SimpleTypes.int32#1, SimpleTypes.int64#2, $subquery1.string#20, SimpleTypes.timestamp#15, SimpleTypes.uint32#3, SimpleTypes.uint64#4]
+        |   |   +-column_list=[$subquery1.bool#20, SimpleTypes.bytes#6, SimpleTypes.date#10, SimpleTypes.double#9, SimpleTypes.float#8, SimpleTypes.int32#1, SimpleTypes.int64#2, $subquery1.string#21, SimpleTypes.timestamp#15, SimpleTypes.uint32#3, SimpleTypes.uint64#4]
         |   |   +-expr_list=
-        |   |   | +-bool#19 := Literal(type=BOOL, value=true)
-        |   |   | +-string#20 := Literal(type=STRING, value="abc")
+        |   |   | +-bool#20 := Literal(type=BOOL, value=true)
+        |   |   | +-string#21 := Literal(type=STRING, value="abc")
         |   |   +-input_scan=
         |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, bytes#6, float#8, double#9, date#10, timestamp#15], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 5, 7, 8, 9, 14])
-        |   +-argument_column_list=[$subquery1.bool#19, SimpleTypes.bytes#6, SimpleTypes.date#10, SimpleTypes.double#9, SimpleTypes.float#8, SimpleTypes.int32#1, SimpleTypes.int64#2, $subquery1.string#20, SimpleTypes.timestamp#15, SimpleTypes.uint32#3, SimpleTypes.uint64#4]
+        |   +-argument_column_list=[$subquery1.bool#20, SimpleTypes.bytes#6, SimpleTypes.date#10, SimpleTypes.double#9, SimpleTypes.float#8, SimpleTypes.int32#1, SimpleTypes.int64#2, $subquery1.string#21, SimpleTypes.timestamp#15, SimpleTypes.uint32#3, SimpleTypes.uint64#4]
         +-column_index_list=[0, 1]
 ==
 
@@ -1935,23 +1935,23 @@ from tvf_one_relation_arg_int64_string_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#20 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#21 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#22 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_int64_string_input_columns((TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   |   +-column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         |   |   +-expr_list=
-        |   |   | +-int64#19 :=
+        |   |   | +-int64#20 :=
         |   |   |   +-Cast(INT32 -> INT64)
         |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   |   +-input_scan=
@@ -1959,7 +1959,7 @@ QueryStmt
         |   |       +-column_list=SimpleTypes.[int32#1, string#5]
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=SimpleTypes.[int32#1, string#5], table=SimpleTypes, column_index_list=[0, 4])
-        |   +-argument_column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   +-argument_column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         +-column_index_list=[0, 1]
 ==
 
@@ -1972,23 +1972,23 @@ from tvf_one_relation_arg_int64_string_input_columns(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#20 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bool#21 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_int64_string_input_columns.column_bytes#22 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+    +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_int64_string_input_columns.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_int64_string_input_columns((TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<int64 INT64, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   |   +-column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         |   |   +-expr_list=
-        |   |   | +-int64#19 :=
+        |   |   | +-int64#20 :=
         |   |   |   +-Cast(UINT32 -> INT64)
         |   |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
         |   |   +-input_scan=
@@ -1996,7 +1996,7 @@ QueryStmt
         |   |       +-column_list=SimpleTypes.[uint32#3, string#5]
         |   |       +-input_scan=
         |   |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
-        |   +-argument_column_list=[$subquery2.int64#19, SimpleTypes.string#5]
+        |   +-argument_column_list=[$subquery2.int64#20, SimpleTypes.string#5]
         +-column_index_list=[0, 1]
 ==
 
@@ -2006,272 +2006,6 @@ select column_bool, column_bytes
 from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
     (select uint32 as uint64, string from simpletypes),
     (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#38 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#39 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=[$subquery3.uint64#37, SimpleTypes.string#5]
-        | | |   +-expr_list=
-        | | |   | +-uint64#37 :=
-        | | |   |   +-Cast(UINT32 -> UINT64)
-        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=SimpleTypes.[uint32#3, string#5]
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
-        | | +-argument_column_list=[$subquery3.uint64#37, SimpleTypes.string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#28, string#23]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#23, date#28], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#28, string#23]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Column rearrangement is necessary for one of the relations but not the other.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select string, uint64 from simpletypes),
-    (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#37 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#38 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#37, column_bytes#38]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#37, column_bytes#38]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=SimpleTypes.[uint64#4, string#5]
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=SimpleTypes.[string#5, uint64#4]
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint64#4, string#5], table=SimpleTypes, column_index_list=[3, 4])
-        | | +-argument_column_list=SimpleTypes.[uint64#4, string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#28, string#23]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#23, date#28], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#28, string#23]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Column rearrangement and type coercion are necessary for one of the relations
-# but not the other.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select string, uint32 as uint64 from simpletypes),
-    (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#38 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#39 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=[$subquery3.uint64#37, SimpleTypes.string#5]
-        | | |   +-expr_list=
-        | | |   | +-uint64#37 :=
-        | | |   |   +-Cast(UINT32 -> UINT64)
-        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=SimpleTypes.[string#5, uint32#3]
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
-        | | +-argument_column_list=[$subquery3.uint64#37, SimpleTypes.string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#28, string#23]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#23, date#28], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#28, string#23]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Extra-column-dropping is necessary for one of the relations but not the other.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select uint64, string, 42 as extra_col from simpletypes),
-    (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#38 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#39 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#38, column_bytes#39]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=SimpleTypes.[uint64#4, string#5]
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=[SimpleTypes.uint64#4, SimpleTypes.string#5, $subquery1.extra_col#19]
-        | | |       +-expr_list=
-        | | |       | +-extra_col#19 := Literal(type=INT64, value=42)
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint64#4, string#5], table=SimpleTypes, column_index_list=[3, 4])
-        | | +-argument_column_list=SimpleTypes.[uint64#4, string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#29, string#24]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#29, string#24]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Type coercion and extra-column-dropping are necessary for one of the relations
-# but not the other.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select uint32 as uint64, string, 42 as extra_col from simpletypes),
-    (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#39 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#40 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=[$subquery3.uint64#38, SimpleTypes.string#5]
-        | | |   +-expr_list=
-        | | |   | +-uint64#38 :=
-        | | |   |   +-Cast(UINT32 -> UINT64)
-        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=[SimpleTypes.uint32#3, SimpleTypes.string#5, $subquery1.extra_col#19]
-        | | |       +-expr_list=
-        | | |       | +-extra_col#19 := Literal(type=INT64, value=42)
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
-        | | +-argument_column_list=[$subquery3.uint64#38, SimpleTypes.string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#29, string#24]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#29, string#24]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Type coercion, column rearrangement, and extra-column-dropping are necessary
-# for one of the relations but not the other.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select string, uint32 as uint64, 42 as extra_col from simpletypes),
-    (select `date`, string from simpletypes))
---
-QueryStmt
-+-output_column_list=
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#39 AS column_bool [BOOL]
-| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#40 AS column_bytes [BYTES]
-+-query=
-  +-ProjectScan
-    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
-    +-input_scan=
-      +-TVFScan
-        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
-        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        +-argument_list=
-        | +-FunctionArgument
-        | | +-scan=
-        | | | +-ProjectScan
-        | | |   +-column_list=[$subquery3.uint64#38, SimpleTypes.string#5]
-        | | |   +-expr_list=
-        | | |   | +-uint64#38 :=
-        | | |   |   +-Cast(UINT32 -> UINT64)
-        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-        | | |   +-input_scan=
-        | | |     +-ProjectScan
-        | | |       +-column_list=[SimpleTypes.string#5, SimpleTypes.uint32#3, $subquery1.extra_col#19]
-        | | |       +-expr_list=
-        | | |       | +-extra_col#19 := Literal(type=INT64, value=42)
-        | | |       +-input_scan=
-        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
-        | | +-argument_column_list=[$subquery3.uint64#38, SimpleTypes.string#5]
-        | +-FunctionArgument
-        |   +-scan=
-        |   | +-ProjectScan
-        |   |   +-column_list=SimpleTypes.[date#29, string#24]
-        |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
-        |   +-argument_column_list=SimpleTypes.[date#29, string#24]
-        +-column_index_list=[0, 1]
-==
-
-# The query calls a TVF that has two relation arguments with required schemas.
-# Type coercion, column rearrangement, and/or extra-column-dropping are
-# necessary for both relations.
-select column_bool, column_bytes
-from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
-    (select string, uint32 as uint64, 42 as extra_col from simpletypes),
-    (select string, `date`, 42 as extra_col from simpletypes))
 --
 QueryStmt
 +-output_column_list=
@@ -2296,9 +2030,7 @@ QueryStmt
         | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
         | | |   +-input_scan=
         | | |     +-ProjectScan
-        | | |       +-column_list=[SimpleTypes.string#5, SimpleTypes.uint32#3, $subquery1.extra_col#19]
-        | | |       +-expr_list=
-        | | |       | +-extra_col#19 := Literal(type=INT64, value=42)
+        | | |       +-column_list=SimpleTypes.[uint32#3, string#5]
         | | |       +-input_scan=
         | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
         | | +-argument_column_list=[$subquery3.uint64#39, SimpleTypes.string#5]
@@ -2307,13 +2039,281 @@ QueryStmt
         |   | +-ProjectScan
         |   |   +-column_list=SimpleTypes.[date#29, string#24]
         |   |   +-input_scan=
-        |   |     +-ProjectScan
-        |   |       +-column_list=[SimpleTypes.string#24, SimpleTypes.date#29, $subquery2.extra_col#38]
-        |   |       +-expr_list=
-        |   |       | +-extra_col#38 := Literal(type=INT64, value=42)
-        |   |       +-input_scan=
-        |   |         +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
+        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
         |   +-argument_column_list=SimpleTypes.[date#29, string#24]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Column rearrangement is necessary for one of the relations but not the other.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select string, uint64 from simpletypes),
+    (select `date`, string from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#39 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#40 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#39, column_bytes#40]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=SimpleTypes.[uint64#4, string#5]
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=SimpleTypes.[string#5, uint64#4]
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint64#4, string#5], table=SimpleTypes, column_index_list=[3, 4])
+        | | +-argument_column_list=SimpleTypes.[uint64#4, string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#29, string#24]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#29, string#24]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Column rearrangement and type coercion are necessary for one of the relations
+# but not the other.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select string, uint32 as uint64 from simpletypes),
+    (select `date`, string from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#40 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#41 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#40, column_bytes#41]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#40, column_bytes#41]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery3.uint64#39, SimpleTypes.string#5]
+        | | |   +-expr_list=
+        | | |   | +-uint64#39 :=
+        | | |   |   +-Cast(UINT32 -> UINT64)
+        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=SimpleTypes.[string#5, uint32#3]
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
+        | | +-argument_column_list=[$subquery3.uint64#39, SimpleTypes.string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#29, string#24]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypes.[string#24, date#29], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#29, string#24]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Extra-column-dropping is necessary for one of the relations but not the other.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select uint64, string, 42 as extra_col from simpletypes),
+    (select `date`, string from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#40 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#41 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#40, column_bytes#41]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#40, column_bytes#41]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=SimpleTypes.[uint64#4, string#5]
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=[SimpleTypes.uint64#4, SimpleTypes.string#5, $subquery1.extra_col#20]
+        | | |       +-expr_list=
+        | | |       | +-extra_col#20 := Literal(type=INT64, value=42)
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint64#4, string#5], table=SimpleTypes, column_index_list=[3, 4])
+        | | +-argument_column_list=SimpleTypes.[uint64#4, string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#30, string#25]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypes.[string#25, date#30], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#30, string#25]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Type coercion and extra-column-dropping are necessary for one of the relations
+# but not the other.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select uint32 as uint64, string, 42 as extra_col from simpletypes),
+    (select `date`, string from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#41 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#42 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#41, column_bytes#42]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#41, column_bytes#42]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery3.uint64#40, SimpleTypes.string#5]
+        | | |   +-expr_list=
+        | | |   | +-uint64#40 :=
+        | | |   |   +-Cast(UINT32 -> UINT64)
+        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=[SimpleTypes.uint32#3, SimpleTypes.string#5, $subquery1.extra_col#20]
+        | | |       +-expr_list=
+        | | |       | +-extra_col#20 := Literal(type=INT64, value=42)
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
+        | | +-argument_column_list=[$subquery3.uint64#40, SimpleTypes.string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#30, string#25]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypes.[string#25, date#30], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#30, string#25]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Type coercion, column rearrangement, and extra-column-dropping are necessary
+# for one of the relations but not the other.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select string, uint32 as uint64, 42 as extra_col from simpletypes),
+    (select `date`, string from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#41 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#42 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#41, column_bytes#42]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#41, column_bytes#42]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery3.uint64#40, SimpleTypes.string#5]
+        | | |   +-expr_list=
+        | | |   | +-uint64#40 :=
+        | | |   |   +-Cast(UINT32 -> UINT64)
+        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=[SimpleTypes.string#5, SimpleTypes.uint32#3, $subquery1.extra_col#20]
+        | | |       +-expr_list=
+        | | |       | +-extra_col#20 := Literal(type=INT64, value=42)
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
+        | | +-argument_column_list=[$subquery3.uint64#40, SimpleTypes.string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#30, string#25]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypes.[string#25, date#30], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#30, string#25]
+        +-column_index_list=[0, 1]
+==
+
+# The query calls a TVF that has two relation arguments with required schemas.
+# Type coercion, column rearrangement, and/or extra-column-dropping are
+# necessary for both relations.
+select column_bool, column_bytes
+from tvf_two_relation_args_uint64_string_and_date_string_input_columns(
+    (select string, uint32 as uint64, 42 as extra_col from simpletypes),
+    (select string, `date`, 42 as extra_col from simpletypes))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bool#42 AS column_bool [BOOL]
+| +-tvf_two_relation_args_uint64_string_and_date_string_input_columns.column_bytes#43 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#42, column_bytes#43]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relation_args_uint64_string_and_date_string_input_columns.[column_bool#42, column_bytes#43]
+        +-tvf=tvf_two_relation_args_uint64_string_and_date_string_input_columns((TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<uint64 UINT64, string STRING>, TABLE<date DATE, string STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery3.uint64#41, SimpleTypes.string#5]
+        | | |   +-expr_list=
+        | | |   | +-uint64#41 :=
+        | | |   |   +-Cast(UINT32 -> UINT64)
+        | | |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+        | | |   +-input_scan=
+        | | |     +-ProjectScan
+        | | |       +-column_list=[SimpleTypes.string#5, SimpleTypes.uint32#3, $subquery1.extra_col#20]
+        | | |       +-expr_list=
+        | | |       | +-extra_col#20 := Literal(type=INT64, value=42)
+        | | |       +-input_scan=
+        | | |         +-TableScan(column_list=SimpleTypes.[uint32#3, string#5], table=SimpleTypes, column_index_list=[2, 4])
+        | | +-argument_column_list=[$subquery3.uint64#41, SimpleTypes.string#5]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=SimpleTypes.[date#30, string#25]
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[SimpleTypes.string#25, SimpleTypes.date#30, $subquery2.extra_col#40]
+        |   |       +-expr_list=
+        |   |       | +-extra_col#40 := Literal(type=INT64, value=42)
+        |   |       +-input_scan=
+        |   |         +-TableScan(column_list=SimpleTypes.[string#25, date#30], table=SimpleTypes, column_index_list=[4, 9])
+        |   +-argument_column_list=SimpleTypes.[date#30, string#25]
         +-column_index_list=[0, 1]
 ==
 
@@ -2692,14 +2692,14 @@ from tvf_one_relation_arg_one_date_input_column(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_one_date_input_column.column_bool#19 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_one_date_input_column.column_bytes#20 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_one_date_input_column.column_bool#20 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_one_date_input_column.column_bytes#21 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#19, column_bytes#20]
+    +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#20, column_bytes#21]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#19, column_bytes#20]
+        +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#20, column_bytes#21]
         +-tvf=tvf_one_relation_arg_one_date_input_column((TABLE<mydate DATE>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<mydate DATE>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
@@ -2812,7 +2812,7 @@ QueryStmt
 ==
 
 # A TVF accepts one relation argument. The relation argument refers to a range
-# variable for a table reference to its left in the FROM cluase via the lateral
+# variable for a table reference to its left in the FROM clause via the lateral
 # behavior of UNNEST.
 select *
 from (select [struct("e" as string, 123 as int64)] as structval) as i,
@@ -3097,28 +3097,28 @@ select * from tvf_uint64_input_column_named_uint32(table simpletypes)
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_uint64_input_column_named_uint32.column_bool#20 AS column_bool [BOOL]
-| +-tvf_uint64_input_column_named_uint32.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_uint64_input_column_named_uint32.column_bool#21 AS column_bool [BOOL]
+| +-tvf_uint64_input_column_named_uint32.column_bytes#22 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_uint64_input_column_named_uint32.[column_bool#20, column_bytes#21]
+    +-column_list=tvf_uint64_input_column_named_uint32.[column_bool#21, column_bytes#22]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_uint64_input_column_named_uint32.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_uint64_input_column_named_uint32.[column_bool#21, column_bytes#22]
         +-tvf=tvf_uint64_input_column_named_uint32((TABLE<uint32 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<uint32 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery1.uint32#19]
+        |   |   +-column_list=[$subquery1.uint32#20]
         |   |   +-expr_list=
-        |   |   | +-uint32#19 :=
+        |   |   | +-uint32#20 :=
         |   |   |   +-Cast(UINT32 -> UINT64)
         |   |   |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
         |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
-        |   +-argument_column_list=[$subquery1.uint32#19]
+        |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+        |   +-argument_column_list=[$subquery1.uint32#20]
         +-column_index_list=[0, 1]
 ==
 
@@ -3676,45 +3676,46 @@ select * from tvf_templated_any_scalar_and_relation_args(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_templated_any_scalar_and_relation_args.int32#19 AS int32 [INT32]
-| +-tvf_templated_any_scalar_and_relation_args.int64#20 AS int64 [INT64]
-| +-tvf_templated_any_scalar_and_relation_args.uint32#21 AS uint32 [UINT32]
-| +-tvf_templated_any_scalar_and_relation_args.uint64#22 AS uint64 [UINT64]
-| +-tvf_templated_any_scalar_and_relation_args.string#23 AS string [STRING]
-| +-tvf_templated_any_scalar_and_relation_args.bytes#24 AS bytes [BYTES]
-| +-tvf_templated_any_scalar_and_relation_args.bool#25 AS bool [BOOL]
-| +-tvf_templated_any_scalar_and_relation_args.float#26 AS float [FLOAT]
-| +-tvf_templated_any_scalar_and_relation_args.double#27 AS double [DOUBLE]
-| +-tvf_templated_any_scalar_and_relation_args.date#28 AS date [DATE]
-| +-tvf_templated_any_scalar_and_relation_args.timestamp_seconds#29 AS timestamp_seconds [TIMESTAMP]
-| +-tvf_templated_any_scalar_and_relation_args.timestamp_millis#30 AS timestamp_millis [TIMESTAMP]
-| +-tvf_templated_any_scalar_and_relation_args.timestamp_micros#31 AS timestamp_micros [TIMESTAMP]
-| +-tvf_templated_any_scalar_and_relation_args.timestamp_nanos#32 AS timestamp_nanos [TIMESTAMP]
-| +-tvf_templated_any_scalar_and_relation_args.timestamp#33 AS timestamp [TIMESTAMP]
-| +-tvf_templated_any_scalar_and_relation_args.numeric#34 AS numeric [NUMERIC]
-| +-tvf_templated_any_scalar_and_relation_args.bignumeric#35 AS bignumeric [BIGNUMERIC]
-| +-tvf_templated_any_scalar_and_relation_args.json#36 AS json [JSON]
-| +-tvf_templated_any_scalar_and_relation_args.s#37 AS s [STRING]
+| +-tvf_templated_any_scalar_and_relation_args.int32#20 AS int32 [INT32]
+| +-tvf_templated_any_scalar_and_relation_args.int64#21 AS int64 [INT64]
+| +-tvf_templated_any_scalar_and_relation_args.uint32#22 AS uint32 [UINT32]
+| +-tvf_templated_any_scalar_and_relation_args.uint64#23 AS uint64 [UINT64]
+| +-tvf_templated_any_scalar_and_relation_args.string#24 AS string [STRING]
+| +-tvf_templated_any_scalar_and_relation_args.bytes#25 AS bytes [BYTES]
+| +-tvf_templated_any_scalar_and_relation_args.bool#26 AS bool [BOOL]
+| +-tvf_templated_any_scalar_and_relation_args.float#27 AS float [FLOAT]
+| +-tvf_templated_any_scalar_and_relation_args.double#28 AS double [DOUBLE]
+| +-tvf_templated_any_scalar_and_relation_args.date#29 AS date [DATE]
+| +-tvf_templated_any_scalar_and_relation_args.timestamp_seconds#30 AS timestamp_seconds [TIMESTAMP]
+| +-tvf_templated_any_scalar_and_relation_args.timestamp_millis#31 AS timestamp_millis [TIMESTAMP]
+| +-tvf_templated_any_scalar_and_relation_args.timestamp_micros#32 AS timestamp_micros [TIMESTAMP]
+| +-tvf_templated_any_scalar_and_relation_args.timestamp_nanos#33 AS timestamp_nanos [TIMESTAMP]
+| +-tvf_templated_any_scalar_and_relation_args.timestamp#34 AS timestamp [TIMESTAMP]
+| +-tvf_templated_any_scalar_and_relation_args.numeric#35 AS numeric [NUMERIC]
+| +-tvf_templated_any_scalar_and_relation_args.bignumeric#36 AS bignumeric [BIGNUMERIC]
+| +-tvf_templated_any_scalar_and_relation_args.json#37 AS json [JSON]
+| +-tvf_templated_any_scalar_and_relation_args.uuid#38 AS uuid [UUID]
+| +-tvf_templated_any_scalar_and_relation_args.s#39 AS s [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#19, int64#20, uint32#21, uint64#22, string#23, bytes#24, bool#25, float#26, double#27, date#28, timestamp_seconds#29, timestamp_millis#30, timestamp_micros#31, timestamp_nanos#32, timestamp#33, numeric#34, bignumeric#35, json#36, s#37]
+    +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#20, int64#21, uint32#22, uint64#23, string#24, bytes#25, bool#26, float#27, double#28, date#29, timestamp_seconds#30, timestamp_millis#31, timestamp_micros#32, timestamp_nanos#33, timestamp#34, numeric#35, bignumeric#36, json#37, uuid#38, s#39]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#19, int64#20, uint32#21, uint64#22, string#23, bytes#24, bool#25, float#26, double#27, date#28, timestamp_seconds#29, timestamp_millis#30, timestamp_micros#31, timestamp_nanos#32, timestamp#33, numeric#34, bignumeric#35, json#36, s#37]
+        +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#20, int64#21, uint32#22, uint64#23, string#24, bytes#25, bool#26, float#27, double#28, date#29, timestamp_seconds#30, timestamp_millis#31, timestamp_micros#32, timestamp_nanos#33, timestamp#34, numeric#35, bignumeric#36, json#37, uuid#38, s#39]
         +-tvf=tvf_templated_any_scalar_and_relation_args((ANY TYPE, ANY TABLE) -> ANY TABLE)
-        +-signature=(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, s STRING>
+        +-signature=(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID, s STRING>
         +-argument_list=
         | +-FunctionArgument
         | | +-expr=
         | |   +-Literal(type=STRING, value="2000-09-04")
         | +-FunctionArgument
         |   +-scan=
-        |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
-        |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
-        +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+        |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
 With Templated SQL TVF signature:
-  tvf_templated_any_scalar_and_relation_args(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, s STRING>
+  tvf_templated_any_scalar_and_relation_args(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID, s STRING>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -3736,14 +3737,15 @@ QueryStmt
 | +-t.numeric#16 AS numeric [NUMERIC]
 | +-t.bignumeric#17 AS bignumeric [BIGNUMERIC]
 | +-t.json#18 AS json [JSON]
-| +-$query.s#19 AS s [STRING]
+| +-t.uuid#19 AS uuid [UUID]
+| +-$query.s#20 AS s [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[t.int32#1, t.int64#2, t.uint32#3, t.uint64#4, t.string#5, t.bytes#6, t.bool#7, t.float#8, t.double#9, t.date#10, t.timestamp_seconds#11, t.timestamp_millis#12, t.timestamp_micros#13, t.timestamp_nanos#14, t.timestamp#15, t.numeric#16, t.bignumeric#17, t.json#18, $query.s#19]
+    +-column_list=[t.int32#1, t.int64#2, t.uint32#3, t.uint64#4, t.string#5, t.bytes#6, t.bool#7, t.float#8, t.double#9, t.date#10, t.timestamp_seconds#11, t.timestamp_millis#12, t.timestamp_micros#13, t.timestamp_nanos#14, t.timestamp#15, t.numeric#16, t.bignumeric#17, t.json#18, t.uuid#19, $query.s#20]
     +-expr_list=
-    | +-s#19 := ArgumentRef(type=STRING, name="s")
+    | +-s#20 := ArgumentRef(type=STRING, name="s")
     +-input_scan=
-      +-RelationArgumentScan(column_list=t.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], name="t")
+      +-RelationArgumentScan(column_list=t.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], name="t")
 ==
 
 # Same as previous, but selecting a subset of columns
@@ -3753,32 +3755,32 @@ from tvf_templated_any_scalar_and_relation_args(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_templated_any_scalar_and_relation_args.uint32#21 AS uint32 [UINT32]
-| +-tvf_templated_any_scalar_and_relation_args.int32#19 AS int32 [INT32]
-| +-tvf_templated_any_scalar_and_relation_args.s#37 AS s [STRING]
-| +-tvf_templated_any_scalar_and_relation_args.date#28 AS date [DATE]
-| +-tvf_templated_any_scalar_and_relation_args.json#36 AS json [JSON]
-| +-tvf_templated_any_scalar_and_relation_args.bool#25 AS bool [BOOL]
+| +-tvf_templated_any_scalar_and_relation_args.uint32#22 AS uint32 [UINT32]
+| +-tvf_templated_any_scalar_and_relation_args.int32#20 AS int32 [INT32]
+| +-tvf_templated_any_scalar_and_relation_args.s#39 AS s [STRING]
+| +-tvf_templated_any_scalar_and_relation_args.date#29 AS date [DATE]
+| +-tvf_templated_any_scalar_and_relation_args.json#37 AS json [JSON]
+| +-tvf_templated_any_scalar_and_relation_args.bool#26 AS bool [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_templated_any_scalar_and_relation_args.[uint32#21, int32#19, s#37, date#28, json#36, bool#25]
+    +-column_list=tvf_templated_any_scalar_and_relation_args.[uint32#22, int32#20, s#39, date#29, json#37, bool#26]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#19, uint32#21, bool#25, date#28, json#36, s#37]
+        +-column_list=tvf_templated_any_scalar_and_relation_args.[int32#20, uint32#22, bool#26, date#29, json#37, s#39]
         +-tvf=tvf_templated_any_scalar_and_relation_args((ANY TYPE, ANY TABLE) -> ANY TABLE)
-        +-signature=(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, s STRING>
+        +-signature=(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID, s STRING>
         +-argument_list=
         | +-FunctionArgument
         | | +-expr=
         | |   +-Literal(type=STRING, value="2000-09-04")
         | +-FunctionArgument
         |   +-scan=
-        |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
-        |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
-        +-column_index_list=[0, 2, 6, 9, 17, 18]
+        |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+        |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19]
+        +-column_index_list=[0, 2, 6, 9, 17, 19]
 
 With Templated SQL TVF signature:
-  tvf_templated_any_scalar_and_relation_args(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, s STRING>
+  tvf_templated_any_scalar_and_relation_args(literal STRING, TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID>) -> TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON, uuid UUID, s STRING>
 containing resolved templated query:
 QueryStmt
 +-output_column_list=
@@ -3800,14 +3802,15 @@ QueryStmt
 | +-t.numeric#16 AS numeric [NUMERIC]
 | +-t.bignumeric#17 AS bignumeric [BIGNUMERIC]
 | +-t.json#18 AS json [JSON]
-| +-$query.s#19 AS s [STRING]
+| +-t.uuid#19 AS uuid [UUID]
+| +-$query.s#20 AS s [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[t.int32#1, t.int64#2, t.uint32#3, t.uint64#4, t.string#5, t.bytes#6, t.bool#7, t.float#8, t.double#9, t.date#10, t.timestamp_seconds#11, t.timestamp_millis#12, t.timestamp_micros#13, t.timestamp_nanos#14, t.timestamp#15, t.numeric#16, t.bignumeric#17, t.json#18, $query.s#19]
+    +-column_list=[t.int32#1, t.int64#2, t.uint32#3, t.uint64#4, t.string#5, t.bytes#6, t.bool#7, t.float#8, t.double#9, t.date#10, t.timestamp_seconds#11, t.timestamp_millis#12, t.timestamp_micros#13, t.timestamp_nanos#14, t.timestamp#15, t.numeric#16, t.bignumeric#17, t.json#18, t.uuid#19, $query.s#20]
     +-expr_list=
-    | +-s#19 := ArgumentRef(type=STRING, name="s")
+    | +-s#20 := ArgumentRef(type=STRING, name="s")
     +-input_scan=
-      +-RelationArgumentScan(column_list=t.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], name="t")
+      +-RelationArgumentScan(column_list=t.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], name="t")
 ==
 
 # Call a TVF with a valid templated SQL body that refers to a scalar integer
@@ -3817,13 +3820,13 @@ select * from tvf_templated_scalar_date_and_relation_args(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_templated_scalar_date_and_relation_args.date#19 AS date [DATE]
+| +-tvf_templated_scalar_date_and_relation_args.date#20 AS date [DATE]
 +-query=
   +-ProjectScan
-    +-column_list=[tvf_templated_scalar_date_and_relation_args.date#19]
+    +-column_list=[tvf_templated_scalar_date_and_relation_args.date#20]
     +-input_scan=
       +-TVFScan
-        +-column_list=[tvf_templated_scalar_date_and_relation_args.date#19]
+        +-column_list=[tvf_templated_scalar_date_and_relation_args.date#20]
         +-tvf=tvf_templated_scalar_date_and_relation_args((DATE, TABLE<date DATE>) -> ANY TABLE)
         +-signature=(literal DATE, TABLE<date DATE>) -> TABLE<date DATE>
         +-argument_list=
@@ -3835,7 +3838,7 @@ QueryStmt
         |   | +-ProjectScan
         |   |   +-column_list=[SimpleTypes.date#10]
         |   |   +-input_scan=
-        |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+        |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         |   +-argument_column_list=[SimpleTypes.date#10]
         +-column_index_list=[0]
 
@@ -3866,13 +3869,13 @@ select * from tvf_templated_select_scalar_and_relation_args(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_templated_select_scalar_and_relation_args.key#38 AS key [INT64]
+| +-tvf_templated_select_scalar_and_relation_args.key#40 AS key [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[tvf_templated_select_scalar_and_relation_args.key#38]
+    +-column_list=[tvf_templated_select_scalar_and_relation_args.key#40]
     +-input_scan=
       +-TVFScan
-        +-column_list=[tvf_templated_select_scalar_and_relation_args.key#38]
+        +-column_list=[tvf_templated_select_scalar_and_relation_args.key#40]
         +-tvf=tvf_templated_select_scalar_and_relation_args((INT64, TABLE<key INT64>) -> ANY TABLE)
         +-signature=(INT64, TABLE<key INT64>) -> TABLE<key INT64>
         +-argument_list=
@@ -3890,17 +3893,17 @@ QueryStmt
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[$subquery2.key#37]
+        |   |   +-column_list=[$subquery2.key#39]
         |   |   +-expr_list=
-        |   |   | +-key#37 :=
+        |   |   | +-key#39 :=
         |   |   |   +-Cast(INT32 -> INT64)
-        |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+        |   |   |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#20)
         |   |   +-input_scan=
         |   |     +-ProjectScan
-        |   |       +-column_list=[SimpleTypes.int32#19]
+        |   |       +-column_list=[SimpleTypes.int32#20]
         |   |       +-input_scan=
-        |   |         +-TableScan(column_list=[SimpleTypes.int32#19], table=SimpleTypes, column_index_list=[0])
-        |   +-argument_column_list=[$subquery2.key#37]
+        |   |         +-TableScan(column_list=[SimpleTypes.int32#20], table=SimpleTypes, column_index_list=[0])
+        |   +-argument_column_list=[$subquery2.key#39]
         +-column_index_list=[0]
 
 With Templated SQL TVF signature:
@@ -4864,21 +4867,21 @@ from tvf_one_relation_arg_one_date_input_column(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_one_date_input_column.column_bool#20 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_one_date_input_column.column_bytes#21 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_one_date_input_column.column_bool#21 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_one_date_input_column.column_bytes#22 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#20, column_bytes#21]
+    +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#21, column_bytes#22]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#20, column_bytes#21]
+        +-column_list=tvf_one_relation_arg_one_date_input_column.[column_bool#21, column_bytes#22]
         +-tvf=tvf_one_relation_arg_one_date_input_column((TABLE<mydate DATE>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<mydate DATE>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-WithScan
-        |   |   +-column_list=[w1.mydate#19]
+        |   |   +-column_list=[w1.mydate#20]
         |   |   +-with_entry_list=
         |   |   | +-WithEntry
         |   |   |   +-with_query_name="w1"
@@ -4889,10 +4892,10 @@ QueryStmt
         |   |   |         +-TableScan(column_list=[SimpleTypes.date#10], table=SimpleTypes, column_index_list=[9])
         |   |   +-query=
         |   |     +-ProjectScan
-        |   |       +-column_list=[w1.mydate#19]
+        |   |       +-column_list=[w1.mydate#20]
         |   |       +-input_scan=
-        |   |         +-WithRefScan(column_list=[w1.mydate#19], with_query_name="w1")
-        |   +-argument_column_list=[w1.mydate#19]
+        |   |         +-WithRefScan(column_list=[w1.mydate#20], with_query_name="w1")
+        |   +-argument_column_list=[w1.mydate#20]
         +-column_index_list=[0, 1]
 ==
 
@@ -5410,7 +5413,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_append_columns.[append_col_int64#3, append_col_string#16]
         +-tvf=tvf_append_columns((ANY TABLE) -> ANY TABLE)
-        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING>
+        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING, append_col_uuid UUID>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -5457,7 +5460,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_append_columns.[key#2, append_col_int64#3, append_col_int32#4, append_col_uint32#5, append_col_uint64#6, append_col_bytes#7, append_col_bool#8, append_col_float#9, append_col_double#10, append_col_date#11, append_col_timestamp#12, append_col_numeric#13, append_col_bignumeric#14, append_col_string#16]
         +-tvf=tvf_append_columns((ANY TABLE) -> ANY TABLE)
-        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING>
+        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING, append_col_uuid UUID>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -5494,14 +5497,15 @@ QueryStmt
 | +-tvf_append_columns.append_col_bignumeric#14 AS append_col_bignumeric [BIGNUMERIC]
 | +-tvf_append_columns.append_col_json#15 AS append_col_json [JSON]
 | +-tvf_append_columns.append_col_string#16 AS append_col_string [STRING]
+| +-tvf_append_columns.append_col_uuid#17 AS append_col_uuid [UUID]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_append_columns.[key#2, append_col_int64#3, append_col_int32#4, append_col_uint32#5, append_col_uint64#6, append_col_bytes#7, append_col_bool#8, append_col_float#9, append_col_double#10, append_col_date#11, append_col_timestamp#12, append_col_numeric#13, append_col_bignumeric#14, append_col_json#15, append_col_string#16]
+    +-column_list=tvf_append_columns.[key#2, append_col_int64#3, append_col_int32#4, append_col_uint32#5, append_col_uint64#6, append_col_bytes#7, append_col_bool#8, append_col_float#9, append_col_double#10, append_col_date#11, append_col_timestamp#12, append_col_numeric#13, append_col_bignumeric#14, append_col_json#15, append_col_string#16, append_col_uuid#17]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_append_columns.[key#2, append_col_int64#3, append_col_int32#4, append_col_uint32#5, append_col_uint64#6, append_col_bytes#7, append_col_bool#8, append_col_float#9, append_col_double#10, append_col_date#11, append_col_timestamp#12, append_col_numeric#13, append_col_bignumeric#14, append_col_json#15, append_col_string#16]
+        +-column_list=tvf_append_columns.[key#2, append_col_int64#3, append_col_int32#4, append_col_uint32#5, append_col_uint64#6, append_col_bytes#7, append_col_bool#8, append_col_float#9, append_col_double#10, append_col_date#11, append_col_timestamp#12, append_col_numeric#13, append_col_bignumeric#14, append_col_json#15, append_col_string#16, append_col_uuid#17]
         +-tvf=tvf_append_columns((ANY TABLE) -> ANY TABLE)
-        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING>
+        +-signature=(TABLE<key INT64>) -> TABLE<key INT64, append_col_int64 INT64, append_col_int32 INT32, append_col_uint32 UINT32, append_col_uint64 UINT64, append_col_bytes BYTES, append_col_bool BOOL, append_col_float FLOAT, append_col_double DOUBLE, append_col_date DATE, append_col_timestamp TIMESTAMP, append_col_numeric NUMERIC, append_col_bignumeric BIGNUMERIC, append_col_json JSON, append_col_string STRING, append_col_uuid UUID>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -5512,7 +5516,7 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.key#1]
-        +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 ==
 
 select * from tvf_append_no_column((select 12 as key));

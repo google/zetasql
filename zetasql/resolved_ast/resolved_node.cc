@@ -358,7 +358,8 @@ void ResolvedDeferredComputedColumn::CollectDebugStringFields(
 
 std::string ResolvedDeferredComputedColumn::GetNameForDebugString() const {
   std::string name = column().ShortDebugString();
-  absl::StrAppend(&name, " [", side_effect_column_.ShortDebugString(), "]");
+  absl::StrAppend(&name, " [side_effect_column=",
+                  side_effect_column_.ShortDebugString(), "]");
   return GetNameForDebugStringWithNameFormat(name, expr());
 }
 

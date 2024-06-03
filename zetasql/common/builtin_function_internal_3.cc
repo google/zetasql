@@ -48,6 +48,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -235,7 +236,7 @@ void GetStringFunctions(TypeFactory* type_factory,
                      &CheckFormatPostResolutionArguments));
 
   FunctionSignatureOptions date_time_constructor_options =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
   std::vector<FunctionSignatureOnHeap> string_signatures{
       {string_type,
@@ -366,7 +367,7 @@ void GetStringFunctions(TypeFactory* type_factory,
           // return type is decided by the resolver.
           FunctionSignatureOptions().set_propagates_collation(false)}},
         FunctionOptions().set_pre_resolution_argument_constraint(
-            [](const std::vector<InputArgumentType>& args,
+            [](absl::Span<const InputArgumentType> args,
                const LanguageOptions&) -> absl::Status {
               // Make sure the second argument is a string literal.
               if (args.size() >= 2 && !ArgumentIsStringLiteral(args[1])) {
@@ -862,7 +863,7 @@ void GetConditionalFunctions(TypeFactory* type_factory,
         FunctionSignatureOptions().set_is_internal(true)}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
-          .add_required_language_feature(
+          .AddRequiredLanguageFeature(
               LanguageFeature::FEATURE_V_1_4_ENFORCE_CONDITIONAL_EVALUATION));
 }
 
@@ -876,6 +877,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* double_type = type_factory->get_double();
   const Type* string_type = type_factory->get_string();
   const Type* bytes_type = type_factory->get_bytes();
+  const Type* uuid_type = type_factory->get_uuid();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -884,7 +886,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                        {{type_factory->get_bool(),
                          {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
                          FN_CONTAINS_KEY}},
-                       FunctionOptions().add_required_language_feature(
+                       FunctionOptions().AddRequiredLanguageFeature(
                            LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
   // Is a particular key present in a proto map?
@@ -898,10 +900,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
       functions, options, "modify_map", SCALAR,
       {{ARG_PROTO_MAP_ANY, modify_map_args, FN_MODIFY_MAP}},
       FunctionOptions()
-          .add_required_language_feature(
-              LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)
+          .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)
           .set_pre_resolution_argument_constraint(
-              [](const std::vector<InputArgumentType>& args,
+              [](absl::Span<const InputArgumentType> args,
                  const LanguageOptions& opts) -> absl::Status {
                 if (args.size() < 3 || args.size() % 2 == 0) {
                   return MakeSqlError()
@@ -913,7 +914,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
               })
           .set_no_matching_signature_callback(
               [=](absl::string_view qualified_function_name,
-                  const std::vector<InputArgumentType>& args,
+                  absl::Span<const InputArgumentType> args,
                   const ProductMode& product_mode) {
                 std::string ret = absl::StrCat("No matching signature for ",
                                                qualified_function_name, "(");
@@ -1006,6 +1007,13 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "generate_uuid", SCALAR,
                        {{string_type, {}, FN_GENERATE_UUID}},
                        function_is_volatile);
+
+  InsertSimpleFunction(functions, options, "new_uuid", SCALAR,
+                       {{uuid_type, {}, FN_NEW_UUID}},
+                       FunctionOptions()
+                           .set_volatility(FunctionEnums::VOLATILE)
+                           .AddRequiredLanguageFeature(
+                               LanguageFeature::FEATURE_V_1_4_UUID_TYPE));
 
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL)) {
@@ -1120,7 +1128,7 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                            .set_supports_safe_error_mode(false)
                            .set_sql_name("array[key()]")
                            .set_get_sql_callback(&ProtoMapAtKeySQL)
-                           .add_required_language_feature(
+                           .AddRequiredLanguageFeature(
                                LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
   InsertSimpleFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
                        {{ARG_PROTO_MAP_VALUE_ANY,
@@ -1130,28 +1138,45 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                            .set_supports_safe_error_mode(false)
                            .set_sql_name("array[safe_key()]")
                            .set_get_sql_callback(&SafeProtoMapAtKeySQL)
-                           .add_required_language_feature(
+                           .AddRequiredLanguageFeature(
                                LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
-  // The analyzer has been extended to recognize the subscript operator ([]).
-  // ZetaSQLcurrently only supports this for JSON, iff the JSON feature is
-  // enabled.
-  //
-  // The analyzer has also been extended to recognize generic subscript
-  // with offset/ordinal syntax, but ZetaSQL has not defined any type that
-  // actually supports this yet.
-  std::vector<FunctionSignatureOnHeap> function_signatures;
+  // The analyzer translates the subscript operator to a generic $subscript
+  // function call for all types not handled above. Using KEY, OFFSET, and
+  // ORDINAL syntax within the subscript operator is also supported and
+  // translates to the functions $subscript_with_{key,offset,ordinal}
+  // respectively.
+  // Note: When adding new function signatures for generic subscript, you will
+  // also need to add them to `kBuiltinFunctionSignatureIdToKindMap` in
+  // algebrizer.cc.
+  std::vector<FunctionSignatureOnHeap> subscript_function_signatures;
+  std::vector<FunctionSignatureOnHeap> subscript_with_key_function_signatures;
   if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
     const Type* int64_type = type_factory->get_int64();
     const Type* json_type = types::JsonType();
     const Type* string_type = type_factory->get_string();
-    function_signatures.push_back(
+    subscript_function_signatures.push_back(
         {json_type, {json_type, int64_type}, FN_JSON_SUBSCRIPT_INT64});
-    function_signatures.push_back(
+    subscript_function_signatures.push_back(
         {json_type, {json_type, string_type}, FN_JSON_SUBSCRIPT_STRING});
   }
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_V_1_4_MAP_TYPE)) {
+    subscript_function_signatures.push_back(
+        {ARG_TYPE_ANY_2,
+         {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
+         FN_MAP_SUBSCRIPT,
+         FunctionSignatureOptions().AddRequiredLanguageFeature(
+             FEATURE_V_1_4_MAP_TYPE)});
+    subscript_with_key_function_signatures.push_back(
+        {ARG_TYPE_ANY_2,
+         {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
+         FN_MAP_SUBSCRIPT_WITH_KEY,
+         FunctionSignatureOptions().AddRequiredLanguageFeature(
+             FEATURE_V_1_4_MAP_TYPE)});
+  }
+
   InsertFunction(functions, options, "$subscript", Function::SCALAR,
-                 function_signatures,
+                 subscript_function_signatures,
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
                      .set_get_sql_callback(&SubscriptFunctionSQL)
@@ -1160,11 +1185,8 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                          absl::bind_front(&NoMatchingSignatureForSubscript,
                                           /*offset_or_ordinal=*/"")));
 
-  // Create functions with no signatures for other subscript functions
-  // that have special handling in the analyzer.
-  const std::vector<FunctionSignatureOnHeap> empty_signatures;
   InsertFunction(functions, options, "$subscript_with_key", Function::SCALAR,
-                 empty_signatures,
+                 subscript_with_key_function_signatures,
                  FunctionOptions()
                      .set_supports_safe_error_mode(true)
                      .set_get_sql_callback(&SubscriptWithKeyFunctionSQL)
@@ -1172,6 +1194,9 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                      .set_no_matching_signature_callback(
                          absl::bind_front(&NoMatchingSignatureForSubscript,
                                           /*offset_or_ordinal=*/"KEY")));
+
+  // No types currently support generic subscript OFFSET or ORDINAL
+  const std::vector<FunctionSignatureOnHeap> empty_signatures;
   InsertFunction(functions, options, "$subscript_with_offset", Function::SCALAR,
                  empty_signatures,
                  FunctionOptions()
@@ -1312,15 +1337,18 @@ void GetJSONFunctions(TypeFactory* type_factory,
          {json_type, optional_json_path_argument},
          FN_JSON_VALUE_ARRAY_JSON});
 
-    InsertFunction(functions, options, "to_json", SCALAR,
-                   {{json_type,
-                     {ARG_TYPE_ANY_1,
-                      {bool_type, FunctionArgumentTypeOptions()
-                                      .set_cardinality(FunctionEnums::OPTIONAL)
-                                      .set_argument_name(
-                                          "stringify_wide_numbers", kNamedOnly)
-                                      .set_default(values::Bool(false))}},
-                     FN_TO_JSON}});
+    InsertFunction(
+        functions, options, "to_json", SCALAR,
+        {
+            {json_type,
+             {ARG_TYPE_ANY_1,
+              {bool_type,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionEnums::OPTIONAL)
+                   .set_argument_name("stringify_wide_numbers", kNamedOnly)
+                   .set_default(values::Bool(false))}},
+             FN_TO_JSON}
+        });
     InsertFunction(
         functions, options, "parse_json", SCALAR,
         {{json_type,
@@ -1533,8 +1561,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
           FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
         FN_JSON_ARRAY}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
   InsertFunction(functions, options, "json_extract", SCALAR,
                  json_extract_signatures);
@@ -1576,8 +1604,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
         {{array_string_type}, {ARG_ARRAY_TYPE_ANY_1}},
         FN_JSON_OBJECT_ARRAYS}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
   InsertFunction(
       functions, options, "json_remove", SCALAR,
@@ -1585,8 +1613,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
         {json_type, json_path_argument, repeated_json_path_argument},
         FN_JSON_REMOVE}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   FunctionArgumentType first_json_path = json_path_argument;
   FunctionArgumentType first_set_value{ARG_TYPE_ARBITRARY};
@@ -1608,8 +1636,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
          remaining_set_values, create_if_missing},
         FN_JSON_SET}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   InsertFunction(
       functions, options, "json_strip_nulls", SCALAR,
@@ -1628,8 +1656,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
                          .set_default(Value::Bool(false))}},
         FN_JSON_STRIP_NULLS}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   InsertFunction(
       functions, options, "json_array_insert", SCALAR,
@@ -1649,8 +1677,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
                          .set_default(Value::Bool(true))}},
         FN_JSON_ARRAY_INSERT}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
 
   InsertFunction(
       functions, options, "json_array_append", SCALAR,
@@ -1670,8 +1698,26 @@ void GetJSONFunctions(TypeFactory* type_factory,
                          .set_default(Value::Bool(true))}},
         FN_JSON_ARRAY_APPEND}},
       FunctionOptions()
-          .add_required_language_feature(FEATURE_JSON_TYPE)
-          .add_required_language_feature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_MUTATOR_FUNCTIONS));
+
+  InsertFunction(
+      functions, options, "json_keys", SCALAR,
+      {{array_string_type,
+        {json_type,
+         {int64_type,
+          FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionEnums::OPTIONAL)
+              .set_default(Value::Int64(std::numeric_limits<int64_t>::max()))},
+         {string_type, FunctionArgumentTypeOptions()
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_must_be_constant_expression(true)
+                           .set_argument_name("mode", kNamedOnly)
+                           .set_default(Value::String("strict"))}},
+        FN_JSON_KEYS}},
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
+          .AddRequiredLanguageFeature(FEATURE_JSON_KEYS_FUNCTION));
 }
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,
@@ -2198,370 +2244,6 @@ void GetNetFunctions(TypeFactory* type_factory,
       {{int64_type, {bytes_type}, FN_NET_IPV4_TO_INT64}});
 }
 
-void GetHllCountFunctions(TypeFactory* type_factory,
-                          const ZetaSQLBuiltinFunctionOptions& options,
-                          NameToFunctionMap* functions) {
-  const Type* bytes_type = type_factory->get_bytes();
-  const Type* int64_type = type_factory->get_int64();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* string_type = type_factory->get_string();
-  const Type* numeric_type = type_factory->get_numeric();
-  const Type* bignumeric_type = type_factory->get_bignumeric();
-
-  const Function::Mode AGGREGATE = Function::AGGREGATE;
-  const Function::Mode SCALAR = Function::SCALAR;
-  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
-      FunctionArgumentType::OPTIONAL;
-
-  FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
-
-  FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
-
-  // The second argument must be an integer literal between 10 and 24,
-  // and cannot be NULL.
-  FunctionArgumentTypeOptions hll_init_arg;
-  hll_init_arg.set_is_not_aggregate();
-  hll_init_arg.set_must_be_non_null();
-  hll_init_arg.set_cardinality(OPTIONAL);
-  hll_init_arg.set_min_value(10);
-  hll_init_arg.set_max_value(24);
-
-  InsertSimpleNamespaceFunction(
-      functions, options, "hll_count", "merge", AGGREGATE,
-      {{int64_type, {bytes_type}, FN_HLL_COUNT_MERGE}},
-      DefaultAggregateFunctionOptions());
-  InsertSimpleNamespaceFunction(
-      functions, options, "hll_count", "extract", SCALAR,
-      {{int64_type, {bytes_type}, FN_HLL_COUNT_EXTRACT}});
-  InsertNamespaceFunction(
-      functions, options, "hll_count", "init", AGGREGATE,
-      {{bytes_type,
-        {int64_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_INT64},
-       {bytes_type,
-        {uint64_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_UINT64},
-       {bytes_type,
-        {numeric_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_NUMERIC,
-        has_numeric_type_argument},
-       {bytes_type,
-        {bignumeric_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_BIGNUMERIC,
-        has_bignumeric_type_argument},
-       {bytes_type,
-        {string_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_STRING,
-        FunctionSignatureOptions().set_uses_operation_collation()},
-       {bytes_type,
-        {bytes_type, {int64_type, hll_init_arg}},
-        FN_HLL_COUNT_INIT_BYTES}},
-      DefaultAggregateFunctionOptions());
-  InsertSimpleNamespaceFunction(
-      functions, options, "hll_count", "merge_partial", AGGREGATE,
-      {{bytes_type, {bytes_type}, FN_HLL_COUNT_MERGE_PARTIAL}},
-      DefaultAggregateFunctionOptions());
-}
-
-void GetD3ACountFunctions(TypeFactory* type_factory,
-                          const ZetaSQLBuiltinFunctionOptions& options,
-                          NameToFunctionMap* functions) {
-  const Type* bytes_type = type_factory->get_bytes();
-  const Type* int64_type = type_factory->get_int64();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* string_type = type_factory->get_string();
-  const Type* numeric_type = type_factory->get_numeric();
-  const Type* bignumeric_type = type_factory->get_bignumeric();
-
-  const Function::Mode AGGREGATE = Function::AGGREGATE;
-  const Function::Mode SCALAR = Function::SCALAR;
-  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
-      FunctionArgumentType::OPTIONAL;
-
-  FunctionSignatureOptions has_numeric_type_argument;
-  has_numeric_type_argument.set_constraints(&CheckHasNumericTypeArgument);
-
-  FunctionSignatureOptions has_bignumeric_type_argument;
-  has_bignumeric_type_argument.set_constraints(&CheckHasBigNumericTypeArgument);
-
-  // The second argument `weight` is required to avoid misusage as HLL_COUNT and
-  // ensure that the user is using it in the cases they need deletions.
-  // We don't set `is_not_aggregate` as true because each call can have a
-  // different value depending on input row or smth similar.
-  FunctionArgumentTypeOptions d3a_weight_arg;
-  d3a_weight_arg.set_must_be_non_null();
-
-  // The third argument must be an integer literal between 4 and 24,
-  // and cannot be NULL.
-  FunctionArgumentTypeOptions d3a_precision_arg;
-  d3a_precision_arg.set_is_not_aggregate();
-  d3a_precision_arg.set_must_be_non_null();
-  d3a_precision_arg.set_cardinality(OPTIONAL);
-  d3a_precision_arg.set_min_value(4);
-  d3a_precision_arg.set_max_value(24);
-
-  InsertSimpleNamespaceFunction(
-      functions, options, "d3a_count", "merge", AGGREGATE,
-      {{int64_type, {bytes_type}, FN_D3A_COUNT_MERGE}},
-      DefaultAggregateFunctionOptions());
-  InsertSimpleNamespaceFunction(
-      functions, options, "d3a_count", "merge_partial", AGGREGATE,
-      {{bytes_type, {bytes_type}, FN_D3A_COUNT_MERGE_PARTIAL}},
-      DefaultAggregateFunctionOptions());
-  InsertSimpleNamespaceFunction(
-      functions, options, "d3a_count", "extract", SCALAR,
-      {{int64_type, {bytes_type}, FN_D3A_COUNT_EXTRACT}});
-  InsertSimpleNamespaceFunction(
-      functions, options, "d3a_count", "to_hll", SCALAR,
-      {{bytes_type, {bytes_type}, FN_D3A_COUNT_TO_HLL}});
-  InsertNamespaceFunction(
-      functions, options, "d3a_count", "init", AGGREGATE,
-      {{bytes_type,
-        {int64_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_INT64},
-       {bytes_type,
-        {uint64_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_UINT64},
-       {bytes_type,
-        {numeric_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_NUMERIC,
-        has_numeric_type_argument},
-       {bytes_type,
-        {bignumeric_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_BIGNUMERIC,
-        has_bignumeric_type_argument},
-       {bytes_type,
-        {string_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_STRING,
-        FunctionSignatureOptions().set_uses_operation_collation()},
-       {bytes_type,
-        {bytes_type,
-         {int64_type, d3a_weight_arg},
-         {int64_type, d3a_precision_arg}},
-        FN_D3A_COUNT_INIT_BYTES}},
-      DefaultAggregateFunctionOptions().set_supports_distinct_modifier(false));
-}
-
-void GetKllQuantilesFunctions(TypeFactory* type_factory,
-                              const ZetaSQLBuiltinFunctionOptions& options,
-                              NameToFunctionMap* functions) {
-  const Type* int64_type = type_factory->get_int64();
-  const Type* uint64_type = type_factory->get_uint64();
-  const Type* double_type = type_factory->get_double();
-  const Type* bytes_type = type_factory->get_bytes();
-  const Type* int64_array_type = types::Int64ArrayType();
-  const Type* uint64_array_type = types::Uint64ArrayType();
-  const Type* double_array_type = types::DoubleArrayType();
-
-  const Function::Mode AGGREGATE = Function::AGGREGATE;
-  const Function::Mode SCALAR = Function::SCALAR;
-  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
-      FunctionArgumentType::OPTIONAL;
-
-  // By default, all built-in aggregate functions can be used as analytic
-  // functions, and all the KllQuantilesFunctions do not allow external usage.
-  FunctionOptions
-      aggregate_analytic_function_options_and_not_allow_external_usage =
-          DefaultAggregateFunctionOptions().set_allow_external_usage(false);
-
-  // The optional second argument of 'init', the approximation precision or
-  // inverse epsilon ('inv_eps'), must be an integer >= 2 and cannot be NULL.
-  FunctionArgumentTypeOptions init_inv_eps_arg;
-  init_inv_eps_arg.set_is_not_aggregate();
-  init_inv_eps_arg.set_must_be_non_null();
-  init_inv_eps_arg.set_cardinality(OPTIONAL);
-  init_inv_eps_arg.set_min_value(2);
-
-  // Init functions include a weight parameter only if NAMED_ARGUMENTS enabled.
-  if (options.language_options.LanguageFeatureEnabled(
-          zetasql::FEATURE_V_1_3_KLL_WEIGHTS)) {
-    // Explicitly set default value for precision (detailed in (broken link))
-    init_inv_eps_arg.set_default(Value::Int64(1000));
-
-    // There is an additional optional argument for input weights.
-    FunctionArgumentTypeOptions init_weights_arg;
-    init_weights_arg.set_cardinality(OPTIONAL);
-    init_weights_arg.set_argument_name("weight", kNamedOnly);
-    init_weights_arg.set_default(Value::Int64(1));
-
-    // Init functions with weight parameter
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_int64", AGGREGATE,
-        {{bytes_type,
-          {int64_type,
-           {int64_type, init_inv_eps_arg},
-           {int64_type, init_weights_arg}},
-          FN_KLL_QUANTILES_INIT_INT64}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_uint64", AGGREGATE,
-        {{bytes_type,
-          {uint64_type,
-           {int64_type, init_inv_eps_arg},
-           {int64_type, init_weights_arg}},
-          FN_KLL_QUANTILES_INIT_UINT64}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_double", AGGREGATE,
-        {{bytes_type,
-          {double_type,
-           {int64_type, init_inv_eps_arg},
-           {int64_type, init_weights_arg}},
-          FN_KLL_QUANTILES_INIT_DOUBLE}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-  } else {
-    // init functions with no weight parameter
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_int64", AGGREGATE,
-        {{bytes_type,
-          {int64_type, {int64_type, init_inv_eps_arg}},
-          FN_KLL_QUANTILES_INIT_INT64}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_uint64", AGGREGATE,
-        {{bytes_type,
-          {uint64_type, {int64_type, init_inv_eps_arg}},
-          FN_KLL_QUANTILES_INIT_UINT64}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-    InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_double", AGGREGATE,
-        {{bytes_type,
-          {double_type, {int64_type, init_inv_eps_arg}},
-          FN_KLL_QUANTILES_INIT_DOUBLE}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
-  }
-
-  // Merge_partial
-  InsertSimpleNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_partial", AGGREGATE,
-      {{bytes_type, {bytes_type}, FN_KLL_QUANTILES_MERGE_PARTIAL}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-
-  // The second argument of aggregate function 'merge', the number of
-  // equidistant quantiles that should be returned; must be a non-aggregate
-  //  integer >= 2 and cannot be NULL.
-  FunctionArgumentTypeOptions num_quantiles_merge_arg;
-  num_quantiles_merge_arg.set_is_not_aggregate();
-  num_quantiles_merge_arg.set_must_be_non_null();
-  num_quantiles_merge_arg.set_min_value(2);
-
-  // Merge
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_int64", AGGREGATE,
-      {{int64_array_type,
-        // TODO: Add support for interpolation option for all merge/
-        // extract/merge_point/extract_point functions.
-        {bytes_type, {int64_type, num_quantiles_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_INT64}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_uint64", AGGREGATE,
-      {{uint64_array_type,
-        {bytes_type, {int64_type, num_quantiles_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_UINT64}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_double", AGGREGATE,
-      {{double_array_type,
-        {bytes_type, {int64_type, num_quantiles_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_DOUBLE}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-
-  // The second argument of scalar function 'extract', the number of
-  // equidistant quantiles that should be returned; must be an integer >= 2 and
-  // cannot be NULL.
-  FunctionArgumentTypeOptions num_quantiles_extract_arg;
-  num_quantiles_extract_arg.set_must_be_non_null();
-  num_quantiles_extract_arg.set_min_value(2);
-
-  // Extract
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "extract_int64", SCALAR,
-      {{int64_array_type,
-        {bytes_type, {int64_type, num_quantiles_extract_arg}},
-        FN_KLL_QUANTILES_EXTRACT_INT64}},
-      FunctionOptions().set_allow_external_usage(false));
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "extract_uint64", SCALAR,
-      {{uint64_array_type,
-        {bytes_type, {int64_type, num_quantiles_extract_arg}},
-        FN_KLL_QUANTILES_EXTRACT_UINT64}},
-      FunctionOptions().set_allow_external_usage(false));
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "extract_double", SCALAR,
-      {{double_array_type,
-        {bytes_type, {int64_type, num_quantiles_extract_arg}},
-        FN_KLL_QUANTILES_EXTRACT_DOUBLE}},
-      FunctionOptions().set_allow_external_usage(false));
-
-  // The second argument of aggregate function 'merge_point', phi, must be a
-  // non-aggregate double in [0, 1] and cannot be null.
-  FunctionArgumentTypeOptions phi_merge_arg;
-  phi_merge_arg.set_is_not_aggregate();
-  phi_merge_arg.set_must_be_non_null();
-  phi_merge_arg.set_min_value(0);
-  phi_merge_arg.set_max_value(1);
-
-  // Merge_point
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_point_int64", AGGREGATE,
-      {{int64_type,
-        {bytes_type, {double_type, phi_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_POINT_INT64}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_point_uint64", AGGREGATE,
-      {{uint64_type,
-        {bytes_type, {double_type, phi_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_POINT_UINT64}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-  InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_point_double", AGGREGATE,
-      {{double_type,
-        {bytes_type, {double_type, phi_merge_arg}},
-        FN_KLL_QUANTILES_MERGE_POINT_DOUBLE}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
-
-  // The second argument of scalar function 'extract_point', phi, must be a
-  // double in [0, 1] and cannot be null.
-  FunctionArgumentTypeOptions phi_extract_arg;
-  phi_extract_arg.set_must_be_non_null();
-  phi_extract_arg.set_min_value(0);
-  phi_extract_arg.set_max_value(1);
-
-  // Extract_point
-  InsertNamespaceFunction(functions, options, "kll_quantiles",
-                          "extract_point_int64", SCALAR,
-                          {{int64_type,
-                            {bytes_type, {double_type, phi_extract_arg}},
-                            FN_KLL_QUANTILES_EXTRACT_POINT_INT64}},
-                          FunctionOptions().set_allow_external_usage(false));
-  InsertNamespaceFunction(functions, options, "kll_quantiles",
-                          "extract_point_uint64", SCALAR,
-                          {{uint64_type,
-                            {bytes_type, {double_type, phi_extract_arg}},
-                            FN_KLL_QUANTILES_EXTRACT_POINT_UINT64}},
-                          FunctionOptions().set_allow_external_usage(false));
-  InsertNamespaceFunction(functions, options, "kll_quantiles",
-                          "extract_point_double", SCALAR,
-                          {{double_type,
-                            {bytes_type, {double_type, phi_extract_arg}},
-                            FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE}},
-                          FunctionOptions().set_allow_external_usage(false));
-}
-
 void GetHashingFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions) {
@@ -2598,7 +2280,7 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
   const Type* int64_type = types::Int64Type();
 
   const FunctionOptions encryption_required =
-      FunctionOptions().add_required_language_feature(FEATURE_ENCRYPTION);
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_ENCRYPTION);
 
   std::vector<zetasql::StructType::StructField> output_struct_fields = {
       {"kms_resource_name", types::StringType()},
@@ -2824,7 +2506,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   const ArrayType* int64_array_type = types::Int64ArrayType();
 
   const FunctionOptions geography_required =
-      FunctionOptions().add_required_language_feature(
+      FunctionOptions().AddRequiredLanguageFeature(
           zetasql::FEATURE_GEOGRAPHY);
 
   const FunctionOptions geography_required_analytic =
@@ -2834,8 +2516,8 @@ void GetGeographyFunctions(TypeFactory* type_factory,
 
   const FunctionOptions geography_and_named_arg_required =
       FunctionOptions()
-          .add_required_language_feature(zetasql::FEATURE_GEOGRAPHY)
-          .add_required_language_feature(zetasql::FEATURE_NAMED_ARGUMENTS);
+          .AddRequiredLanguageFeature(zetasql::FEATURE_GEOGRAPHY)
+          .AddRequiredLanguageFeature(zetasql::FEATURE_NAMED_ARGUMENTS);
 
   const FunctionArgumentTypeOptions optional_const_arg_options =
       FunctionArgumentTypeOptions().set_must_be_constant().set_cardinality(
@@ -3020,6 +2702,15 @@ void GetGeographyFunctions(TypeFactory* type_factory,
         {geography_type, geography_type, double_type, {bool_type, OPTIONAL}},
         FN_ST_DWITHIN}},
       geography_required);
+  InsertFunction(functions, options, "st_hausdorffdwithin", SCALAR,
+                 {{bool_type,
+                   {geography_type,
+                    geography_type,
+                    double_type,
+                    {bool_type, arg_with_mandatory_name_and_default_value(
+                                    "directed", Value::Bool(false))}},
+                   FN_ST_HAUSDORFF_DWITHIN}},
+                 geography_and_named_arg_required);
 
   // Accessors
   InsertSimpleFunction(functions, options, "st_isempty", SCALAR,
@@ -3140,7 +2831,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
 
   // Extended signatures for ST_GeogFromText/FromGeoJson/etc.
   FunctionSignatureOptions extended_parser_signatures =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
 
   FunctionArgumentType oriented_argument_type{
@@ -3203,7 +2894,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   // By default, all built-in aggregate functions can be used as analytic
   // functions.
   FunctionOptions aggregate_analytic_function_options_and_geography_required =
-      DefaultAggregateFunctionOptions().add_required_language_feature(
+      DefaultAggregateFunctionOptions().AddRequiredLanguageFeature(
           zetasql::FEATURE_GEOGRAPHY);
 
   InsertSimpleFunction(
@@ -3220,7 +2911,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
         {ARG_TYPE_ANY_1, geography_type, geography_type, int64_type},
         FN_ST_NEAREST_NEIGHBORS}},
       DefaultAggregateFunctionOptions()
-          .add_required_language_feature(zetasql::FEATURE_GEOGRAPHY)
+          .AddRequiredLanguageFeature(zetasql::FEATURE_GEOGRAPHY)
           .set_compute_result_type_callback(
               &ComputeResultTypeForNearestNeighborsStruct));
 
@@ -3289,12 +2980,15 @@ void GetTypeOfFunction(TypeFactory* type_factory,
                        NameToFunctionMap* functions) {
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_3_TYPEOF_FUNCTION)) {
-    InsertFunction(functions, options, "typeof", Function::SCALAR,
-                   {{type_factory->get_string(),
-                     {ARG_TYPE_ARBITRARY},
-                     FN_TYPEOF,
-                     SetRewriter(REWRITE_TYPEOF_FUNCTION)
-                         .set_propagates_collation(false)}});
+    InsertFunction(
+        functions, options, "typeof", Function::SCALAR,
+        {
+            {type_factory->get_string(),
+             {ARG_TYPE_ARBITRARY},
+             FN_TYPEOF,
+             SetRewriter(REWRITE_TYPEOF_FUNCTION)
+                 .set_propagates_collation(false)}
+        });
   }
 }
 

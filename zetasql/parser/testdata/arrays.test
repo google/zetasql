@@ -249,7 +249,7 @@ SELECT
 
 select ArrayOfInt32[1, 2, 3]
 --
-ERROR: Syntax error: Unexpected "," [at 1:22]
+ERROR: Syntax error: Expected "]" but got "," [at 1:22]
 select ArrayOfInt32[1, 2, 3]
                      ^
 ==
@@ -881,3 +881,28 @@ QueryStatement [0-23]
 --
 SELECT
   NULL[NULL[NULL]]
+==
+
+SELECT ARRAY<STRUCT<INT64>>[STRUCT(1), STRUCT(2)]
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-49]
+        SelectColumn [7-49]
+          ArrayConstructor [7-49]
+            ArrayType [7-27]
+              StructType [13-26]
+                StructField [20-25]
+                  SimpleType [20-25]
+                    PathExpression [20-25]
+                      Identifier(INT64) [20-25]
+            StructConstructorWithKeyword [28-37]
+              StructConstructorArg [35-36]
+                IntLiteral(1) [35-36]
+            StructConstructorWithKeyword [39-48]
+              StructConstructorArg [46-47]
+                IntLiteral(2) [46-47]
+--
+SELECT
+  ARRAY< STRUCT< INT64 > >[STRUCT(1), STRUCT(2)]

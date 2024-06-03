@@ -80,7 +80,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid return_position_after_match"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kOutOfRange,
       "Elementwise aggregate requires all non-NULL arrays have the same "
       "length"));
 
@@ -654,6 +654,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "The provided JSON number: .+ cannot be converted to an "
       "(integer|int64_t|int32|uint64_t|uint32)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "JSON number: .+ cannot be converted to (FLOAT|FLOAT32)"));
   // TODO PARSE_JSON sometimes is generated with invalid string
   // inputs.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -671,6 +674,17 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Invalid input to JSON_ARRAY_(INSERT|APPEND)"));
+  // The random query generator sometimes produces random string for certain
+  // functions arguments, but not with required format, for example,
+  // leading "$" is required for JSON PATH in JSON_SET function.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "JSONPath must start with '$'"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "max_depth must be positive"));
+  // Array extraction functions expect an array, not a random JSON.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "The provided JSON input is not an array"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

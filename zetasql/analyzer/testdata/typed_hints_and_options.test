@@ -540,7 +540,7 @@ CreateTableAsSelectStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Unexpected keyword AS [at 2:27]
+ERROR: Syntax error: Expected "," but got keyword AS [at 2:27]
 OPTIONS(untyped_option=(1 as foo,'TESTENUM1' as bar))
                           ^
 ==
@@ -902,16 +902,16 @@ ALTER TABLE abTable ADD COLUMN c STRING OPTIONS (string_array_allow_alter_opt...
 
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
 --
-ERROR: Syntax error: Invalid operator "+=" [at 1:81]
-...b SET OPTIONS (string_array_allow_alter_option += ['str1', 'str2']);
-                                                  ^
+ERROR: Operator `+=` is not supported [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
+                                                ^
 ==
 
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
 --
-ERROR: Syntax error: Invalid operator "-=" [at 1:81]
-...b SET OPTIONS (string_array_allow_alter_option -= ['str1', 'str2']);
-                                                  ^
+ERROR: Operator `-=` is not supported [at 1:49]
+ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_array_allow_alter_opti...
+                                                ^
 ==
 
 [language_features=ENABLE_ALTER_ARRAY_OPTIONS]
@@ -985,4 +985,3 @@ ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
 ERROR: Invalid operator -= for option string_option with expected type STRING [at 1:49]
 ALTER TABLE abTable ALTER COLUMN b SET OPTIONS (string_option -= 'str1');
                                                 ^
-==

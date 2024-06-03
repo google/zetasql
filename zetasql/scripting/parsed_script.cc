@@ -19,7 +19,6 @@
 #include <cstdint>
 #include <memory>
 #include <set>
-#include <stack>
 #include <string>
 #include <utility>
 #include <variant>
@@ -30,18 +29,24 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/error_helpers.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/error_helpers.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
+#include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 constexpr int kDefaultMaxNestingLevel = 50;
@@ -142,8 +147,8 @@ class ValidateVariableDeclarationsVisitor
     : public NonRecursiveParseTreeVisitor {
  public:
   explicit ValidateVariableDeclarationsVisitor(
-      const ParsedScript* parsed_script)
-      : parsed_script_(parsed_script) {}
+      const ParsedScript* parsed_script, const ParsedScriptOptions& options)
+      : parsed_script_(parsed_script), options_(options) {}
 
   absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
@@ -174,13 +179,13 @@ class ValidateVariableDeclarationsVisitor
 
   absl::StatusOr<VisitResult> visitASTStatementList(
       const ASTStatementList* node) override {
-    bool found_non_variable_decl = false;
+    bool allow_declare = true;
 
     // Check for variable declaration outside of a block and for declaring
     // a variable that already exists.
     for (const ASTStatement* statement : node->statement_list()) {
       if (statement->node_kind() == AST_VARIABLE_DECLARATION) {
-        if (found_non_variable_decl || !CanHaveDeclareStmtAsChild(node)) {
+        if (!allow_declare || !CanHaveDeclareStmtAsChild(node)) {
           return MakeVariableDeclarationError(
               statement,
               "Variable declarations are allowed only at the start of a "
@@ -195,8 +200,8 @@ class ValidateVariableDeclarationsVisitor
               id, /*check_predefined_vars=*/(node->parent()->node_kind() ==
                                              AST_BEGIN_END_BLOCK)));
         }
-      } else {
-        found_non_variable_decl = true;
+      } else if (!IsAllowedBeforeDeclare(statement)) {
+        allow_declare = false;
       }
     }
     return VisitResult::VisitChildren(node, [this, node]() {
@@ -265,8 +270,7 @@ class ValidateVariableDeclarationsVisitor
   absl::Status CheckForVariableRedeclaration(const ASTIdentifier* id,
                                              bool check_predefined_vars) {
     if (check_predefined_vars) {
-      if (parsed_script_->GetPredefinedVariables().contains(
-              id->GetAsIdString())) {
+      if (options_.predefined_variables.contains(id->GetAsIdString())) {
         return MakeVariableDeclarationErrorSkipSourceLocation(
             id,
             absl::StrCat("Variable '", id->GetAsString(), "' redeclaration"),
@@ -290,6 +294,14 @@ class ValidateVariableDeclarationsVisitor
     return absl::OkStatus();
   }
 
+  bool IsAllowedBeforeDeclare(const ASTStatement* node) {
+    const auto* assignment = node->GetAsOrNull<ASTSystemVariableAssignment>();
+    return assignment != nullptr &&
+           absl::c_linear_search(
+               options_.system_variables_allowed_before_declare,
+               assignment->system_variable()->path()->ToIdentifierPathString());
+  }
+
   // Associates each active variable with the location of its declaration.
   // Used to generate the error message if the script later attempts to declare
   // a variable of the same name.
@@ -298,6 +310,7 @@ class ValidateVariableDeclarationsVisitor
       variables_;
 
   const ParsedScript* parsed_script_;
+  const ParsedScriptOptions& options_;
 };
 
 // Visitor to find the node within a script that matches a given position.
@@ -420,13 +433,14 @@ ParsedScript::GetVariablesInScopeAtNode(
   return variables;
 }
 
-absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
+absl::Status ParsedScript::GatherInformationAndRunChecksInternal(
+    const ParsedScriptOptions& options) {
   // Check the maximum-depth constraint first, to ensure that other checks
   // do not cause a stack overflow in the case of a deeply nested script.
   VerifyMaxScriptingDepthVisitor max_depth_visitor;
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&max_depth_visitor));
 
-  ValidateVariableDeclarationsVisitor var_decl_visitor(this);
+  ValidateVariableDeclarationsVisitor var_decl_visitor(this, options);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&var_decl_visitor));
 
   ValidateRaiseStatementsVisitor raise_visitor;
@@ -444,87 +458,82 @@ absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   return absl::OkStatus();
 }
 
-absl::Status ParsedScript::GatherInformationAndRunChecks() {
+absl::Status ParsedScript::GatherInformationAndRunChecks(
+    const ParsedScriptOptions& options) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       ErrorMessageOptions{
           .mode = error_message_mode(),
           .attach_error_location_payload =
               (error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD),
           .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
-      script_text(), GatherInformationAndRunChecksInternal());
+      script_text(), GatherInformationAndRunChecksInternal(options));
 }
 
-ParsedScript::ParsedScript(
-    absl::string_view script_string, const ASTScript* ast_script,
-    std::unique_ptr<ParserOutput> parser_output,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    bool is_procedure,
-    const VariableWithTypeParameterMap& predefined_variable_names)
+ParsedScript::ParsedScript(absl::string_view script_string,
+                           const ASTScript* ast_script,
+                           std::unique_ptr<ParserOutput> parser_output,
+                           ErrorMessageMode error_message_mode,
+                           ArgumentTypeMap routine_arguments, bool is_procedure)
     : parser_output_(std::move(parser_output)),
       ast_script_(ast_script),
       script_string_(script_string),
       error_message_mode_(error_message_mode),
       routine_arguments_(std::move(routine_arguments)),
-      is_procedure_(is_procedure),
-      predefined_variable_names_(predefined_variable_names) {}
+      is_procedure_(is_procedure) {}
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateInternal(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    bool is_procedure,
-    const VariableWithTypeParameterMap& predefined_variable_names) {
+    bool is_procedure, const ParsedScriptOptions& options) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options, error_message_mode,
                               /*keep_error_location_payload=*/
                               error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD,
                               &parser_output));
   const ASTScript* ast_script = parser_output->script();
-  std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
-      new ParsedScript(script_string, ast_script, std::move(parser_output),
-                       error_message_mode, std::move(routine_arguments),
-                       is_procedure, predefined_variable_names));
-  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
+  std::unique_ptr<ParsedScript> parsed_script =
+      absl::WrapUnique(new ParsedScript(
+          script_string, ast_script, std::move(parser_output),
+          error_message_mode, std::move(routine_arguments), is_procedure));
+  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode,
-    const VariableWithTypeParameterMap& predefined_variable_names) {
+    ErrorMessageMode error_message_mode, const ParsedScriptOptions& options) {
   return CreateInternal(script_string, parser_options, error_message_mode, {},
-                        false, predefined_variable_names);
+                        false, options);
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    const VariableWithTypeParameterMap& predefined_variable_names) {
+    const ParsedScriptOptions& options) {
   return CreateInternal(script_string, parser_options, error_message_mode,
                         std::move(routine_arguments),
-                        /*is_procedure=*/true, predefined_variable_names);
+                        /*is_procedure=*/true, options);
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ASTScript* ast_script,
     ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    const VariableWithTypeParameterMap& predefined_variable_names) {
+    const ParsedScriptOptions& options) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
                        error_message_mode, std::move(routine_arguments),
-                       /*is_procedure=*/true, predefined_variable_names));
-  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
+                       /*is_procedure=*/true));
+  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ASTScript* ast_script,
-    ErrorMessageMode error_message_mode,
-    const VariableWithTypeParameterMap& predefined_variable_names) {
+    ErrorMessageMode error_message_mode, const ParsedScriptOptions& options) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
-                       error_message_mode, {}, /*is_procedure=*/false,
-                       predefined_variable_names));
-  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
+                       error_message_mode, {}, /*is_procedure=*/false));
+  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
 }
 

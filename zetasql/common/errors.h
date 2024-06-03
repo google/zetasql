@@ -71,6 +71,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -191,7 +192,7 @@ ErrorLocationType SetErrorSourcesFromStatusWithoutOutermostError(
 
 // Returns <warnings> as a string suitable for debug output.
 std::string DeprecationWarningsToDebugString(
-    const std::vector<FreestandingDeprecationWarning>& warnings);
+    absl::Span<const FreestandingDeprecationWarning> warnings);
 
 // Converts <warning> to a absl::Status.
 inline absl::Status DeprecationWarningToStatus(
@@ -212,7 +213,7 @@ absl::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
 
 // Same as above, but for a vector of absl::Statuses.
 absl::StatusOr<std::vector<FreestandingDeprecationWarning>>
-StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
+StatusesToDeprecationWarnings(absl::Span<const absl::Status> from_statuses,
                               absl::string_view sql);
 
 // This function potentially performs two actions:
@@ -245,25 +246,14 @@ inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
   return MaybeUpdateErrorFromPayload(options, input_string, new_status);
 }
 
-// DEPRECATED: Please use the overload using ErrorMessageOptions
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
-    ErrorMessageMode error_message_mode, bool attach_error_location_payload,
-    absl::string_view input_string, const absl::Status& status) {
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      ErrorMessageOptions{
-          .mode = error_message_mode,
-          .attach_error_location_payload = attach_error_location_payload,
-          .stability = ERROR_MESSAGE_STABILITY_UNSPECIFIED},
-      input_string, status);
-}
-
 // Same as above, but for a vector of absl::Statuses.
 inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(
     const ErrorMessageOptions& options, absl::string_view input_string,
-    const std::vector<absl::Status>& statuses) {
-  if (statuses.empty()) return statuses;
+    absl::Span<const absl::Status> statuses) {
+  if (statuses.empty()) {
+    return std::vector<absl::Status>(statuses.begin(), statuses.end());
+  }
 
   std::vector<absl::Status> new_statuses;
   new_statuses.reserve(statuses.size());
@@ -273,6 +263,10 @@ ConvertInternalErrorLocationsAndAdjustErrorStrings(
   }
   return new_statuses;
 }
+
+// Gets the default error message stability that is used in AnalyzerOptions
+// or ErrorMessageOptions.
+ErrorMessageStability GetDefaultErrorMessageStability();
 
 }  // namespace zetasql
 

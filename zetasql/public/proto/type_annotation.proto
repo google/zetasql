@@ -160,6 +160,9 @@ message FieldFormat {
     RANGE_DATETIMES_ENCODED = 17;
     RANGE_TIMESTAMPS_ENCODED = 18;
 
+    // A ZetaSQL UUID value. These values are encoded as 16 bytes (2 uint64s).
+    UUID = 19;
+
     // User code that switches on this enum must have a default case so
     // builds won't break if new enums get added.
     __FieldFormat_Type__switch_must_have_a_default__ = -1;
@@ -174,11 +177,14 @@ message DeprecatedEncoding {
     option allow_alias = true;
 
     DEFAULT_ENCODING = 0;
+    DATE_DECIMAL = 1;
+
     // Like in FieldFormat, PACKED32 is the wrong name, and people should be
     // using DATE_DECIMAL instead.  This whole enum definition is deprecated
     // though, so this definition probably won't be fixed.
-    DATE_PACKED32 = 1;  // This is the wrong name. The format is DATE_DECIMAL.
-    DATE_DECIMAL = 1;
+    DATE_PACKED32 = 1
+        [deprecated =
+             true];  // This is the wrong name. The format is DATE_DECIMAL.
     __FieldFormat_Encoding__switch_must_have_a_default__ = -1;
   }
 }

@@ -356,7 +356,7 @@ END LOOP ;
 # Error: Loop/End loop is not an expression
 WHILE LOOP END LOOP END WHILE;
 --
-ERROR: Syntax error: Unexpected keyword END [at 1:12]
+ERROR: Syntax error: Expected keyword DO but got keyword END [at 1:12]
 WHILE LOOP END LOOP END WHILE;
            ^
 ==
@@ -373,7 +373,7 @@ WHILE;
 WHILE DO
 END WHILE;
 --
-ERROR: Syntax error: Unexpected keyword END [at 2:1]
+ERROR: Syntax error: Expected keyword DO but got keyword END [at 2:1]
 END WHILE;
 ^
 ==
@@ -391,7 +391,7 @@ END LOOP;
 WHILE x = 3; DO
 END WHILE;
 --
-ERROR: Syntax error: Unexpected ";" [at 1:12]
+ERROR: Syntax error: Expected keyword DO but got ";" [at 1:12]
 WHILE x = 3; DO
            ^
 ==
@@ -411,7 +411,7 @@ WHILE x = 3
   SELECT 5;
 END WHILE;
 --
-ERROR: Syntax error: Unexpected keyword SELECT [at 2:3]
+ERROR: Syntax error: Expected keyword DO but got keyword SELECT [at 2:3]
   SELECT 5;
   ^
 ==

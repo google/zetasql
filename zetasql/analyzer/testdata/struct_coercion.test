@@ -147,12 +147,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT64, x STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT64, x STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT64, x STRING>
     |     +-field_list=
@@ -167,12 +167,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT64, x DOUBLE>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT64, x DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT64, x DOUBLE>
     |     +-field_list=
@@ -190,12 +190,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT32, STRING>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT32, STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT32, STRING>
     |     +-field_list=
@@ -212,12 +212,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT32, INT64>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT32, INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT32, INT64>
     |     +-field_list=
@@ -234,12 +234,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT32, DATE, DATE>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT32, DATE, DATE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT32, DATE, DATE>
     |     +-field_list=
@@ -453,11 +453,27 @@ select STRUCT<INT32, DATE>(1, "invalid")
                               ^
 ==
 
+[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 select STRUCT<INT32, BYTES>(1, "b")
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: Struct field 2 has type STRING which does not coerce to BYTES [at 1:32]
 select STRUCT<INT32, BYTES>(1, "b")
                                ^
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT32, BYTES>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRUCT<INT32, BYTES>, value={1, b"b"}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select STRUCT<`zetasql_test__.TestEnum`, TIMESTAMP>
@@ -471,6 +487,32 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 := Literal(type=STRUCT<ENUM<zetasql_test__.TestEnum>, TIMESTAMP>, value={TESTENUM1, 2014-01-01 20:34:56.000001+00}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
+select coalesce((1, "a"), (2, b"b"))
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for function COALESCE for argument types: STRUCT<INT64, STRING>, STRUCT<INT64, BYTES>. Supported signature: COALESCE([ANY, ...]) [at 1:8]
+select coalesce((1, "a"), (2, b"b"))
+       ^
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT64, BYTES>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<INT64, BYTES>) -> STRUCT<INT64, BYTES>)
+    |     +-Literal(type=STRUCT<INT64, BYTES>, value={1, b"a"})
+    |     +-Literal(type=STRUCT<INT64, BYTES>, value={2, b"b"})
     +-input_scan=
       +-SingleRowScan
 ==
@@ -501,12 +543,12 @@ select STRUCT<INT32, FLOAT>(int32, 1.0) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [STRUCT<INT32, FLOAT>]
+| +-$query.$col1#20 AS `$col1` [STRUCT<INT32, FLOAT>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-MakeStruct
     |     +-type=STRUCT<INT32, FLOAT>
     |     +-field_list=

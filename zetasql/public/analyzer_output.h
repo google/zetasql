@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_OUTPUT_H_
 #define ZETASQL_PUBLIC_ANALYZER_OUTPUT_H_
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,12 +26,15 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/common/timer_util.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"

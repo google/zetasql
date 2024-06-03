@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "zetasql/public/uuid_value.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "zetasql/base/status.h"
@@ -34,6 +35,14 @@ namespace functions {
 // 128 bits of data to ensure proper UUID uniqueness.
 //
 std::string GenerateUuid(absl::BitGenRef gen);
+
+// NEW_UUID() -> UUID
+//
+// Generates a V4-compliant UUID using the given random number generator.
+//
+// If the generator is initialized using a seed, the seed must contain at least
+// 128 bits of data to ensure proper UUID uniqueness.
+UuidValue NewUuid(absl::BitGenRef gen);
 
 }  // namespace functions
 }  // namespace zetasql

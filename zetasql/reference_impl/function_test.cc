@@ -16,24 +16,39 @@
 
 #include "zetasql/reference_impl/function.h"
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "zetasql/common/evaluator_registration_utils.h"
+#include "zetasql/common/internal_value.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/interval_value.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
+#include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/functions/hash.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/variable_id.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
+#include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 
 namespace zetasql {
+
+using ::testing::HasSubstr;
+using ::zetasql_base::testing::StatusIs;
 
 TEST(SafeInvokeUnary, DoesNotLeakStatus) {
   ArithmeticFunction unary_minus_fn(FunctionKind::kSafeNegate,
@@ -50,6 +65,31 @@ TEST(SafeInvokeUnary, DoesNotLeakStatus) {
 
   EXPECT_TRUE(result.is_null());
   ZETASQL_EXPECT_OK(status);
+}
+
+TEST(ReplaceFields, InputWithoutRequiredFields) {
+  TypeFactory factory;
+  const ProtoType* proto_type = nullptr;
+
+  const google::protobuf::Descriptor* descriptor =
+      zetasql_test__::KitchenSinkPB::descriptor();
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(descriptor, &proto_type));
+
+  ReplaceFieldsFunction replace_fields_fn(
+      proto_type,
+      {ReplaceFieldsFunction::StructAndProtoPath(
+          /*input_struct_index_path=*/{}, /*input_field_descriptor_path=*/{
+              descriptor->FindFieldByName("int64_key_1")})});
+
+  EvaluationContext context{/*options=*/{}};
+  EXPECT_THAT(
+      replace_fields_fn.Eval(
+          /*params=*/{},
+          /*args=*/{Value::Proto(proto_type, absl::Cord("")), Value::Int64(1)},
+          &context),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("REPLACE_FIELDS() cannot be used on a proto with "
+                         "missing fields: int64_key_1, int64_key_2")));
 }
 
 TEST(SafeInvokeBinary, DoesNotLeakStatus) {

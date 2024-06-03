@@ -50,6 +50,7 @@
 #include "zetasql/base/check.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/case.h"
 
 // Note - test coverage for the 'Function' class interface is primarily
 // provided by builtin_function_test.cc which instantiates the concrete
@@ -527,7 +528,7 @@ TEST_F(FunctionSerializationTests, InconsistentWindowSupport) {
 
 TEST_F(FunctionSerializationTests, RequiredLanguageFeaturesTest) {
   FunctionOptions options;
-  options.add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+  options.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
 
   FunctionOptionsProto proto;
   options.Serialize(&proto);
@@ -577,7 +578,7 @@ TEST_F(FunctionSerializationTests,
 
 TEST_F(FunctionSerializationTests, SignatureRequiredLanguageFeaturesTest) {
   FunctionSignatureOptions options;
-  options.add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+  options.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
   options.set_is_aliased_signature(true);
 
   FunctionSignatureOptionsProto proto;

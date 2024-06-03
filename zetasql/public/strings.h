@@ -178,6 +178,15 @@ absl::Status ParseIdentifierPath(absl::string_view str,
                                  const LanguageOptions& language_options,
                                  std::vector<std::string>* out);
 
+// Return true if <str> is guaranteed to be a valid identifier without quoting.
+// If <allow_reserved_keywords> is false, returns false if <str> is a reserved
+// or conditionally reserved keyword per <language_options>.
+//
+// <str> is case-insensitive.
+bool IsValidUnquotedIdentifier(absl::string_view str,
+                               const LanguageOptions& language_options,
+                               bool allow_reserved_keywords);
+
 // Return true if the string is a ZetaSQL keyword.
 // Note: The set of strings for which this function returns true may increase
 // over time as new keywords get added to the ZetaSQL language.

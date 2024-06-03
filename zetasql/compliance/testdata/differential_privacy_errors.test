@@ -136,3 +136,18 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=cast(NULL as double), delta=0.0
 FROM TestTableWithUid;
 --
 ERROR: generic::invalid_argument: Differential privacy option EPSILON must be set and non-NULL
+
+==
+# Lower bound cannot be greater than upper bound.
+[name=differential_privacy_lower_bound_higher_upper_bound]
+[required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,V_1_1_WITH_ON_SUBQUERY]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1, delta=0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
+  int64_val, COUNT(*, contribution_bounds_per_group => (1, 0))
+FROM TestTableWithUid
+RIGHT OUTER JOIN (
+    SELECT DISTINCT int64_val FROM UNNEST([9999]) AS int64_val
+  ) using(int64_val)
+GROUP BY int64_val;
+--
+ERROR: generic::invalid_argument: Lower bound cannot be greater than upper bound.

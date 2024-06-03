@@ -17,14 +17,20 @@
 #ifndef ZETASQL_PARSER_PARSER_INTERNAL_H_
 #define ZETASQL_PARSER_PARSER_INTERNAL_H_
 
+#include <cctype>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/strings.h"
+#include "absl/base/optimization.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
@@ -58,17 +64,6 @@
     YYERROR_AND_ABORT_AT(location, "Script labels are not supported");        \
   }
 
-#define CHECK_END_LABEL_VALID(label_node, label_location, end_label_node,      \
-                              end_label_location)                              \
-  if (end_label_node != nullptr &&                                             \
-      !end_label_node->GetAsIdString().CaseEquals(                             \
-          label_node->GetAsIdString())) {                                      \
-    YYERROR_AND_ABORT_AT(end_label_location,                                   \
-                         absl::StrCat("Mismatched end label; expected ",       \
-                                      label_node->GetAsStringView(), ", got ", \
-                                      end_label_node->GetAsStringView()));     \
-  }
-
 // Generates a parse error if there are spaces between location <left> and
 // location <right>.
 // For example, this is used when we composite multiple existing tokens to
@@ -80,6 +75,51 @@
                            parser->GetInputText(left), "\" and \"",          \
                            parser->GetInputText(right), "\""));              \
   }
+
+// Used like a ZETASQL_RET_CHECK inside the parser.
+#define ABORT_CHECK(location, condition, msg)                   \
+  do {                                                          \
+    if (ABSL_PREDICT_FALSE(!(condition))) {                     \
+      error(location, absl::StrCat("Internal Error: ", (msg))); \
+      YYABORT;                                                  \
+    }                                                           \
+  } while (0)
+
+#ifdef TEXTMAPPER_ZETASQL_PARSER_H_
+#define PARSER_LA_IS_EMPTY() next_symbol_.symbol == noToken
+#else
+#define PARSER_LA_IS_EMPTY() yyla.empty()
+#endif
+
+// Signals the token disambiguation buffer that a new statement is starting.
+// The second argument indicates whether the parser lookahead buffer is
+// populated or not.
+#define OVERRIDE_NEXT_TOKEN_LOOKBACK(expected_token, lookback_token)   \
+  absl::Status s = OverrideNextTokenLookback(                          \
+      tokenizer, PARSER_LA_IS_EMPTY(),                                 \
+      zetasql_bison_parser::BisonParserImpl::token::expected_token,  \
+      zetasql_bison_parser::BisonParserImpl::token::lookback_token); \
+  ZETASQL_DCHECK_OK(s);
+
+// Like the previous, but for cases when the `expected_token` is identified by
+// a C char_t rather than by a named token code.
+#define OVERRIDE_NEXT_TOKEN_CHAR_LOOKBACK(expected_token, lookback_token) \
+  absl::Status s = OverrideNextTokenLookback(                             \
+      tokenizer, PARSER_LA_IS_EMPTY(), expected_token,                    \
+      zetasql_bison_parser::BisonParserImpl::token::lookback_token);    \
+  ZETASQL_DCHECK_OK(s);
+
+// Overrides the lookback token kind to be `new_token_kind` for the most
+// recently returned token by the disambiguator. `location` is the error
+// location to report when the override fails.
+#define OVERRIDE_CURRENT_TOKEN_LOOKBACK(location, new_token_kind)          \
+  ABORT_CHECK(location, PARSER_LA_IS_EMPTY(),                              \
+              "The parser lookahead buffer must be empty to override the " \
+              "current token");                                            \
+  absl::Status s = OverrideCurrentTokenLookback(                           \
+      tokenizer,                                                           \
+      zetasql_bison_parser::BisonParserImpl::token::new_token_kind);     \
+  ABORT_CHECK(location, s.ok(), s.ToString());
 
 namespace zetasql {
 
@@ -100,6 +140,8 @@ void SetForceTerminate(DisambiguatorLexer*, int*);
 void PushBisonParserMode(DisambiguatorLexer*, BisonParserMode);
 void PopBisonParserMode(DisambiguatorLexer*);
 int GetNextToken(DisambiguatorLexer*, absl::string_view*, ParseLocationRange*);
+absl::Status OverrideNextTokenLookback(DisambiguatorLexer*, bool, int, int);
+absl::Status OverrideCurrentTokenLookback(DisambiguatorLexer*, int);
 
 enum class NotKeywordPresence { kPresent, kAbsent };
 
@@ -302,6 +344,39 @@ inline bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
 template <typename LocationPoint>
 inline ParseLocationRange LocationFromOffset(const LocationPoint& point) {
   return ParseLocationRange(point, point);
+}
+
+// Returns true if the given text can be an unquoted identifier or a reserved
+// keyword. This is useful for cases that can accept any reserved keyword as
+// identifier without quoting, such as a macro name.
+inline absl::Status IsIdentifierOrKeyword(absl::string_view text) {
+  ABSL_DCHECK(!text.empty());
+  if (text.front() == '`') {
+    // This is a quoted identifier. No other token coming from the lexer &
+    // disambiguator starts with a backtick, not even error recovery ones (i.e.
+    // tokens defined to capture some wrong pattern and provide a better context
+    // or error message).
+    std::string str;
+    std::string error_string;
+    int error_offset;
+    return ParseGeneralizedIdentifier(text, &str, &error_string, &error_offset);
+  }
+
+  // Not a quoted identifier, so this must be a valid identifier or a keyword
+  // (regardless of reserved or not). The regex is [A-Z_][A-Z_0-9]* (case-
+  // insensitive, see the lexer rules). The first character must be an
+  // underscore or alpha.
+  if (text.front() != '_' && !std::isalpha(text.front())) {
+    return MakeSqlError() << "Expected macro name";
+  }
+
+  // After the first, we only accept an alphanumerical or an underscore.
+  for (int i = 1; i < text.length(); ++i) {
+    if (text[i] != '_' && !std::isalnum(text[i])) {
+      return MakeSqlError() << "Expected macro name";
+    }
+  }
+  return absl::OkStatus();
 }
 
 using zetasql::ASTInsertStatement;

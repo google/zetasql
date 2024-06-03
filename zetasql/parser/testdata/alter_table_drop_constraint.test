@@ -83,7 +83,6 @@ AlterTableStatement [0-49]
 ALTER TABLE constraint DROP CONSTRAINT constraint
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-123.bar DROP CONSTRAINT baz
 --

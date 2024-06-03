@@ -20,10 +20,12 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/thread_stack.h"
+#include "zetasql/public/collator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
@@ -34,6 +36,7 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -49,9 +52,9 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "google/rpc/status.pb.h"
 #include "zetasql/base/status_macros.h"
 
 using zetasql::types::EmptyStructType;
@@ -74,7 +77,8 @@ absl::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     std::unique_ptr<RelationalOp> group_rows_subquery,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     std::unique_ptr<ValueExpr> filter,
-    const std::vector<ResolvedCollation>& collation_list) {
+    const std::vector<ResolvedCollation>& collation_list,
+    const VariableId& side_effects_variable) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateFunctionCallExpr> aggregate_expr,
                    AggregateFunctionCallExpr::Create(std::move(function),
                                                      std::move(arguments)));
@@ -82,7 +86,7 @@ absl::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
       variable, std::move(aggregate_expr), distinct, std::move(having_expr),
       having_modifier_kind, std::move(order_by_keys), std::move(limit),
       std::move(group_rows_subquery), error_mode, std::move(filter),
-      collation_list));
+      collation_list, side_effects_variable));
 }
 
 absl::Status AggregateArg::SetSchemasForEvaluation(
@@ -1239,17 +1243,18 @@ static std::vector<const KeyArg*> ReleaseAllOrderKeys(
   return ret;
 }
 
-AggregateArg::AggregateArg(
-    const VariableId& variable,
-    std::unique_ptr<AggregateFunctionCallExpr> function, Distinctness distinct,
-    std::unique_ptr<ValueExpr> having_expr,
-    const HavingModifierKind having_modifier_kind,
-    std::vector<std::unique_ptr<KeyArg>> order_by_keys,
-    std::unique_ptr<ValueExpr> limit,
-    std::unique_ptr<RelationalOp> group_rows_subquery,
-    ResolvedFunctionCallBase::ErrorMode error_mode,
-    std::unique_ptr<ValueExpr> filter,
-    const std::vector<ResolvedCollation>& collation_list)
+AggregateArg::AggregateArg(const VariableId& variable,
+                           std::unique_ptr<AggregateFunctionCallExpr> function,
+                           Distinctness distinct,
+                           std::unique_ptr<ValueExpr> having_expr,
+                           const HavingModifierKind having_modifier_kind,
+                           std::vector<std::unique_ptr<KeyArg>> order_by_keys,
+                           std::unique_ptr<ValueExpr> limit,
+                           std::unique_ptr<RelationalOp> group_rows_subquery,
+                           ResolvedFunctionCallBase::ErrorMode error_mode,
+                           std::unique_ptr<ValueExpr> filter,
+                           const std::vector<ResolvedCollation>& collation_list,
+                           const VariableId& side_effects_variable)
     : ExprArg(variable, std::move(function)),
       distinct_(distinct),
       having_expr_(std::move(having_expr)),
@@ -1260,7 +1265,8 @@ AggregateArg::AggregateArg(
       group_rows_subquery_(std::move(group_rows_subquery)),
       error_mode_(error_mode),
       filter_(std::move(filter)),
-      collation_list_(collation_list) {}
+      collation_list_(collation_list),
+      side_effects_variable_(side_effects_variable) {}
 
 const AggregateFunctionCallExpr* AggregateArg::aggregate_function() const {
   return static_cast<const AggregateFunctionCallExpr*>(value_expr());
@@ -1329,7 +1335,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
     std::vector<std::unique_ptr<AggregateArg>> aggregators,
     std::unique_ptr<RelationalOp> input, std::vector<int64_t> grouping_sets) {
   for (auto& arg : keys) {
-    ZETASQL_RETURN_IF_ERROR(ValidateTypeSupportsEqualityComparison(arg->type()));
+    ZETASQL_RET_CHECK(arg->type()->SupportsEquality());
   }
   return absl::WrapUnique(
       new AggregateOp(std::move(keys), std::move(aggregators), std::move(input),
@@ -1450,6 +1456,18 @@ class GroupValue {
 
   AccumulatorList* mutable_accumulator_list() { return &accumulator_list_; }
 
+  const absl::Status& accumulator_error(int i) {
+    return accumulator_errors_[i];
+  }
+
+  std::vector<absl::Status>& mutable_accumulator_errors() {
+    return accumulator_errors_;
+  }
+
+  const std::vector<absl::Status>& accumulator_errors() const {
+    return accumulator_errors_;
+  }
+
  private:
   GroupValue(std::unique_ptr<TupleData> key, int64_t key_physical_byte_size,
              MemoryAccountant* accountant)
@@ -1461,6 +1479,7 @@ class GroupValue {
   int64_t key_physical_byte_size_ = 0;
   MemoryAccountant* accountant_ = nullptr;
   AccumulatorList accumulator_list_;
+  std::vector<absl::Status> accumulator_errors_;
 };
 
 }  // namespace
@@ -1570,7 +1589,6 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   };
   UnorderedArrayCollisionTracker unordered_array_collision_tracker;
 
-  absl::Status status;
   std::vector<int64_t> grouping_sets = grouping_sets_;
   bool has_grouping_sets = !grouping_sets.empty();
   // The number of keys in AggregateOp.
@@ -1672,6 +1690,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
       // Look up the value in 'group_to_accumulator_map', initializing a new
       // one if necessary.
       AccumulatorList* accumulators = nullptr;
+      std::vector<absl::Status>* accumulator_errors = nullptr;
       std::unique_ptr<GroupValue>* found_group_value =
           zetasql_base::FindOrNull(group_map, TupleDataPtr(collated_key_data.get()));
       if (found_group_value == nullptr) {
@@ -1681,6 +1700,10 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
                                             context->memory_accountant()));
 
         // Initialize the accumulators.
+        accumulator_errors =
+            &inserted_group_value->mutable_accumulator_errors();
+        *accumulator_errors = std::vector<absl::Status>(aggregators().size());
+
         accumulators = inserted_group_value->mutable_accumulator_list();
         accumulators->reserve(aggregators().size());
         for (const AggregateArg* aggregator : aggregators()) {
@@ -1701,6 +1724,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
         group_map_keys_memory.push_back(std::move(collated_key_data));
       } else {
         accumulators = (*found_group_value)->mutable_accumulator_list();
+        accumulator_errors =
+            &(*found_group_value)->mutable_accumulator_errors();
         key_data.reset();
         collated_key_data.reset();
         grouping_value_data.reset();
@@ -1709,7 +1734,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
       // Accumulate.
       ZETASQL_RET_CHECK_EQ(accumulators->size(), aggregators().size());
       bool all_accumulators_stopped = true;
-      for (auto& accumulator_param : *accumulators) {
+      for (int i = 0; i < accumulators->size(); ++i) {
+        auto& accumulator_param = (*accumulators)[i];
         bool& stop_bit = accumulator_param.stop_bit;
         if (stop_bit) continue;
         // When GROUPING function call is present in the current AggregateOp, we
@@ -1719,9 +1745,15 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
         if (accumulator_param.is_grouping_function) {
           actual_next_input = grouping_value_data.get();
         }
-        if (!accumulator_param.accumulator->Accumulate(*actual_next_input,
-                                                       &stop_bit, &status)) {
-          return status;
+        if (!accumulator_param.accumulator->Accumulate(
+                *actual_next_input, &stop_bit, &(*accumulator_errors)[i])) {
+          if (!aggregators()[i]->side_effects_variable().is_valid()) {
+            // Error doesn't need to be deferred to an operator like IF() later,
+            // so we can return it directly.
+            // The variable is set only when this aggregation was deferred.
+            return (*accumulator_errors)[i];
+          }
+          stop_bit = true;
         }
         if (!stop_bit) all_accumulators_stopped = false;
       }
@@ -1743,17 +1775,48 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     AccumulatorList& accumulators = *group_value->mutable_accumulator_list();
 
     std::unique_ptr<TupleData> tuple = group_value->ConsumeKey();
-    tuple->AddSlots(accumulators.size() + num_extra_slots);
+    tuple->AddSlots(2 * static_cast<int>(accumulators.size()) +
+                    num_extra_slots);
 
     for (int i = 0; i < accumulators.size(); ++i) {
       AggregateArgAccumulator& accumulator = *accumulators[i].accumulator;
-      ZETASQL_ASSIGN_OR_RETURN(Value value, accumulator.GetFinalResult(
-                                        /*inputs_in_defined_order=*/false));
-      tuple->mutable_slot(grouping_key_size + i)->SetValue(value);
+      absl::StatusOr<Value> value =
+          !group_value->accumulator_error(i).ok()
+              ? group_value->accumulator_error(i)
+              : accumulator.GetFinalResult(
+                    /*inputs_in_defined_order=*/false);
+      if (value.ok()) {
+        tuple->mutable_slot(grouping_key_size + i)->SetValue(value.value());
+        // No side effects, so set the side effect value to NULL.
+        tuple
+            ->mutable_slot(grouping_key_size +
+                           static_cast<int>(accumulators.size()) + i)
+            ->SetValue(Value::NullBytes());
+      } else if (!aggregators()[i]->side_effects_variable().is_valid() ||
+                 !ShouldSuppressError(
+                     value.status(),
+                     ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
+        // Error not handled by any scope, we can return it directly
+        return value.status();
+      } else {
+        // Delay failures until the target operator sees it and decides what to
+        // do with it
+        tuple->mutable_slot(grouping_key_size + i)->SetValue(Value::Invalid());
+
+        // Represent the status as a BYTES value. The standard SIDE_EFFECT type
+        // does not have literals or values defined.
+        ::google::rpc::Status status_proto;
+        internal::SaveStatusToProto(value.status(), &status_proto);
+        tuple
+            ->mutable_slot(grouping_key_size +
+                           static_cast<int>(accumulators.size()) + i)
+            ->SetValue(Value::Bytes(status_proto.SerializeAsCord()));
+      }
     }
     // This can free up considerable memory. E.g., for STRING_AGG.
     accumulators.clear();
 
+    absl::Status status;
     if (!tuples->PushBack(std::move(tuple), &status)) {
       return status;
     }
@@ -1778,6 +1841,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
                                           /*inputs_in_defined_order=*/true));
         tuple->mutable_slot(i)->SetValue(value);
       }
+      absl::Status status;
       if (!tuples->PushBack(std::move(tuple), &status)) {
         return status;
       }
@@ -1823,6 +1887,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
       std::unique_ptr<TupleData> tuple = tuples->PopFront();
       // The extra grouping key is at index key_size.
       tuple->RemoveSlotAt(key_size);
+      absl::Status status;
       if (!tuples->PushBack(std::move(tuple), &status)) {
         return status;
       }
@@ -1839,13 +1904,27 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
 }
 
 std::unique_ptr<TupleSchema> AggregateOp::CreateOutputSchema() const {
+  // Some aggregations may be deferred. To simplify the code, we just create a
+  // side effect variable for each aggregation, even if it's not deferred.
+  // However, only those that are deferred (signified by being valid and
+  // corresponding to a resolved side-effects column) will make it to the output
+  // schema.
+  // The variable arrangement is:
+  // 1. grouping_keys
+  // 2. variables for aggregations
+  // 3. side-effects variable for each aggregation.
   std::vector<VariableId> vars;
-  vars.reserve(keys().size() + aggregators().size());
+  vars.reserve(keys().size() + 2 * aggregators().size());
   for (const KeyArg* key : keys()) {
     vars.push_back(key->variable());
   }
   for (const AggregateArg* aggregator : aggregators()) {
     vars.push_back(aggregator->variable());
+  }
+  for (const AggregateArg* aggregator : aggregators()) {
+    if (aggregator->side_effects_variable().is_valid()) {
+      vars.push_back(aggregator->side_effects_variable());
+    }
   }
 
   return std::make_unique<TupleSchema>(vars);
@@ -2022,9 +2101,6 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
     return ::zetasql_base::OutOfRangeErrorBuilder()
            << "GROUP_ROWS() cannot read group rows data it the current context";
   }
-
-  // The key is owned by the GroupValue.
-  absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
 
   std::unique_ptr<TupleIterator> iter =
       std::make_unique<TupleDataDequeIterator>(*context->active_group_rows(),

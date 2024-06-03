@@ -28,12 +28,20 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/parse_location.h"
+#include "zetasql/scripting/type_aliases.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 
 namespace zetasql {
@@ -132,7 +140,10 @@ class ScriptValidationTest
   void SetUp() override {
     ValueWithTypeParameter vtp;
     IdString test_predefined_var = IdString::MakeGlobal("test_predefined_var1");
-    predefined_variables_.insert({test_predefined_var, vtp});
+    parsed_script_options_.predefined_variables.insert(
+        {test_predefined_var, vtp});
+    parsed_script_options_.system_variables_allowed_before_declare.push_back(
+        "test_system_variable");
   }
   void CheckStatement(const ParseLocationRange& range,
                       const ParsedScript* parsed, const TestInput& stmt) {
@@ -187,9 +198,8 @@ class ScriptValidationTest
 
     ParserOptions options;
     std::unique_ptr<ParsedScript> parsed =
-        ParsedScript::Create(
-            script, options, ERROR_MESSAGE_ONE_LINE,
-            /*predefined_variable_names=*/predefined_variables_)
+        ParsedScript::Create(script, options, ERROR_MESSAGE_ONE_LINE,
+                             parsed_script_options_)
             .value();
     ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
 
@@ -222,9 +232,8 @@ class ScriptValidationTest
 
     ParserOptions options;
     absl::StatusOr<std::unique_ptr<ParsedScript>> status_or_parsed =
-        ParsedScript::Create(
-            test_input.sql(), options, ERROR_MESSAGE_ONE_LINE,
-            /*predefined_variable_names=*/predefined_variables_);
+        ParsedScript::Create(test_input.sql(), options, ERROR_MESSAGE_ONE_LINE,
+                             parsed_script_options_);
     absl::Status status = status_or_parsed.status();
     std::unique_ptr<ParsedScript> parsed;
     if (status.ok()) {
@@ -243,7 +252,7 @@ class ScriptValidationTest
     }
   }
 
-  VariableWithTypeParameterMap predefined_variables_;
+  ParsedScriptOptions parsed_script_options_;
 };
 
 TEST_P(ScriptValidationTest, ValidateScripts) {
@@ -353,6 +362,20 @@ std::vector<std::variant<TestCase, TestInput>> GetScripts() {
       SELECT 1;
       DECLARE x INT64;
     END;
+  )"));
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
+    -- Variable declarations preceded by allowlisted system variable
+    SET @@test_system_variable = "test";
+    DECLARE x INT64;
+  )"));
+  result.push_back(
+      TestInputWithError(zetasql_base::SourceLocation::current(),
+                         "Variable declarations are allowed only at the start "
+                         "of a block or script [at 4:5]",
+                         R"(
+    -- Variable declarations preceded by system variable that is not allowlisted
+    SET @@other_system_variable = "test";
+    DECLARE x INT64;
   )"));
   result.push_back(TestInputWithError(zetasql_base::SourceLocation::current(),
                                       "Variable 'x' redeclaration [at 3:16]; x "

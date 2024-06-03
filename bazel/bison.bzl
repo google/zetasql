@@ -84,5 +84,4 @@ genyacc = rule(
         BISON_TOOLCHAIN_TYPE,
         M4_TOOLCHAIN_TYPE,
     ],
-    output_to_genfiles = True,
 )

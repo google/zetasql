@@ -31,6 +31,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
@@ -335,7 +336,7 @@ static absl::StatusOr<const Type*> ComputeResultTypeFromStringArgumentValue(
 static absl::StatusOr<const Type*> ComputeResultTypeCallbackToStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   const StructType* struct_type;
   std::vector<StructType::StructField> struct_fields;
@@ -529,6 +530,32 @@ void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
   LoadCatalogImpl(language_options);
 }
 
+ZetaSQLBuiltinFunctionOptions SampleCatalog::LoadDefaultSuppliedTypes(
+    const ZetaSQLBuiltinFunctionOptions& options) {
+  ZetaSQLBuiltinFunctionOptions options_copy = options;
+  const ProtoType* approx_distance_function_options_proto_type;
+  ZETASQL_CHECK_OK(types_->MakeProtoType(
+      zetasql_test__::TestApproxDistanceFunctionOptionsProto::GetDescriptor(),
+      &approx_distance_function_options_proto_type));
+  absl::flat_hash_set<FunctionSignatureId> approx_distance_function_ids = {
+      FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_PROTO_OPTIONS,
+      FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS,
+      FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_PROTO_OPTIONS,
+      FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS,
+      FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS,
+      FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS,
+      FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS};
+  // Note that only argument index `2` is specified because only the third
+  // argument in approximate distance functions supports supplied argument
+  // types.
+  for (const auto& id : approx_distance_function_ids) {
+    std::pair<FunctionSignatureId, int> id_idx_pair = {id, 2};
+    options_copy.argument_types[id_idx_pair] =
+        approx_distance_function_options_proto_type;
+  }
+  return options_copy;
+}
+
 void SampleCatalog::LoadCatalogBuiltins(
     const LanguageOptions& language_options) {
   // Populate the sample catalog with the ZetaSQL functions using the
@@ -540,7 +567,8 @@ void SampleCatalog::LoadCatalogBuiltins(
     const ZetaSQLBuiltinFunctionOptions& builtin_function_options) {
   // Populate the sample catalog with the ZetaSQL functions using the
   // specified ZetaSQLBuiltinFunctionOptions.
-  ZETASQL_CHECK_OK(catalog_->AddBuiltinFunctionsAndTypes(builtin_function_options));
+  ZETASQL_CHECK_OK(catalog_->AddBuiltinFunctionsAndTypes(
+      LoadDefaultSuppliedTypes(builtin_function_options)));
 }
 
 void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
@@ -650,6 +678,8 @@ void SampleCatalog::LoadTypes() {
       GetProtoType(zetasql_test__::FieldFormatsProto::descriptor());
   proto_MessageWithMapField_ =
       GetProtoType(zetasql_test__::MessageWithMapField::descriptor());
+  proto_approx_distance_function_options_ = GetProtoType(
+      zetasql_test__::TestApproxDistanceFunctionOptionsProto::descriptor());
 
   // We want to pull AmbiguousHasPB from the descriptor pool where it was
   // modified, not the generated pool.
@@ -689,6 +719,16 @@ void SampleCatalog::LoadTypes() {
       types_->MakeArrayType(types_->get_bignumeric(), &bignumeric_array_type_));
   ZETASQL_CHECK_OK(
       types_->MakeArrayType(types_->get_interval(), &interval_array_type_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      int32map_type_,
+      types_->MakeMapType(types_->get_int32(), types_->get_int32()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      int64map_type_,
+      types_->MakeMapType(types_->get_int64(), types_->get_int64()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      bytesmap_type_,
+      types_->MakeMapType(types_->get_bytes(), types_->get_bytes()));
 
   ZETASQL_CHECK_OK(types_->MakeStructType({{"x", types_->get_int64()},
                                    {"y", struct_type_},
@@ -1291,7 +1331,8 @@ void SampleCatalog::LoadTables() {
        {"timestamp", types_->get_timestamp()},
        {"numeric", types_->get_numeric()},
        {"bignumeric", types_->get_bignumeric()},
-       {"json", types_->get_json()}}));
+       {"json", types_->get_json()},
+       {"uuid", types_->get_uuid()}}));
 
   {
     auto simple_table_with_uid =
@@ -1496,6 +1537,11 @@ void SampleCatalog::LoadProtoTables() {
       new SimpleTable("FieldFormatsTable",
                       {{"key", types_->get_int32()},
                        {"FieldFormatsProto", proto_field_formats_proto_}}));
+
+  AddOwnedTable(
+      new SimpleTable("ApproxDistanceFunctionOptionsProtoTable",
+                      {{"key", types_->get_int32()},
+                       {"options", proto_approx_distance_function_options_}}));
 
   // EnumTable has two pseudo-columns Filename and RowId.
   AddOwnedTable(new SimpleTable(
@@ -2167,6 +2213,70 @@ void SampleCatalog::LoadFunctions() {
   AddFunctionWithArgumentType("date", types_->get_date());
   AddFunctionWithArgumentType("timestamp", types_->get_timestamp());
   AddFunctionWithArgumentType("string", types_->get_string());
+  AddFunctionWithArgumentType("bytes", types_->get_bytes());
+
+  // Add a function with bytes and string overload.
+  function = new Function("fn_overloaded_bytes_and_string", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_string(), {types_->get_string()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bytes(), {types_->get_bytes()}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and date overload.
+  function = new Function("fn_overloaded_bytes_and_date", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_date()}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and timestamp overload.
+  function = new Function("fn_overloaded_bytes_and_timestamp",
+                          "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_timestamp()}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and time overload.
+  function = new Function("fn_overloaded_bytes_and_time", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_time()}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and datetime overload.
+  function = new Function("fn_overloaded_bytes_and_datetime",
+                          "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_datetime()}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and enum overload.
+  function = new Function("fn_overloaded_bytes_and_enum", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {enum_TestEnum_}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with bytes and proto overload.
+  function = new Function("fn_overloaded_bytes_and_proto", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {types_->get_bytes()}, /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(), {proto_KitchenSinkPB_}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
 
   // Add a function that takes an arbitrary type argument.
   function = new Function("fn_on_arbitrary_type_argument", "sample_functions",
@@ -2254,6 +2364,27 @@ void SampleCatalog::LoadFunctions() {
   function->AddSignature(
       {types_->get_bool(), {struct_int64_string_type}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(absl::WrapUnique(function));
+
+  // Add a function that takes a MAP<int32_t, int32_t> and returns an int32_t type.
+  function = new Function("fn_on_int32_map_returns_int32", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {{types_->get_int32()}, {int32map_type_}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function that takes a MAP<int64_t, int64_t> and returns an int64_t type.
+  function = new Function("fn_on_int64_map_returns_int64", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {{types_->get_int64()}, {int64map_type_}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function that takes a MAP<bytes, bytes> and returns an bytes type.
+  function = new Function("fn_on_bytes_map_returns_bytes", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {{types_->get_bytes()}, {bytesmap_type_}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
 
   // Adds an scalar function that takes multiple repeated and optional
   // arguments.
@@ -3428,6 +3559,95 @@ void SampleCatalog::LoadFunctions2() {
              &ComputeResultAnnotationsCallbackUseTheFinalAnnotation)});
     catalog_->AddOwnedFunction(std::move(function));
   }
+  // Function taking an array of any element type and returning the element
+  // type.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_req_any_array_returns_any_arg", "sample_functions", mode);
+    function->AddSignature({ARG_TYPE_ANY_1,
+                            {ARG_ARRAY_TYPE_ANY_1},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a map type and returning the key arg type
+  {
+    auto function = std::make_unique<Function>(
+        "fn_map_type_any_1_2_return_type_any_1", "sample_functions", mode);
+    function->AddSignature({ARG_TYPE_ANY_1,
+                            {ARG_MAP_TYPE_ANY_1_2},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a map type and returning the value arg type
+  {
+    auto function = std::make_unique<Function>(
+        "fn_map_type_any_1_2_return_type_any_2", "sample_functions", mode);
+    function->AddSignature({ARG_TYPE_ANY_2,
+                            {ARG_MAP_TYPE_ANY_1_2},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a map type and optional key arg type, and returning value
+  // arg type.
+  // Models MAP_GET().
+  {
+    auto function = std::make_unique<Function>(
+        "fn_req_map_type_any_1_2_req_any_1_opt_any_2_returns_any_2",
+        "sample_functions", mode);
+    function->AddSignature({ARG_TYPE_ANY_2,
+                            {ARG_MAP_TYPE_ANY_1_2,
+                             ARG_TYPE_ANY_1,
+                             {ARG_TYPE_ANY_2, FunctionEnums::OPTIONAL}},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking ANY_1 and ANY_2 types, and returning a MAP_TYPE_ANY_1_2
+  // arg type.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_any_1_any_2_return_map_type_any_1_2", "sample_functions", mode);
+    function->AddSignature({ARG_MAP_TYPE_ANY_1_2,
+                            {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a MAP_TYPE_ANY_1_2 arg type, and returning a bool.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_map_type_any_1_2_any_2_return_bool", "sample_functions", mode);
+    function->AddSignature({types_->get_bool(),
+                            {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_2},
+                            /*context_id=*/-1});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a bool, and returning a bool. Requires that V_1_4_MAP_TYPE
+  // is enabled.
+  {
+    auto function = std::make_unique<Function>("fn_requires_map_type",
+                                               "sample_functions", mode);
+    function->AddSignature(
+        {types_->get_bool(),
+         {types_->get_bool()},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().AddRequiredLanguageFeature(
+             FEATURE_V_1_4_MAP_TYPE)});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
+  // Function taking a bool, and returning a bool. Requires that V_1_4_MAP_TYPE
+  // is enabled.
+  {
+    auto function = std::make_unique<Function>(
+        "fn_requires_map_type_for_bool_signature", "sample_functions", mode);
+    function->AddSignature(
+        {types_->get_string(), {types_->get_string()}, /*context_id=*/-1});
+    function->AddSignature(
+        {types_->get_bool(),
+         {types_->get_bool()},
+         /*context_id=*/-1,
+         FunctionSignatureOptions().AddRequiredLanguageFeature(
+             FEATURE_V_1_4_MAP_TYPE)});
+    catalog_->AddOwnedFunction(std::move(function));
+  }
 }  // NOLINT(readability/fn_size)
 
 void SampleCatalog::LoadFunctionsWithDefaultArguments() {
@@ -3554,6 +3774,30 @@ void SampleCatalog::LoadFunctionsWithDefaultArguments() {
                 FunctionArgumentTypeOptions()
                     .set_cardinality(FunctionArgumentType::OPTIONAL)
                     .set_default(values::Double(0.3))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+
+  // Adds an scalar function that takes (concrete typed, templated type). See
+  // b/333445090.
+  function = new Function(
+      "fn_optional_unnamed_default_any_args", "sample_functions",
+      Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("abc"))},
+               {ARG_TYPE_ANY_1,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("def"))},
            },
            /*context_id=*/-1},
       },
@@ -3804,6 +4048,40 @@ void SampleCatalog::LoadFunctionsWithDefaultArguments() {
       FunctionOptions());
   catalog_->AddOwnedFunction(function);
   ZETASQL_CHECK_OK(function->signatures()[0].IsValid(ProductMode::PRODUCT_EXTERNAL));
+
+  // A scalar function with one optional argument of any type, returning that
+  // type.
+  function = new Function("fn_optional_any_arg_returns_any", "sample_functions",
+                          Function::SCALAR,
+                          /*function_signatures=*/
+                          {{ARG_TYPE_ANY_1,
+                            {{ARG_TYPE_ANY_1, FunctionEnums::OPTIONAL}},
+                            /*context_id=*/-1}},
+                          FunctionOptions());
+  catalog_->AddOwnedFunction(std::move(function));
+
+  // A scalar function with one optional argument of any type, returning an
+  // array with that element type.
+  function = new Function("fn_optional_any_arg_returns_any_array",
+                          "sample_functions", Function::SCALAR,
+                          /*function_signatures=*/
+                          {{ARG_ARRAY_TYPE_ANY_1,
+                            {{ARG_TYPE_ANY_1, FunctionEnums::OPTIONAL}},
+                            /*context_id=*/-1}},
+                          FunctionOptions());
+  catalog_->AddOwnedFunction(std::move(function));
+
+  // A scalar function with a required array of any type and an optional of any
+  // type, returning the element type.
+  function = new Function(
+      "fn_req_any_array_optional_any_arg_returns_any_arg", "sample_functions",
+      Function::SCALAR,
+      /*function_signatures=*/
+      {{ARG_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1, {ARG_TYPE_ANY_1, FunctionEnums::OPTIONAL}},
+        /*context_id=*/-1}},
+      FunctionOptions());
+  catalog_->AddOwnedFunction(std::move(function));
 }
 
 void SampleCatalog::LoadTemplatedSQLUDFs() {
@@ -4258,7 +4536,7 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"e"},
       ParseResumeLocation::FromString(
           R"sql(
-            SUM(e) WITH GROUP_ROWS(SELECT e
+            SUM(e) WITH GROUP ROWS(SELECT e
                                    FROM GROUP_ROWS()
                                    WHERE e IS NOT NULL))sql"),
       Function::AGGREGATE));
@@ -4437,7 +4715,7 @@ static std::vector<TVFArgument> GetTVFArgumentsForAllTypes(TypeFactory* types) {
 }
 
 static TVFRelation GetOutputSchemaWithTwoTypes(
-    const std::vector<OutputColumn>& output_columns_for_all_types) {
+    absl::Span<const OutputColumn> output_columns_for_all_types) {
   TVFRelation::ColumnList columns;
   for (int i = 0; i < 2; ++i) {
     columns.emplace_back(output_columns_for_all_types[i].name,
@@ -5231,6 +5509,182 @@ void SampleCatalog::LoadTableValuedFunctions2() {
          {relation_arg, scalar_arg, named_lambda_arg},
          /*context_id=*/-1},
         output_schema_two_types));
+
+    FunctionArgumentType scalar_arg_positional_must_be_not_null =
+        FunctionArgumentType(
+            types_->get_int64(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_must_be_non_null(true)
+                .set_min_value(3));
+    FunctionArgumentType scalar_arg_positional_must_be_not_null_with_default =
+        FunctionArgumentType(
+            types_->get_double(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_must_be_non_null(true)
+                .set_default(values::Double(3.14)));
+    FunctionArgumentType scalar_arg_positional_must_be_constant =
+        FunctionArgumentType(
+            types_->get_string(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_must_be_constant(true));
+    FunctionArgumentType scalar_arg_positional_must_be_constant_expression =
+        FunctionArgumentType(
+            types_->get_double(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_must_be_constant_expression(true)
+                .set_max_value(100));
+    FunctionArgumentType scalar_arg_positional_must_support_equality =
+        FunctionArgumentType(
+            ARG_STRUCT_ANY, FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_must_support_equality(true));
+    FunctionArgumentType scalar_arg_positional_must_support_ordering =
+        FunctionArgumentType(
+            ARG_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_must_support_ordering(true));
+    FunctionArgumentType scalar_arg_positional_must_support_grouping =
+        FunctionArgumentType(
+            ARG_TYPE_ANY_2, FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_must_support_grouping(true));
+    FunctionArgumentType
+        scalar_arg_positional_array_element_must_support_equality =
+            FunctionArgumentType(
+                ARG_ARRAY_TYPE_ANY_3,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_array_element_must_support_equality(true));
+    FunctionArgumentType
+        scalar_arg_positional_array_element_must_support_ordering =
+            FunctionArgumentType(
+                ARG_ARRAY_TYPE_ANY_4,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_array_element_must_support_ordering(true));
+    FunctionArgumentType
+        scalar_arg_positional_array_element_must_support_grouping =
+            FunctionArgumentType(
+                ARG_ARRAY_TYPE_ANY_5,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_array_element_must_support_grouping(true));
+    catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+        {"tvf_positional_scalar_args_with_constraints"},
+        {FunctionArgumentType::RelationWithSchema(
+             output_schema_two_types,
+             /*extra_relation_input_columns_allowed=*/false),
+         {
+             scalar_arg_positional_must_be_not_null,
+             scalar_arg_positional_must_be_constant,
+             scalar_arg_positional_must_be_constant_expression,
+             scalar_arg_positional_must_support_equality,
+             scalar_arg_positional_must_support_ordering,
+             scalar_arg_positional_must_support_grouping,
+             scalar_arg_positional_array_element_must_support_equality,
+             scalar_arg_positional_array_element_must_support_ordering,
+             scalar_arg_positional_array_element_must_support_grouping,
+             scalar_arg_positional_must_be_not_null_with_default,
+         },
+         /*context_id=*/-1},
+        output_schema_two_types));
+
+    FunctionArgumentType scalar_arg_named_must_be_not_null =
+        FunctionArgumentType(
+            types_->get_int64(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_1", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_be_non_null(true)
+                .set_min_value(3));
+    FunctionArgumentType scalar_arg_named_must_be_constant =
+        FunctionArgumentType(
+            types_->get_string(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_2", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_be_constant(true));
+    FunctionArgumentType scalar_arg_named_must_be_constant_expression =
+        FunctionArgumentType(
+            types_->get_double(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_3", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_be_constant_expression(true)
+                .set_max_value(100));
+    FunctionArgumentType scalar_arg_named_must_support_equality =
+        FunctionArgumentType(
+            ARG_STRUCT_ANY,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_4", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_support_equality(true));
+    FunctionArgumentType scalar_arg_named_must_support_ordering =
+        FunctionArgumentType(
+            ARG_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_5", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_support_ordering(true));
+    FunctionArgumentType scalar_arg_named_must_support_grouping =
+        FunctionArgumentType(
+            ARG_TYPE_ANY_2,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_6", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_support_grouping(true));
+    FunctionArgumentType scalar_arg_named_array_element_must_support_equality =
+        FunctionArgumentType(
+            ARG_ARRAY_TYPE_ANY_3,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_7", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_array_element_must_support_equality(true));
+    FunctionArgumentType scalar_arg_named_array_element_must_support_ordering =
+        FunctionArgumentType(
+            ARG_ARRAY_TYPE_ANY_4,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_8", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_array_element_must_support_ordering(true));
+    FunctionArgumentType scalar_arg_named_array_element_must_support_grouping =
+        FunctionArgumentType(
+            ARG_ARRAY_TYPE_ANY_5,
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_9", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_array_element_must_support_grouping(true));
+    FunctionArgumentType scalar_arg_named_must_be_not_null_with_default =
+        FunctionArgumentType(
+            types_->get_double(),
+            FunctionArgumentTypeOptions()
+                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                .set_argument_name("arg_10", FunctionEnums::POSITIONAL_OR_NAMED)
+                .set_must_be_non_null(true)
+                .set_default(values::Double(3.14)));
+    catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+        {"tvf_named_scalar_args_with_constraints"},
+        {FunctionArgumentType::RelationWithSchema(
+             output_schema_two_types,
+             /*extra_relation_input_columns_allowed=*/false),
+         {
+             scalar_arg_named_must_be_not_null,
+             scalar_arg_named_must_be_constant,
+             scalar_arg_named_must_be_constant_expression,
+             scalar_arg_named_must_support_equality,
+             scalar_arg_named_must_support_ordering,
+             scalar_arg_named_must_support_grouping,
+             scalar_arg_named_array_element_must_support_equality,
+             scalar_arg_named_array_element_must_support_ordering,
+             scalar_arg_named_array_element_must_support_grouping,
+             scalar_arg_named_must_be_not_null_with_default,
+         },
+         /*context_id=*/-1},
+        output_schema_two_types));
   }
 }  // NOLINT(readability/fn_size)
 
@@ -5420,7 +5874,7 @@ class TvfOptionalArguments : public FixedOutputSchemaTVF {
     ZETASQL_RET_CHECK_LE(input_arguments.size(), 5);
 
     double x = 1;
-    if (input_arguments.size() >= 1) {
+    if (!input_arguments.empty()) {
       ZETASQL_RET_CHECK(input_arguments[0].value);
       ZETASQL_RET_CHECK(input_arguments[0].value->type()->IsDouble());
       if (!input_arguments[0].value->is_null()) {
@@ -5813,7 +6267,8 @@ void SampleCatalog::LoadTVFWithExtraColumns() {
            TVFSchemaColumn("append_col_numeric", types::NumericType()),
            TVFSchemaColumn("append_col_bignumeric", types::BigNumericType()),
            TVFSchemaColumn("append_col_json", types::JsonType()),
-           TVFSchemaColumn("append_col_string", types::StringType())}));
+           TVFSchemaColumn("append_col_string", types::StringType()),
+           TVFSchemaColumn("append_col_uuid", types::UuidType())}));
 
   // Add a TVF with an appended column that has empty name.
   catalog_->AddOwnedTableValuedFunction(
@@ -7845,6 +8300,14 @@ void SampleCatalog::LoadScalarSqlFunctionsFromStandardModule(
               AS ((SELECT ARRAY_AGG(e ORDER BY e, off)
                    FROM UNNEST(arr) AS e WITH OFFSET off)); )",
       language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+        CREATE FUNCTION template_with_typed_arg(
+            arg_any ANY TYPE, arg_string STRING)
+        AS (arg_any IS NULL OR arg_string IS NULL);
+      )sql",
+      language_options);
 }
 
 void SampleCatalog::LoadDeepScalarSqlFunctions(
@@ -8002,7 +8465,7 @@ void SampleCatalog::LoadAggregateSqlFunctions(
   // TODO: Add example with ARRAY_AGG( ... ORDER BY ... )
   //    after that is enabled in UDA bodies.
 
-  // TODO: Add example with WITH GROUP_ROWS( ... ) after that
+  // TODO: Add example with WITH GROUP ROWS( ... ) after that
   //     is enabled in UDA bodies.
 
   AddSqlDefinedFunctionFromCreate(

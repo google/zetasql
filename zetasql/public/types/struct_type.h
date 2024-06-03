@@ -25,7 +25,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
-#include "zetasql/public/types/container_type.h"
+#include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/base/case.h"
 #include "absl/base/thread_annotations.h"
@@ -62,7 +62,7 @@ struct StructField {
 // Field names do not have to be unique.
 // Empty field names are used to indicate anonymous fields - such fields are
 // unnamed and cannot be looked up by name.
-class StructType : public ContainerType {
+class StructType : public ListBackedType {
  public:
 #ifndef SWIG
   StructType(const StructType&) = delete;

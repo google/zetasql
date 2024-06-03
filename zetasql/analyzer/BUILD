@@ -202,6 +202,7 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/common:string_util",
         "//zetasql/common:thread_stack",
+        "//zetasql/common:warning_sink",
         "//zetasql/parser",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:aggregation_threshold_utils",
@@ -266,6 +267,7 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
@@ -279,6 +281,7 @@ cc_library(
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:protobuf_lite",
     ],
 )
 
@@ -373,15 +376,13 @@ cc_library(
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:catalog",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:language_options",
-        "//zetasql/public:parse_location",
         "//zetasql/public:rewriter_interface",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:validator",
-        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -447,6 +448,7 @@ cc_test(
     name = "analyzer_test",
     size = "small",
     srcs = ["analyzer_test.cc"],
+    args = ["--zetasql_remove_degenerate_projectscans"],
     data = [
         "//zetasql/testdata:external_extension.proto",
         "//zetasql/testdata:test_schema_proto",
@@ -492,6 +494,7 @@ cc_test(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -685,6 +688,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -715,7 +719,6 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/common:unicode_utils",
         "//zetasql/parser",
-        "//zetasql/parser:bison_parser_generated_lib",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -851,4 +854,5 @@ cc_test(
 bzl_library(
     name = "builddefs_bzl",
     srcs = ["builddefs.bzl"],
+    deps = ["//third_party/bazel_rules/rules_java/java:core_rules"],
 )

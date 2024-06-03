@@ -28,14 +28,62 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/base/attributes.h"
+#include "absl/flags/flag.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "google/protobuf/repeated_ptr_field.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
+
+namespace zetasql {
+
+std::string AbslUnparseFlag(ErrorMessageStability value) {  // NOLINT
+  const auto* enum_d = google::protobuf::GetEnumDescriptor<ErrorMessageStability>();
+  const auto* value_d = enum_d->FindValueByNumber(value);
+  if (value_d == nullptr) {
+    ABSL_LOG(ERROR) << "Expended to find descriptor for strongly typed enum value";
+    return absl::StrCat(value);  // Best effort
+  }
+  return value_d->name();
+}
+
+bool AbslParseFlag(absl::string_view text,  // NOLINT
+                   ErrorMessageStability* value, std::string* error) {
+  const auto* enum_d = google::protobuf::GetEnumDescriptor<ErrorMessageStability>();
+  const auto* value_d = enum_d->FindValueByName(text);
+  if (value_d == nullptr) {
+    // The command line supplied a string that is not an enum value name.
+    *value = ERROR_MESSAGE_STABILITY_UNSPECIFIED;
+    return false;
+  }
+  *value = static_cast<ErrorMessageStability>(value_d->number());
+  return true;
+}
+
+}  // namespace zetasql
+
+ABSL_FLAG(
+    zetasql::ErrorMessageStability, zetasql_default_error_message_stability,
+    zetasql::ERROR_MESSAGE_STABILITY_UNSPECIFIED,
+    "Intented for tests. Specifies a default level of ZetaSQL error message "
+    "stability for the binary. See ErrorMessageStability for details on "
+    "different levels. The flag value `ERROR_MESSAGE_STABILITY_UNSPECIFIED` is "
+    "ignored as if the flag is not set.");
+
+ABSL_DEPRECATED("Use zetasql_default_error_message_stability instead.")
+ABSL_FLAG(bool, zetasql_redact_error_messages_for_tests, false,
+          "Replace error message details with 'SQL ERROR'. This is often the "
+          "correct thing to do in unit tests because SQL error message text is"
+          "*not* part of the API contract and testing exact error message text "
+          "is likely to cause flaky tests. When "
+          "--zetasql_default_error_message_stability is set to any other "
+          "than `ERROR_MESSAGE_STABILITY_UNSPECIFIED` this flag is ignored.");
 
 namespace zetasql {
 
@@ -86,7 +134,7 @@ const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorS
 }
 
 std::string DeprecationWarningsToDebugString(
-    const std::vector<FreestandingDeprecationWarning>& warnings) {
+    absl::Span<const FreestandingDeprecationWarning> warnings) {
   if (warnings.empty()) return "";
   return absl::StrCat("(", warnings.size(), " deprecation warning",
                       (warnings.size() > 1 ? "s" : ""), ")");
@@ -126,7 +174,7 @@ absl::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
 }
 
 absl::StatusOr<std::vector<FreestandingDeprecationWarning>>
-StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
+StatusesToDeprecationWarnings(absl::Span<const absl::Status> from_statuses,
                               absl::string_view sql) {
   std::vector<FreestandingDeprecationWarning> warnings;
   for (const absl::Status& from_status : from_statuses) {
@@ -136,6 +184,20 @@ StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
   }
 
   return warnings;
+}
+
+ErrorMessageStability GetDefaultErrorMessageStability() {
+  ErrorMessageStability flag_value =
+      absl::GetFlag(FLAGS_zetasql_default_error_message_stability);
+  if (flag_value != ERROR_MESSAGE_STABILITY_UNSPECIFIED) {
+    // --zetasql_default_error_message_stability wins if its set to anything
+    // other than "unspecified".
+    return flag_value;
+  }
+  if (absl::GetFlag(FLAGS_zetasql_redact_error_messages_for_tests)) {
+    return ErrorMessageStability::ERROR_MESSAGE_STABILITY_TEST_REDACTED;
+  }
+  return ErrorMessageStability::ERROR_MESSAGE_STABILITY_PRODUCTION;
 }
 
 }  // namespace zetasql

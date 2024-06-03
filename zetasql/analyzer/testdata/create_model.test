@@ -956,6 +956,23 @@ create temp model T
 CreateModelStmt(name_path=T, create_scope=CREATE_TEMP)
 ==
 
+create model t1
+remote with connection ``
+--
+ERROR: Syntax error: Invalid empty identifier [at 2:24]
+remote with connection ``
+                       ^
+==
+
+create model t1
+remote with connection default
+--
+ERROR: CONNECTION DEFAULT is not supported [at 2:24]
+remote with connection default
+                       ^
+==
+
+
 # All remote model clauses
 create model t1
 input (i1 INT64, i2 FLOAT64)

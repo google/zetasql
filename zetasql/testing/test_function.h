@@ -59,10 +59,15 @@ class ValueConstructor;
 // different feature set.
 class QueryParamsWithResult {
  public:
+  using NamedValueConstructor = std::pair<absl::string_view, ValueConstructor>;
+
   struct Result {
     Value result;
     absl::Status status;
     FloatMargin float_margin = kExactFloatMargin;
+
+    // Note: if not set via SetResult() the `result` in invalid.
+    explicit Result() = default;
 
     explicit Result(const ValueConstructor& result_in);
 
@@ -93,8 +98,27 @@ class QueryParamsWithResult {
                         const ValueConstructor& result,
                         absl::string_view error_substring);
 
-  QueryParamsWithResult(const std::vector<ValueConstructor>& params,
+  QueryParamsWithResult(absl::Span<const ValueConstructor> params,
                         absl::StatusOr<Value>, const Type* output_type);
+
+  QueryParamsWithResult() = default;
+
+  // Setter functions.
+  //
+  // Clients can either use the constructors or directly set values via the
+  // setter functions below.
+  QueryParamsWithResult& SetOrdinalArguments(
+      absl::Span<const ValueConstructor> ordinal_args);
+
+  QueryParamsWithResult& SetNamedValueArguments(
+      absl::Span<const NamedValueConstructor> named_value_constructor_params);
+
+  QueryParamsWithResult& SetResult(
+      const ValueConstructor& result, absl::Status status = absl::OkStatus(),
+      FloatMargin float_margin = kExactFloatMargin) {
+    result_ = Result(result, status, float_margin);
+    return *this;
+  }
 
   // If the instance contains multiple results, results are keyed on
   // FeatureSets.
@@ -130,8 +154,21 @@ class QueryParamsWithResult {
   QueryParamsWithResult& AddProhibitedFeature(LanguageFeature feature);
   QueryParamsWithResult& AddProhibitedFeatures(const FeatureSet& feature);
 
-  // Returns the list of parameters.
+  // Returns the list of parameters. This is combined list of ordinal &
+  // named-value arguments. Named-value arguments are specified after ordinal
+  // parameters as this is an invariant of function signatures.
   const std::vector<Value>& params() const { return params_; }
+
+  absl::Span<const Value> ordinal_params() const {
+    return absl::MakeSpan(params_).subspan(0, ordinal_param_size_);
+  }
+
+  absl::Span<const std::string> named_value_params_names() const {
+    return absl::MakeSpan(named_value_params_);
+  }
+  absl::Span<const Value> named_value_params_values() const {
+    return absl::MakeSpan(params_).subspan(ordinal_param_size_);
+  }
 
   // Returns the i-th parameter.
   const Value& param(size_t i) const { return params_[i]; }
@@ -169,6 +206,8 @@ class QueryParamsWithResult {
 
  private:
   std::vector<Value> params_;
+  std::vector<std::string> named_value_params_;
+  size_t ordinal_param_size_ = 0;
   Result result_;
   FeatureSet required_features_;
   FeatureSet prohibited_features_;

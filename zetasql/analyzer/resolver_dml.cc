@@ -1363,7 +1363,7 @@ static absl::Status VerifyNestedStatementsOrdering(
 
 absl::Status Resolver::ShouldMergeWithUpdateItem(
     const ASTUpdateItem* ast_update_item,
-    const std::vector<UpdateTargetInfo>& update_target_infos,
+    absl::Span<const UpdateTargetInfo> update_target_infos,
     const UpdateItemAndLocation& update_item, bool* merge) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(!update_target_infos.empty());

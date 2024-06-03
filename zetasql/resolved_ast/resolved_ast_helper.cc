@@ -16,6 +16,7 @@
 
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
 
+#include <memory>
 #include <vector>
 
 #include "zetasql/resolved_ast/resolved_ast.h"

@@ -1718,8 +1718,8 @@ ERROR: Invalid function WrappedGroupRows [at 1:8]
 SELECT WrappedGroupRows(e) FROM UNNEST([1, 2, 3]) AS e
        ^
 Analysis of function Templated_SQL_Function:WrappedGroupRows failed [at 2:13]
-            SUM(e) WITH GROUP_ROWS(SELECT e
+            SUM(e) WITH GROUP ROWS(SELECT e
             ^
-WITH GROUP_ROWS is not supported in templated SQL aggregate function call [at 2:13]
-            SUM(e) WITH GROUP_ROWS(SELECT e
+WITH GROUP ROWS is not supported in templated SQL aggregate function call [at 2:13]
+            SUM(e) WITH GROUP ROWS(SELECT e
             ^

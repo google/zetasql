@@ -1894,7 +1894,7 @@ class ProtoEvalTest : public ::testing::Test {
 
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr.
   absl::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
-                                      const std::string& field_name) {
+                                      absl::string_view field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
     absl::Cord bytes;
     ABSL_CHECK(msg->SerializePartialToCord(&bytes));
@@ -2113,7 +2113,7 @@ class ProtoEvalTest : public ::testing::Test {
     return absl::OkStatus();
   }
 
-  Value MakeProtoValue(const std::vector<std::pair<std::string, Value>>& fields,
+  Value MakeProtoValue(absl::Span<const std::pair<std::string, Value>> fields,
                        const google::protobuf::Message& msg) {
     std::unique_ptr<google::protobuf::Message> tmp(msg.New());
     ZETASQL_CHECK_OK(MakeProto(fields, tmp.get()));
@@ -2124,7 +2124,7 @@ class ProtoEvalTest : public ::testing::Test {
 
   // 'out' is cleared first.
   std::string FormatProto(
-      const std::vector<std::pair<std::string, Value>>& fields,
+      absl::Span<const std::pair<std::string, Value>> fields,
       google::protobuf::Message* out) {
     absl::Status result = MakeProto(fields, out);
     if (result.ok()) {
@@ -2927,7 +2927,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   n->add_nested_repeated_int64(301);
   ASSERT_TRUE(nested_tmp.ParseFromCord(
       GetProtoFieldOrDie(&p, "nested_value").ToCord()));
-  EXPECT_EQ(n->DebugString(), nested_tmp.DebugString());
+  EXPECT_EQ(absl::StrCat(*n), absl::StrCat(nested_tmp));
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "nested_value"));
 
   const ArrayType* nested_array_type;
@@ -2979,7 +2979,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   g->add_optionalgroupnested()->set_int64_val(510);
   ASSERT_TRUE(group_tmp.ParseFromCord(
       GetProtoFieldOrDie(&p, "optional_group").ToCord()));
-  EXPECT_EQ(g->DebugString(), group_tmp.DebugString());
+  EXPECT_EQ(absl::StrCat(*g), absl::StrCat(group_tmp));
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "optional_group"));
 
   // nested_repeated_group

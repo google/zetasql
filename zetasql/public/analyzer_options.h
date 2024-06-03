@@ -43,6 +43,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -55,8 +56,8 @@ class AnalyzerOutput;
 // object is useful as a template parameter for STL set/map of
 // std::vector<string>s, if uniqueness of the vector keys is case-insensitive.
 struct StringVectorCaseLess {
-  bool operator()(const std::vector<std::string>& v1,
-                  const std::vector<std::string>& v2) const;
+  bool operator()(absl::Span<const std::string> v1,
+                  absl::Span<const std::string> v2) const;
 };
 
 // Map associating each query parameter with its type. Keys are lowercase to

@@ -132,6 +132,24 @@ static std::string ParametersWithSeparator(int num_parameters,
   return absl::StrJoin(arg_str, separator);
 }
 
+static std::string InitParametersWithNamedValueArguments(
+    const QueryParamsWithResult& query_params_with_result,
+    absl::string_view separator) {
+  std::vector<std::string> arg_str;
+  size_t num_ordinal_params = query_params_with_result.ordinal_params().size();
+  arg_str.reserve(query_params_with_result.num_params());
+  for (int i = 0; i < num_ordinal_params; i++) {
+    arg_str.push_back(absl::StrCat("@p", i));
+  }
+
+  auto named_value_params = query_params_with_result.named_value_params_names();
+  for (int i = 0; i < named_value_params.size(); i++) {
+    arg_str.push_back(
+        absl::StrCat(named_value_params[i], "=>@p", num_ordinal_params + i));
+  }
+  return absl::StrJoin(arg_str, separator);
+}
+
 static Value Singleton(const ValueConstructor& v) {
   return StructArray({kColA}, {{v}});
 }
@@ -416,8 +434,8 @@ void CodebasedTestsEnvironment::SetUp() {
       test_db, code_based_test_driver->GetSupportedLanguageOptions()));
   ZETASQL_CHECK_OK(code_based_test_driver->CreateDatabase(test_db));
 
-  code_based_reference_driver = new ReferenceDriver(
-      code_based_test_driver->GetSupportedLanguageOptions());
+  code_based_reference_driver =
+      ReferenceDriver::CreateFromTestDriver(code_based_test_driver).release();
   ZETASQL_EXPECT_OK(code_based_reference_driver->CreateDatabase(test_db));
 }
 
@@ -478,7 +496,7 @@ void ComplianceCodebasedTests::RunFunctionTestsInOperator(
 }
 
 void ComplianceCodebasedTests::RunFunctionTestsInOperatorUnnestArray(
-    const std::vector<QueryParamsWithResult>& function_tests) {
+    absl::Span<const QueryParamsWithResult> function_tests) {
   return RunStatementTestsCustom(
       function_tests, [](const QueryParamsWithResult& p) {
         std::vector<std::string> arg_str;
@@ -491,7 +509,7 @@ void ComplianceCodebasedTests::RunFunctionTestsInOperatorUnnestArray(
 }
 
 void ComplianceCodebasedTests::RunFunctionTestsPrefix(
-    const std::vector<QueryParamsWithResult>& function_tests,
+    absl::Span<const QueryParamsWithResult> function_tests,
     absl::string_view function_name) {
   return RunStatementTestsCustom(
       function_tests, [function_name = std::string(function_name)](
@@ -570,7 +588,7 @@ void ComplianceCodebasedTests::RunFunctionCalls(
 }
 
 void ComplianceCodebasedTests::RunFunctionCalls(
-    const std::vector<QueryParamsWithResult>& test_cases,
+    absl::Span<const QueryParamsWithResult> test_cases,
     absl::string_view function_name) {
   std::vector<FunctionTestCall> function_test_calls;
   function_test_calls.reserve(test_cases.size());
@@ -578,6 +596,20 @@ void ComplianceCodebasedTests::RunFunctionCalls(
     function_test_calls.push_back({function_name, test_case});
   }
   RunFunctionCalls(function_test_calls);
+}
+
+void ComplianceCodebasedTests::RunFunctionCallsWithNamedValueArguments(
+    const std::vector<FunctionTestCall>& function_calls) {
+  for (const auto& call : AddSafeFunctionCalls(function_calls)) {
+    std::string sql = absl::Substitute(
+        "SELECT $0($1) AS $2", call.function_name,
+        InitParametersWithNamedValueArguments(call.params, ", "), kColA);
+    QueryParamsWithResult new_params = call.params;
+    ConvertResultsToSingletons(&new_params);
+    SetNamePrefix(AddPrefixForSafeFunctionCalls(call.function_name));
+    auto label = MakeScopedLabel(GetTypeLabels(call.params));
+    RunStatementOnFeatures(sql, new_params);
+  }
 }
 
 void ComplianceCodebasedTests::RunNormalizeFunctionCalls(
@@ -1464,21 +1496,8 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJson, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonStripNulls, 1) {
   SetNamePrefix("JsonStripNulls");
 
-  auto strip_nulls_json_fn_expr = [](const FunctionTestCall& f) {
-    auto size = f.params.params().size();
-    if (size == 1) {
-      return "json_strip_nulls(@p0)";
-    } else if (size == 2) {
-      return "json_strip_nulls(@p0, @p1)";
-    } else if (size == 3) {
-      return "json_strip_nulls(@p0, @p1, include_arrays=>@p2)";
-    }
-    return "json_strip_nulls(@p0, @p1, include_arrays=>@p2, remove_empty=>@p3)";
-  };
-
-  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
-                             GetFunctionTestsJsonStripNulls())),
-                         strip_nulls_json_fn_expr);
+  RunFunctionCallsWithNamedValueArguments(Shard(
+      EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonStripNulls())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxBool, 1) {
@@ -1536,84 +1555,28 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonRemove, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonSet, 1) {
   SetNamePrefix("JsonSet");
 
-  auto fn_expr = [](const FunctionTestCall& f) {
-    std::string arguments;
-    size_t size = f.params.params().size();
-
-    // Function Signature:
-    // JSON_SET(JSON json_doc, path, value[, path, value]...,
-    // create_if_missing => {true, false}).
-    if (size % 2 == 0) {
-      // There is an even number of parameters which means a value was
-      // provided for `create_if_missing` at the last positional argument.
-      for (int i = 0; i < f.params.params().size() - 1; ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      absl::StrAppend(&arguments, "create_if_missing=>@p", size - 1);
-    } else {
-      // There is an odd number of parameters which means no value is
-      // provided for `create_if_missing`. The specified default value is
-      // automatically used.
-      for (int i = 0; i < f.params.params().size(); ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      arguments.resize(arguments.size() - 2);
-    }
-    return absl::Substitute("$0($1)", f.function_name, arguments);
-  };
-  RunFunctionTestsCustom(
-      Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonSet())),
-      fn_expr);
+  RunFunctionCallsWithNamedValueArguments(
+      Shard(EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonSet())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArrayInsert, 1) {
   SetNamePrefix("JsonArrayInsert");
 
-  auto fn_expr = [](const FunctionTestCall& f) {
-    std::string arguments;
-    size_t size = f.params.params().size();
-
-    if (size % 2 == 0) {
-      for (int i = 0; i < f.params.params().size() - 1; ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      absl::StrAppend(&arguments, "insert_each_element=>@p", size - 1);
-    } else {
-      for (int i = 0; i < f.params.params().size(); ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      arguments.resize(arguments.size() - 2);
-    }
-    return absl::Substitute("$0($1)", f.function_name, arguments);
-  };
-  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
-                             GetFunctionTestsJsonArrayInsert())),
-                         fn_expr);
+  RunFunctionCallsWithNamedValueArguments(Shard(
+      EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonArrayInsert())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonArrayAppend, 1) {
   SetNamePrefix("JsonArrayAppend");
 
-  auto fn_expr = [](const FunctionTestCall& f) {
-    std::string arguments;
-    size_t size = f.params.params().size();
+  RunFunctionCallsWithNamedValueArguments(Shard(
+      EnableJsonMutatorFunctionsForTest(GetFunctionTestsJsonArrayAppend())));
+}
 
-    if (size % 2 == 0) {
-      for (int i = 0; i < f.params.params().size() - 1; ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      absl::StrAppend(&arguments, "append_each_element=>@p", size - 1);
-    } else {
-      for (int i = 0; i < f.params.params().size(); ++i) {
-        absl::StrAppend(&arguments, "@p", i, ", ");
-      }
-      arguments.resize(arguments.size() - 2);
-    }
-    return absl::Substitute("$0($1)", f.function_name, arguments);
-  };
-  RunFunctionTestsCustom(Shard(EnableJsonMutatorFunctionsForTest(
-                             GetFunctionTestsJsonArrayAppend())),
-                         fn_expr);
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonKeys, 1) {
+  SetNamePrefix("JsonKeys");
+
+  RunFunctionCallsWithNamedValueArguments(Shard(GetFunctionTestsJsonKeys()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {

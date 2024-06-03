@@ -106,13 +106,13 @@ WHERE EXISTS(SELECT WITH ANONYMIZATION ANON_COUNT(*)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#31 AS `$col1` [INT64]
+| +-$query.$col1#32 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-134
-    +-column_list=[$query.$col1#31]
+    +-column_list=[$query.$col1#32]
     +-expr_list=
-    | +-$col1#31 := Literal(parse_location=7-8, type=INT64, value=1)
+    | +-$col1#32 := Literal(parse_location=7-8, type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-input_scan=
@@ -125,14 +125,14 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=39-133
-                +-column_list=[$aggregate.$agg1#30]
+                +-column_list=[$aggregate.$agg1#31]
                 +-input_scan=
                   +-AnonymizedAggregateScan
-                    +-column_list=[$aggregate.$agg1#30]
+                    +-column_list=[$aggregate.$agg1#31]
                     +-input_scan=
                     | +-TVFScan(parse_location=97-131, tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
                     +-aggregate_list=
-                      +-$agg1#30 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=65-75)
+                      +-$agg1#31 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=65-75)
 [REPLACED_LITERALS]
 SELECT @_p0_INT64
 FROM SimpleTypes
@@ -142,13 +142,13 @@ WHERE EXISTS(SELECT WITH ANONYMIZATION ANON_COUNT(*)
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#31 AS `$col1` [INT64]
+| +-$query.$col1#32 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-134
-    +-column_list=[$query.$col1#31]
+    +-column_list=[$query.$col1#32]
     +-expr_list=
-    | +-$col1#31 := Literal(parse_location=7-8, type=INT64, value=1)
+    | +-$col1#32 := Literal(parse_location=7-8, type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-input_scan=
@@ -161,30 +161,30 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=39-133
-                +-column_list=[$aggregate.$agg1#30]
+                +-column_list=[$aggregate.$agg1#31]
                 +-input_scan=
                   +-AnonymizedAggregateScan
-                    +-column_list=[$aggregate.$agg1#30]
+                    +-column_list=[$aggregate.$agg1#31]
                     +-input_scan=
                     | +-AggregateScan
-                    |   +-column_list=[$aggregate.$agg1_partial#34, $group_by.$uid#35]
+                    |   +-column_list=[$aggregate.$agg1_partial#35, $group_by.$uid#36]
                     |   +-input_scan=
-                    |   | +-TVFScan(parse_location=97-131, column_list=[tvf_no_args_with_anonymization_uid.column_int64#32], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6])
+                    |   | +-TVFScan(parse_location=97-131, column_list=[tvf_no_args_with_anonymization_uid.column_int64#33], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[6])
                     |   +-group_by_list=
-                    |   | +-$uid#35 := ColumnRef(type=INT64, column=tvf_no_args_with_anonymization_uid.column_int64#32)
+                    |   | +-$uid#36 := ColumnRef(type=INT64, column=tvf_no_args_with_anonymization_uid.column_int64#33)
                     |   +-aggregate_list=
-                    |     +-$agg1_partial#34 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+                    |     +-$agg1_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
                     +-aggregate_list=
-                    | +-$agg1#30 :=
+                    | +-$agg1#31 :=
                     | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-                    | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#34)
-                    | +-$k_threshold_col#38 :=
+                    | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#35)
+                    | +-$k_threshold_col#39 :=
                     |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
                     |     +-Literal(type=INT64, value=1)
                     |     +-Literal(type=INT64, value=0)
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
-                      +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#38)
+                      +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#39)
 ==
 
 # Read from a table containing a 'uid' in an expression subquery, without WITH
@@ -200,13 +200,13 @@ WHERE EXISTS(SELECT * FROM SimpleTypesWithAnonymizationUid)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#31 AS `$col1` [INT64]
+| +-$query.$col1#32 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-85
-    +-column_list=[$query.$col1#31]
+    +-column_list=[$query.$col1#32]
     +-expr_list=
-    | +-$col1#31 := Literal(parse_location=7-8, type=INT64, value=1)
+    | +-$col1#32 := Literal(parse_location=7-8, type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-input_scan=
@@ -219,9 +219,9 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=39-84
-                +-column_list=SimpleTypesWithAnonymizationUid.[int32#19, int64#20, uint32#21, uint64#22, string#23, bytes#24, bool#25, float#26, double#27, date#28, uid#29, numeric#30]
+                +-column_list=SimpleTypesWithAnonymizationUid.[int32#20, int64#21, uint32#22, uint64#23, string#24, bytes#25, bool#26, float#27, double#28, date#29, uid#30, numeric#31]
                 +-input_scan=
-                  +-TableScan(parse_location=53-84, column_list=SimpleTypesWithAnonymizationUid.[int32#19, int64#20, uint32#21, uint64#22, string#23, bytes#24, bool#25, float#26, double#27, date#28, uid#29, numeric#30], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+                  +-TableScan(parse_location=53-84, column_list=SimpleTypesWithAnonymizationUid.[int32#20, int64#21, uint32#22, uint64#23, string#24, bytes#25, bool#26, float#27, double#28, date#29, uid#30, numeric#31], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 [REPLACED_LITERALS]
 SELECT @_p0_INT64
 FROM SimpleTypes
@@ -241,13 +241,13 @@ WHERE EXISTS(SELECT * FROM tvf_no_args_with_anonymization_uid())
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#30 AS `$col1` [INT64]
+| +-$query.$col1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-90
-    +-column_list=[$query.$col1#30]
+    +-column_list=[$query.$col1#31]
     +-expr_list=
-    | +-$col1#30 := Literal(parse_location=7-8, type=INT64, value=1)
+    | +-$col1#31 := Literal(parse_location=7-8, type=INT64, value=1)
     +-input_scan=
       +-FilterScan
         +-input_scan=
@@ -260,9 +260,9 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=39-89
-                +-column_list=tvf_no_args_with_anonymization_uid.[column_bool#19, column_bytes#20, column_date#21, column_double#22, column_float#23, column_int32#24, column_int64#25, column_string#26, column_time#27, column_uint32#28, column_uint64#29]
+                +-column_list=tvf_no_args_with_anonymization_uid.[column_bool#20, column_bytes#21, column_date#22, column_double#23, column_float#24, column_int32#25, column_int64#26, column_string#27, column_time#28, column_uint32#29, column_uint64#30]
                 +-input_scan=
-                  +-TVFScan(parse_location=53-87, column_list=tvf_no_args_with_anonymization_uid.[column_bool#19, column_bytes#20, column_date#21, column_double#22, column_float#23, column_int32#24, column_int64#25, column_string#26, column_time#27, column_uint32#28, column_uint64#29], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+                  +-TVFScan(parse_location=53-87, column_list=tvf_no_args_with_anonymization_uid.[column_bool#20, column_bytes#21, column_date#22, column_double#23, column_float#24, column_int32#25, column_int64#26, column_string#27, column_time#28, column_uint32#29, column_uint64#30], tvf=tvf_no_args_with_anonymization_uid(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 [REPLACED_LITERALS]
 SELECT @_p0_INT64
 FROM SimpleTypes
@@ -278,13 +278,13 @@ WHERE EXISTS(SELECT int64 FROM SimpleTypes)
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#31 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#32 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.aggregation_count#31]
+    +-column_list=[$aggregate.aggregation_count#32]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#31]
+        +-column_list=[$aggregate.aggregation_count#32]
         +-input_scan=
         | +-FilterScan
         |   +-input_scan=
@@ -299,26 +299,26 @@ QueryStmt
         |           +-input_scan=
         |             +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-          +-aggregation_count#31 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+          +-aggregation_count#32 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#31 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#32 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.aggregation_count#31]
+    +-column_list=[$aggregate.aggregation_count#32]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#31]
+        +-column_list=[$aggregate.aggregation_count#32]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.aggregation_count_partial#34, $group_by.$uid#35]
+        |   +-column_list=[$aggregate.aggregation_count_partial#35, $group_by.$uid#36]
         |   +-input_scan=
         |   | +-FilterScan
-        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#32]
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#33]
         |   |   +-input_scan=
-        |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
         |   |   +-filter_expr=
         |   |     +-SubqueryExpr
         |   |       +-type=BOOL
@@ -329,20 +329,20 @@ QueryStmt
         |   |           +-input_scan=
         |   |             +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1])
         |   +-group_by_list=
-        |   | +-$uid#35 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#32)
+        |   | +-$uid#36 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#33)
         |   +-aggregate_list=
-        |     +-aggregation_count_partial#34 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |     +-aggregation_count_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
-        | +-aggregation_count#31 :=
+        | +-aggregation_count#32 :=
         | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.aggregation_count_partial#34)
-        | +-$k_threshold_col#38 :=
+        | |   +-ColumnRef(type=INT64, column=$aggregate.aggregation_count_partial#35)
+        | +-$k_threshold_col#39 :=
         |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
         |     +-Literal(type=INT64, value=1)
         |     +-Literal(type=INT64, value=0)
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
-          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#38)
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#39)
 ==
 
 # Specify WITH ANONYMIZATION with an EXISTS subquery, and there is no 'uid' in
@@ -677,14 +677,14 @@ WHERE 123 IN (
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#34 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#35 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-219
-    +-column_list=[$aggregate.aggregation_count#34]
+    +-column_list=[$aggregate.aggregation_count#35]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#34]
+        +-column_list=[$aggregate.aggregation_count#35]
         +-input_scan=
         | +-FilterScan
         |   +-input_scan=
@@ -713,11 +713,11 @@ QueryStmt
         |                   +-subquery=
         |                     +-ProjectScan
         |                       +-parse_location=168-217
-        |                       +-column_list=[ArrayWithAnonymizationUid.int64_array#31]
+        |                       +-column_list=[ArrayWithAnonymizationUid.int64_array#32]
         |                       +-input_scan=
-        |                         +-TableScan(parse_location=192-217, column_list=[ArrayWithAnonymizationUid.int64_array#31], table=ArrayWithAnonymizationUid, column_index_list=[0])
+        |                         +-TableScan(parse_location=192-217, column_list=[ArrayWithAnonymizationUid.int64_array#32], table=ArrayWithAnonymizationUid, column_index_list=[0])
         +-aggregate_list=
-          +-aggregation_count#34 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
+          +-aggregation_count#35 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
 [REPLACED_LITERALS]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
 FROM SimpleTypesWithAnonymizationUid
@@ -744,14 +744,14 @@ WHERE EXISTS(
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#34 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#35 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-219
-    +-column_list=[$aggregate.aggregation_count#34]
+    +-column_list=[$aggregate.aggregation_count#35]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#34]
+        +-column_list=[$aggregate.aggregation_count#35]
         +-input_scan=
         | +-FilterScan
         |   +-input_scan=
@@ -784,7 +784,7 @@ QueryStmt
         |                       +-input_scan=
         |                         +-TableScan(parse_location=206-217, column_list=[SimpleTypes.int64#17], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-          +-aggregation_count#34 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
+          +-aggregation_count#35 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
 [REPLACED_LITERALS]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
 FROM SimpleTypesWithAnonymizationUid
@@ -810,14 +810,14 @@ WHERE EXISTS(
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#49 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#51 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-198
-    +-column_list=[$aggregate.aggregation_count#49]
+    +-column_list=[$aggregate.aggregation_count#51]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#49]
+        +-column_list=[$aggregate.aggregation_count#51]
         +-input_scan=
         | +-FilterScan
         |   +-input_scan=
@@ -844,11 +844,11 @@ QueryStmt
         |                   +-subquery=
         |                     +-ProjectScan
         |                       +-parse_location=167-196
-        |                       +-column_list=[SimpleTypes.int32#31]
+        |                       +-column_list=[SimpleTypes.int32#32]
         |                       +-input_scan=
-        |                         +-TableScan(parse_location=185-196, column_list=[SimpleTypes.int32#31], table=SimpleTypes, column_index_list=[0])
+        |                         +-TableScan(parse_location=185-196, column_list=[SimpleTypes.int32#32], table=SimpleTypes, column_index_list=[0])
         +-aggregate_list=
-          +-aggregation_count#49 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
+          +-aggregation_count#51 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
 [REPLACED_LITERALS]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
 FROM SimpleTypesWithAnonymizationUid
@@ -860,22 +860,22 @@ WHERE EXISTS(
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#49 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#51 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-198
-    +-column_list=[$aggregate.aggregation_count#49]
+    +-column_list=[$aggregate.aggregation_count#51]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#49]
+        +-column_list=[$aggregate.aggregation_count#51]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.aggregation_count_partial#52, $group_by.$uid#53]
+        |   +-column_list=[$aggregate.aggregation_count_partial#54, $group_by.$uid#55]
         |   +-input_scan=
         |   | +-FilterScan
-        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#50]
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#52]
         |   |   +-input_scan=
-        |   |   | +-TableScan(parse_location=66-97, column_list=[SimpleTypesWithAnonymizationUid.uid#50], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   |   | +-TableScan(parse_location=66-97, column_list=[SimpleTypesWithAnonymizationUid.uid#52], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
         |   |   +-filter_expr=
         |   |     +-SubqueryExpr
         |   |       +-parse_location=116-197
@@ -898,24 +898,24 @@ QueryStmt
         |   |                   +-subquery=
         |   |                     +-ProjectScan
         |   |                       +-parse_location=167-196
-        |   |                       +-column_list=[SimpleTypes.int32#31]
+        |   |                       +-column_list=[SimpleTypes.int32#32]
         |   |                       +-input_scan=
-        |   |                         +-TableScan(parse_location=185-196, column_list=[SimpleTypes.int32#31], table=SimpleTypes, column_index_list=[0])
+        |   |                         +-TableScan(parse_location=185-196, column_list=[SimpleTypes.int32#32], table=SimpleTypes, column_index_list=[0])
         |   +-group_by_list=
-        |   | +-$uid#53 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#50)
+        |   | +-$uid#55 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#52)
         |   +-aggregate_list=
-        |     +-aggregation_count_partial#52 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |     +-aggregation_count_partial#54 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
-        | +-aggregation_count#49 :=
+        | +-aggregation_count#51 :=
         | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.aggregation_count_partial#52)
-        | +-$k_threshold_col#56 :=
+        | |   +-ColumnRef(type=INT64, column=$aggregate.aggregation_count_partial#54)
+        | +-$k_threshold_col#58 :=
         |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
         |     +-Literal(type=INT64, value=1)
         |     +-Literal(type=INT64, value=0)
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
-          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#56)
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#58)
 ==
 
 # Nested expression subqueries. uid -> uid -> uid
@@ -1016,17 +1016,17 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=49-131
-                +-column_list=[$aggregate.$agg1#31]
+                +-column_list=[$aggregate.$agg1#32]
                 +-input_scan=
                   +-AnonymizedAggregateScan
-                    +-column_list=[$aggregate.$agg1#31]
+                    +-column_list=[$aggregate.$agg1#32]
                     +-input_scan=
-                    | +-TableScan(parse_location=100-131, column_list=[SimpleTypesWithAnonymizationUid.int64#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+                    | +-TableScan(parse_location=100-131, column_list=[SimpleTypesWithAnonymizationUid.int64#21], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
                     +-aggregate_list=
-                      +-$agg1#31 :=
+                      +-$agg1#32 :=
                         +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
                           +-parse_location=75-83
-                          +-ColumnRef(parse_location=84-89, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
+                          +-ColumnRef(parse_location=84-89, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#21)
 [REPLACED_LITERALS]
 SELECT int64
 FROM SimpleTypes
@@ -1057,32 +1057,32 @@ QueryStmt
             +-subquery=
               +-ProjectScan
                 +-parse_location=49-131
-                +-column_list=[$aggregate.$agg1#31]
+                +-column_list=[$aggregate.$agg1#32]
                 +-input_scan=
                   +-AnonymizedAggregateScan
-                    +-column_list=[$aggregate.$agg1#31]
+                    +-column_list=[$aggregate.$agg1#32]
                     +-input_scan=
                     | +-AggregateScan
-                    |   +-column_list=[$aggregate.$agg1_partial#34, $group_by.$uid#35]
+                    |   +-column_list=[$aggregate.$agg1_partial#35, $group_by.$uid#36]
                     |   +-input_scan=
-                    |   | +-TableScan(parse_location=100-131, column_list=SimpleTypesWithAnonymizationUid.[int64#20, uid#32], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+                    |   | +-TableScan(parse_location=100-131, column_list=SimpleTypesWithAnonymizationUid.[int64#21, uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
                     |   +-group_by_list=
-                    |   | +-$uid#35 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#32)
+                    |   | +-$uid#36 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#33)
                     |   +-aggregate_list=
-                    |     +-$agg1_partial#34 :=
+                    |     +-$agg1_partial#35 :=
                     |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-                    |         +-ColumnRef(parse_location=84-89, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
+                    |         +-ColumnRef(parse_location=84-89, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#21)
                     +-aggregate_list=
-                    | +-$agg1#31 :=
+                    | +-$agg1#32 :=
                     | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-                    | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#34)
-                    | +-$k_threshold_col#38 :=
+                    | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#35)
+                    | +-$k_threshold_col#39 :=
                     |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
                     |     +-Literal(type=INT64, value=1)
                     |     +-Literal(type=INT64, value=0)
                     |     +-Literal(type=INT64, value=1)
                     +-k_threshold_expr=
-                      +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#38)
+                      +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#39)
 ==
 
 # Anonymization node in an expression subquery of another anonymization node
@@ -1155,14 +1155,14 @@ WHERE EXISTS(
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.aggregation_count#35 AS aggregation_count [INT64]
+| +-$aggregate.aggregation_count#36 AS aggregation_count [INT64]
 +-query=
   +-ProjectScan
     +-parse_location=0-259
-    +-column_list=[$aggregate.aggregation_count#35]
+    +-column_list=[$aggregate.aggregation_count#36]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.aggregation_count#35]
+        +-column_list=[$aggregate.aggregation_count#36]
         +-input_scan=
         | +-FilterScan
         |   +-input_scan=
@@ -1191,19 +1191,19 @@ QueryStmt
         |                   +-subquery=
         |                     +-ProjectScan
         |                       +-parse_location=171-257
-        |                       +-column_list=[$aggregate.$agg1#34]
+        |                       +-column_list=[$aggregate.$agg1#35]
         |                       +-input_scan=
         |                         +-AnonymizedAggregateScan
-        |                           +-column_list=[$aggregate.$agg1#34]
+        |                           +-column_list=[$aggregate.$agg1#35]
         |                           +-input_scan=
-        |                           | +-TableScan(parse_location=226-257, column_list=[SimpleTypesWithAnonymizationUid.int64#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        |                           | +-TableScan(parse_location=226-257, column_list=[SimpleTypesWithAnonymizationUid.int64#24], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
         |                           +-aggregate_list=
-        |                             +-$agg1#34 :=
+        |                             +-$agg1#35 :=
         |                               +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
         |                                 +-parse_location=197-205
-        |                                 +-ColumnRef(parse_location=206-211, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#23)
+        |                                 +-ColumnRef(parse_location=206-211, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#24)
         +-aggregate_list=
-          +-aggregation_count#35 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
+          +-aggregation_count#36 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=26-36)
 [REPLACED_LITERALS]
 SELECT WITH ANONYMIZATION ANON_COUNT(*) as aggregation_count
 FROM ArrayWithAnonymizationUid

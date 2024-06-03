@@ -16,19 +16,22 @@
 
 #include "zetasql/public/parse_tokens.h"
 
-#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -43,7 +46,7 @@ using ::zetasql_base::testing::StatusIs;
 // calls that function on each element of parse_tokens, and returns a string
 // with the comma-separated strings of the results.
 template <class FUNC>
-static std::string Call(const std::vector<ParseToken>& parse_tokens,
+static std::string Call(absl::Span<const ParseToken> parse_tokens,
                         FUNC function) {
   bool first = true;
   std::string result;
@@ -106,6 +109,13 @@ TEST(GetNextTokensTest, Locations) {
   EXPECT_EQ(";", parse_tokens[4].GetImage());
   EXPECT_EQ("", parse_tokens[5].GetImage());
 
+  EXPECT_FALSE(parse_tokens[0].IsAdjacentToPreviousToken());
+  EXPECT_FALSE(parse_tokens[1].IsAdjacentToPreviousToken());
+  EXPECT_FALSE(parse_tokens[2].IsAdjacentToPreviousToken());
+  EXPECT_FALSE(parse_tokens[3].IsAdjacentToPreviousToken());
+  EXPECT_TRUE(parse_tokens[4].IsAdjacentToPreviousToken());
+  EXPECT_TRUE(parse_tokens[5].IsAdjacentToPreviousToken());
+
   EXPECT_EQ("1,0,0,1,1,0", Call(parse_tokens, &ParseToken::IsKeyword));
   EXPECT_EQ("0,1,0,1,0,0", Call(parse_tokens, &ParseToken::IsIdentifier));
   EXPECT_EQ("0,0,1,0,0,0", Call(parse_tokens, &ParseToken::IsValue));
@@ -133,6 +143,37 @@ TEST(GetNextTokensTest, Locations) {
   ParseToken empty;
   EXPECT_EQ("", empty.GetSQL());
   EXPECT_EQ("EOF", empty.DebugString());
+}
+
+TEST(GetNextTokensTest, LocationAdjacency) {
+  ParseTokenOptions options;
+  std::string filename = "";
+  {
+    std::string input = "MAP<STRING,MAP<STRING,STRING> >";
+    ParseResumeLocation location =
+        ParseResumeLocation::FromStringView(filename, input);
+
+    std::vector<ParseToken> parse_tokens;
+    ZETASQL_ASSERT_OK(GetParseTokens(options, &location, &parse_tokens));
+    EXPECT_EQ(12, parse_tokens.size());
+
+    for (int i = 0; i < parse_tokens.size(); ++i) {
+      EXPECT_EQ(parse_tokens[i].IsAdjacentToPreviousToken(), i != 0 && i != 10);
+    }
+  }
+  {
+    std::string input = "MAP<STRING,MAP<STRING,STRING>>";
+    ParseResumeLocation location =
+        ParseResumeLocation::FromStringView(filename, input);
+    std::vector<ParseToken> parse_tokens;
+
+    ZETASQL_ASSERT_OK(GetParseTokens(options, &location, &parse_tokens));
+    EXPECT_EQ(12, parse_tokens.size());
+
+    for (int i = 0; i < parse_tokens.size(); ++i) {
+      EXPECT_EQ(parse_tokens[i].IsAdjacentToPreviousToken(), i != 0);
+    }
+  }
 }
 
 TEST(GetNextTokensTest, MaxTokensNotResumable) {

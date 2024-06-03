@@ -1777,7 +1777,10 @@ The `STRING` is formatted as follows:
 
     <td>
       123.0  <em>(always with .0)</em><br/>
-      123e+10<br><code>inf</code><br><code>-inf</code><br><code>NaN</code>
+      123e+10<br/>
+      <code>inf</code><br/>
+      <code>-inf</code><br/>
+      <code>NaN</code>
     </td>
     <td>
       123.0  <em>(always with .0)</em><br/>
@@ -2558,9 +2561,7 @@ WITH items AS
   SELECT 'zzzorangezzz' as item
   UNION ALL
   SELECT 'xyzpearxyz' as item)
-```
 
-```sql
 SELECT
   LTRIM(item, 'xyz') as example
 FROM items;

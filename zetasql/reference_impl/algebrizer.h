@@ -246,17 +246,23 @@ class Algebrizer {
           path);
 
   // Algebrize specific expressions.
+  // If `order_by_keys` is non-empty then use it as the order by. If `expr`
+  // specifies a non empty `order_by_item_list` then `order_by_keys` must be
+  // empty.
   absl::StatusOr<std::unique_ptr<AggregateArg>>
   AlgebrizeAggregateFnWithAlgebrizedArguments(
       const VariableId& variable,
       std::optional<AnonymizationOptions> anonymization_options,
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
       std::vector<std::unique_ptr<ValueExpr>> arguments,
-      std::unique_ptr<RelationalOp> group_rows_subquery);
+      std::unique_ptr<RelationalOp> group_rows_subquery,
+      const VariableId& side_effects_variable = VariableId(),
+      std::vector<std::unique_ptr<KeyArg>> order_by_keys = {});
   absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
       const VariableId& variable,
       std::optional<AnonymizationOptions> anonymization_options,
-      std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr);
+      std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
+      const VariableId& side_effects_variable);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeWithExpr(
@@ -301,7 +307,7 @@ class Algebrizer {
       FunctionKind kind, const Type* output_type,
       absl::string_view function_name,
       std::vector<std::unique_ptr<ValueExpr>> args,
-      const std::vector<ResolvedCollation>& collation_list);
+      absl::Span<const ResolvedCollation> collation_list);
 
   absl::StatusOr<std::unique_ptr<ValueExpr>>
   AlgebrizeScalarArrayFunctionWithCollation(
@@ -463,6 +469,9 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>>
   AlgebrizeDifferentialPrivacyAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* aggregate_scan);
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeAggregationThresholdAggregateScan(
+      const ResolvedAggregationThresholdAggregateScan* aggregate_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(
       const ResolvedSetOperationScan* set_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnionScan(
@@ -600,6 +609,9 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
       const ResolvedScan* scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScanImpl(
+      const ResolvedScan* scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
 
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
       const ResolvedScan* scan);
@@ -711,6 +723,10 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
       const ResolvedScan* scan, bool is_value_table,
       std::unique_ptr<ValueExpr> table_expr);
+  // Similar to CreateScanOfTableAsArray but based on column list.
+  absl::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfColumnsAsArray(
+      const ResolvedColumnList& column_list, bool is_value_table,
+      std::unique_ptr<ValueExpr> table_expr);
 
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIf(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
@@ -728,7 +744,9 @@ class Algebrizer {
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseWithValue(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
-      const std::vector<ResolvedCollation>& collation_list);
+      absl::Span<const ResolvedCollation> collation_list);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeWithSideEffects(
+      std::vector<std::unique_ptr<ValueExpr>> args);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNotEqual(
       std::vector<std::unique_ptr<ValueExpr>> args);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIn(
@@ -970,6 +988,26 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> input,
       const ResolvedColumnList& input_columns,
       const ResolvedColumnList& output_columns);
+
+  // Utilities to handle filter push down.
+  //
+  // Pushes <conjunct_infos> into <active_conjuncts> in reverse order (because
+  // it's a stack).
+  static void PushConjuncts(
+      absl::Span<const std::unique_ptr<FilterConjunctInfo>> conjunct_infos,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+
+  // Restores <active_conjuncts> by popping conjuncts. Returns error if the
+  // conjuncts popped are different from <conjunct_infos>.
+  static absl::Status PopConjuncts(
+      absl::Span<const std::unique_ptr<FilterConjunctInfo>> conjunct_infos,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+
+  // Algebrizes the <conjunct_infos> which are NOT redundant to a corresponding
+  // list of value expressions.
+  absl::StatusOr<std::vector<std::unique_ptr<ValueExpr>>>
+  AlgebrizeNonRedundantConjuncts(
+      absl::Span<const std::unique_ptr<FilterConjunctInfo>> conjunct_infos);
 
   // LanguageOption to use when algebrizing.
   const LanguageOptions language_options_;

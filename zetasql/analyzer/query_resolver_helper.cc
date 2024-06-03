@@ -151,7 +151,7 @@ void QueryGroupByAndAggregateInfo::Reset() {
   has_aggregation = false;
   is_group_by_all = false;
   aggregate_expr_map.clear();
-  group_by_columns_to_compute.clear();
+  group_by_column_state_list.clear();
   group_by_expr_map.clear();
   grouping_call_list.clear();
   grouping_output_columns.clear();
@@ -355,7 +355,8 @@ QueryResolutionInfo::~QueryResolutionInfo() {}
 
 const ResolvedComputedColumn*
 QueryResolutionInfo::AddGroupByComputedColumnIfNeeded(
-    const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr) {
+    const ResolvedColumn& column, std::unique_ptr<const ResolvedExpr> expr,
+    const ResolvedExpr* pre_group_by_expr) {
   group_by_info_.has_group_by = true;
   const ResolvedComputedColumn*& stored_column =
       group_by_info_.group_by_expr_map[expr.get()];
@@ -364,7 +365,8 @@ QueryResolutionInfo::AddGroupByComputedColumnIfNeeded(
   }
   auto new_column = MakeResolvedComputedColumn(column, std::move(expr));
   stored_column = new_column.get();
-  group_by_info_.group_by_columns_to_compute.push_back(std::move(new_column));
+  group_by_info_.group_by_column_state_list.emplace_back(std::move(new_column),
+                                                         pre_group_by_expr);
   return stored_column;
 }
 
@@ -459,7 +461,7 @@ absl::Status QueryResolutionInfo::ReleaseGroupingSetsAndRollupList(
 
 void QueryResolutionInfo::AddAggregateComputedColumn(
     const ASTFunctionCall* ast_function_call,
-    std::unique_ptr<const ResolvedComputedColumn> column) {
+    std::unique_ptr<const ResolvedComputedColumnBase> column) {
   group_by_info_.has_aggregation = true;
   if (ast_function_call != nullptr) {
     zetasql_base::InsertIfNotPresent(&group_by_info_.aggregate_expr_map,
@@ -577,7 +579,7 @@ void QueryResolutionInfo::ResetAnalyticResolver(Resolver* resolver) {
 absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
   ZETASQL_RET_CHECK(select_list_columns_to_compute_before_aggregation_.empty());
   ZETASQL_RET_CHECK(select_list_columns_to_compute_.empty());
-  ZETASQL_RET_CHECK(group_by_info_.group_by_columns_to_compute.empty());
+  ZETASQL_RET_CHECK(group_by_info_.group_by_column_state_list.empty());
   ZETASQL_RET_CHECK(group_by_info_.aggregate_columns_to_compute.empty());
   ZETASQL_RET_CHECK(group_by_info_.grouping_set_list.empty());
   ZETASQL_RET_CHECK(order_by_columns_to_compute_.empty());
@@ -618,10 +620,12 @@ std::string QueryResolutionInfo::DebugString() const {
   }();
   absl::StrAppend(&debug_string, "select_with_mode: ", select_with_mode_str,
                   "\n");
-  absl::StrAppend(&debug_string, "group_by_columns(size ",
-                  group_by_info_.group_by_columns_to_compute.size(), "):\n");
-  for (const auto& column : group_by_info_.group_by_columns_to_compute) {
-    absl::StrAppend(&debug_string, "  ", column->DebugString(), "\n");
+  absl::StrAppend(&debug_string, "group_by_column_state_list(size ",
+                  group_by_info_.group_by_column_state_list.size(), "):\n");
+  for (const GroupByColumnState& group_by_column_state :
+       group_by_info_.group_by_column_state_list) {
+    absl::StrAppend(&debug_string, group_by_column_state.DebugString("  "),
+                    "\n");
   }
   absl::StrAppend(&debug_string, "aggregate_columns(size ",
                   group_by_info_.aggregate_columns_to_compute.size(), "):\n");

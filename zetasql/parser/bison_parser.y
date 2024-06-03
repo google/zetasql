@@ -94,32 +94,12 @@ while (0)
                   ast_statement_properties}
 %parse-param {std::string* error_message}
 %parse-param {zetasql::ParseLocationPoint* error_location}
-%parse-param {bool* move_error_location_past_whitespace}
 %parse-param {int* statement_end_byte_offset}
 
 // AMBIGUOUS CASES
 // ===============
 //
-// AMBIGUOUS CASE 1: INSERT ... VALUES
-// ----------------------------------
-// A shift/reduce ambiguous case is INSERT ... VALUES. Since "values" can be
-// used as an identifier, in a query like "INSERT mytable values (...", "values"
-// can be a path expression. Technically this should not be ambiguous because
-// the first element in this example is a table and the second cannot be
-// anything else but VALUES. However, the optional "REPLACE" and "UPDATE"
-// keywords at the beginning of the INSERT statement can also be used as
-// identifiers, which means the grammar must parse at least three identifiers
-// at the start of INSERT: one for replace/update, one for the target path, and
-// one for VALUES.
-//
-// This case is responsible for one shift/reduce conflict. When "VALUES" is
-// followed by "(", the grammar does not reduce "VALUES" to
-// keyword_as_identifier, and instead shifts the "(" and treats "VALUES" as a
-// keyword. See "insert_statement" for more comments on why this cannot be
-// easily solved in any other way.
-//
-//
-// AMBIGUOUS CASE 2: SAFE_CAST(...)
+// AMBIGUOUS CASE 1: SAFE_CAST(...)
 // --------------------------------
 // The SAFE_CAST keyword is non-reserved and can be used as an identifier. This
 // causes one shift/reduce conflict between keyword_as_identifier and the rule
@@ -127,7 +107,7 @@ while (0)
 // rule, which is the desired behavior.
 //
 //
-// AMBIGUOUS CASE 3: CREATE TABLE FUNCTION
+// AMBIGUOUS CASE 2: CREATE TABLE FUNCTION
 // ---------------------------------------
 // ZetaSQL now supports statements of type CREATE TABLE FUNCTION <name> to
 // generate new table-valued functions with user-defined names. It also
@@ -146,7 +126,7 @@ while (0)
 //    TABLE FUNCTION encounter a shift/reduce confict.
 //
 //
-// AMBIGUOUS CASE 4: CREATE TABLE CONSTRAINTS
+// AMBIGUOUS CASE 3: CREATE TABLE CONSTRAINTS
 // ------------------------------------------
 // The CREATE TABLE rules for the PRIMARY KEY and FOREIGN KEY constraints have
 // 2 shift/reduce conflicts, one for each constraint. PRIMARY and FOREIGN can
@@ -159,14 +139,14 @@ while (0)
 // table_column_definition. Note that this grammar reports a syntax error when
 // using PRIMARY KEY or FOREIGN KEY as column definition name and type pairs.
 //
-// AMBIGUOUS CASE 5: REPLACE_FIELDS(...)
+// AMBIGUOUS CASE 4: REPLACE_FIELDS(...)
 // --------------------------------
 // The REPLACE_FIELDS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "REPLACE_FIELDS" "(". It is resolved in favor of the
 // REPLACE_FIELDS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 6: Procedure parameter list in CREATE PROCEDURE
+// AMBIGUOUS CASE 5: Procedure parameter list in CREATE PROCEDURE
 // -------------------------------------------------------------
 // With rule procedure_parameter being:
 // [<mode>] <identifier> <type>
@@ -180,7 +160,7 @@ while (0)
 // In order to use OUT/INOUT as identifier, it needs to be escaped with
 // backticks.
 //
-// AMBIGUOUS CASE 7: CREATE TABLE GENERATED
+// AMBIGUOUS CASE 6: CREATE TABLE GENERATED
 // -------------------------------------------------------------
 // The GENERATED keyword is non-reserved, so when a generated column is defined
 // with "<name> [<type>] GENERATED AS ()", we have a shift/reduce conflict, not
@@ -189,30 +169,21 @@ while (0)
 // "shift", treating GENERATED as a keyword. To use it as an identifier, it
 // needs to be escaped with backticks.
 //
-// AMBIGUOUS CASE 8: WITH <identifier> opt_options_list
-// -------------------------------------------------------------
-// 'WITH <identifier> OPTIONS' produces 1 shift-reduce conflict:
-//   SELECT WITH <identifier> OPTIONS(a=b) x FROM foo;
-//   SELECT WITH <identifier> OPTIONS FROM foo;
-// When seeing OPTIONS, it could be shifted to match against the parenthesized
-// options list, or it could be reduced as an identifier (i.e., interpreted
-// as 'foo.OPTIONS') in the SELECT list.  We use the shift in this case.
-//
-// AMBIGUOUS CASE 9: DESCRIPTOR(...)
+// AMBIGUOUS CASE 7: DESCRIPTOR(...)
 // --------------------------------
 // The DESCRIPTOR keyword is non-reserved and can be used as an identifier. This
 // causes one shift/reduce conflict between keyword_as_identifier and the rule
 // that starts with "DESCRIPTOR" "(". It is resolved in favor of DESCRIPTOR(
 // rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 10: ANALYZE OPTIONS(...)
+// AMBIGUOUS CASE 8: ANALYZE OPTIONS(...)
 // --------------------------------
 // The OPTIONS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "ANALYZE"  "OPTIONS" "(". It is resolved in favor of
 // the OPTIONS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 11: SELECT * FROM T QUALIFY
+// AMBIGUOUS CASE 9: SELECT * FROM T QUALIFY
 // --------------------------------
 // The QUALIFY keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
@@ -221,7 +192,7 @@ while (0)
 // error messages to user when QUALIFY clause is used without
 // WHERE/GROUP BY/HAVING.
 //
-// AMBIGUOUS CASE 12: ALTER COLUMN
+// AMBIGUOUS CASE 10: ALTER COLUMN
 // --------------------------------
 // Spanner DDL compatibility extensions provide support for Spanner flavor of
 // ALTER COLUMN action, which expects full column definition instead of
@@ -234,7 +205,7 @@ while (0)
 // or reduce DROP as type identifier in Spanner-specific rule. Bison chooses to
 // shift, which is a desired behavior.
 //
-// AMBIGUOUS CASE 13: SEQUENCE CLAMPED
+// AMBIGUOUS CASE 11: SEQUENCE CLAMPED
 // ----------------------------------
 // MyFunction(SEQUENCE clamped)
 // Resolve to a function call passing a SEQUENCE input argument type.
@@ -261,7 +232,6 @@ while (0)
 // identifier quote it (SEQUENCE `clamped`);
 //
 // Total expected shift/reduce conflicts as described above:
-//   1: INSERT VALUES
 //   1: SAFE CAST
 //   3: CREATE TABLE FUNCTION
 //   2: CREATE TABLE CONSTRAINTS
@@ -270,12 +240,11 @@ while (0)
 //   1: CREATE TABLE GENERATED
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
-//   1: WITH <identifier>
 //   1: ANALYZE
-//   6: QUALIFY
+//   5: QUALIFY
 //   2: ALTER COLUMN
 //   1: SUM(SEQUENCE CLAMPED BETWEEN x and y)
-%expect 26
+%expect 23
 
 %union {
   bool boolean;
@@ -472,7 +441,10 @@ while (0)
 %token KW_OPEN_HINT "@ for hint"
 %token '}' "}"
 %token '?' "?"
+// This is the opening `@` in a standalone integer hint.
 %token KW_OPEN_INTEGER_HINT "@n"
+// This is the opening `@` in an integer hint followed by a @{...} hint.
+%token OPEN_INTEGER_PREFIX_HINT
 %token KW_SHIFT_LEFT "<<"
 %token KW_SHIFT_RIGHT ">>"
 %token KW_NAMED_ARGUMENT_ASSIGNMENT "=>"
@@ -545,7 +517,6 @@ using namespace zetasql::parser_internal;
 // BEGIN_RESERVED_KEYWORDS -- Do not remove this!
 %token KW_ALL "ALL"
 %token KW_AND "AND"
-%token KW_AND_FOR_BETWEEN "AND for BETWEEN"
 %token KW_ANY "ANY"
 %token KW_ARRAY "ARRAY"
 %token KW_AS "AS"
@@ -589,7 +560,6 @@ using namespace zetasql::parser_internal;
 %token KW_IS "IS"
 %token KW_JOIN "JOIN"
 %token KW_LEFT "LEFT"
-%token KW_LEFT_IN_SET_OP
 %token KW_LIKE "LIKE"
 %token KW_LIMIT "LIMIT"
 %token KW_LOOKUP "LOOKUP"
@@ -648,18 +618,114 @@ using namespace zetasql::parser_internal;
 // END_RESERVED_KEYWORDS -- Do not remove this!
 %token SENTINEL_RESERVED_KW_END  // See comment on SENTINEL_RESERVED_KW_END
 
+
+// These tokens should not appear in the grammar rules. They are used in actions
+// to provide context to the DisambiguationLexer layer so it can more
+// effectively understand the context of previously seen tokens.
+%token SENTINEL_LB_TOKEN_START
+// Used to look back at a token that was guaranteed to be the opening token of
+// a block of statements. This is particularly used in the "script" rules.
+%token LB_OPEN_STATEMENT_BLOCK
+// Used to look back to see that the previous token was KW_BEGIN and that it is
+// known to be the first token in a statement. That could mean the opening
+// BEGIN of a BEGIN...END statement block or it could mean the first keyword of
+// BEGIN TRANSACTION.
+%token LB_BEGIN_AT_STATEMENT_START
+// Used to look back at an EXPLAIN token that was used at the start of a SQL
+// statement to introduce EXPLAIN {stmt}.
+%token LB_EXPLAIN_SQL_STATEMENT
+// Used to lookback to see whether the previous hint is a statement-level hint.
+%token LB_END_OF_STATEMENT_LEVEL_HINT
+// Represents a "." token used in a path expression, as opposed to the "." in
+// floating point literals. This token is only used as a lookback by the
+// disambiguator.
+%token LB_DOT_IN_PATH_EXPRESSION
+// Used to lookback to know whether the previous token was the paren before a
+// nested DML statement.
+%token LB_OPEN_NESTED_DML
+// Two tokens that help the disambiguator locate type templates.
+%token LB_OPEN_TYPE_TEMPLATE
+%token LB_CLOSE_TYPE_TEMPLATE
+%token SENTINEL_LB_TOKEN_END
+
 // The tokens in this section are reserved in the sense they cannot be used as
 // identifiers in the parser. They are not produced directly by the lexer
 // though, they are produced by disambiguation transformations after the main
 // lexer.
 
+%token KW_WITH_STARTING_WITH_GROUP_ROWS "WITH starting WITH GROUP ROWS"
 %token KW_WITH_STARTING_WITH_EXPRESSION "WITH starting with expression"
 %token KW_EXCEPT_IN_SET_OP "EXCEPT in set operation"
 %token KW_FULL_IN_SET_OP
+%token KW_LEFT_IN_SET_OP
+%token KW_REPLACE_AFTER_INSERT
+%token KW_UPDATE_AFTER_INSERT
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
 // confuse the operator precedence parsing. Boolean NOT has a different
 // precedence than NOT BETWEEN/IN/LIKE.
 %token KW_NOT_SPECIAL "NOT_SPECIAL"
+
+// Two tokens that are used in the SELECT WITH <identifier> OPTIONS construct.
+// There is a true ambiguity in the query prefix when using SELECT WITH OPTIONS.
+// For example,
+//   SELECT {opt_hint} WITH modification_kind OPTIONS(a = 1) alias, * FROM ...
+// has two valid parses.
+// 1. `OPTIONS(a = 1)` is an optinos list associated with WITH modification_kind
+//    and `alias` is the first colun in the select list
+// 2. `OPTIONS(a = 1)` is a function call, `a = 1` is an expression computing
+//    the argument, and `alias` is the column alias.
+// This is a true ambiguity. Both parses are valid and no ammount of lookahead
+// will eliminates the ambiguity. Our intention has been to force parse #1.
+//
+// A solution based on LALR(1) parser's "prefer shift" rule that chooses to
+// shift options rather than reduce colum name is not ideal because it causes
+// collateral damange. Consider:
+// * SELECT WITH mod options, more_columns...
+//
+// In this case, options cannot be an option list because its not followed by
+// `(`. LALR(1) shift/reduce resolution can't see that `(` because it takes two
+// loohaheads. Instead, we use the disambiguation layer to solve this using
+// two lookeahds.
+//
+// `KW_WITH_IN_SELECT_WITH_OPTIONS` is used exclusively as a lookback override.
+// The override is triggered by the parser before consuming the `WITH` token
+// in the context of SELECT WITH. Then token disambiguation layer looks for this
+// window:
+//   lookback1 : KW_WITH_IN_SELECT_WITH_OPTIONS
+//   token     : IDENTIFER
+//   lookahead1: KW_OPTIONS
+//   lookahead2: '('
+// When it sees this window it changes lookahead1 to
+// `KW_OPTIONS_IN_SELECT_WITH_OPTIONS` so that there is no ambiguity in the
+// parser.
+%token KW_WITH_IN_SELECT_WITH_OPTIONS
+%token KW_OPTIONS_IN_SELECT_WITH_OPTIONS
+
+// A special token to indicate that an integer or floating point literal is
+// immediately followed by an identifier without space, for example 123abc.
+//
+// This token is only used by the disambiguator under the `kTokenizer` and
+// `kTokenizerPreserveComments` mode to prevent the callers of GetParseTokens()
+// to blindly inserting whitespaces between "123" and "abc". For example,
+// when formatting "SELECT 123abc", which is invalid, the formatted SQL should
+// not become "SELECT 123 abc", which is valid.
+%token INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE
+
+// The following two tokens will be converted into INTEGER_LITERAL by the
+// disambiguator, and the parser should not use them directly.
+%token DECIMAL_INTEGER_LITERAL
+%token HEX_INTEGER_LITERAL
+
+// Represents an exponent part without a sign used in a float literal, for
+// example the "e10" in "1.23e10". It will gets fused into a floating point
+// literal or becomes an identifier by the disambiguator, and the parser should
+// not use it directly.
+%token EXP_IN_FLOAT_NO_SIGN
+
+// Represents the exponent part "E" used in a float literal, for example the "e"
+// in "1.23e+10". It will gets fused into a floating point literal or becomes an
+// identifier by the disambiguator, and the parser should not use it directly.
+%token STANDALONE_EXPONENT_SIGN "e"
 
 // Non-reserved keywords.  These can also be used as identifiers.
 // These must all be listed explicitly in the "keyword_as_identifier" rule
@@ -759,6 +825,7 @@ using namespace zetasql::parser_internal;
 %token KW_LOAD "LOAD"
 %token KW_LOOP "LOOP"
 %token KW_MACRO "MACRO"
+%token KW_MAP "MAP"
 %token KW_MATCH "MATCH"
 %token KW_MATCHED "MATCHED"
 %token KW_MATERIALIZED "MATERIALIZED"
@@ -876,7 +943,6 @@ using namespace zetasql::parser_internal;
 // enumerate all token kinds to implement the macro body rule.
 %token MACRO_BODY_TOKEN
 
-%token CUSTOM_MODE_START  // Gets disambiguated to one of the modes below.
 %token MODE_STATEMENT
 %token MODE_SCRIPT
 %token MODE_NEXT_STATEMENT
@@ -958,8 +1024,13 @@ using namespace zetasql::parser_internal;
 %type <node> export_data_statement
 %type <node> export_model_statement
 %type <node> export_metadata_statement
-%type <expression> expression expression_not_parenthesized
-%type <expression> expression_maybe_parenthesized
+%type <expression> expression
+                   unparenthesized_expression_higher_prec_than_and
+                   expression_higher_prec_than_and
+                   parenthesized_expression_not_a_query
+                   expression_maybe_parenthesized_not_a_query
+                   and_expression
+                   or_expression
 %type <node> expression_with_opt_alias
 %type <node> unnest_expression_prefix
 %type <node> generic_entity_type_unchecked
@@ -1013,6 +1084,7 @@ using namespace zetasql::parser_internal;
 %type <node> hint_with_body
 %type <node> hint_with_body_prefix
 %type <identifier> identifier
+%type <identifier> token_identifier
 %type <identifier> label
 %type <identifier> identifier_in_hints
 %type <node> if_statement
@@ -1028,21 +1100,16 @@ using namespace zetasql::parser_internal;
 %type <expression> expression_or_proto
 %type <node> opt_elseif_clauses
 %type <node> begin_end_block
-%type <node> unlabeled_begin_end_block
 %type <node> opt_exception_handler
 %type <node> if_statement_unclosed
 %type <node> break_statement
 %type <node> continue_statement
 %type <node> return_statement
 %type <node> loop_statement
-%type <node> unlabeled_loop_statement
 %type <node> while_statement
-%type <node> unlabeled_while_statement
 %type <node> until_clause
 %type <node> repeat_statement
-%type <node> unlabeled_repeat_statement
 %type <node> for_in_statement
-%type <node> unlabeled_for_in_statement
 %type <node> import_statement
 %type <node> variable_declaration
 %type <node> opt_default_expression
@@ -1066,6 +1133,7 @@ using namespace zetasql::parser_internal;
 %type <insert_statement> insert_statement
 %type <insert_statement> insert_statement_prefix
 %type <insert_values_row_list> insert_values_list
+%type <node> insert_values_or_query
 %type <node> insert_values_row
 %type <node> insert_values_row_prefix
 %type <expression> int_literal_or_parameter
@@ -1156,7 +1224,7 @@ using namespace zetasql::parser_internal;
 %type <node> opt_generic_entity_body
 %type <node> having_clause
 %type <node> opt_having_clause
-%type <node> opt_having_modifier
+%type <node> opt_having_or_group_by_modifier
 %type <node> opt_hint
 %type <identifier> opt_identifier
 %type <node> opt_index_storing_list
@@ -1243,6 +1311,7 @@ using namespace zetasql::parser_internal;
 %type <expression> maybe_dashed_path_expression
 %type <expression> maybe_slashed_or_dashed_path_expression
 %type <node> path_expression_or_string
+%type <expression> path_expression_or_default
 %type <expression> possibly_cast_int_literal_or_parameter
 %type <node> possibly_empty_grantee_list
 %type <node> primary_key_or_table_constraint_spec
@@ -1359,6 +1428,7 @@ using namespace zetasql::parser_internal;
 %type <node> unterminated_statement
 %type <node> unterminated_sql_statement
 %type <node> unterminated_script_statement
+%type <node> unterminated_unlabeled_script_statement
 %type <node> update_item
 %type <node> update_item_list
 %type <node> update_set_value
@@ -1391,6 +1461,7 @@ using namespace zetasql::parser_internal;
 %type <all_or_distinct_keyword> opt_all_or_distinct
 %type <schema_object_kind_keyword> schema_object_kind
 %type <node> range_column_schema_inner
+%type <node> map_type
 
 %type <not_keyword_presence> between_operator
 %type <not_keyword_presence> in_operator
@@ -1458,7 +1529,7 @@ using namespace zetasql::parser_internal;
 %type <ast_node_kind> next_statement_kind_create_modifiers
 %type <set_operation_type> query_set_operation_type
 %type <sample_size_unit> sample_size_unit
-%type <insert_mode> unambiguous_or_ignore_replace_update
+%type <insert_mode> opt_or_ignore_replace_update
 %type <unary_op> unary_operator
 
 %type <type_kind> date_or_time_literal_kind
@@ -1483,7 +1554,7 @@ using namespace zetasql::parser_internal;
 %type <node> descriptor_argument
 %type <node> with_partition_columns_clause
 %type <pivot_or_unpivot_clause_and_alias> opt_pivot_or_unpivot_clause_and_alias
-%type <begin_end_block_or_language_as_code> unlabeled_begin_end_block_or_language_as_code
+%type <begin_end_block_or_language_as_code> begin_end_block_or_language_as_code
 
 // Spanner-specific non-terminals
 %type <boolean> opt_spanner_null_filtered
@@ -1552,32 +1623,84 @@ next_statement:
       }
     ;
 
+// This rule exists to run an action before parsing a statement irrespective
+// of whether or not the statement is a sql statement or a script statement.
+// This shape is recommended in the Bison manual.
+// See https://www.gnu.org/software/bison/manual/bison.html#Midrule-Conflicts
+//
+// We override the lookback of BEGIN here, and not locally in begin_end_block
+// to avoid shift/reduce conflicts with the BEGIN TRANSACTION statement. The
+// alternative lookback in this case meerly asserts that BEGIN is a keyword
+// at the beginning of a statement, which is true both for being end blocks
+// and for BEGIN TRANSACTION.
+pre_statement:
+    %empty
+    { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_BEGIN, LB_BEGIN_AT_STATEMENT_START); }
+
 unterminated_statement:
-  unterminated_sql_statement
-  | unterminated_script_statement
+  pre_statement unterminated_sql_statement[stmt]
+    {
+      @$ = @stmt;
+      $$ = $stmt;
+    }
+  | pre_statement unterminated_script_statement[stmt]
+    {
+      @$ = @stmt;
+      $$ = $stmt;
+    }
   ;
 
 unterminated_sql_statement:
     sql_statement_body
-    | hint sql_statement_body
+    | hint
+      { OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT); }
+      sql_statement_body
       {
-        $$ = MAKE_NODE(ASTHintedStatement, @$, {$1, $2});
+        $$ = MAKE_NODE(ASTHintedStatement, @$, {$hint, $sql_statement_body});
       }
+    ;
+
+unterminated_unlabeled_script_statement:
+    begin_end_block
+    | while_statement
+    | loop_statement
+    | repeat_statement
+    | for_in_statement
     ;
 
 unterminated_script_statement:
     if_statement
     | case_statement
-    | begin_end_block
     | variable_declaration
-    | while_statement
-    | loop_statement
-    | repeat_statement
-    | for_in_statement
     | break_statement
     | continue_statement
     | return_statement
     | raise_statement
+    | unterminated_unlabeled_script_statement
+    | label ":"
+      // We override the lookback of BEGIN here, and not locally in
+      // begin_end_block to avoid shift/reduce conflicts with the
+      // BEGIN TRANSACTION statement in the higher level unterminated_statement
+      // rule. In this case we provide the LB_OPEN_STATEMENT_BLOCK lookback
+      // because only BEGIN of a statement block can follow a label. If
+      // BEGIN TRANSACTION is changed to accept a label, then we want to change
+      // this lookback to `LB_BEGIN_AT_STATEMENT_START`.
+      { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_BEGIN, LB_OPEN_STATEMENT_BLOCK); }
+      unterminated_unlabeled_script_statement[stmt] opt_identifier[end_label]
+      {
+        CHECK_LABEL_SUPPORT($label, @label);
+        if ($end_label != nullptr &&
+            !$end_label->GetAsIdString().CaseEquals($label->GetAsIdString())) {
+          YYERROR_AND_ABORT_AT(
+              @end_label,
+              absl::StrCat("Mismatched end label; expected ",
+                           $label->GetAsStringView(), ", got ",
+                           $end_label->GetAsStringView()));
+        }
+        auto label = MAKE_NODE(ASTLabel, @label, {$label});
+        $stmt->AddChildFront(label);
+        $$ = parser->WithLocation($stmt, @$);
+      }
     ;
 
 sql_statement_body:
@@ -1637,7 +1760,7 @@ sql_statement_body:
 define_macro_statement:
     // Use a special version of KW_DEFINE which indicates that this macro
     // definition was "original", not expanded from other macros.
-    "DEFINE for macros" "MACRO" identifier[name]
+    "DEFINE for macros" "MACRO"
       {
         if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_4_SQL_MACROS)) {
@@ -1646,10 +1769,24 @@ define_macro_statement:
         PushBisonParserMode(tokenizer,
             zetasql::parser::BisonParserMode::kMacroBody);
       }
-      macro_body[tokens]
+      MACRO_BODY_TOKEN[name] macro_body[body]
       {
+        absl::string_view name = parser->GetInputText(@name);
+        absl::Status is_identifier_or_keyword =
+          IsIdentifierOrKeyword(name);
+        if (!is_identifier_or_keyword.ok()) {
+         YYERROR_AND_ABORT_AT(@name,
+           absl::StrCat("Syntax error: ", is_identifier_or_keyword.message()));
+       }
+
+        if (name.front() == '`') {
+          name = name.substr(1, name.length()-2);
+        }
+
         PopBisonParserMode(tokenizer);
-        $$ = MAKE_NODE(ASTDefineMacroStatement, @$, {$name, $tokens});
+        $$ = MAKE_NODE(ASTDefineMacroStatement,
+                       @$,
+                       {parser->MakeIdentifier(@name, name), $body});
       }
     | "DEFINE" "MACRO"[kw_macro]
       {
@@ -1665,21 +1802,26 @@ define_macro_statement:
       }
     ;
 
+// We are using the tokenizer to find the end of the DEFINE MACRO statement.
+// We need to store the body. Ideally, we would keep the tokens to avoid having
+// to re-tokenize the body when processing an invocation of this macro.
+// However, current frameworks and APIs represent macros as strings. More
+// importantly, comments may still be needed as they are used by some
+// environments as a workaround for the lack of annotations. Consequently,
+// after finding the full macro_body, we discard the tokens, and just store the
+// input text, including whitespace and comments. When the environment has been
+// upgraded to store tokens (which would require us to standardize token kinds
+// and codes since they will be stored externally), we can store the tokens
+// themselves.
 macro_body:
-    macro_token_list
+    %empty
       {
-        // We are using the tokenizer to find the end of the DEFINE MACRO
-        // statement. We need to store the body. Ideally, we would keep the
-        // tokens to avoid having to re-tokenize the body when processing an
-        // invocation of this macro. However, current frameworks and APIs
-        // represent macros as strings. More importantly, comments may still be
-        // needed as they are used by some environments as a workaround for the
-        // lack of annotations. Consequently, after finding the full macro_body,
-        // we discard the tokens, and just store the input text, including
-        // whitespace and comments.
-        // When the environment has been upgraded to store tokens (which would
-        // require us to standardize token kinds and codes since they will be
-        // stored externally), we can store the tokens themselves.
+        auto* macro_body = MAKE_NODE(ASTMacroBody, @$);
+        macro_body->set_image("");
+        $$ = macro_body;
+      }
+    | macro_token_list
+      {
         auto* macro_body = MAKE_NODE(ASTMacroBody, @$);
         macro_body->set_image(std::string(parser->GetInputText(@1)));
         $$ = macro_body;
@@ -1687,12 +1829,8 @@ macro_body:
     ;
 
 macro_token_list:
-    macro_token
-    | macro_token_list macro_token
-    ;
-
-macro_token:
     MACRO_BODY_TOKEN
+    | macro_token_list MACRO_BODY_TOKEN
     ;
 
 query_statement:
@@ -2432,8 +2570,8 @@ function_parameters:
       }
     ;
 
-unlabeled_begin_end_block_or_language_as_code:
-    unlabeled_begin_end_block
+begin_end_block_or_language_as_code:
+    begin_end_block
       {
         zetasql::ASTStatementList* stmt_list = MAKE_NODE(
             ASTStatementList, @1, {$1});
@@ -2471,7 +2609,7 @@ create_procedure_statement:
     "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
     path_expression procedure_parameters opt_external_security_clause
     opt_with_connection_clause opt_options_list
-    unlabeled_begin_end_block_or_language_as_code
+    begin_end_block_or_language_as_code
     {
       auto* create =
           MAKE_NODE(ASTCreateProcedureStatement, @$,
@@ -2730,6 +2868,17 @@ path_expression_or_string:
       }
     ;
 
+path_expression_or_default:
+    path_expression
+      {
+        $$ = $1;
+      }
+    | "DEFAULT"
+      {
+        $$ = MAKE_NODE(ASTDefaultLiteral, @$, {});
+      }
+    ;
+
 sql_function_body:
     "(" expression ")"
       {
@@ -2970,7 +3119,7 @@ create_schema_statement:
 
 create_external_schema_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL" "SCHEMA" opt_if_not_exists path_expression
-    with_connection_clause options
+    opt_with_connection_clause options
       {
         auto* create = MAKE_NODE(ASTCreateExternalSchemaStatement, @$, {$7, $8, $9});
         create->set_is_or_replace($2);
@@ -3450,14 +3599,14 @@ simple_column_schema_inner:
     ;
 
 array_column_schema_inner:
-    "ARRAY" "<" field_schema ">"
+    "ARRAY" template_type_open field_schema template_type_close
       {
         $$ = MAKE_NODE(ASTArrayColumnSchema, @$, {$3});
       }
     ;
 
 range_column_schema_inner:
-    "RANGE" "<" field_schema ">"
+    "RANGE" template_type_open field_schema template_type_close
       {
         $$ = MAKE_NODE(ASTRangeColumnSchema, @$, {$3});
       }
@@ -3494,7 +3643,7 @@ struct_column_field:
     ;
 
 struct_column_schema_prefix:
-    "STRUCT" "<" struct_column_field
+    "STRUCT" template_type_open struct_column_field
       {
         $$ = MAKE_NODE(ASTStructColumnSchema, @$, {$3});
       }
@@ -3507,11 +3656,11 @@ struct_column_schema_prefix:
 // This node does not apply parser->WithEndLocation. column_schema and
 // field_schema do.
 struct_column_schema_inner:
-    "STRUCT" "<" ">"
+    "STRUCT" template_type_open template_type_close
       {
         $$ = MAKE_NODE(ASTStructColumnSchema, @$);
       }
-    | struct_column_schema_prefix ">"
+    | struct_column_schema_prefix template_type_close
     ;
 
 raw_column_schema_inner:
@@ -4083,7 +4232,7 @@ tvf_schema_column:
     ;
 
 tvf_schema_prefix:
-    "TABLE" "<" tvf_schema_column
+    "TABLE" template_type_open tvf_schema_column
       {
         auto* create = MAKE_NODE(ASTTVFSchema, @$, {$3});
         $$ = create;
@@ -4095,7 +4244,7 @@ tvf_schema_prefix:
     ;
 
 tvf_schema:
-    tvf_schema_prefix ">"
+    tvf_schema_prefix template_type_close
       {
         $$ = parser->WithEndLocation($1, @$);
       }
@@ -4811,12 +4960,22 @@ select:
                                       $3.having, $3.qualify, $3.window});
     }
 
+pre_select_with:
+  %empty
+  { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_WITH, KW_WITH_IN_SELECT_WITH_OPTIONS); }
+
 opt_select_with:
-    "WITH" identifier opt_options_list
-    {
-      $$ = MAKE_NODE(ASTSelectWith, @$, {$2, $3});
-    }
-    | %empty { $$ = nullptr; }
+    pre_select_with "WITH"[with] identifier
+      {
+        @$.set_start(@with.start());
+        $$ = MAKE_NODE(ASTSelectWith, @$, {$identifier});
+      }
+    | pre_select_with "WITH"[with] identifier KW_OPTIONS_IN_SELECT_WITH_OPTIONS options_list
+      {
+        @$.set_start(@with.start());
+        $$ = MAKE_NODE(ASTSelectWith, @$, {$identifier, $options_list});
+      }
+    | pre_select_with { $$ = nullptr; }
     ;
 
 // AS STRUCT, AS VALUE, or AS <path expression>. This needs some special
@@ -4878,7 +5037,7 @@ hint_entry:
     ;
 
 hint_with_body_prefix:
-    KW_OPEN_INTEGER_HINT integer_literal KW_OPEN_HINT "{" hint_entry[entry]
+    OPEN_INTEGER_PREFIX_HINT integer_literal KW_OPEN_HINT "{" hint_entry[entry]
       {
         $$ = MAKE_NODE(ASTHint, @$, {$2, $entry});
       }
@@ -4905,9 +5064,16 @@ hint_with_body:
 hint:
     KW_OPEN_INTEGER_HINT integer_literal
       {
-        $$ = MAKE_NODE(ASTHint, @$, {$2});
+        ABORT_CHECK(@$, PARSER_LA_IS_EMPTY(),
+                    "Expected parser lookahead to be empty following hint.");
+        $$ = MAKE_NODE(ASTHint, @$, {$integer_literal});
       }
     | hint_with_body
+      {
+        ABORT_CHECK(@$,PARSER_LA_IS_EMPTY(),
+                    "Expected parser lookahead to be empty following hint.");
+        $$ = $hint_with_body;
+      }
     ;
 
 // This returns an AllOrDistinctKeyword to indicate what was present.
@@ -5006,12 +5172,18 @@ select_column:
         auto* alias = MAKE_NODE(ASTAlias, @2, {$2});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {$1, alias});
       }
-    | expression[expr] "." "*"
+    // Bison uses the precedence of the last terminal in the rule, but this is a
+    // post-fix expression, and it really should have the precedence of ".", not
+    // "*".
+    | expression_higher_prec_than_and[expr] "." "*" %prec "."
       {
         auto* dot_star = MAKE_NODE(ASTDotStar, @$, {$expr});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star});
       }
-    | expression "." "*" star_modifiers[modifiers]
+    // Bison uses the precedence of the last terminal in the rule, but this is a
+    // post-fix expression, and it really should have the precedence of ".", not
+    // "*".
+    | expression_higher_prec_than_and "." "*" star_modifiers[modifiers] %prec "."
       {
         auto* dot_star_with_modifiers =
             MAKE_NODE(ASTDotStarWithModifiers, @$, {$1, $modifiers});
@@ -5195,7 +5367,8 @@ pivot_value_list:
 
 pivot_clause:
     "PIVOT" "(" pivot_expression_list
-    "FOR" expression "IN" "(" pivot_value_list ")" ")"{
+    "FOR" expression_higher_prec_than_and "IN" "(" pivot_value_list ")" ")"
+    {
       if ($3 == nullptr) {
         YYERROR_AND_ABORT_AT(@3,
         "PIVOT clause requires at least one pivot expression");
@@ -5404,7 +5577,7 @@ model_clause:
     ;
 
 connection_clause:
-    "CONNECTION" path_expression
+    "CONNECTION" path_expression_or_default
       {
         $$ = MAKE_NODE(ASTConnectionClause, @$, {$2});
       }
@@ -6137,7 +6310,8 @@ opt_limit_offset_clause:
     | %empty { $$ = nullptr; }
     ;
 
-opt_having_modifier:
+// The GROUP BY modifier cannot be used with the HAVING modifier.
+opt_having_or_group_by_modifier:
     "HAVING" "MAX" expression
       {
         auto* modifier = MAKE_NODE(ASTHavingModifier, @$, {$3});
@@ -6152,11 +6326,15 @@ opt_having_modifier:
             zetasql::ASTHavingModifier::ModifierKind::MIN);
         $$ = modifier;
       }
+    | group_by_clause_prefix
+      {
+        $$ = $1;
+      }
     | %empty { $$ = nullptr; }
     ;
 
 opt_clamped_between_modifier:
-    "CLAMPED" "BETWEEN" expression "AND for BETWEEN" expression
+    "CLAMPED" "BETWEEN" expression_higher_prec_than_and "AND" expression %prec "BETWEEN"
       {
         $$ = MAKE_NODE(ASTClampedBetweenModifier, @$, {$3, $5})
       }
@@ -6207,11 +6385,14 @@ recursion_depth_modifier:
         $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
                        {$alias, lower_bound, upper_bound});
       }
+      // Bison uses the prec of the last terminal (which is "AND" in this case),
+      // so we need to explicitly set to %prec "BETWEEN"
       // TODO: Clean up BETWEEN ... AND ... syntax once
       // we move to TextMapper.
     | "WITH" "DEPTH" opt_as_alias_with_required_as[alias]
       "BETWEEN" possibly_unbounded_int_literal_or_parameter[lower_bound]
-      "AND for BETWEEN" possibly_unbounded_int_literal_or_parameter[upper_bound]
+      "AND" possibly_unbounded_int_literal_or_parameter[upper_bound]
+      %prec "BETWEEN"
       {
         $$ = MAKE_NODE(ASTRecursionDepthModifier, @$,
                        {$alias, $lower_bound, $upper_bound});
@@ -6378,10 +6559,9 @@ parenthesized_in_rhs:
       {
         $$ = $query;
       }
-  // We use expression_maybe_parenthesized here because it's an optionally
-  // parenthesized expression which is NOT a query.
-    | "(" expression_maybe_parenthesized[e] ")"
+    | "(" expression_maybe_parenthesized_not_a_query[e] ")"
       {
+        // `expression_maybe_parenthesized_not_a_query` is NOT a query.
         $$ = MAKE_NODE(ASTInList, @e, {$e});
       }
     | in_list_two_or_more_prefix ")"
@@ -6413,10 +6593,9 @@ parenthesized_anysomeall_list_in_rhs:
         auto* sub_query = MAKE_NODE(ASTExpressionSubquery, @query, {$query});
         $$ = MAKE_NODE(ASTInList, @$, {sub_query});
       }
-    // We use expression_maybe_parenthesized here because it's an optionally
-    // parenthesized expression which is NOT a query.
-    | "(" expression_maybe_parenthesized[e] ")"
+    | "(" expression_maybe_parenthesized_not_a_query[e] ")"
       {
+        // `expression_maybe_parenthesized_not_a_query` is NOT a query.
         $$ = MAKE_NODE(ASTInList, @e, {$e});
       }
     | in_list_two_or_more_prefix ")"
@@ -6645,17 +6824,50 @@ with_expression:
     }
   ;
 
-// This top level rule and the special segregation of expressions into certainly
-// unparenthesized ones (expression_not_parenthesized) and ones potentially with
-// parentheses (expression_maybe_parenthesized) is designed to make it possible
-// to use one token of lookahead to decide whether to turn a parenthesized query
-// query into an expression.
+// This top level rule is designed to make it possible to use one token of
+// lookahead to decide whether to turn a parenthesized query query into an
+// expression.
 // The lookahead is used to disambiguate between
 // - the expression case like ((SELECT 1)) + 1
 // - and the set operation query case like ((SELECT 1)) UNION ALL (SELECT 2).
 expression:
-  expression_maybe_parenthesized[e]
-    { $$ = $e; }
+  expression_higher_prec_than_and
+  | and_expression %prec "AND"
+  | or_expression %prec "OR"
+  ;
+
+or_expression:
+    expression[lhs] "OR" expression[rhs] %prec "OR"
+      {
+        if ($lhs->node_kind() == zetasql::AST_OR_EXPR &&
+            !$lhs->parenthesized()) {
+          // Embrace and extend $lhs's ASTNode.
+          $$ = WithExtraChildren(parser->WithEndLocation($lhs, @3), {$rhs});
+        } else {
+          $$ = MAKE_NODE(ASTOrExpr, @$, {$lhs, $rhs});
+        }
+      }
+    ;
+
+and_expression:
+    and_expression[lhs] "AND" expression_higher_prec_than_and[rhs] %prec "AND"
+      {
+        // Embrace and extend $lhs's ASTNode to flatten a series of ANDs.
+        $$ = WithExtraChildren(parser->WithEndLocation($lhs, @3), {$rhs});
+      }
+    | expression_higher_prec_than_and[lhs] "AND" expression_higher_prec_than_and[rhs] %prec "AND"
+       {
+          $$ = MAKE_NODE(ASTAndExpr, @$, {$lhs, $rhs});
+       }
+    ;
+
+// Any expression that has a higher precedence than AND. Anything here can
+// directly go as a lower bound for a BETWEEN expression (i.e., without needing
+// parens), or a parenthesized expression of any form. Anything matching this
+// rule can thus serve as a lower bound for BETWEEN.
+expression_higher_prec_than_and:
+  unparenthesized_expression_higher_prec_than_and
+  | parenthesized_expression_not_a_query
   | parenthesized_query[query]
     {
       // As the query ASTExpressionSubquery already has parentheses, set this
@@ -6665,27 +6877,29 @@ expression:
     }
   ;
 
-// An expression, which may or may not have parens around it.
-// This must NOT reduce to parenthesized_query or query.  A query can only
-// reduce to an expression via the top-level expression rule.
-// The separation is to control when a query is coerced to an expression, which
-// we only want to do after collecting all query set operations (like UNION
-// ALL).
-expression_maybe_parenthesized:
-    expression_not_parenthesized[e]
-      { $$ = $e; }
-    | "(" expression_maybe_parenthesized[e] ")"
+expression_maybe_parenthesized_not_a_query:
+  parenthesized_expression_not_a_query
+  | unparenthesized_expression_higher_prec_than_and
+  | and_expression
+  | or_expression
+  ;
+
+// Don't include the location in the parentheses. Semantic error messages about
+// this expression should point at the start of the expression, not at the
+// opening parentheses.
+parenthesized_expression_not_a_query:
+  "(" expression_maybe_parenthesized_not_a_query[e] ")"
       {
         $e->set_parenthesized(true);
-        // Don't include the location in the parentheses. Semantic error
-        // messages about this expression should point at the start of the
-        // expression, not at the opening parentheses.
         $$ = $e;
       }
     ;
 
-// Expressions which are not parenthesized queries or parenthesized expressions.
-expression_not_parenthesized:
+
+// The most restrictive rule: expression that is not parenthesized, and is not
+// `e1 AND e2`. Anything in this rule can directly be a lower bound for a
+// BETWEEN expression, without any parens.
+unparenthesized_expression_higher_prec_than_and:
     null_literal
     | boolean_literal
     | string_literal { $$ = $string_literal; }
@@ -6742,16 +6956,16 @@ expression_not_parenthesized:
       {
         $$ = $1;
       }
-    | expression "[" expression "]" %prec PRIMARY_PRECEDENCE
+    | expression_higher_prec_than_and "[" expression "]" %prec PRIMARY_PRECEDENCE
       {
         auto* bracket_loc = parser->MakeLocation(@2);
         $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
       }
-    | expression "." "(" path_expression ")"  %prec PRIMARY_PRECEDENCE
+    | expression_higher_prec_than_and "." "(" path_expression ")"  %prec PRIMARY_PRECEDENCE
       {
         $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @5, {$1, $4});
       }
-    | expression "." identifier %prec PRIMARY_PRECEDENCE
+    | expression_higher_prec_than_and "." identifier %prec PRIMARY_PRECEDENCE
       {
         // Note that if "expression" ends with an identifier, then the tokenizer
         // switches to IDENTIFIER_DOT mode before tokenizing $3. That means that
@@ -6768,33 +6982,13 @@ expression_not_parenthesized:
           $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
         }
       }
-    | expression "OR" expression %prec "OR"
-      {
-        if ($1->node_kind() == zetasql::AST_OR_EXPR &&
-            !$1->parenthesized()) {
-          // Embrace and extend $1's ASTNode.
-          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
-        } else {
-          $$ = MAKE_NODE(ASTOrExpr, @$, {$1, $3});
-        }
-      }
-    | expression "AND" expression %prec "AND"
-      {
-        if ($1->node_kind() == zetasql::AST_AND_EXPR &&
-            !$1->parenthesized()) {
-          // Embrace and extend $1's ASTNode to flatten a series of ANDs.
-          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
-        } else {
-          $$ = MAKE_NODE(ASTAndExpr, @$, {$1, $3});
-        }
-      }
-    | "NOT" expression %prec UNARY_NOT_PRECEDENCE
+    | "NOT" expression_higher_prec_than_and %prec UNARY_NOT_PRECEDENCE
       {
         auto* not_expr = MAKE_NODE(ASTUnaryExpression, @$, {$2});
         not_expr->set_op(zetasql::ASTUnaryExpression::NOT);
         $$ = not_expr;
       }
-    | expression like_operator any_some_all opt_hint unnest_expression %prec "LIKE"
+    | expression_higher_prec_than_and like_operator any_some_all opt_hint unnest_expression %prec "LIKE"
         {
           if ($4) {
             YYERROR_AND_ABORT_AT(@4,
@@ -6814,7 +7008,7 @@ expression_not_parenthesized:
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
         }
-    | expression like_operator any_some_all opt_hint parenthesized_anysomeall_list_in_rhs %prec "LIKE"
+    | expression_higher_prec_than_and like_operator any_some_all opt_hint parenthesized_anysomeall_list_in_rhs %prec "LIKE"
         {
           // Bison allows some cases like IN on the left hand side because it's
           // not ambiguous. The language doesn't allow this.
@@ -6840,7 +7034,7 @@ expression_not_parenthesized:
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
         }
-    | expression like_operator expression %prec "LIKE"
+    | expression_higher_prec_than_and like_operator expression_higher_prec_than_and %prec "LIKE"
         {
           // NOT has lower precedence but can be parsed unparenthesized in the
           // rhs because it is not ambiguous. This is not allowed.
@@ -6861,7 +7055,7 @@ expression_not_parenthesized:
           binary_expression->set_op(zetasql::ASTBinaryExpression::LIKE);
           $$ = binary_expression;
         }
-    | expression distinct_operator expression %prec "DISTINCT"
+    | expression_higher_prec_than_and distinct_operator expression_higher_prec_than_and %prec "DISTINCT"
         {
           if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_IS_DISTINCT)) {
@@ -6876,7 +7070,7 @@ expression_not_parenthesized:
                   zetasql::ASTBinaryExpression::DISTINCT);
           $$ = binary_expression;
         }
-    | expression in_operator opt_hint unnest_expression %prec "IN"
+    | expression_higher_prec_than_and in_operator opt_hint unnest_expression %prec "IN"
         {
           if ($3) {
             YYERROR_AND_ABORT_AT(@3,
@@ -6896,7 +7090,7 @@ expression_not_parenthesized:
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
         }
-    | expression in_operator opt_hint parenthesized_in_rhs %prec "IN"
+    | expression_higher_prec_than_and in_operator opt_hint parenthesized_in_rhs %prec "IN"
         {
           // Bison allows some cases like IN on the left hand side because it's
           // not ambiguous. The language doesn't allow this.
@@ -6922,8 +7116,11 @@ expression_not_parenthesized:
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
         }
-    | expression between_operator
-      expression "AND for BETWEEN" expression %prec "BETWEEN"
+    // Bison uses the prec of the last terminal (which is "AND" in this case),
+    // so we need to explicitly set to %prec "BETWEEN"
+    | expression_higher_prec_than_and between_operator
+      expression_higher_prec_than_and "AND"
+      expression_higher_prec_than_and %prec "BETWEEN"
         {
           // Bison allows some cases like IN on the left hand side because it's
           // not ambiguous. The language doesn't allow this.
@@ -6954,7 +7151,22 @@ expression_not_parenthesized:
           between_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = between_expression;
         }
-    | expression is_operator KW_UNKNOWN %prec "IS"
+    | expression_higher_prec_than_and between_operator
+      expression_higher_prec_than_and[lower] "OR" %prec "BETWEEN"
+        {
+          // The "OR" operator has lower precedence than "AND". The rule
+          // immediately above tries to catch all expressions with lower or
+          // equal precedence to "AND" and block them from being the middle
+          // argument of "BETWEEN". See the comment on the generic rule above
+          // for justification of the error. We need this special rule to catch
+          // "OR", and only "OR", because "OR" is the only operator with lower
+          // precendence to "AND" that is factored out of
+          // `expression_higher_prec_than_and` into its own rule.
+          YYERROR_AND_ABORT_AT(@lower,
+                               "Syntax error: Expression in BETWEEN must be "
+                               "parenthesized");
+        }
+    | expression_higher_prec_than_and is_operator KW_UNKNOWN %prec "IS"
         {
           // The Bison parser allows comparison expressions in the LHS, even
           // though these operators are at the same precedence level and are not
@@ -6975,7 +7187,7 @@ expression_not_parenthesized:
           }
           $$ = unary_expression;
         }
-    | expression is_operator null_literal %prec "IS"
+    | expression_higher_prec_than_and is_operator null_literal %prec "IS"
         {
           // The Bison parser allows comparison expressions in the LHS, even
           // though these operators are at the same precedence level and are not
@@ -6991,7 +7203,7 @@ expression_not_parenthesized:
           binary_expression->set_op(zetasql::ASTBinaryExpression::IS);
           $$ = binary_expression;
         }
-    | expression is_operator boolean_literal %prec "IS"
+    | expression_higher_prec_than_and is_operator boolean_literal %prec "IS"
         {
           // The Bison parser allows comparison expressions in the LHS, even
           // though these operators are at the same precedence level and are not
@@ -7007,7 +7219,7 @@ expression_not_parenthesized:
           binary_expression->set_op(zetasql::ASTBinaryExpression::IS);
           $$ = binary_expression;
         }
-    | expression comparative_operator expression %prec "="
+    | expression_higher_prec_than_and comparative_operator expression_higher_prec_than_and %prec "="
         {
           // NOT has lower precedence but can be parsed unparenthesized in the
           // rhs because it is not ambiguous. This is not allowed. We don't have
@@ -7030,7 +7242,7 @@ expression_not_parenthesized:
           binary_expression->set_op($2);
           $$ = binary_expression;
         }
-    | expression "|" expression
+    | expression_higher_prec_than_and "|" expression_higher_prec_than_and
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7045,7 +7257,7 @@ expression_not_parenthesized:
             zetasql::ASTBinaryExpression::BITWISE_OR);
         $$ = binary_expression;
       }
-    | expression "^" expression
+    | expression_higher_prec_than_and "^" expression_higher_prec_than_and
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7060,7 +7272,7 @@ expression_not_parenthesized:
             zetasql::ASTBinaryExpression::BITWISE_XOR);
         $$ = binary_expression;
       }
-    | expression "&" expression
+    | expression_higher_prec_than_and "&" expression_higher_prec_than_and
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7075,7 +7287,7 @@ expression_not_parenthesized:
             zetasql::ASTBinaryExpression::BITWISE_AND);
         $$ = binary_expression;
       }
-    | expression "||" expression
+    | expression_higher_prec_than_and "||" expression_higher_prec_than_and
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. However, this is not allowed. Other
@@ -7090,7 +7302,7 @@ expression_not_parenthesized:
             zetasql::ASTBinaryExpression::CONCAT_OP);
         $$ = binary_expression;
       }
-    | expression shift_operator expression %prec "<<"
+    | expression_higher_prec_than_and shift_operator expression_higher_prec_than_and %prec "<<"
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7105,7 +7317,7 @@ expression_not_parenthesized:
         binary_expression->set_is_left_shift($2 == ShiftOperator::kLeft);
         $$ = binary_expression;
       }
-    | expression additive_operator expression %prec "+"
+    | expression_higher_prec_than_and additive_operator expression_higher_prec_than_and %prec "+"
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7119,7 +7331,7 @@ expression_not_parenthesized:
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
-    | expression multiplicative_operator expression %prec "*"
+    | expression_higher_prec_than_and multiplicative_operator expression_higher_prec_than_and %prec "*"
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7133,7 +7345,7 @@ expression_not_parenthesized:
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
-    | unary_operator expression %prec UNARY_PRECEDENCE
+    | unary_operator expression_higher_prec_than_and %prec UNARY_PRECEDENCE
       {
         // NOT has lower precedence but can be parsed unparenthesized in the
         // rhs because it is not ambiguous. This is not allowed. Other
@@ -7644,8 +7856,20 @@ type_name:
       }
     ;
 
+template_type_open:
+    { OVERRIDE_NEXT_TOKEN_CHAR_LOOKBACK('<', LB_OPEN_TYPE_TEMPLATE); }
+    "<"[open]
+    { @$ = @open; }
+    ;
+
+template_type_close:
+    { OVERRIDE_NEXT_TOKEN_CHAR_LOOKBACK('>', LB_CLOSE_TYPE_TEMPLATE); }
+    ">"[close]
+    { @$ = @close; }
+    ;
+
 array_type:
-    "ARRAY" "<" type ">"
+    "ARRAY" template_type_open type template_type_close
       {
         $$ = MAKE_NODE(ASTArrayType, @$, {$3});
       }
@@ -7663,7 +7887,7 @@ struct_field:
     ;
 
 struct_type_prefix:
-    "STRUCT" "<" struct_field
+    "STRUCT" template_type_open struct_field
       {
         $$ = MAKE_NODE(ASTStructType, @$, {$3});
       }
@@ -7674,25 +7898,25 @@ struct_type_prefix:
     ;
 
 struct_type:
-    "STRUCT" "<" ">"
+    "STRUCT" template_type_open template_type_close
       {
         $$ = MAKE_NODE(ASTStructType, @$);
       }
-    | struct_type_prefix ">"
+    | struct_type_prefix template_type_close
       {
         $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
 range_type:
-    "RANGE" "<" type ">"
+    "RANGE" template_type_open type template_type_close
       {
         $$ = MAKE_NODE(ASTRangeType, @$, {$3});
       }
     ;
 
 function_type_prefix:
-    "FUNCTION" "<" "(" type
+    "FUNCTION" template_type_open "(" type
       {
         $$ = MAKE_NODE(ASTFunctionTypeArgList, @$, {$type});
       }
@@ -7703,26 +7927,34 @@ function_type_prefix:
     ;
 
 function_type:
-    "FUNCTION" "<" "("[open_paren] ")"[close_paren] "->" type[return_type] ">"
+    "FUNCTION" template_type_open "("[open_paren] ")"[close_paren] "->" type[return_type] template_type_close
       {
         auto empty_arg_list =
             MAKE_NODE(ASTFunctionTypeArgList, @open_paren, @close_paren, {});
         $$ = MAKE_NODE(ASTFunctionType, @$, {empty_arg_list, $return_type});
       }
-    | "FUNCTION" "<" type[arg_type] "->" type[return_type] ">"
+    | "FUNCTION" template_type_open type[arg_type] "->" type[return_type] template_type_close
       {
         auto arg_list =
             MAKE_NODE(ASTFunctionTypeArgList, @arg_type, {$arg_type});
         $$ = MAKE_NODE(ASTFunctionType, @$, {arg_list, $return_type});
       }
-    | function_type_prefix[arg_list] ")" "->" type[return_type] ">"
+    | function_type_prefix[arg_list] ")" "->" type[return_type] template_type_close
       {
         $$ = MAKE_NODE(ASTFunctionType, @$, {$arg_list, $return_type});
       }
     ;
 
+map_type:
+    "MAP" template_type_open type[key_type] "," type[value_type] template_type_close
+      {
+        $$ = MAKE_NODE(ASTMapType, @$, {$key_type, $value_type});
+      }
+    ;
+
+
 raw_type:
-    array_type | struct_type | type_name | range_type | function_type;
+    array_type | struct_type | type_name | range_type | function_type | map_type;
 
 type_parameter:
       integer_literal
@@ -7873,10 +8105,6 @@ braced_constructor_extension:
 
 braced_constructor_field:
     identifier braced_constructor_field_value
-      {
-        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
-      }
-    | label braced_constructor_field_value
       {
         $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
       }
@@ -8139,7 +8367,7 @@ function_name_from_keyword:
 // parentheses. We allow them as input parameters so that parentheses can still
 // be added to them after they are already parsed as function calls.
 function_call_expression_base:
-    expression "(" "DISTINCT" %prec PRIMARY_PRECEDENCE
+    expression_higher_prec_than_and "(" "DISTINCT" %prec PRIMARY_PRECEDENCE
       {
         if ($1->node_kind() == zetasql::AST_FUNCTION_CALL) {
           auto* function_call = $1->GetAsOrDie<zetasql::ASTFunctionCall>();
@@ -8177,7 +8405,7 @@ function_call_expression_base:
           $$ = function_call;
         }
       }
-    | expression "(" %prec PRIMARY_PRECEDENCE
+    | expression_higher_prec_than_and "(" %prec PRIMARY_PRECEDENCE
       {
         // TODO: Merge this with the other code path. We have to have
         // two separate productions to avoid an empty opt_distinct rule that
@@ -8331,7 +8559,7 @@ function_call_expression_with_args_prefix:
 
 function_call_expression:
     // Empty argument list.
-    function_call_expression_base opt_having_modifier opt_order_by_clause
+    function_call_expression_base opt_having_or_group_by_modifier opt_order_by_clause
       opt_limit_offset_clause ")"
       {
         $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$2, $3, $4});
@@ -8341,7 +8569,7 @@ function_call_expression:
     // opt_null_handling_modifier only appear here as they require at least
     // one argument.
     | function_call_expression_with_args_prefix opt_null_handling_modifier
-      opt_having_modifier
+      opt_having_or_group_by_modifier
       opt_clamped_between_modifier
       opt_with_report_modifier
       opt_order_by_clause
@@ -8462,7 +8690,7 @@ frame_unit:
     ;
 
 opt_window_frame_clause:
-    frame_unit "BETWEEN" window_frame_bound "AND for BETWEEN" window_frame_bound
+    frame_unit "BETWEEN" window_frame_bound "AND" window_frame_bound %prec "BETWEEN"
       {
         auto* frame = MAKE_NODE(ASTWindowFrame, @$, {$3, $5});
         frame->set_unit($1);
@@ -8498,7 +8726,7 @@ function_call_expression_with_clauses:
         if ($3 != nullptr) {
           if (!parser->language_options().LanguageFeatureEnabled(
                   zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
-            YYERROR_AND_ABORT_AT(@3, "WITH GROUP_ROWS is not supported");
+            YYERROR_AND_ABORT_AT(@3, "WITH GROUP ROWS is not supported");
           }
           auto* with_group_rows = MAKE_NODE(ASTWithGroupRows, @$, {$3});
           current_expression->AddChild(with_group_rows);
@@ -8511,19 +8739,10 @@ function_call_expression_with_clauses:
       }
 
 opt_with_group_rows:
-    "WITH" "GROUP_ROWS" parenthesized_query[query]
+    KW_WITH_STARTING_WITH_GROUP_ROWS "GROUP" "ROWS" parenthesized_query[query]
       {
         $$ = $query;
       }
-    |
-    KW_WITH_STARTING_WITH_EXPRESSION
-    {
-      YYERROR_AND_ABORT_AT(
-          @1,
-          "Saw WITH directly after a function call, which is not allowed. "
-          "Did you forget to put a comma before the WITH, or did you mean "
-          "\"WITH GROUP_ROWS\"?");
-    }
     | %empty { $$ = nullptr; }
     ;
 
@@ -8810,7 +9029,7 @@ floating_point_literal:
       }
     ;
 
-identifier:
+token_identifier:
     IDENTIFIER
       {
         const absl::string_view identifier_text($1.str, $1.len);
@@ -8841,6 +9060,9 @@ identifier:
           $$ = parser->MakeIdentifier(@1, identifier_text);
         }
       }
+
+identifier:
+    token_identifier
     | keyword_as_identifier
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
@@ -8893,7 +9115,7 @@ system_variable_expression:
 // This includes non-reserved keywords that can also be used as identifiers.
 // This production returns nothing -- the enclosing rule uses only the location
 // of the keyword to retrieve the token image from the parser input.
-keyword_as_identifier:
+common_keyword_as_identifier:
     // WARNING: If you add something here, add it in the non-reserved token list
     // at the top.
     // BEGIN_KEYWORD_AS_IDENTIFIER -- Do not remove this!
@@ -8985,6 +9207,7 @@ keyword_as_identifier:
     | "LOAD"
     | "LOOP"
     | "MACRO"
+    | "MAP"
     | "MATCH"
     | "MATCHED"
     | "MATERIALIZED"
@@ -9050,7 +9273,6 @@ keyword_as_identifier:
     | "SEQUENCE"
     | "SETS"
     | "SHOW"
-    | "SIMPLE"
     | "SNAPSHOT"
     | "SOURCE"
     | "SQL"
@@ -9094,8 +9316,13 @@ keyword_as_identifier:
     | "INTERLEAVE"
     | "NULL_FILTERED"
     | "PARENT"
-    // END_KEYWORD_AS_IDENTIFIER -- Do not remove this!
     ;
+
+keyword_as_identifier:
+    common_keyword_as_identifier
+    | "SIMPLE"
+    // END_KEYWORD_AS_IDENTIFIER -- Do not remove this!
+  ;
 
 opt_or_replace: "OR" "REPLACE" { $$ = true; } | %empty { $$ = false; } ;
 
@@ -9230,268 +9457,32 @@ opt_returning_clause:
     | %empty { $$ = nullptr; }
     ;
 
-// Returns the JavaCC token code for IGNORE, REPLACE or UPDATE.
-// This is what zetasql::ASTInsertStatement::set_insert_mode expects.
-// This does NOT recognize just "REPLACE" or "UPDATE" because that causes
-// ambiguity: these keywords are also usable as identifers, so "INSERT REPLACE"
-// could be insertion into a table named "replace" or it could be INSERT
-// REPLACE. Instead, we recognize INSERT followed by an arbitrary identifier.
-unambiguous_or_ignore_replace_update:
+opt_or_ignore_replace_update:
     "OR" "IGNORE" { $$ = zetasql::ASTInsertStatement::IGNORE; }
     | "IGNORE" { $$ = zetasql::ASTInsertStatement::IGNORE; }
-    | "OR" "REPLACE"
-      {
-        $$ = zetasql::ASTInsertStatement::REPLACE;
-      }
-    | "OR" "UPDATE"
-      {
-        $$ = zetasql::ASTInsertStatement::UPDATE;
-      }
+    | "OR" "REPLACE" { $$ = zetasql::ASTInsertStatement::REPLACE; }
+    | KW_REPLACE_AFTER_INSERT { $$ = zetasql::ASTInsertStatement::REPLACE; }
+    | "OR" "UPDATE" { $$ = zetasql::ASTInsertStatement::UPDATE; }
+    | KW_UPDATE_AFTER_INSERT { $$ = zetasql::ASTInsertStatement::UPDATE; }
+    | %empty { $$ = zetasql::ASTInsertStatement::DEFAULT_MODE; }
     ;
 
-// See comment for insert_statement.
 insert_statement_prefix:
-    "INSERT"
+    "INSERT" opt_or_ignore_replace_update[insert_mode] opt_into maybe_dashed_generalized_path_expression[insert_target] opt_hint
       {
-        $$ = MAKE_NODE(ASTInsertStatement, @$);
-      }
-    | insert_statement_prefix unambiguous_or_ignore_replace_update
-      {
-        zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() >=
-            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
-          YYERROR_UNEXPECTED_AND_ABORT_AT(@2);
-        }
-        insert->set_insert_mode($2);
-        insert->set_parse_progress(
-            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
-        $$ = insert;
-      }
-   | insert_statement_prefix "INTO" maybe_dashed_generalized_path_expression
-     opt_hint
-      {
-        zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenTargetPath) {
-          YYERROR_AND_ABORT_AT(
-              @2, "Syntax error: Unexpected INSERT target name");
-        }
-        insert->set_parse_progress(
-            zetasql::ASTInsertStatement::kSeenTargetPath);
-        $$ = WithExtraChildren(insert, {$3, $4});
-      }
-    | insert_statement_prefix generalized_path_expression opt_hint
-      {
-        zetasql::ASTInsertStatement* insert = $1;
-        // Recognize REPLACE and UPDATE as keywords, but only if there was no
-        // OR IGNORE/REPLACE/UPDATE before.
-        bool is_or_replace_update = false;
-        if (insert->parse_progress() <
-            zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate) {
-          absl::string_view path_expression_text = parser->GetInputText(@2);
-          if (zetasql_base::CaseEqual(path_expression_text, "REPLACE")) {
-            insert->set_insert_mode(
-                zetasql::ASTInsertStatement::REPLACE);
-            is_or_replace_update = true;
-          } else if (zetasql_base::CaseEqual(path_expression_text, "UPDATE")) {
-            insert->set_insert_mode(
-                zetasql::ASTInsertStatement::UPDATE);
-            is_or_replace_update = true;
-          }
-        }
-        if (is_or_replace_update) {
-          insert->set_parse_progress(
-              zetasql::ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
-          $$ = insert;
-        } else {
-          if (insert->parse_progress() == zetasql::ASTInsertStatement::kSeenTargetPath) {
-            YYERROR_AND_ABORT_AT(
-                 @2, "Syntax error: INSERT target cannot have an alias");
-          }
-          if (insert->parse_progress() > zetasql::ASTInsertStatement::kSeenTargetPath) {
-            YYERROR_AND_ABORT_AT(
-                 @2, "Syntax error: Unexpected INSERT target name");
-          }
-          insert->set_parse_progress(
-              zetasql::ASTInsertStatement::kSeenTargetPath);
-          $$ = WithExtraChildren(insert, {$2, $3});
-        }
-      }
-    | insert_statement_prefix column_list
-      {
-        zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenColumnList) {
-          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected column list");
-        }
-        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
-          YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
-        }
-        insert->set_parse_progress(zetasql::ASTInsertStatement::kSeenColumnList);
-        $$ = WithExtraChildren(insert, {$2});
-      }
-    // This has a shift/reduce conflict with the "path_expression" rule above.
-    // This rule wins because "VALUES" -> path_expression needs a reduction
-    // while the "(" of insert_values_list requires a shift, and a shift/reduce
-    // conflict is always resolved in favor of shifting.
-    // See the comment for "insert_statement" for more context.
-    // This rule also matches when "VALUES" is actually intended as a target
-    // path, and the insert_values_list is actually a column list! This enables
-    // statements such as INSERT VALUES (c1, c2) VALUES (3, 5), where the first
-    // VALUES is the insert target path.
-    | insert_statement_prefix "VALUES" insert_values_list
-      {
-        zetasql::ASTInsertStatement* insert = $1;
-        zetasql::ASTInsertValuesRowList* row_list =
-          parser->WithStartLocation($3, @2);
-
-        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
-          // We haven't seen a target path yet. That means the "VALUES" should
-          // be reinterpreted as a target path, and the insert_values_list as a
-          // column list! We convert the already-parsed values list into the
-          // intended column list.
-          zetasql::ASTIdentifier* values_identifier =
-              parser->MakeIdentifier(@2, parser->GetInputText(@2));
-          auto* values_path_expression =
-              MAKE_NODE(ASTPathExpression, @2, {values_identifier});
-          insert->AddChild(values_path_expression);
-
-          if (row_list->num_children() == 0 ||
-              row_list->child(0)->node_kind() !=
-                  zetasql::AST_INSERT_VALUES_ROW) {
-            YYERROR_AND_ABORT_AT(
-                @3,
-                "Internal error: values list is unexpected type");
-          }
-          auto* row =
-              row_list->mutable_child(0)
-                      ->GetAsOrDie<zetasql::ASTInsertValuesRow>();
-          auto* column_list = MAKE_NODE(ASTColumnList, @3, {});
-          for (int i = 0; i < row->num_children(); ++i) {
-            zetasql::ASTNode* element = row->mutable_child(i);
-            if (element->node_kind() != zetasql::AST_PATH_EXPRESSION) {
-              if (element->node_kind() == zetasql::AST_DEFAULT_LITERAL) {
-                YYERROR_AND_ABORT_AT(
-                    element->GetParseLocationRange(),
-                    "Syntax error: Expected column name, got keyword DEFAULT");
-              }
-              YYERROR_AND_ABORT_AT(
-                  element->GetParseLocationRange(),
-                  "Syntax error: Expected column name");
-            }
-            auto* path_expression =
-                element->GetAsOrDie<zetasql::ASTPathExpression>();
-            if (path_expression->num_children() != 1) {
-              YYERROR_AND_ABORT_AT(
-                  element->GetParseLocationRange(),
-                  "Syntax error: Expected column name");
-            }
-            column_list->AddChild(path_expression->mutable_child(0));
-          }
-          if (row_list->num_children() > 1) {
-            // There are multiple lists. Assume the user actually intended to
-            // write VALUES but forgot to do so. Do this without checking the
-            // first list for being correct as a column list, because we assume
-            // that the user intended it as a VALUES list.
-            YYERROR_AND_ABORT_AT(
-                row_list->child(1)->GetParseLocationRange(),
-                "Syntax error: Unexpected multiple column lists");
-          }
-          insert->AddChild(column_list);
-          insert->set_parse_progress(
-              zetasql::ASTInsertStatement::kSeenColumnList);
-        } else if (insert->parse_progress() >=
-                   zetasql::ASTInsertStatement::kSeenValuesList) {
-          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected VALUES list");
-        } else if (insert->parse_progress() <
-                   zetasql::ASTInsertStatement::kSeenTargetPath) {
-          YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
-        } else {
-          $$ = parser->WithEndLocation(WithExtraChildren(insert, {row_list}), @$);
-          insert->set_parse_progress(
-              zetasql::ASTInsertStatement::kSeenValuesList);
-        }
+        $$ = MAKE_NODE(ASTInsertStatement, @$, {$insert_target, $opt_hint});
+        $$->set_insert_mode($insert_mode);
       }
     ;
 
-// INSERT is extremely complicated to parse in an LALR(1) grammar. The
-// complications are because of the following issues:
-// (a) the "OR" in OR IGNORE/REPLACE/UPDATE is optional.
-// (b) REPLACE and UPDATE can be used as identifiers.
-// (c) VALUES can be used as an identifier as well.
-// (d) All of the clauses and keywords except for the target path expression are
-// optional.
-// For instance, "INSERT replace values" could be a prefix meaning "INSERT INTO
-// replace VALUES (..." or "INSERT OR REPLACE INTO values...". It ends up being
-// unambiguous in the end, but the only strict way to parse it in Bison is by
-// enumerating all combinations. We could use a tokenizer state for the
-// first tokens to reduce the confusion, but unfortunately INSERT itself is
-// also usable as an identifier, so we cannot simply switch to a different
-// tokenizer state when we see INSERT! Otherwise something like
-// "SELECT insert update" (which is valid and selects a column named "insert"
-// with alias "update") would fail.
-//
-// The solution used here is to allow arbitrary combinations of the optional and
-// mandatory components at the grammar level, and to keep track of the
-// components that have been seen in the parse_progress() of the
-// zetasql::ASTInsertStatement that is being constructed. The validation is done in the
-// parsing rules. All of this happens in insert_statement_prefix.
-//
-// Because "VALUES" is a non-reserved keyword, the "VALUES" rule in
-// insert_statement_prefix is ambiguous with the "path_expression" rule. This
-// is resolved in favor of "VALUES" by a shift/reduce conflict (reducing "VALUE"
-// to keyword_as_identifier versus shifting the "(" that is required at the
-// start of insert_values_list. There may be ways to avoid this conflict, but
-// they are not very palatable:
-//
-// - Excluding "VALUES" from all of the path expressions in the
-//   insert_statement_prefix. This would require us to duplicate the
-//   path_expression and identifier productions to exclude this keyword. That
-//   solution adds a maintenance burden. In addition, it would prevent the name
-//   VALUES from being used as an insert target, which is unfortunate because
-//   this may be a common name in nested INSERTs (inserting into a repeated
-//   field named VALUES). In addition, VALUES is currently accepted for this
-//   purpose by the JavaCC parser.
-//
-// - Not matching "VALUES" explicitly anymore, but matching it with a
-//   path_expression in insert_statement_prefix. That would require adding a
-//   rule for insert_values_list to insert_statement_prefix. Unfortunately that
-//   adds another bunch of hard-to-resolve conflicts. For one thing, a VALUES
-//   list and a column list have overlapping syntax, so we would have to parse
-//   those in a single unified way (probably as a VALUES list) and then
-//   disambiguate later in code. We already do that to resolve statements like
-//   "INSERT VALUES (c1, c2)" However, insert_values_list also conflicts with
-//   "query" (used in the insert_statement rule), because the values list can
-//   contain expressions, which can contain expression subquries. Something like
-//   ((SELECT 1)) could be a parenthesized query or a VALUES list containing a
-//   scalar expression subquery. That ambiguity was solved for expression
-//   subqueries using a shift/reduce conflict, and we would have to jump through
-//   hoops to get the same effect here as well. That would be much harder to
-//   understand than the simple shift/reduce conflict here.
 insert_statement:
-    insert_statement_prefix opt_assert_rows_modified opt_returning_clause
+    insert_statement_prefix column_list insert_values_or_query opt_assert_rows_modified opt_returning_clause
       {
-        zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
-          YYERROR_AND_ABORT_AT(@2,
-                               "Syntax error: Expecting INSERT target name");
-        }
-        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenValuesList) {
-          YYERROR_AND_ABORT_AT(@2,
-                               "Syntax error: Expecting VALUES list or query");
-        }
-        $$ = parser->WithEndLocation(WithExtraChildren(insert, {$2, $3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4, $5}), @$);
       }
-    | insert_statement_prefix query opt_assert_rows_modified opt_returning_clause
+    | insert_statement_prefix insert_values_or_query opt_assert_rows_modified opt_returning_clause
       {
-        zetasql::ASTInsertStatement* insert = $1;
-        if (insert->parse_progress() < zetasql::ASTInsertStatement::kSeenTargetPath) {
-          YYERROR_AND_ABORT_AT(
-               @2, "Syntax error: Expecting INSERT target name");
-        }
-        if (insert->parse_progress() >= zetasql::ASTInsertStatement::kSeenValuesList) {
-          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
-        }
-        $$ = parser->WithEndLocation(
-            WithExtraChildren(insert, {$2, $3, $4}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
       }
     ;
 
@@ -9554,10 +9545,15 @@ insert_values_row:
       }
     ;
 
+insert_values_or_query:
+  insert_values_list { $$ = $insert_values_list; }
+  | query { $$ = $query; }
+  ;
+
 insert_values_list:
-    insert_values_row
+    "VALUES" insert_values_row
       {
-        $$ = MAKE_NODE(ASTInsertValuesRowList, @$, {$1});
+        $$ = MAKE_NODE(ASTInsertValuesRowList, @$, {$2});
       }
     | insert_values_list "," insert_values_row
       {
@@ -9599,9 +9595,11 @@ truncate_statement:
     ;
 
 nested_dml_statement:
-    "(" dml_statement ")"
+    { OVERRIDE_NEXT_TOKEN_CHAR_LOOKBACK('(', LB_OPEN_NESTED_DML); }
+    "("[open] dml_statement ")"
       {
-        $$ = $2;
+        @$.set_start(@open.start());
+        $$ = $dml_statement;
       }
     ;
 
@@ -10250,23 +10248,11 @@ case_statement:
       }
     ;
 
-unlabeled_begin_end_block:
-    "BEGIN" statement_list opt_exception_handler "END" {
-      $2->set_variable_declarations_allowed(true);
-      $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$2, $3});
-    }
-    ;
-
 begin_end_block:
-    unlabeled_begin_end_block
-    |
-    label ":" unlabeled_begin_end_block opt_identifier {
-      CHECK_LABEL_SUPPORT($1, @1);
-      CHECK_END_LABEL_VALID($1, @1, $4, @4);
-      auto block = static_cast<zetasql::ASTBeginEndBlock*>($3);
-      auto label = MAKE_NODE(ASTLabel, @1, {$1});
-      block->AddChildFront(label);
-      $$ = parser->WithLocation(block, @$);
+    "BEGIN" statement_list[stmts] opt_exception_handler[handlers] "END"
+    {
+      $stmts->set_variable_declarations_allowed(true);
+      $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$stmts, $handlers});
     }
     ;
 
@@ -10316,43 +10302,19 @@ variable_declaration:
     }
     ;
 
-unlabeled_loop_statement:
-    "LOOP" statement_list "END" "LOOP"
-    {
-      $$ = MAKE_NODE(ASTWhileStatement, @$, {$2});
-    }
-    ;
-
 loop_statement:
-    unlabeled_loop_statement
-    |
-    label ":" unlabeled_loop_statement opt_identifier {
-      CHECK_LABEL_SUPPORT($1, @1);
-      CHECK_END_LABEL_VALID($1, @1, $4, @4);
-      auto loop = static_cast<zetasql::ASTWhileStatement*>($3);
-      auto label = MAKE_NODE(ASTLabel, @1, {$1});
-      loop->AddChildFront(label);
-      $$ = parser->WithLocation(loop, @$);
-    }
-    ;
-
-unlabeled_while_statement:
-    "WHILE" expression "DO" statement_list "END" "WHILE"
+    { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_LOOP, LB_OPEN_STATEMENT_BLOCK); }
+    "LOOP"[loop] statement_list "END" "LOOP"
     {
-      $$ = MAKE_NODE(ASTWhileStatement, @$, {$2, $4});
+      @$.set_start(@loop.start());
+      $$ = MAKE_NODE(ASTWhileStatement, @$, {$statement_list});
     }
     ;
 
 while_statement:
-    unlabeled_while_statement
-    |
-    label ":" unlabeled_while_statement opt_identifier {
-      CHECK_LABEL_SUPPORT($1, @1);
-      CHECK_END_LABEL_VALID($1, @1, $4, @4);
-      auto loop = static_cast<zetasql::ASTWhileStatement*>($3);
-      auto label = MAKE_NODE(ASTLabel, @1, {$1});
-      loop->AddChildFront(label);
-      $$ = parser->WithLocation(loop, @$);
+    "WHILE" expression { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_DO, LB_OPEN_STATEMENT_BLOCK); } "DO" statement_list "END" "WHILE"
+    {
+      $$ = MAKE_NODE(ASTWhileStatement, @$, {$expression, $statement_list});
     }
     ;
 
@@ -10363,33 +10325,22 @@ until_clause:
     }
     ;
 
-unlabeled_repeat_statement:
-    "REPEAT" statement_list until_clause "END" "REPEAT"
+repeat_statement:
+    { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_REPEAT, LB_OPEN_STATEMENT_BLOCK); }
+    "REPEAT"[repeat] statement_list until_clause "END" "REPEAT"
     {
      if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_REPEAT)) {
-        YYERROR_AND_ABORT_AT(@1, "REPEAT is not supported");
+        YYERROR_AND_ABORT_AT(@repeat, "REPEAT is not supported");
       }
-      $$ = MAKE_NODE(ASTRepeatStatement, @$, {$2, $3});
+      @$.set_start(@repeat.start());
+      $$ = MAKE_NODE(ASTRepeatStatement, @$, {$statement_list, $until_clause});
     }
     ;
 
-repeat_statement:
-    unlabeled_repeat_statement
-    |
-    label ":" unlabeled_repeat_statement opt_identifier {
-      CHECK_LABEL_SUPPORT($1, @1);
-      CHECK_END_LABEL_VALID($1, @1, $4, @4);
-      auto loop = static_cast<zetasql::ASTRepeatStatement*>($3);
-      auto label = MAKE_NODE(ASTLabel, @1, {$1});
-      loop->AddChildFront(label);
-      $$ = parser->WithLocation(loop, @$);
-    }
-    ;
-
-unlabeled_for_in_statement:
+for_in_statement:
     "FOR" identifier "IN" parenthesized_query[query]
-    "DO" statement_list "END" "FOR"
+    { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_DO, LB_OPEN_STATEMENT_BLOCK); } "DO" statement_list "END" "FOR"
     {
      if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_FOR_IN)) {
@@ -10397,19 +10348,6 @@ unlabeled_for_in_statement:
       }
       $$ = MAKE_NODE(ASTForInStatement, @$,
         {$identifier, $query, $statement_list});
-    }
-    ;
-
-for_in_statement:
-    unlabeled_for_in_statement
-    |
-    label ":" unlabeled_for_in_statement opt_identifier {
-      CHECK_LABEL_SUPPORT($1, @1);
-      CHECK_END_LABEL_VALID($1, @1, $4, @4);
-      auto loop = static_cast<zetasql::ASTForInStatement*>($3);
-      auto label = MAKE_NODE(ASTLabel, @1, {$1});
-      loop->AddChildFront(label);
-      $$ = parser->WithLocation(loop, @$);;
     }
     ;
 
@@ -10491,14 +10429,24 @@ raise_statement:
     };
 
 next_statement_kind:
-    opt_hint next_statement_kind_without_hint
+    next_statement_kind_without_hint[kind]
       {
-        *ast_node_result = $1;
+        *ast_node_result = nullptr;
         // The parser will complain about the remainder of the input if we let
         // the tokenizer continue to produce tokens, because we don't have any
         // grammar for the rest of the input.
         SetForceTerminate(tokenizer, /*end_byte_offset=*/nullptr);
-        $$ = $2;
+        $$ = $kind;
+      }
+    | hint { OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT); }
+      next_statement_kind_without_hint[kind]
+      {
+        *ast_node_result = $hint;
+        // The parser will complain about the remainder of the input if we let
+        // the tokenizer continue to produce tokens, because we don't have any
+        // grammar for the rest of the input.
+        SetForceTerminate(tokenizer, /*end_byte_offset=*/nullptr);
+        $$ = $kind;
       }
     ;
 

@@ -33,7 +33,12 @@ namespace parser {
 namespace macros {
 
 static bool IsIntegerOrFloatingPointLiteral(const TokenWithLocation& token) {
-  return token.kind == INTEGER_LITERAL || token.kind == FLOATING_POINT_LITERAL;
+  ABSL_DCHECK(token.kind != INTEGER_LITERAL)
+      << "Macor expander should not see INTEGER_LITERAL directly. Instead it "
+         "should see DECIMAL_INTEGER_LITERAL or HEX_INTEGER_LITERAL";
+  return token.kind == DECIMAL_INTEGER_LITERAL ||
+         token.kind == HEX_INTEGER_LITERAL ||
+         token.kind == FLOATING_POINT_LITERAL;
 }
 
 static bool SplicingTokensCouldStartComment(
@@ -55,6 +60,8 @@ static bool TokensRequireExplicitSeparation(
   // Macro invocation, keyword or unquoted identifier followed by a character
   // that can continue it.
   if (previous_token.kind == MACRO_INVOCATION ||
+      previous_token.kind == STANDALONE_EXPONENT_SIGN ||
+      previous_token.kind == EXP_IN_FLOAT_NO_SIGN ||
       IsKeywordOrUnquotedIdentifier(previous_token)) {
     return IsIdentifierCharacter(current_token.text.front());
   }
@@ -75,32 +82,37 @@ static bool TokensRequireExplicitSeparation(
     return true;
   }
 
+  // Two ">"s should not be fused together. For example with
+  // `DEFINE MACRO gt >`, `$gt()$gt()` should not be printed as ">>" (one right
+  // shift) but "> >" (two greater than symbols).
+  if (previous_token.kind == '>' && current_token.kind == '>') {
+    return true;
+  }
+
   // OK to have no space.
   return false;
 }
 
-std::string TokensToString(absl::Span<const TokenWithLocation> tokens,
-                           bool standardize_to_single_whitespace) {
+std::string TokensToString(absl::Span<const TokenWithLocation> tokens) {
   std::string expanded_sql;
   for (auto it = tokens.begin(); it != tokens.end(); ++it) {
     const auto& current_token = *it;
     absl::string_view whitespace = current_token.preceding_whitespaces;
-    if (standardize_to_single_whitespace) {
-      whitespace = " ";
-      if (it == tokens.begin() || it == tokens.end() - 1) {
-        // No space before the first token.
-        // Also at the end it's YYEOF, so we also drop spaces before it (which
-        // would be trailing to the content).
-        ABSL_DCHECK(it != tokens.rbegin().base() || current_token.text.empty());
-        whitespace = "";
-      }
+    if (it == tokens.begin()) {
+      absl::StrAppend(&expanded_sql, whitespace, current_token.text);
+      continue;
     }
-    if (whitespace.empty() && it != tokens.begin()) {
-      const TokenWithLocation& previous_token = *(it - 1);
-      if (TokensRequireExplicitSeparation(previous_token, current_token)) {
-        // Prevent token splicing by forcing an extra space.
-        whitespace = " ";
-      }
+    const TokenWithLocation& previous_token = *(it - 1);
+    if (previous_token.AdjacentlyPrecedes(current_token)) {
+      // Do not insert spaces between adjacent tokens. For example, two adjacent
+      // ">" tokens should not become "> >".
+      absl::StrAppend(&expanded_sql, current_token.text);
+      continue;
+    }
+    if (whitespace.empty() &&
+        TokensRequireExplicitSeparation(previous_token, current_token)) {
+      // Prevent token splicing by forcing an extra space.
+      whitespace = " ";
     }
     absl::StrAppend(&expanded_sql, whitespace, current_token.text);
   }

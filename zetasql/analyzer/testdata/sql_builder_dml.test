@@ -11,14 +11,9 @@ DELETE SimpleTypes AS simpletypes_1
 WHERE
   ((simpletypes_1.int64) IN (
     SELECT
-      keyvalue_3.a_2 AS a_2
+      KeyValue.Key AS a_2
     FROM
-      (
-        SELECT
-          KeyValue.Key AS a_2
-        FROM
-          KeyValue
-      ) AS keyvalue_3
+      KeyValue
   ))
 ASSERT_ROWS_MODIFIED 1;
 ==
@@ -69,14 +64,9 @@ select KitchenSink from TestTable
 [UNPARSED_SQL]
 INSERT INTO KitchenSinkValueTable(value)
 SELECT
-  testtable_2.a_1 AS a_1
+  TestTable.KitchenSink AS a_1
 FROM
-  (
-    SELECT
-      TestTable.KitchenSink AS a_1
-    FROM
-      TestTable
-  ) AS testtable_2;
+  TestTable;
 ==
 
 UPDATE KeyValue SET
@@ -145,14 +135,9 @@ SET
   (
     INSERT INTO testtable_1.KitchenSink.repeated_int64_val
     SELECT
-      keyvalue_3.a_2 AS a_2
+      KeyValue.Key AS a_2
     FROM
-      (
-        SELECT
-          KeyValue.Key AS a_2
-        FROM
-          KeyValue
-      ) AS keyvalue_3
+      KeyValue
   ),
   (
     INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
@@ -261,16 +246,10 @@ select * from ` Value`
 [UNPARSED_SQL]
 INSERT INTO ` Value`(` Key`, ` Value`)
 SELECT
-  ` value_4`.a_2 AS a_2,
-  ` value_4`.a_3 AS a_3
+  ` value_1`.` Key` AS a_2,
+  ` value_1`.` Value` AS a_3
 FROM
-  (
-    SELECT
-      ` value_1`.` Key` AS a_2,
-      ` value_1`.` Value` AS a_3
-    FROM
-      ` Value` AS ` value_1`
-  ) AS ` value_4`;
+  ` Value` AS ` value_1`;
 ==
 
 # TODO: Catalog qualifiers can be printed for tables when

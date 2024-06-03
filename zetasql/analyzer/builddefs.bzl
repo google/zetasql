@@ -28,5 +28,5 @@ def gen_analyzer_test(filename):
             ":run_analyzer_test_lib",
             "//zetasql/base/testing:zetasql_gtest_main",
         ],
-        args = ["--test_file=$(location " + datafile + ")"],
+        args = ["--test_file=$(location " + datafile + ")", "--zetasql_remove_degenerate_projectscans"],
     )

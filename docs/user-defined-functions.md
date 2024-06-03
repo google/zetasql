@@ -473,7 +473,7 @@ Note: If you are not sure which quoting style to use for the function body,
 a raw string provides the most consistent results.
 
 ```sql
-CREATE TEMP FUNCTION PlusOne(x STRING)
+CREATE TEMP FUNCTION ExtractLetters(x STRING)
 RETURNS STRING
 LANGUAGE js
 AS r'''
@@ -481,16 +481,16 @@ var re = /[a-z]/g;
 return x.match(re);
 ''';
 
-SELECT val, PlusOne(val) AS result
+SELECT val, ExtractLetters(val) AS result
 FROM UNNEST(['ab-c', 'd_e', '!']) AS val;
 
-/*---------*
- | result  |
- +---------+
- | [a,b,c] |
- | [d,e]   |
- | NULL    |
- *---------*/
+/*-------*---------*
+ | val   | result  |
+ +-------+---------+
+ | ab-c  | [a,b,c] |
+ | d_e   | [d,e]   |
+ | !     | NULL    |
+ *-------*---------*/
 ```
 
 The following example illustrates a single-statement JavaScript UDF.
@@ -854,6 +854,9 @@ see [Modules][modules].
 
 You can call a Lua UDF in the same way that you call a built-in
 function. For details, see [Function calls][function-calls].
+
+### Data types supported
+The valid data types for arguments and return values are INT32, UINT32, INT64, UINT64, FLOAT, DOUBLE, STRING, BOOL, and PROTO. If the function returns the Lua type nil, it gets converted to a NULL value of the specified return data type.
 
 ### Lua UDF examples
 

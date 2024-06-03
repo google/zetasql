@@ -337,32 +337,32 @@ having countif(`int64` > 0) > 5;
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-FilterScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        |   +-column_list=$aggregate.[$agg1#20, $agg2#21]
         |   +-input_scan=
         |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
         |   +-aggregate_list=
-        |     +-$agg1#19 :=
+        |     +-$agg1#20 :=
         |     | +-AggregateFunctionCall(ZetaSQL:countif(BOOL) -> INT64)
         |     |   +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
         |     |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |     |     +-Literal(type=INT32, value=0)
-        |     +-$agg2#20 :=
+        |     +-$agg2#21 :=
         |       +-AggregateFunctionCall(ZetaSQL:countif(BOOL) -> INT64)
         |         +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
         |           +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |           +-Literal(type=INT64, value=0)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-            +-ColumnRef(type=INT64, column=$aggregate.$agg2#20)
+            +-ColumnRef(type=INT64, column=$aggregate.$agg2#21)
             +-Literal(type=INT64, value=5)
 ==
 
@@ -474,18 +474,18 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#149 AS `$col1` [BOOL]
-| +-$query.$col2#150 AS `$col2` [BOOL]
-| +-$query.$col3#151 AS `$col3` [BOOL]
-| +-$query.$col4#152 AS `$col4` [BOOL]
-| +-$query.$col5#153 AS `$col5` [BOOL]
-| +-$query.$col6#154 AS `$col6` [BOOL]
-| +-$query.$col7#155 AS `$col7` [BOOL]
+| +-$query.$col1#157 AS `$col1` [BOOL]
+| +-$query.$col2#158 AS `$col2` [BOOL]
+| +-$query.$col3#159 AS `$col3` [BOOL]
+| +-$query.$col4#160 AS `$col4` [BOOL]
+| +-$query.$col5#161 AS `$col5` [BOOL]
+| +-$query.$col6#162 AS `$col6` [BOOL]
+| +-$query.$col7#163 AS `$col7` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#149, $col2#150, $col3#151, $col4#152, $col5#153, $col6#154, $col7#155]
+    +-column_list=$query.[$col1#157, $col2#158, $col3#159, $col4#160, $col5#161, $col6#162, $col7#163]
     +-expr_list=
-    | +-$col1#149 :=
+    | +-$col1#157 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -494,10 +494,10 @@ QueryStmt
     | |   |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[SimpleTypes.uint64#22]
+    | |       +-column_list=[SimpleTypes.uint64#23]
     | |       +-input_scan=
-    | |         +-TableScan(column_list=[SimpleTypes.uint64#22], table=SimpleTypes, column_index_list=[3])
-    | +-$col2#150 :=
+    | |         +-TableScan(column_list=[SimpleTypes.uint64#23], table=SimpleTypes, column_index_list=[3])
+    | +-$col2#158 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -505,10 +505,10 @@ QueryStmt
     | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[SimpleTypes.uint64#40]
+    | |       +-column_list=[SimpleTypes.uint64#42]
     | |       +-input_scan=
-    | |         +-TableScan(column_list=[SimpleTypes.uint64#40], table=SimpleTypes, column_index_list=[3])
-    | +-$col3#151 :=
+    | |         +-TableScan(column_list=[SimpleTypes.uint64#42], table=SimpleTypes, column_index_list=[3])
+    | +-$col3#159 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -517,10 +517,10 @@ QueryStmt
     | |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[SimpleTypes.int64#56]
+    | |       +-column_list=[SimpleTypes.int64#59]
     | |       +-input_scan=
-    | |         +-TableScan(column_list=[SimpleTypes.int64#56], table=SimpleTypes, column_index_list=[1])
-    | +-$col4#152 :=
+    | |         +-TableScan(column_list=[SimpleTypes.int64#59], table=SimpleTypes, column_index_list=[1])
+    | +-$col4#160 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -528,10 +528,10 @@ QueryStmt
     | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[SimpleTypes.int64#74]
+    | |       +-column_list=[SimpleTypes.int64#78]
     | |       +-input_scan=
-    | |         +-TableScan(column_list=[SimpleTypes.int64#74], table=SimpleTypes, column_index_list=[1])
-    | +-$col5#153 :=
+    | |         +-TableScan(column_list=[SimpleTypes.int64#78], table=SimpleTypes, column_index_list=[1])
+    | +-$col5#161 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -540,10 +540,10 @@ QueryStmt
     | |   |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[SimpleTypes.double#99]
+    | |       +-column_list=[SimpleTypes.double#104]
     | |       +-input_scan=
-    | |         +-TableScan(column_list=[SimpleTypes.double#99], table=SimpleTypes, column_index_list=[8])
-    | +-$col6#154 :=
+    | |         +-TableScan(column_list=[SimpleTypes.double#104], table=SimpleTypes, column_index_list=[8])
+    | +-$col6#162 :=
     | | +-SubqueryExpr
     | |   +-type=BOOL
     | |   +-subquery_type=IN
@@ -551,17 +551,17 @@ QueryStmt
     | |   | +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
     | |   +-subquery=
     | |     +-ProjectScan
-    | |       +-column_list=[$in_subquery_cast.int64#128]
+    | |       +-column_list=[$in_subquery_cast.int64#135]
     | |       +-expr_list=
-    | |       | +-int64#128 :=
+    | |       | +-int64#135 :=
     | |       |   +-Cast(INT64 -> DOUBLE)
-    | |       |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#110)
+    | |       |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#116)
     | |       +-input_scan=
     | |         +-ProjectScan
-    | |           +-column_list=[SimpleTypes.int64#110]
+    | |           +-column_list=[SimpleTypes.int64#116]
     | |           +-input_scan=
-    | |             +-TableScan(column_list=[SimpleTypes.int64#110], table=SimpleTypes, column_index_list=[1])
-    | +-$col7#155 :=
+    | |             +-TableScan(column_list=[SimpleTypes.int64#116], table=SimpleTypes, column_index_list=[1])
+    | +-$col7#163 :=
     |   +-SubqueryExpr
     |     +-type=BOOL
     |     +-subquery_type=IN
@@ -570,16 +570,16 @@ QueryStmt
     |     |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$in_subquery_cast.int64#148]
+    |         +-column_list=[$in_subquery_cast.int64#156]
     |         +-expr_list=
-    |         | +-int64#148 :=
+    |         | +-int64#156 :=
     |         |   +-Cast(INT64 -> DOUBLE)
-    |         |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#130)
+    |         |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#137)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[SimpleTypes.int64#130]
+    |             +-column_list=[SimpleTypes.int64#137]
     |             +-input_scan=
-    |               +-TableScan(column_list=[SimpleTypes.int64#130], table=SimpleTypes, column_index_list=[1])
+    |               +-TableScan(column_list=[SimpleTypes.int64#137], table=SimpleTypes, column_index_list=[1])
     +-input_scan=
       +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8])
 ==
@@ -855,12 +855,12 @@ select 1 IN (select uint64 from SimpleTypes)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BOOL]
+| +-$query.$col1#20 AS `$col1` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-SubqueryExpr
     |     +-type=BOOL
     |     +-subquery_type=IN
@@ -1249,12 +1249,12 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [BOOL]
+| +-$query.$col1#20 AS `$col1` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$in_array(INT32, ARRAY<INT32>) -> BOOL)
     |     +-Literal(type=INT32, value=1)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) INT32) -> ARRAY<INT32>)
@@ -1906,22 +1906,22 @@ QueryStmt
             |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
             |   +-subquery=
             |     +-ProjectScan
-            |       +-column_list=[$expr_subquery.int64#19]
+            |       +-column_list=[$expr_subquery.int64#20]
             |       +-expr_list=
-            |       | +-int64#19 := ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
+            |       | +-int64#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2, is_correlated=TRUE)
             |       +-input_scan=
             |         +-SingleRowScan
             +-subquery=
               +-ProjectScan
-                +-column_list=[$expr_subquery.$col1#22]
+                +-column_list=[$expr_subquery.$col1#23]
                 +-expr_list=
-                | +-$col1#22 :=
+                | +-$col1#23 :=
                 |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
                 |     +-Cast(INT32 -> INT64)
                 |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1, is_correlated=TRUE)
-                |     +-ColumnRef(type=INT64, column=KeyValue.Key#20)
+                |     +-ColumnRef(type=INT64, column=KeyValue.Key#21)
                 +-input_scan=
-                  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
+                  +-TableScan(column_list=[KeyValue.Key#21], table=KeyValue, column_index_list=[0])
 ==
 
 # Multiple columns in UNNEST is not allowed.

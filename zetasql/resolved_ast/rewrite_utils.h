@@ -21,91 +21,25 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/annotation_propagator.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/types/annotation.h"
-#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
-// A mutable ResolvedColumn factory that creates a new ResolvedColumn with a new
-// column id on each call. This prevents column id collisions.
-//
-// Not thread safe.
-class ColumnFactory {
- public:
-  // Creates columns using column ids starting above the max seen column id.
-  //
-  // IdString's for column names are allocated from the IdStringPool provided,
-  // which must outlive this ColumnFactory object.
-  //
-  // If 'sequence' is provided, it's used to do the allocations. IDs from the
-  // sequence that are not above 'max_col_id' are discarded.
-  ColumnFactory(int max_col_id, IdStringPool* id_string_pool,
-                zetasql_base::SequenceNumber* sequence = nullptr)
-      : max_col_id_(max_col_id),
-        id_string_pool_(id_string_pool),
-        sequence_(sequence) {
-    // The implementation assumes that a nullptr <id_string_pool_> indicates
-    // that the ColumnFactory was created with the legacy constructor that uses
-    // the global string pool.
-    //
-    // This check ensures that it is safe to remove this assumption, once the
-    // legacy constructor is removed and all callers have been migrated.
-    ABSL_CHECK(id_string_pool != nullptr);
-  }
-
-  // Similar to the above constructor, except allocates column ids on the global
-  // string pool.
-  //
-  // WARNING: Column factories produced by this constructor will leak memory
-  // each time a column is created. To avoid this, use the above constructor
-  // overload instead and supply an IdStringPool.
-  ABSL_DEPRECATED(
-      "This constructor will result in a ColumnFactory that leaks "
-      "memory. Use overload that consumes an IdStringPool instead")
-  explicit ColumnFactory(int max_col_id,
-                         zetasql_base::SequenceNumber* sequence = nullptr)
-      : max_col_id_(max_col_id),
-        id_string_pool_(nullptr),
-        sequence_(sequence) {}
-
-  ColumnFactory(const ColumnFactory&) = delete;
-  ColumnFactory& operator=(const ColumnFactory&) = delete;
-
-  // Returns the maximum column id that has been allocated.
-  int max_column_id() const { return max_col_id_; }
-
-  // Creates a new column, incrementing the counter for next use.
-  ResolvedColumn MakeCol(absl::string_view table_name,
-                         absl::string_view col_name, const Type* type);
-
-  // Creates a new column with an AnnotatedType, incrementing the counter for
-  // next use.
-  ResolvedColumn MakeCol(absl::string_view table_name,
-                         absl::string_view col_name, AnnotatedType type);
-
- private:
-  int max_col_id_;
-  IdStringPool* id_string_pool_;
-  zetasql_base::SequenceNumber* sequence_;
-
-  void UpdateMaxColId();
-};
 
 // Returns a copy of 'expr' where all references to columns that are not
 // internal to 'expr' as correlated. This is useful when moving a scalar
@@ -182,6 +116,23 @@ CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
                                    ColumnFactory& column_factory,
                                    ColumnReplacementMap& column_map);
 
+// Like the above, but rewrites in place, instead of copying.
+template <class T>
+absl::StatusOr<std::unique_ptr<const T>> RemapColumns(
+    std::unique_ptr<const T> input_tree, ColumnFactory& column_factory,
+    ColumnReplacementMap& column_map) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedNode> ret,
+      RemapColumnsImpl(std::move(input_tree), column_factory, column_map));
+  ZETASQL_RET_CHECK(ret->Is<T>());
+  return absl::WrapUnique(ret.release()->GetAs<T>());
+}
+
+// Implementation of the above template.
+absl::StatusOr<std::unique_ptr<const ResolvedNode>> RemapColumnsImpl(
+    std::unique_ptr<const ResolvedNode> input_tree,
+    ColumnFactory& column_factory, ColumnReplacementMap& column_map);
+
 // Helper function used when deep copying a plan. Takes a 'scan' and
 // replaces all of its ResolvedColumns, including in child scans recursively.
 // Some columns produced by the 'scan' are remapped to new columns based on
@@ -201,8 +152,8 @@ CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
 // new allocations.
 absl::StatusOr<std::unique_ptr<ResolvedScan>> ReplaceScanColumns(
     ColumnFactory& column_factory, const ResolvedScan& scan,
-    const std::vector<int>& target_column_indices,
-    const std::vector<ResolvedColumn>& replacement_columns_to_use);
+    absl::Span<const int> target_column_indices,
+    absl::Span<const ResolvedColumn> replacement_columns_to_use);
 
 // Creates a new set of replacement columns to the given list.
 // Useful when replacing columns for a ResolvedExecuteAsRole node.
@@ -255,6 +206,10 @@ class FunctionCallBuilder {
   absl::Status CheckCatalogSupportsSafeMode(absl::string_view fn_name) {
     return zetasql::CheckCatalogSupportsSafeMode(fn_name, analyzer_options_,
                                                    catalog_);
+  }
+
+  AnnotationPropagator& annotation_propagator() {
+    return annotation_propagator_;
   }
 
   // Construct ResolvedFunctionCall for IF(<condition>, <then_case>,
@@ -323,7 +278,17 @@ class FunctionCallBuilder {
   // <catalog> or an error status is returned
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> MakeArray(
       const Type* element_type,
-      std::vector<std::unique_ptr<const ResolvedExpr>>& elements);
+      std::vector<std::unique_ptr<const ResolvedExpr>> elements);
+
+  // Constructs a ResolvedFunctionCall for ARRAY_CONCAT(arrays...)
+  //
+  // Requires: Each array must have the same type. There must be at least one
+  // array.
+  //
+  // The signature for the built-in function "array_concat" must be available in
+  // <catalog> or an error status is returned
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayConcat(
+      std::vector<std::unique_ptr<const ResolvedExpr>> arrays);
 
   // Constructs a ResolvedFunctionCall for <input> LIKE <pattern>
   //
@@ -444,6 +409,17 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> left_expr,
       std::unique_ptr<const ResolvedExpr> right_expr);
 
+  // Construct a ResolvedFunctionCall for `a` * `b`.
+  //
+  // Requires `a` is of type Int64.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+  Int64MultiplyByLiteral(std::unique_ptr<const ResolvedExpr> a, int b);
+
+  // Construct a ResolvedFunctionCall for `a` + `b`.
+  // Requires `a` is of type Int64.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Int64AddLiteral(
+      std::unique_ptr<const ResolvedExpr> a, int b);
+
   // Construct a ResolvedFunctionCall for `minuend` - `subtrahend`.
   //
   // Requires: `minuend` and `subtrahend` must be of types compatible with one
@@ -491,6 +467,17 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Or(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
+  // Construct a ResolvedFunctionCall for
+  //  expressions[0] ADD expressions[1] ADD ... ADD expressions[N-1]
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 and all expressions return INT64.
+  //
+  // The signature for the built-in function "$add" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Int64Add(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
   // Construct a ResolvedFunctionCall for ARRAY_LENGTH(array_expr).
   //
   // Requires: array_expr is of ARRAY<T> type.
@@ -523,6 +510,35 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> dividend_expr,
       std::unique_ptr<const ResolvedExpr> divisor_expr);
 
+  // Construct a ResolvedAggregateFunctionCall for COUNT(column_ref) which has
+  // the option to be a distinct count.
+  //
+  // The signature for the built-in function "count" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> Count(
+      std::unique_ptr<const ResolvedColumnRef> column_ref,
+      bool is_distinct = false);
+
+  // Constructs a ResolvedFunctionCall for $with_side_effects(expr, payload).
+  //
+  // Requires: `payload` must be a bytes column.
+  //
+  // The signature for the built-in function "$with_side_effects" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> WithSideEffects(
+      std::unique_ptr<const ResolvedExpr> expr,
+      std::unique_ptr<const ResolvedExpr> payload);
+
+  // Constructs a ResolvedFunctionCall for `any_value(input_expr [,
+  // having_min_modifier(MIN, having_min_expr)])`. `having_min_modifier` is
+  // optional, created only when `having_min_expr` is not nullptr.
+  //
+  // The signature for the built-in function "any_value" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> AnyValue(
+      std::unique_ptr<const ResolvedExpr> input_expr,
+      std::unique_ptr<const ResolvedExpr> having_min_expr);
+
  private:
   static AnnotationPropagator BuildAnnotationPropagator(
       const AnalyzerOptions& analyzer_options, TypeFactory& type_factory) {
@@ -533,14 +549,15 @@ class FunctionCallBuilder {
   //  expressions[0] OP expressions[1] OP ... OP expressions[N-1]
   // where N is the number of expressions.
   //
-  // Requires: N >= 2 AND all expressions return BOOL AND
-  //           the nary logic function returns BOOL.
+  // Requires: N >= 2 AND all expressions return `expr_type` AND
+  //           the nary logic function returns `expr_type`.
   //
   // The signature for the built-in function `op_catalog_name` must be available
   // in `catalog` or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NaryLogic(
       absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
-      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
+      const Type* expr_type);
 
   // Construct a ResolvedFunctionCall of
   //  builtin_function_name(REPEATED <expressions>)
@@ -628,6 +645,15 @@ zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* nod
 // `column_set` because they're internal columns to `node`.
 absl::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetCorrelatedColumnSet(
     const ResolvedNode& node);
+
+// Wrapper to help build a ResolvedColumnRef for the given column.
+std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
+    const ResolvedColumn& column);
+
+// Assigns the type annotation map of the column reference to the matching
+// column's type annotation map if unset.
+std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
+    const Type* type, const ResolvedColumn& column, bool is_correlated = false);
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_

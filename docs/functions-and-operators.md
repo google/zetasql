@@ -2209,16 +2209,16 @@ SELECT 1 IS NOT DISTINCT FROM NULL
 <a id="like_operator"></a>
 
 ```sql
-expression_1 IS [NOT] LIKE expression_2
+expression_1 [NOT] LIKE expression_2
 ```
 
 **Description**
 
-`IS LIKE` returns `TRUE` if the string in the first operand `expression_1`
+`LIKE` returns `TRUE` if the string in the first operand `expression_1`
 matches a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
-`IS NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
+`NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
 does not match a pattern specified by the second operand `expression_2`,
 otherwise returns `FALSE`.
 
@@ -2235,9 +2235,26 @@ This operator supports [collation][collation], but caveats apply:
 +   Each `%` character in `expression_2` represents an
     _arbitrary string specifier_. An arbitrary string specifier can represent
     any sequence of `0` or more characters.
-+   When an operand has collation, a character in the expression that is not a
-    `_` or `%` character represents itself and is considered a
-    _single character specifier_.
++   A character in the expression represents itself and is considered a
+    _single character specifier_ unless:
+
+    +   The character is a percent sign (`%`).
+
+    +   The character is an underscore (`_`) and the collator is not `und:ci`.
++   These additional rules apply to the underscore (`_`) character:
+
+    +   If the collator is not `und:ci`, an error is produced when an underscore
+        is not escaped in `expression_2`.
+
+    +   If the collator is not `und:ci`, the underscore is not allowed when the
+        operands have collation specified.
+
+    +   Some _compatibility composites_, such as the fi-ligature (`ﬁ`) and the
+        telephone sign (`℡`), will produce a match if they are compared to an
+        underscore.
+
+    +   A single underscore matches the idea of what a character is, based on
+        an approximation known as a [_grapheme cluster_][grapheme-cluster].
 +   For a contiguous sequence of single character specifiers, equality
     depends on the collator and its language tags and tailoring.
 
@@ -2245,8 +2262,8 @@ This operator supports [collation][collation], but caveats apply:
         Some canonically equivalent strings are considered unequal for
         both the `=` and `LIKE` operators.
 
-    +   The `LIKE` operator with collation has the same behavior as the `=` operator
-        when there are no wildcards in the strings.
+    +   The `LIKE` operator with collation has the same behavior as the `=`
+        operator when there are no wildcards in the strings.
 
     +   Character sequences with secondary or higher-weighted differences are
         considered unequal. This includes accent differences and some
@@ -2267,9 +2284,6 @@ This operator supports [collation][collation], but caveats apply:
         kana subtype differences, which are considered equal.
 +   There are [ignorable characters][ignorable-chars] defined in Unicode.
     Ignorable characters are ignored in the pattern matching.
-+   An error is returned when `_` is not escaped in `expression_2`.
-+   `_` is not allowed when the operands have collation specified and the
-    collator is performing a binary comparison.
 
 **Return type**
 
@@ -2556,10 +2570,11 @@ following semantics apply in this order:
 + For `pattern_subquery`, returns `TRUE` if `patterns` is empty.
 + For `pattern_array`, returns `TRUE` if `patterns` is empty.
 + Returns `NULL` if `search_value` is `NULL`.
-+ Returns `FALSE` if `search_value` matches at least one value in `patterns`.
++ Returns `TRUE` if `search_value` doesn't match at least one value in
+  `patterns`.
 + Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
   in `patterns` don't match.
-+ Returns `TRUE`.
++ Returns `FALSE`.
 
 When using the quantified `NOT LIKE` operator with `ALL`, the following
 semantics apply in this order:
@@ -2567,10 +2582,10 @@ semantics apply in this order:
 + For `pattern_subquery`, returns `FALSE` if `patterns` is empty.
 + For `pattern_array`, returns `TRUE` if `patterns` is empty.
 + Returns `NULL` if `search_value` is `NULL`.
-+ Returns `FALSE` if `search_value` matches all values in `patterns`.
++ Returns `TRUE` if `search_value` matches none of the values in `patterns`.
 + Returns `NULL` if a pattern in `patterns` is `NULL` and other patterns
   in `patterns` don't match.
-+ Returns `TRUE`.
++ Returns `FALSE`.
 
 **Return Data Type**
 
@@ -2709,94 +2724,66 @@ The following queries illustrate some of the semantic rules for the
 quantified `LIKE` operator:
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE ANY ('a', 'b')
+SELECT
+  NULL LIKE ANY ('a', 'b'), -- NULL
+  'a' LIKE ANY ('a', 'c'), -- TRUE
+  'a' LIKE ANY ('b', 'c'), -- FALSE
+  'a' LIKE ANY ('a', NULL), -- TRUE
+  'a' LIKE ANY ('b', NULL), -- NULL
+  NULL NOT LIKE ANY ('a', 'b'), -- NULL
+  'a' NOT LIKE ANY ('a', 'b'), -- TRUE
+  'a' NOT LIKE ANY ('a', '%a%'), -- FALSE
+  'a' NOT LIKE ANY ('a', NULL), -- NULL
+  'a' NOT LIKE ANY ('b', NULL); -- TRUE
 ```
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE SOME ('a', 'b')
+SELECT
+  NULL LIKE SOME ('a', 'b'), -- NULL
+  'a' LIKE SOME ('a', 'c'), -- TRUE
+  'a' LIKE SOME ('b', 'c'), -- FALSE
+  'a' LIKE SOME ('a', NULL), -- TRUE
+  'a' LIKE SOME ('b', NULL), -- NULL
+  NULL NOT LIKE SOME ('a', 'b'), -- NULL
+  'a' NOT LIKE SOME ('a', 'b'), -- TRUE
+  'a' NOT LIKE SOME ('a', '%a%'), -- FALSE
+  'a' NOT LIKE SOME ('a', NULL), -- NULL
+  'a' NOT LIKE SOME ('b', NULL); -- TRUE
 ```
 
 ```sql
--- Returns NULL
-SELECT NULL LIKE ALL ('a', 'b')
+SELECT
+  NULL LIKE ALL ('a', 'b'), -- NULL
+  'a' LIKE ALL ('a', '%a%'), -- TRUE
+  'a' LIKE ALL ('a', 'c'), -- FALSE
+  'a' LIKE ALL ('a', NULL), -- NULL
+  'a' LIKE ALL ('b', NULL), -- FALSE
+  NULL NOT LIKE ALL ('a', 'b'), -- NULL
+  'a' NOT LIKE ALL ('b', 'c'), -- TRUE
+  'a' NOT LIKE ALL ('a', 'c'), -- FALSE
+  'a' NOT LIKE ALL ('a', NULL), -- FALSE
+  'a' NOT LIKE ALL ('b', NULL); -- NULL
+```
+
+The following queries illustrate some of the semantic rules for the
+quantified `LIKE` operator and collation:
+
+```sql
+SELECT
+  COLLATE('a', 'und:ci') LIKE ALL ('a', 'A'), -- TRUE
+  'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A'), -- TRUE
+  'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci')); -- TRUE
 ```
 
 ```sql
--- Returns TRUE
-SELECT 'a' LIKE ANY ('a', NULL)
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE SOME ('a', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE ANY ('b', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE SOME ('b', NULL)
-```
-
-```sql
--- Returns NULL
-SELECT 'a' LIKE ALL ('a', NULL)
-```
-
-```sql
--- Returns FALSE
-SELECT 'a' LIKE ALL ('b', NULL)
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ANY ('a', 'b')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE SOME ('a', 'b')
-```
-
-```sql
--- Returns FALSE
-SELECT 'a' LIKE ALL ('a', 'b')
-```
-
-```sql
--- Returns TRUE
-SELECT 'abc' LIKE ANY ('a', '%a%')
-```
-
-```sql
--- Returns TRUE
-SELECT COLLATE('a', 'und:ci') LIKE ALL ('a', 'A')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
-```
-
-```sql
--- Returns TRUE
-SELECT 'a' LIKE ALL ('%A%', COLLATE('a', 'und:ci'))
-```
-
-```sql
--- Produces an error
-SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A')
+-- ERROR: BYTES and STRING values can't be used together.
+SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
 
 ### `NEW` operator 
 <a id="new_operator"></a>
 
-The `NEW` operator supports only protocol buffers and uses the following syntax:
+The `NEW` operator only supports protocol buffers and uses the following syntax:
 
  + `NEW protocol_buffer {...}`: Creates a
 protocol buffer using a map constructor.
@@ -2806,8 +2793,6 @@ protocol buffer using a map constructor.
     field_name: literal_or_expression
     field_name { ... }
     repeated_field_name: [literal_or_expression, ... ]
-    map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
-    (extension_name): literal_or_expression
   }
   ```
 +   `NEW protocol_buffer (...)`: Creates a protocol buffer using a parenthesized
@@ -2819,7 +2804,7 @@ protocol buffer using a map constructor.
 
 **Examples**
 
-Example with a map constructor:
+The following example uses the `NEW` operator with a map constructor:
 
 ```sql
 NEW Universe {
@@ -2836,21 +2821,12 @@ NEW Universe {
     name: "Scorpio"
     index: 1
   }]
-  planet_distances: [{
-    key: "Mercury"
-    distance: 46,507,000
-  }, {
-    key: "Venus"
-    distance: 107,480,000
-  }],
-  (UniverseExtraInfo.extension) {
-    ...
-  }
   all_planets: (SELECT planets FROM SolTable)
 }
 ```
 
-Example with a parenthesized list of arguments:
+The following example uses the `NEW` operator with a parenthesized list of
+arguments:
 
 ```sql
 SELECT
@@ -3051,6 +3027,8 @@ FROM UNNEST([
 [json-functions]: #json_functions
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
@@ -4637,7 +4615,7 @@ ORDER BY product_name;
 /*--------------+--------------+-------------+------------------+------------------+
  | product_type | product_name | product_sum | product_type_agg | product_name_agg |
  +--------------+--------------+-------------+------------------+------------------+
- | NULL         | NULL         | 36          | 1                | 1                |
+ | NULL         | NULL         | 42          | 1                | 1                |
  | shirt        | NULL         | 36          | 0                | 1                |
  | pants        | NULL         | 6           | 0                | 1                |
  | NULL         | jeans        | 6           | 1                | 0                |
@@ -4673,7 +4651,7 @@ ORDER BY product_name;
 /*--------------+--------------+-------------+----------------------------+
  | product_type | product_name | product_sum | product_type_is_aggregated |
  +--------------+--------------+-------------+----------------------------+
- | shirt        | NULL         | 36          | 0                          |
+ | shirt        | NULL         | 11          | 0                          |
  | NULL         | NULL         | 25          | 0                          |
  | pants        | NULL         | 6           | 0                          |
  | NULL         | jeans        | 6           | 1                          |
@@ -8717,7 +8695,7 @@ ZetaSQL supports [casting][con-func-cast] to `PROTO`. The
 
 **Example**
 
-The example in this section references a protocol buffer called `Award`.
+This example references a protocol buffer called `Award`.
 
 ```proto
 message Award {
@@ -9381,7 +9359,7 @@ Conversion function                    | From               | To
 [DATE][T_DATE]                         | Various data types | DATE
 [DATE_FROM_UNIX_DATE][T_DATE_FROM_UNIX_DATE] | INT64        | DATE
 [DATETIME][T_DATETIME]                 | Various data types | DATETIME
-[FLOAT64][JSON_TO_DOUBLE]              | JSON               | DOUBLE
+[DOUBLE][JSON_TO_DOUBLE] | JSON            | DOUBLE
 [FROM_BASE32][F_B32]                   | STRING             | BYTEs
 [FROM_BASE64][F_B64]                   | STRING             | BYTES
 [FROM_HEX][F_HEX]                      | STRING             | BYTES
@@ -9539,7 +9517,8 @@ ZetaSQL supports the following date functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>DATE</code> values.
+    Gets the number of unit boundaries between two <code>DATE</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -9822,36 +9801,41 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 ### `DATE_DIFF`
 
 ```sql
-DATE_DIFF(date_expression_a, date_expression_b, date_part)
+DATE_DIFF(end_date, start_date, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `date_part` intervals between two
-`DATE` objects (`date_expression_a` - `date_expression_b`).
-If the first `DATE` is earlier than the second one,
-the output is negative.
+Gets the number of unit boundaries between two `DATE` values (`end_date` -
+`start_date`) at a particular time granularity.
 
-`DATE_DIFF` supports the following `date_part` values:
+**Definitions**
 
-+  `DAY`
-+  `WEEK` This date part begins on Sunday.
-+  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
-   `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
-   `FRIDAY`, and `SATURDAY`.
-+  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
-   boundaries. ISO weeks begin on Monday.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-+  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
++   `start_date`: The starting `DATE` value.
++   `end_date`: The ending `DATE` value.
++   `granularity`: The date part that represents the granularity. This can be:
+
+    +  `DAY`
+    +  `WEEK` This date part begins on Sunday.
+    +  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
+       `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+       `FRIDAY`, and `SATURDAY`.
+    +  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week] boundaries. ISO weeks
+       begin on Monday.
+    +  `MONTH`
+    +  `QUARTER`
+    +  `YEAR`
+    +  `ISOYEAR`: Uses the [ISO 8601][ISO-8601] week-numbering year boundary.
+       The ISO year boundary is the Monday of the first week whose Thursday
+       belongs to the corresponding Gregorian calendar year.
+
+**Details**
+
+If `end_date` is earlier than `start_date`, the output is negative.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -10363,16 +10347,16 @@ each element in `date_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008');
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008');
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008');
 
 -- This works because %F can find all matching elements in date_string.
-SELECT PARSE_DATE('%F', '2000-12-30')
+SELECT PARSE_DATE('%F', '2000-12-30');
 ```
 
 When using `PARSE_DATE`, keep the following in mind:
@@ -10495,7 +10479,8 @@ ZetaSQL supports the following datetime functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>DATETIME</code> values.
+    Gets the number of unit boundaries between two <code>DATETIME</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -10710,43 +10695,50 @@ SELECT
 ### `DATETIME_DIFF`
 
 ```sql
-DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
+DATETIME_DIFF(end_datetime, start_datetime, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `part` intervals between two
-`DATETIME` objects (`datetime_expression_a` - `datetime_expression_b`).
-If the first `DATETIME` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
-result type, such as if the difference in
-nanoseconds
-between the two `DATETIME` objects would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `DATETIME` values
+(`end_datetime` - `start_datetime`) at a particular time granularity.
 
-`DATETIME_DIFF` supports the following values for `part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`: This date part begins on Sunday.
-+ `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
-  `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
-  `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
-  boundaries. ISO weeks begin on Monday.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
-  week-numbering year boundary. The ISO year boundary is the Monday of the
-  first week whose Thursday belongs to the corresponding Gregorian calendar
-  year.
++   `start_datetime`: The starting `DATETIME` value.
++   `end_datetime`: The ending `DATETIME` value.
++   `granularity`: The datetime part that represents the granularity.
+    This can be:
+
+      
+      + `NANOSECOND`
+        (if the SQL engine supports it)
+      + `MICROSECOND`
+      + `MILLISECOND`
+      + `SECOND`
+      + `MINUTE`
+      + `HOUR`
+      + `DAY`
+      + `WEEK`: This date part begins on Sunday.
+      + `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
+        `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+        `FRIDAY`, and `SATURDAY`.
+      + `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
+        boundaries. ISO weeks begin on Monday.
+      + `MONTH`
+      + `QUARTER`
+      + `YEAR`
+      + `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
+        week-numbering year boundary. The ISO year boundary is the Monday of the
+        first week whose Thursday belongs to the corresponding Gregorian calendar
+        year.
+
+**Details**
+
+If `end_datetime` is earlier than `start_datetime`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `DATETIME` values overflows.
 
 **Return Data Type**
 
@@ -11283,16 +11275,16 @@ each element in `datetime_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This works because %c can find all matching elements in datetime_string.
-SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
 `PARSE_DATETIME` parses `string` according to the following rules:
@@ -11335,7 +11327,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 ```
 
 ```sql
-SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime
+SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime;
 
 /*---------------------*
  | datetime            |
@@ -15755,7 +15747,7 @@ If `expression` is `NULL`, the output is `NULL`.
 This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 
 ```sql
-SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format
+SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format;
 
 /*------------------------------------*
  | WKT_format                         |
@@ -15768,7 +15760,7 @@ This takes a WKB-formatted hexadecimal-encoded string and returns a
 `GEOGRAPHY` point:
 
 ```sql
-SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format
+SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format;
 
 /*----------------*
  | WKB_format     |
@@ -15780,7 +15772,7 @@ SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WK
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 
 ```sql
-SELECT ST_GEOGFROM('010100000000000000000000400000000000001040')-AS WKB_format
+SELECT ST_GEOGFROM('010100000000000000000000400000000000001040') AS WKB_format;
 
 /*----------------*
  | WKB_format     |
@@ -15794,7 +15786,7 @@ This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
 ```sql
 SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
-) AS GEOJSON_format
+) AS GEOJSON_format;
 
 /*-----------------------------------------*
  | GEOJSON_format                          |
@@ -15882,122 +15874,53 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 
 ### `ST_GEOGFROMTEXT`
 
-+ [Signature 1](#st_geogfromtext_signature1)
-+ [Signature 2](#st_geogfromtext_signature2)
-
-#### Signature 1 
-<a id="st_geogfromtext_signature1"></a>
+<a id="st_geogfromtext_signature1"></a><a id="st_geogfromtext_signature2"></a>
 
 ```sql
-ST_GEOGFROMTEXT(wkt_string[, oriented])
+ST_GEOGFROMTEXT(
+  wkt_string
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 **Description**
 
-Returns a `GEOGRAPHY` value that corresponds to the
-input [WKT][wkt-link] representation.
+Converts a `STRING` [WKT][wkt-link] geometry value into a `GEOGRAPHY`
+value.
 
-This function supports an optional parameter of type
-`BOOL`, `oriented`. If this parameter is set to
-`TRUE`, any polygons in the input are assumed to be oriented as follows:
-if someone walks along the boundary of the polygon in the order of
-the input vertices, the interior of the polygon is on the left. This allows
-WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
-omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
-to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+To format `GEOGRAPHY` value as WKT, use [`ST_ASTEXT`][st-astext].
 
-To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`][st-astext].
+**Definitions**
 
-**Constraints**
++   `wkt_string`: A `STRING` value that contains the [WKT][wkt-link] format.
++   `oriented`: A named argument with a `BOOL` literal.
 
-*   All input edges are assumed to be spherical geodesics, and *not* planar
-    straight lines. For reading data in a planar projection, consider using
-    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
-*   The function does not support three-dimensional geometries that have a `Z`
+    +   If the value is `TRUE`, any polygons in the input are assumed to be
+        oriented as follows: when traveling along the boundary of the polygon
+        in the order of the input vertices, the interior of the polygon is on
+        the left. This allows WKT to represent polygons larger than a
+        hemisphere. See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented],
+        which is similar to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+
+    +   If the value is `FALSE` or omitted, this function returns the polygon
+        with the smaller area.
++   `planar`: A named argument with a `BOOL` literal. If the value
+    is `TRUE`, the edges of the linestrings and polygons are assumed to use
+    planar map semantics, rather than ZetaSQL default spherical
+    geodesics semantics.
++   `make_valid`: A named argument with a `BOOL` literal. If the
+    value is `TRUE`, the function attempts to repair polygons that don't
+    conform to [Open Geospatial Consortium][ogc-link] semantics.
+
+**Details**
+
++   The function does not support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
-*   The function only supports geometry primitives and multipart geometries. In
-    particular it supports only point, multipoint, linestring, multilinestring,
-    polygon, multipolygon, and geometry collection.
-
-**Return type**
-
-`GEOGRAPHY`
-
-**Example**
-
-The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))`
-both as a non-oriented polygon and as an oriented polygon, and checks whether
-each result contains the point `(1, 1)`.
-
-```sql
-WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
-SELECT
-  ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
-  ST_CONTAINS(ST_GEOGFROMTEXT(p, FALSE), ST_GEOGPOINT(1, 1)) AS non_oriented,
-  ST_CONTAINS(ST_GEOGFROMTEXT(p, TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
-FROM polygon;
-
-/*-------------------+---------------+-----------*
- | fromtext_default  | non_oriented  | oriented  |
- +-------------------+---------------+-----------+
- | TRUE              | TRUE          | FALSE     |
- *-------------------+---------------+-----------*/
-```
-
-#### Signature 2 
-<a id="st_geogfromtext_signature2"></a>
-
-```sql
-ST_GEOGFROMTEXT(wkt_string[, oriented => boolean_constant_1]
-    [, planar => boolean_constant_2] [, make_valid => boolean_constant_3])
-```
-
-**Description**
-
-Returns a `GEOGRAPHY` value that corresponds to the
-input [WKT][wkt-link] representation.
-
-This function supports three optional parameters  of type
-`BOOL`: `oriented`, `planar`, and `make_valid`.
-This signature uses named arguments syntax, and the parameters should be
-specified using `parameter_name => parameter_value` syntax, in any order.
-
-If the `oriented` parameter is set to
-`TRUE`, any polygons in the input are assumed to be oriented as follows:
-if someone walks along the boundary of the polygon in the order of
-the input vertices, the interior of the polygon is on the left. This allows
-WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
-omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
-to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
-
-If the parameter `planar` is set to `TRUE`, the edges of the line strings and
-polygons are assumed to use planar map semantics, rather than ZetaSQL
-default spherical geodesics semantics.
-
-If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
-polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
-
-To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`][st-astext].
-
-**Constraints**
-
-*   All input edges are assumed to be spherical geodesics by default, and *not*
-    planar straight lines. For reading data in a planar projection,
-    pass `planar => TRUE` argument, or consider using
-    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
-*   The function does not support three-dimensional geometries that have a `Z`
-    suffix, nor does it support linear referencing system geometries with an `M`
-    suffix.
-*   The function only supports geometry primitives and multipart geometries. In
-    particular it supports only point, multipoint, linestring, multilinestring,
-    polygon, multipolygon, and geometry collection.
-*   `oriented` and `planar` cannot be equal to `TRUE` at the same time.
-*   `oriented` and `make_valid` cannot be equal to `TRUE` at the same time.
++   `oriented` and `planar` can't be `TRUE` at the same time.
++   `oriented` and `make_valid` can't be `TRUE` at the same time.
 
 **Example**
 
@@ -16054,31 +15977,90 @@ FROM data
 ### `ST_GEOGFROMWKB`
 
 ```sql
-ST_GEOGFROMWKB(wkb_bytes_expression)
+ST_GEOGFROMWKB(
+  wkb_bytes_expression
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 ```sql
-ST_GEOGFROMWKB(wkb_hex_string_expression)
+ST_GEOGFROMWKB(
+  wkb_hex_string_expression
+  [ , oriented => value ]
+  [ , planar => value ]
+  [ , make_valid => value ]
+)
 ```
 
 **Description**
 
-Converts an expression for a hexadecimal-text `STRING` or `BYTES`
+Converts an expression from a hexadecimal-text `STRING` or `BYTES`
 value into a `GEOGRAPHY` value. The expression must be in
 [WKB][wkb-link] format.
 
-To format `GEOGRAPHY` as WKB, use
-[`ST_ASBINARY`][st-asbinary].
+To format `GEOGRAPHY` as WKB, use [`ST_ASBINARY`][st-asbinary].
 
-**Constraints**
+**Definitions**
 
-All input edges are assumed to be spherical geodesics, and *not* planar straight
-lines. For reading data in a planar projection, consider using
-[`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
++   `wkb_bytes_expression`: A `BYTES` value that contains the [WKB][wkb-link]
+    format.
++   `wkb_hex_string_expression`: A `STRING` value that contains the
+    hexadecimal-encoded [WKB][wkb-link] format.
++   `oriented`: A named argument with a `BOOL` literal.
+
+    +   If the value is `TRUE`, any polygons in the input are assumed to be
+        oriented as follows: when traveling along the boundary of the polygon
+        in the order of the input vertices, the interior of the polygon is on
+        the left. This allows WKB to represent polygons larger than a
+        hemisphere. See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented],
+        which is similar to `ST_GEOGFROMWKB` with `oriented=TRUE`.
+
+    +   If the value is `FALSE` or omitted, this function returns the polygon
+        with the smaller area.
++   `planar`: A named argument with a `BOOL` literal. If the value
+    is `TRUE`, the edges of the linestrings and polygons are assumed to use
+    planar map semantics, rather than ZetaSQL default spherical
+    geodesics semantics.
++   `make_valid`: A named argument with a `BOOL` literal. If the
+    value is `TRUE`, the function attempts to repair polygons that
+    don't conform to [Open Geospatial Consortium][ogc-link] semantics.
+
+**Details**
+
++   The function does not support three-dimensional geometries that have a `Z`
+    suffix, nor does it support linear referencing system geometries with an `M`
+    suffix.
++   `oriented` and `planar` can't be `TRUE` at the same time.
++   `oriented` and `make_valid` can't be `TRUE` at the same time.
 
 **Return type**
 
 `GEOGRAPHY`
+
+**Example**
+
+The following query reads the hex-encoded WKB data containing
+`LINESTRING(1 1, 3 2)` and uses it with planar and geodesic semantics. When
+planar is used, the function approximates the planar input line using
+line that contains a chain of geodesic segments.
+
+```sql
+WITH wkb_data AS (
+  SELECT '010200000002000000feffffffffffef3f000000000000f03f01000000000008400000000000000040' geo
+)
+SELECT
+  ST_GeogFromWkb(geo, planar=>TRUE) AS from_planar,
+  ST_GeogFromWkb(geo, planar=>FALSE) AS from_geodesic,
+FROM wkb_data
+
+/*---------------------------------------+----------------------*
+ | from_planar                           | from_geodesic        |
+ +---------------------------------------+----------------------+
+ | LINESTRING(1 1, 2 1.5, 2.5 1.75, 3 2) | LINESTRING(1 1, 3 2) |
+ *---------------------------------------+----------------------*/
+```
 
 [wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
 
@@ -18409,17 +18391,53 @@ behavior:
         <a href="#lax_bool"><code>LAX_BOOL</code></a><br>
         
         
+        <a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a><br>
+        
+        
         <a href="#lax_double"><code>LAX_DOUBLE</code></a><br>
+        
+        
+        <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_float"><code>LAX_FLOAT</code></a><br>
+        
+        
+        <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_int32"><code>LAX_INT32</code></a><br>
+        
+        
+        <a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a><br>
         
         
         <a href="#lax_int64"><code>LAX_INT64</code></a><br>
         
         
+        <a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a><br>
+        
+        
         <a href="#lax_string"><code>LAX_STRING</code></a><br>
+        
+        
+        <a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_uint32"><code>LAX_UINT32</code></a><br>
+        
+        
+        <a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a><br>
+        
+        
+        <a href="#lax_uint64"><code>LAX_UINT64</code></a><br>
+        
+        
+        <a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a><br>
         
       </td>
       <td>
-        Functions that flexibly convert a JSON value to a scalar SQL value
+        Functions that flexibly convert a JSON value to an SQL value
         without returning errors.
       </td>
     </tr>
@@ -18432,17 +18450,53 @@ behavior:
         <a href="#bool_for_json"><code>BOOL</code></a><br>
         
         
+        <a href="#bool_array_for_json"><code>BOOL_ARRAY</code></a><br>
+        
+        
         <a href="#double_for_json"><code>DOUBLE</code></a><br>
+        
+        
+        <a href="#double_array_for_json"><code>DOUBLE_ARRAY</code></a><br>
+        
+        
+        <a href="#float_for_json"><code>FLOAT</code></a><br>
+        
+        
+        <a href="#float_array_for_json"><code>FLOAT_ARRAY</code></a><br>
+        
+        
+        <a href="#int32_for_json"><code>INT32</code></a><br>
+        
+        
+        <a href="#int32_array_for_json"><code>INT32_ARRAY</code></a><br>
         
         
         <a href="#int64_for_json"><code>INT64</code></a><br>
         
         
+        <a href="#int64_array_for_json"><code>INT64_ARRAY</code></a><br>
+        
+        
         <a href="#string_for_json"><code>STRING</code></a><br>
+        
+        
+        <a href="#string_array_for_json"><code>STRING_ARRAY</code></a><br>
+        
+        
+        <a href="#uint32_for_json"><code>UINT32</code></a><br>
+        
+        
+        <a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a><br>
+        
+        
+        <a href="#uint64_for_json"><code>UINT64</code></a><br>
+        
+        
+        <a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a><br>
         
       </td>
       <td>
-        Functions that convert a JSON value to a scalar SQL value.
+        Functions that convert a JSON value to a SQL value.
       </td>
     </tr>
     
@@ -18539,6 +18593,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#bool_array_for_json"><code>BOOL</code></a>
+
+</td>
+  <td> Converts a JSON boolean to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td>
   
   <a href="#double_for_json"><code>DOUBLE</code></a>
@@ -18552,12 +18613,65 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    
+      <a href="#double_array_for_json"><code>DOUBLE_ARRAY</code></a>
+
+    
+  </td>
+  <td> Converts a JSON number to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#float_for_json"><code>FLOAT</code></a>
+
+    
+  </td>
+  <td> Converts a JSON number to a SQL <code>FLOAT</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#float_array_for_json"><code>FLOAT_ARRAY</code></a>
+
+    
+  </td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#int32_for_json"><code>INT32</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#int32_array_for_json"><code>INT32_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#int64_for_json"><code>INT64</code></a>
 
 </td>
   <td>
     Converts a JSON number to a SQL <code>INT64</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -18703,6 +18817,13 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#lax_bool_array"><code>LAX_BOOL_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td>
   
   <a href="#lax_double"><code>LAX_DOUBLE</code></a>
@@ -18716,6 +18837,52 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    
+      <a href="#lax_double_array"><code>LAX_DOUBLE_ARRAY</code></a>
+
+    
+  </td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float"><code>LAX_FLOAT</code></a>
+
+    
+  </td>
+  <td>Attempts to convert a JSON value to a SQL <code>FLOAT</code> value.</td>
+</tr>
+
+<tr>
+  <td>
+    
+      <a href="#lax_float_array"><code>LAX_FLOAT_ARRAY</code></a>
+
+    
+  </td>
+  <td> Attempts to convert a JSON value to a SQL <code>ARRAY&gt;FLOAT&lt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32"><code>LAX_INT32</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>INT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_int32_array"><code>LAX_INT32_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT32&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#lax_int64"><code>LAX_INT64</code></a>
 
 </td>
@@ -18725,12 +18892,58 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#lax_int64_array"><code>LAX_INT64_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+</tr>
+
+<tr>
   <td><a href="#lax_string"><code>LAX_STRING</code></a>
 
 </td>
   <td>
     Attempts to convert a JSON value to a SQL <code>STRING</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_string_array"><code>LAX_STRING_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;STRING&gt;</code>value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint32"><code>LAX_UINT32</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint32_array"><code>LAX_UINT32_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64"><code>LAX_UINT64</code></a>
+
+</td>
+  <td>
+    Attempts to convert a JSON value to a SQL <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#lax_uint64_array"><code>LAX_UINT64_ARRAY</code></a>
+
+</td>
+  <td>Attempts to convert a JSON value to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -18753,6 +18966,17 @@ behavior:
 </tr>
 
 <tr>
+  <td>
+    <a href="#string_array_for_json"><code>STRING_ARRAY</code></a>
+
+  </td>
+  <td>
+    Converts a JSON array of strings to a SQL <code>ARRAY&lt;STRING&gt;</code>
+    value.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#to_json"><code>TO_JSON</code></a>
 
 </td>
@@ -18768,6 +18992,38 @@ behavior:
   <td>
     Converts a SQL value to a JSON-formatted <code>STRING</code> value.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_for_json"><code>UINT32</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT32</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint32_array_for_json"><code>UINT32_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT32&gt;</code> value.</td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_for_json"><code>UINT64</code></a>
+
+</td>
+  <td>
+    Converts a JSON number to a SQL <code>UINT64</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#uint64_array_for_json"><code>UINT64_ARRAY</code></a>
+
+</td>
+  <td>Converts a JSON number to a SQL <code>ARRAY&lt;UINT64&gt;</code> value.</td>
 </tr>
 
   </tbody>
@@ -18828,6 +19084,53 @@ The following examples show how invalid requests are handled:
 SELECT BOOL(JSON '123') AS result; -- Throws an error
 SELECT BOOL(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### `BOOL_ARRAY` 
+<a id="bool_array_for_json"></a>
+
+```sql
+BOOL_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON boolean to a SQL `ARRAY<BOOL>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[true]'
+    ```
+
+    If the JSON value is not an array of booleans, an error is produced. If the
+    expression is SQL `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<BOOL>`
+
+**Examples**
+
+```sql
+SELECT BOOL_ARRAY(JSON '[true, false]') AS vacancies;
+
+/*---------------*
+ | vacancies     |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of booleans.
+SELECT BOOL_ARRAY(JSON '[123]') AS result; -- Throws an error
+SELECT BOOL_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
 ### `DOUBLE` 
@@ -18926,6 +19229,398 @@ SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
 SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 ```
 
+### `DOUBLE_ARRAY` 
+<a id="double_array_for_json"></a>
+
+```sql
+DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `ARRAY<DOUBLE>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+    If the JSON value is not an array of numbers, an error is produced. If the
+    expression is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `DOUBLE` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `DOUBLE` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `DOUBLE`. If such rounding is not possible, the
+        function fails.
+
+**Return type**
+
+`ARRAY<DOUBLE>`
+
+**Examples**
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[9, 9.8]') AS velocities;
+
+/*-------------*
+ | velocities  |
+ +-------------+
+ | [9.0, 9.8]  |
+ *-------------*/
+```
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'round') as result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | [1.8446744073709552e+19] |
+ *--------------------------*/
+```
+
+```sql
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]') as result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | [1.8446744073709552e+19] |
+ *--------------------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers.
+SELECT DOUBLE_ARRAY(JSON '["strawberry"]') AS result;
+SELECT DOUBLE_ARRAY(JSON '[null]') AS result;
+SELECT DOUBLE_ARRAY(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
+SELECT DOUBLE_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as result;
+```
+
+### `FLOAT` 
+<a id="float_for_json"></a>
+
+```sql
+FLOAT(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `FLOAT` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '9.8'
+    ```
+
+    If the JSON value is not a number, an error is produced. If the expression
+    is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `FLOAT` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `FLOAT` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `FLOAT`. If such rounding is not possible, the function
+        fails.
+
+**Return type**
+
+`FLOAT`
+
+**Examples**
+
+```sql
+SELECT FLOAT(JSON '9.8') AS velocity;
+
+/*----------*
+ | velocity |
+ +----------+
+ | 9.8      |
+ *----------*/
+```
+
+```sql
+SELECT FLOAT(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
+
+/*---------*
+ | vo2_max |
+ +---------+
+ | 39.1    |
+ *---------*/
+```
+
+```sql
+SELECT FLOAT(JSON '16777217', wide_number_mode=>'round') as result;
+
+/*------------*
+ | result     |
+ +------------+
+ | 16777216.0 |
+ *------------*/
+```
+
+```sql
+SELECT FLOAT(JSON '16777216') as result;
+
+/*------------*
+ | result     |
+ +------------+
+ | 16777216.0 |
+ *------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type FLOAT.
+SELECT FLOAT(JSON '"strawberry"') AS result;
+SELECT FLOAT(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT FLOAT(JSON '123.4', wide_number_mode=>'EXACT') as result;
+SELECT FLOAT(JSON '123.4', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+SELECT FLOAT(JSON '16777217', wide_number_mode=>'exact') as result;
+
+-- Returns a SQL NULL
+SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
+```
+
+### `FLOAT_ARRAY` 
+<a id="float_array_for_json"></a>
+
+```sql
+FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Converts a JSON number to a SQL `ARRAY<FLOAT>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+    If the JSON value is not an array of numbers, an error is produced. If the
+    expression is a SQL `NULL`, the function returns SQL `NULL`.
++   `wide_number_mode`: Optional mandatory-named argument, which defines what
+    happens with a number that cannot be represented as a
+    `FLOAT` without loss of precision. This argument accepts
+    one of the two case-sensitive values:
+
+    +   `exact`: The function fails if the result cannot be represented as a
+        `FLOAT` without loss of precision.
+    +   `round` (default): The numeric value stored in JSON will be rounded to
+        `FLOAT`. If such rounding is not possible, the function
+        fails.
+
+**Return type**
+
+`ARRAY<FLOAT>`
+
+**Examples**
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[9, 9.8]') AS velocities;
+
+/*-------------*
+ | velocities  |
+ +-------------+
+ | [9.0, 9.8]  |
+ *-------------*/
+```
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'round') as result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+```sql
+SELECT FLOAT_ARRAY(JSON '[16777216]') as result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in FLOAT domain.
+SELECT FLOAT_ARRAY(JSON '["strawberry"]') AS result;
+SELECT FLOAT_ARRAY(JSON '[null]') AS result;
+SELECT FLOAT_ARRAY(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'EXACT') as result;
+SELECT FLOAT_ARRAY(JSON '[123.4]', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to FLOAT without loss of precision
+SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'exact') as result;
+```
+
+### `INT32` 
+<a id="int32_for_json"></a>
+
+```sql
+INT32(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `INT32` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`INT32`
+
+**Examples**
+
+```sql
+SELECT INT32(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT INT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT INT32(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT INT32(JSON '10.1') AS result;  -- Throws an error
+SELECT INT32(JSON '"strawberry"') AS result; -- Throws an error
+SELECT INT32(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.INT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `INT32_ARRAY` 
+<a id="int32_array_for_json"></a>
+
+```sql
+INT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT32_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `INT32` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<INT32>`
+
+**Examples**
+
+```sql
+SELECT INT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT INT32_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in INT32 domain.
+SELECT INT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT INT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT INT32_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT INT32_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
 ### `INT64` 
 <a id="int64_for_json"></a>
 
@@ -18993,6 +19688,65 @@ SELECT INT64(JSON '10.1') AS result;  -- Throws an error
 SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `INT64_ARRAY` 
+<a id="int64_array_for_json"></a>
+
+```sql
+INT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `INT64_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `INT64` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Examples**
+
+```sql
+SELECT INT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT INT64_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in INT64 domain.
+SELECT INT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT INT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT INT64_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT INT64_ARRAY(JSON 'null') AS result; -- Throws an error
 ```
 
 ### `JSON_ARRAY`
@@ -21531,6 +22285,145 @@ SELECT LAX_BOOL(JSON '-1.1') AS result;
  *--------*/
 ```
 
+### `LAX_BOOL_ARRAY` 
+<a id="lax_bool_array"></a>
+
+```sql
+LAX_BOOL_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<BOOL>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[true]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;BOOL&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_bool"><code>LAX_BOOL</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<BOOL>`
+
+**Examples**
+
+Example with input that is a JSON array of booleans:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[true, false]') AS result;
+
+/*---------------*
+ | result        |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '["true", "false", "TRue", "FaLse"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [true, false, true, false] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '["true ", "foo", "null", ""]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [NULL, NULL, NULL, NULL |
+ *-------------------------*/
+```
+
+Examples with input that is JSON array of numbers:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[10, 0, 0.0, -1.1]') AS result;
+
+/*--------------------------*
+ | result                   |
+ +--------------------------+
+ | TRUE, FALSE, FALSE, TRUE |
+ *--------------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_BOOL_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_DOUBLE` 
 <a id="lax_double"></a>
 
@@ -21754,6 +22647,972 @@ SELECT LAX_DOUBLE(JSON '"foo"') AS result;
  *--------*/
 ```
 
+### `LAX_DOUBLE_ARRAY` 
+<a id="lax_double_array"></a>
+
+```sql
+LAX_DOUBLE_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<DOUBLE>`
+value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;DOUBLE&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_double"><code>LAX_DOUBLE</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<DOUBLE>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[9.8, 9]') AS result;
+
+/*-------------*
+ | result      |
+ +-------------+
+ | [9.8, 9.0,] |
+ *-------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[9007199254740993, -9007199254740993]') AS result;
+
+/*-------------------------------------------*
+ | result                                    |
+ +-------------------------------------------+
+ | [9007199254740992.0, -9007199254740992.0] |
+ *-------------------------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
+
+/*-----------------------------------------------------*
+ | result                                              |
+ +-----------------------------------------------------+
+ | [-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e+100] |
+ *-----------------------------------------------------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[true, false]') AS result;
+
+/*----------------*
+ | result         |
+ +----------------+
+ | [NULL, NULL]   |
+ *----------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [10.0, 1.1, 110.0, 1.5] |
+ *-------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["9007199254740993"]') AS result;
+
+/*----------------------*
+ | result               |
+ +----------------------+
+ | [9007199254740992.0] |
+ *----------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [NaN, Infinity, -Infinity] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_FLOAT` 
+<a id="lax_float"></a>
+
+```sql
+LAX_FLOAT(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `FLOAT` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '9.8'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>FLOAT</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      <code>NULL</code>
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the result as a
+      <code>FLOAT</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as a
+      <code>FLOAT</code> value.
+      Large JSON numbers are rounded.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`FLOAT`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_FLOAT(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.8    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '9') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 9.0    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '16777217') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 16777216.0         |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_FLOAT(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_FLOAT(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10.0   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.1    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110.0  |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"16777217"') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | 16777216.0         |
+ *--------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1.5    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"NaN"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NaN    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"Inf"') AS result;
+
+/*----------*
+ | result   |
+ +----------+
+ | Infinity |
+ *----------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"-InfiNiTY"') AS result;
+
+/*-----------*
+ | result    |
+ +-----------+
+ | -Infinity |
+ *-----------*/
+```
+
+```sql
+SELECT LAX_FLOAT(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_FLOAT_ARRAY` 
+<a id="lax_float_array"></a>
+
+```sql
+LAX_FLOAT_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<FLOAT>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[9.8, 9]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;FLOAT&gt;</code></th>
+  </tr>
+<tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_float"><code>LAX_FLOAT_ARRAY</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<FLOAT>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[9.8, 9]') AS result;
+
+/*------------*
+ | result     |
+ +------------+
+ | [9.8, 9.0] |
+ *------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[16777217, -16777217]') AS result;
+
+/*---------------------------*
+ | result                    |
+ +---------------------------+
+ | [16777216.0, -16777216.0] |
+ *---------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[-3.40282e+38, 1.17549e-38, 3.40282e+38]') AS result;
+
+/*------------------------------------------*
+ | result                                   |
+ +------------------------------------------+
+ | [-3.40282e+38, 1.17549e-38, 3.40282e+38] |
+ *------------------------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
+
+/*-----------------------*
+ | result                |
+ +-----------------------+
+ | [NULL, 0, NULL, NULL] |
+ *-----------------------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[true, false]') AS result;
+
+/*----------------*
+ | result         |
+ +----------------+
+ | [NULL, NULL]   |
+ *----------------*/
+```
+
+Examples with inputs that are JSON arrays of strings:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-------------------------*
+ | result                  |
+ +-------------------------+
+ | [10.0, 1.1, 110.0, 1.5] |
+ *------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["16777217"]') AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [16777216.0] |
+ *--------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
+
+/*----------------------------*
+ | result                     |
+ +----------------------------+
+ | [NaN, Infinity, -Infinity] |
+ *----------------------------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_FLOAT_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_INT32` 
+<a id="lax_int32"></a>
+
+```sql
+LAX_INT32(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `INT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>INT32</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>INT32</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>INT32</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`INT32`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_INT32(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_INT32(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT32(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_INT32_ARRAY` 
+<a id="lax_int32_array"></a>
+
+```sql
+LAX_INT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<INT32>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;INT32&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_int32"><code>LAX_INT32</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<INT32>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------- ----*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_INT32_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_INT64` 
 <a id="lax_int64"></a>
 
@@ -21966,6 +23825,165 @@ SELECT LAX_INT64(JSON '"foo"') AS result;
  *--------*/
 ```
 
+### `LAX_INT64_ARRAY` 
+<a id="lax_int64_array"></a>
+
+```sql
+LAX_INT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<INT64>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;INT64&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_int64"><code>LAX_INT64</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is JSON array of booleans:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is JSON array of other types:
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_INT64_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
 ### `LAX_STRING` 
 <a id="lax_string"></a>
 
@@ -22101,6 +24119,899 @@ SELECT LAX_STRING(JSON '1e100') AS result;
  | result |
  +--------+
  | 1e+100 |
+ *--------*/
+```
+
+### `LAX_STRING_ARRAY` 
+<a id="lax_string_array"></a>
+
+```sql
+LAX_STRING_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<STRING>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["a", "b"]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>STRING</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_string"><code>LAX_STRING</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+Example with input that is a JSON array of strings:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '["purple", "10"]') AS result;
+
+/*--------------*
+ | result       |
+ +--------------+
+ | [purple, 10] |
+ *--------------*/
+```
+
+Example with input that is a JSON array of booleans:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[true, false]') AS result;
+
+/*---------------*
+ | result        |
+ +---------------+
+ | [true, false] |
+ *---------------*/
+```
+
+Example with input that is a JSON array of numbers:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[10.0, 10, 1e100]') AS result;
+
+/*------------------*
+ | result           |
+ +------------------+
+ | [10, 10, 1e+100] |
+ *------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_STRING_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT32` 
+<a id="lax_uint32"></a>
+
+```sql
+LAX_UINT32(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `UINT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>UINT32</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>UINT32</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>UINT32</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`UINT32`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_UINT32(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '-1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_UINT32(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT32(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT32_ARRAY` 
+<a id="lax_uint32_array"></a>
+
+```sql
+LAX_UINT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<UINT32>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;UINT32&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to
+      <a href="#lax_uint32"><code>LAX_UINT32</code></a>
+      conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<UINT32>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is a JSON array of booleans:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_UINT32_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT64` 
+<a id="lax_uint64"></a>
+
+```sql
+LAX_UINT64(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `UINT64` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>UINT64</code></th>
+  </tr>
+  <tr>
+    <td>boolean</td>
+    <td>
+      If the JSON boolean is <code>true</code>, returns <code>1</code>.
+      If <code>false</code>, returns <code>0</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>string</td>
+    <td>
+      If the JSON string represents a JSON number, parses it as
+      a <code>BIGNUMERIC</code> value, and then safe casts the results as an
+      <code>UINT64</code> value.
+      If the JSON string can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>number</td>
+    <td>
+      Casts the JSON number as an <code>UINT64</code> value.
+      If the JSON number can't be converted, returns <code>NULL</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`UINT64`
+
+**Examples**
+
+Examples with inputs that are JSON numbers:
+
+```sql
+SELECT LAX_UINT64(JSON '10') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '10.0') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1.1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '3.5') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 4      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1.1e2') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '-1') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '1e100') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+Examples with inputs that are JSON booleans:
+
+```sql
+SELECT LAX_UINT64(JSON 'true') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON 'false') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT64(JSON '"10"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1.1"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1.1e2"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 110    |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"+1.5"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | 2      |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"1e100"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64(JSON '"foo"') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+### `LAX_UINT64_ARRAY` 
+<a id="lax_uint64_array"></a>
+
+```sql
+LAX_UINT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Attempts to convert a JSON value to a SQL `ARRAY<UINT64>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
++   See the conversion rules in the next section for additional `NULL` handling.
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th width='200px'>From JSON type</th>
+    <th>To SQL <code>ARRAY&lt;UINT64&gt;</code></th>
+  </tr>
+  <tr>
+    <td>array</td>
+    <td>
+      Converts every element according to <a href="#lax_uint64"><code>LAX_UINT64</code></a> conversion rules.
+    </td>
+  </tr>
+  <tr>
+    <td>other type or null</td>
+    <td><code>NULL</code></td>
+  </tr>
+</table>
+
+**Return type**
+
+`ARRAY<UINT64>`
+
+**Examples**
+
+Examples with inputs that are JSON arrays of numbers:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
+
+/*---------------------*
+ | result              |
+ +---------------------+
+ | [10, 10, 1, 4, 110] |
+ *---------------------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[1e100]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+Example with inputs that is a JSON array of booleans:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[true, false]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [1, 0] |
+ *--------*/
+```
+
+Examples with inputs that are JSON strings:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [10, 1, 110, 2] |
+ *-----------------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["1e100"]') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | [NULL] |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '["foo", "null", ""]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Example with input that is a JSON array of other types:
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
+
+/*--------------------*
+ | result             |
+ +--------------------+
+ | [NULL, NULL, NULL] |
+ *--------------------*/
+```
+
+Examples with inputs that are not JSON arrays:
+
+```sql
+SELECT LAX_UINT64_ARRAY(NULL) AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON 'null') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+```
+
+```sql
+SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
  *--------*/
 ```
 
@@ -22240,6 +25151,53 @@ SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
+### `STRING_ARRAY` 
+<a id="string_array_for_json"></a>
+
+```sql
+STRING_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON array of strings to a SQL `ARRAY<STRING>` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["purple", "blue"]'
+    ```
+
+    If the JSON value is not an array of strings, an error is produced. If the
+    expression is SQL `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+```sql
+SELECT STRING_ARRAY(JSON '["purple", "blue"]') AS colors;
+
+/*----------------*
+ | colors         |
+ +----------------+
+ | [purple, blue] |
+ *----------------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of strings.
+SELECT STRING_ARRAY(JSON '[123]') AS result; -- Throws an error
+SELECT STRING_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
 ### `TO_JSON`
 
 ```sql
@@ -22310,7 +25268,7 @@ In the following example, the query returns a large numerical value as a
 JSON string.
 
 ```sql
-SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on;
 
 /*--------------------*
  | stringify_on       |
@@ -22323,8 +25281,8 @@ In the following example, both queries return a large numerical value as a
 JSON number.
 
 ```sql
-SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
-SELECT TO_JSON(9007199254740993) as stringify_off
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off;
+SELECT TO_JSON(9007199254740993) as stringify_off;
 
 /*------------------*
  | stringify_off    |
@@ -22446,6 +25404,266 @@ FROM CoordinatesTable AS t;
 ```
 
 [json-encodings]: #json_encodings
+
+### `UINT32` 
+<a id="uint32_for_json"></a>
+
+```sql
+UINT32(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT32` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `UINT32` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`UINT32`
+
+**Examples**
+
+```sql
+SELECT UINT32(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT32(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT UINT32(JSON '10.1') AS result;  -- Throws an error
+SELECT UINT32(JSON '-1') AS result;  -- Throws an error
+SELECT UINT32(JSON '"strawberry"') AS result; -- Throws an error
+SELECT UINT32(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.UINT32(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `UINT32_ARRAY` 
+<a id="uint32_array_for_json"></a>
+
+```sql
+UINT32_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT32_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `UINT32` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<UINT32>`
+
+**Examples**
+
+```sql
+SELECT UINT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT UINT32_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in UINT32 domain.
+SELECT UINT32_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT UINT32_ARRAY(JSON '[-1]') AS result;  -- Throws an error
+SELECT UINT32_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT UINT32_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT UINT32_ARRAY(JSON 'null') AS result; -- Throws an error
+```
+
+### `UINT64` 
+<a id="uint64_for_json"></a>
+
+```sql
+UINT64(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT64` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '999'
+    ```
+
+    If the JSON value is not a number, or the JSON number is not in the SQL
+    `UINT64` domain, an error is produced. If the expression is SQL `NULL`, the
+    function returns SQL `NULL`.
+
+**Return type**
+
+`UINT64`
+
+**Examples**
+
+```sql
+SELECT UINT64(JSON '2005') AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
+```
+
+```sql
+SELECT UINT64(JSON '10.0') AS score;
+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT UINT64(JSON '10.1') AS result;  -- Throws an error
+SELECT UINT64(JSON '-1') AS result;  -- Throws an error
+SELECT UINT64(JSON '"strawberry"') AS result; -- Throws an error
+SELECT UINT64(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.UINT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+```
+
+### `UINT64_ARRAY` 
+<a id="uint64_array_for_json"></a>
+
+```sql
+UINT64_ARRAY(json_expr)
+```
+
+**Description**
+
+Converts a JSON number to a SQL `UINT64_ARRAY` value.
+
+Arguments:
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '[999, 12]'
+    ```
+
+    If the JSON value is not an array of numbers, or the JSON numbers are not in
+    the SQL `UINT64` domain, an error is produced. If the expression is SQL
+    `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<UINT64>`
+
+**Examples**
+
+```sql
+SELECT UINT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
+
+/*----------------*
+ | flight_numbers |
+ +----------------+
+ | [2005, 2003]   |
+ *----------------*/
+```
+
+```sql
+SELECT UINT64_ARRAY(JSON '[10.0]') AS scores;
+
+/*--------*
+ | scores |
+ +--------+
+ | [10]   |
+ *--------*/
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not an array of numbers in UINT64 domain.
+SELECT UINT64_ARRAY(JSON '[10.1]') AS result;  -- Throws an error
+SELECT UINT64_ARRAY(JSON '[-1]') AS result;  -- Throws an error
+SELECT UINT64_ARRAY(JSON '["strawberry"]') AS result; -- Throws an error
+SELECT UINT64_ARRAY(JSON '[null]') AS result; -- Throws an error
+SELECT UINT64_ARRAY(JSON 'null') AS result; -- Throws an error
+```
 
 ### JSON encodings 
 <a id="json_encodings"></a>
@@ -22830,7 +26048,7 @@ The following SQL to JSON encodings are supported:
       <td>
         <p>object</p>
         <p>
-          The object can contain zero or more key/value pairs.
+          The object can contain zero or more key-value pairs.
           Each value is formatted according to its type.
         </p>
         <p>
@@ -22863,22 +26081,22 @@ The following SQL to JSON encodings are supported:
       <td>
         <p>object</p>
         <p>
-          The object can contain zero or more key/value pairs.
+          The object can contain zero or more key-value pairs.
           Each value is formatted according to its type.
         </p>
         <p>
-          Field names with underscores are converted to camel-case in accordance
+          Field names with underscores are converted to camel case in accordance
           with
           <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
           protobuf json conversion</a>. Field values are formatted according to
           <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
           protobuf json conversion</a>. If a <code>field_value</code> is a
-          non-empty repeated field or submessage, elements/fields are indented
-          to the appropriate level.
+          non-empty repeated field or submessage, the elements and fields are
+          indented to the appropriate level.
         </p>
         <ul>
           <li>
-            Field names that are not valid UTF-8 might result in unparseable
+            Field names that aren't valid UTF-8 might result in unparseable
             JSON.
           </li>
           <li>Field annotations are ignored.</li>
@@ -23506,15 +26724,8 @@ using the `BYTES` data type. This is an
 aggregate function.
 
 The `precision` argument defines the exactness of the returned approximate
-quantile *q*. By default, the rank of the approximate quantile in the input can
-be at most ±1/1000 * *n* off from ⌈Φ * *n*⌉, where *n* is the number of rows in
-the input and ⌈Φ * *n*⌉ is the rank of the exact quantile. If you provide a
-value for `precision`, the rank of the approximate quantile in the input can be
-at most ±1/`precision` * *n* off from the rank of the exact quantile. The error
-is within this error bound in 99.999% of cases. This error guarantee only
-applies to the difference between exact and approximate ranks: the numerical
-difference between the exact and approximated value for a quantile can be
-arbitrarily large.
+quantile _q_. For more information about precision, see
+[Precision for KLL sketches][precision-kll].
 
 By default, values in an initialized KLL sketch are weighted equally as `1`.
 If you would you like to weight values differently, use the
@@ -23648,6 +26859,8 @@ but accepts `input` of type `DOUBLE`.
 KLL sketch as `BYTES`
 
 [kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
+
+[precision-kll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_kll
 
 [sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
 
@@ -24038,6 +27251,7 @@ All mathematical functions have the following behaviors:
         Distance
       </td>
       <td>
+        
         <a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>&nbsp;&nbsp;
         <a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>&nbsp;&nbsp;
       </td>
@@ -28368,7 +31582,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
   | min | percentile1 | median | percentile90 | max |
   +-----+-------------+--------+--------------+-----+
   | 0   | 0.03        | 1.5    | 2.7          | 3   |
-  *-----+-------------+--------+--------------+-----+
+  *-----+-------------+--------+--------------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -28387,7 +31601,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
  | min  | percentile1 | median | percentile90 | max |
  +------+-------------+--------+--------------+-----+
  | NULL | 0           | 1      | 2.6          | 3   |
- *------+-------------+--------+--------------+-----+
+ *------+-------------+--------+--------------+-----*/
 ```
 
 [dp-functions]: #aggregate-dp-functions
@@ -29965,6 +33179,16 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
+  <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
+
+</td>
+  <td>
+    Gets the enum value descriptor proto
+    (<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#proto_extract"><code>EXTRACT</code></a>
 
 </td>
@@ -30085,6 +33309,57 @@ FROM
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `ENUM_VALUE_DESCRIPTOR_PROTO`
+
+```sql
+ENUM_VALUE_DESCRIPTOR_PROTO(proto_enum)
+```
+
+**Description**
+
+Gets the enum value descriptor proto
+(<code>proto2.EnumValueDescriptorProto</code>) for an enum.
+
+**Definitions**
+
++   `proto_enum`: An `ENUM` value that contains the descriptor to retrieve.
+
+**Return type**
+
+`proto2.EnumValueDescriptorProto PROTO`
+
+**Example**
+
+The following query gets the `ideally_enabled` and `in_development` options from
+the value descriptors in the `LanguageFeature` enum, and then produces query
+results that are based on these value descriptors.
+
+```sql
+WITH
+  EnabledFeatures AS (
+    SELECT CAST(999991 AS zetasql.LanguageFeature) AS feature UNION ALL
+    SELECT CAST(999992 AS zetasql.LanguageFeature) AS feature
+  )
+SELECT
+  CAST(feature AS STRING) AS feature_enum_name,
+  CAST(feature AS INT64) AS feature_enum_id,
+  IFNULL(
+    ENUM_VALUE_DESCRIPTOR_PROTO(feature).options.(zetasql.language_feature_options).ideally_enabled,
+    TRUE) AS feature_is_ideally_enabled,
+  IFNULL(
+    ENUM_VALUE_DESCRIPTOR_PROTO(feature).options.(zetasql.language_feature_options).in_development,
+    FALSE) AS feature_is_in_development
+FROM
+  EnabledFeatures;
+
+/*-------------------------------------------------+-----------------+----------------------------+---------------------------*
+ | feature_enum_name                               | feature_enum_id | feature_is_ideally_enabled | feature_is_in_development |
+ +-------------------------------------------------+-----------------+----------------------------+---------------------------+
+ | FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT | 999991          | TRUE                       | TRUE                      |
+ | FEATURE_TEST_IDEALLY_DISABLED                   | 999992          | FALSE                      | FALSE                     |
+ *-------------------------------------------------+-----------------+----------------------------+---------------------------*/
+```
 
 ### `EXTRACT` 
 <a id="proto_extract"></a>
@@ -30838,7 +34113,8 @@ REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
 **Description**
 
 Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field to be replaced.
+`field_path` is a delimited path to the protocol buffer field that is replaced.
+When using `replace_fields`, the following limitations apply:
 
 + If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
   component of `field_path` is a required field.
@@ -30853,8 +34129,7 @@ Type of `proto_expression`
 
 **Examples**
 
-To illustrate the usage of this function, we use protocol buffer messages
-`Book` and `BookDetails`.
+The following example uses protocol buffer messages `Book` and `BookDetails`.
 
 ```
 message Book {
@@ -30869,7 +34144,7 @@ message BookDetails {
 };
 ```
 
-This statement replaces value of field `title` and subfield `chapters`
+This statement replaces the values of the field `title` and subfield `chapters`
 of proto type `Book`. Note that field `details` must be set for the statement
 to succeed.
 
@@ -30906,7 +34181,7 @@ AS proto;
  *-----------------------------------------------------------------------------*/
 ```
 
-It can set a field to `NULL`.
+The function can also set a field to `NULL`.
 
 ```sql
 SELECT REPLACE_FIELDS(
@@ -34832,7 +38107,10 @@ The `STRING` is formatted as follows:
 
     <td>
       123.0  <em>(always with .0)</em><br/>
-      123e+10<br><code>inf</code><br><code>-inf</code><br><code>NaN</code>
+      123e+10<br/>
+      <code>inf</code><br/>
+      <code>-inf</code><br/>
+      <code>NaN</code>
     </td>
     <td>
       123.0  <em>(always with .0)</em><br/>
@@ -35613,9 +38891,7 @@ WITH items AS
   SELECT 'zzzorangezzz' as item
   UNION ALL
   SELECT 'xyzpearxyz' as item)
-```
 
-```sql
 SELECT
   LTRIM(item, 'xyz') as example
 FROM items;
@@ -37538,7 +40814,8 @@ ZetaSQL supports the following time functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>TIME</code> values.
+    Gets the number of unit boundaries between two <code>TIME</code> values at
+    a particular time granularity.
   </td>
 </tr>
 
@@ -37715,16 +40992,16 @@ each element in `time_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_TIME("%I:%M:%S", "07:30:00")
+SELECT PARSE_TIME("%I:%M:%S", "07:30:00");
 
 -- This produces an error because the seconds element is in different locations.
-SELECT PARSE_TIME("%S:%I:%M", "07:30:00")
+SELECT PARSE_TIME("%S:%I:%M", "07:30:00");
 
 -- This produces an error because one of the seconds elements is missing.
-SELECT PARSE_TIME("%I:%M", "07:30:00")
+SELECT PARSE_TIME("%I:%M", "07:30:00");
 
 -- This works because %T can find all matching elements in time_string.
-SELECT PARSE_TIME("%T", "07:30:00")
+SELECT PARSE_TIME("%T", "07:30:00");
 ```
 
 When using `PARSE_TIME`, keep the following in mind:
@@ -37757,7 +41034,7 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
 ```
 
 ```sql
-SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
+SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
 /*-------------*
  | parsed_time |
@@ -37865,28 +41142,36 @@ SELECT
 ### `TIME_DIFF`
 
 ```sql
-TIME_DIFF(time_expression_a, time_expression_b, part)
+TIME_DIFF(start_time, end_time, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `part` intervals between two
-`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
-`TIME` is earlier than the second one, the output is negative. Throws an error
-if the computation overflows the result type, such as if the difference in
-nanoseconds
-between the two `TIME` objects would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `TIME` values (`end_time` -
+`start_time`) at a particular time granularity.
 
-`TIME_DIFF` supports the following values for `part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
++   `start_time`: The starting `TIME` value.
++   `end_time`: The ending `TIME` value.
++   `granularity`: The time part that represents the granularity.
+    This can be:
+
+    
+    + `NANOSECOND`
+      (if the SQL engine supports it)
+    + `MICROSECOND`
+    + `MILLISECOND`
+    + `SECOND`
+    + `MINUTE`
+    + `HOUR`
+
+**Details**
+
+If `end_time` is earlier than `start_time`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `TIME` values overflows.
 
 **Return Data Type**
 
@@ -38474,7 +41759,8 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 </td>
   <td>
-    Gets the number of intervals between two <code>TIMESTAMP</code> values.
+    Gets the number of unit boundaries between two <code>TIMESTAMP</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -38871,16 +42157,16 @@ each element in `timestamp_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This works because %c can find all matching elements in timestamp_string.
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
@@ -39090,30 +42376,37 @@ SELECT
 ### `TIMESTAMP_DIFF`
 
 ```sql
-TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
+TIMESTAMP_DIFF(end_timestamp, start_timestamp, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `date_part` intervals between two
-timestamps (`timestamp_expression_a` - `timestamp_expression_b`).
-If the first timestamp is earlier than the second one,
-the output is negative. Produces an error if the computation overflows the
-result type, such as if the difference in
-nanoseconds
-between the two timestamps would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `TIMESTAMP` values
+(`end_timestamp` - `start_timestamp`) at a particular time granularity.
 
-`TIMESTAMP_DIFF` supports the following values for `date_part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++   `start_timestamp`: The starting `TIMESTAMP` value.
++   `end_timestamp`: The ending `TIMESTAMP` value.
++   `granularity`: The timestamp part that represents the granularity.
+    This can be:
+
+    
+    + `NANOSECOND`
+      (if the SQL engine supports it)
+    + `MICROSECOND`
+    + `MILLISECOND`
+    + `SECOND`
+    + `MINUTE`
+    + `HOUR`. Equivalent to 60 `MINUTE`s.
+    + `DAY`. Equivalent to 24 `HOUR`s.
+
+**Details**
+
+If `end_timestamp` is earlier than `start_timestamp`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `TIMESTAMP` values overflows.
 
 **Return Data Type**
 
@@ -39145,7 +42438,7 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS ne
  | negative_diff |
  +---------------+
  | -61           |
- *---------------+
+ *---------------*/
 ```
 
 In this example, the result is 0 because only the number of whole specified
@@ -39158,7 +42451,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
  | diff          |
  +---------------+
  | 0             |
- *---------------+
+ *---------------*/
 ```
 
 ### `TIMESTAMP_FROM_UNIX_MICROS`

@@ -17,12 +17,9 @@
 #include "zetasql/analyzer/analyzer_impl.h"
 
 #include <iostream>
-#include <map>
 #include <memory>
 #include <ostream>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include <thread>
 
@@ -38,16 +35,14 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/parse_location.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/validator.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -184,7 +179,8 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
             options.error_message_options(), sql,
             resolver.deprecation_warnings()),
         type_assignments, resolver.undeclared_positional_parameters(),
-        resolver.max_column_id());
+        resolver.max_column_id()
+    );
     ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
                                                type_factory, **output));
   }

@@ -37,7 +37,7 @@ class TypeParameters;
 class ValueContent;
 class ValueProto;
 
-class MapType : public Type {
+class MapType : public ContainerType {
  public:
 #ifndef SWIG
   MapType(const MapType&) = delete;

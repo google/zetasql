@@ -38,7 +38,7 @@ class ParseResumeLocation {
   ParseResumeLocation(const ParseResumeLocation& rhs) {
     *this = rhs;
   }
-  ParseResumeLocation(ParseResumeLocation&& rhs) {
+  ParseResumeLocation(ParseResumeLocation&& rhs) noexcept {
     // This invokes the move assignment operator.
     *this = std::move(rhs);
   }
@@ -59,7 +59,7 @@ class ParseResumeLocation {
     }
     return *this;
   }
-  ParseResumeLocation& operator=(ParseResumeLocation&& rhs) {
+  ParseResumeLocation& operator=(ParseResumeLocation&& rhs) noexcept {
     byte_position_ = rhs.byte_position_;
     allow_resume_ = rhs.allow_resume_;
     const bool point_input_at_storage =

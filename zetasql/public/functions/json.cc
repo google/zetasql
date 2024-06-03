@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/common/json_util.h"
 #include "zetasql/public/functions/convert.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/json_format.h"
@@ -37,6 +38,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/value.h"
 #include "absl/base/optimization.h"
+#include "absl/container/btree_set.h"
 #include "absl/functional/function_ref.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -55,6 +57,7 @@ namespace zetasql {
 namespace functions {
 namespace {
 using json_internal::JSONPathExtractor;
+using json_internal::JsonPathOptions;
 using json_internal::StrictJSONPathIterator;
 using json_internal::StrictJSONPathToken;
 using json_internal::ValidJSONPathIterator;
@@ -1486,6 +1489,123 @@ absl::StatusOr<JSONValue> JsonQueryLax(JSONValueConstRef input,
   ZETASQL_RET_CHECK(path_iterator.GetJsonPathOptions().lax);
   JsonTreeWalker walker(input, &path_iterator);
   ZETASQL_RETURN_IF_ERROR(walker.Process());
+  return walker.ConsumeResult();
+}
+
+namespace {
+
+class JsonKeysTreeWalker {
+ public:
+  JsonKeysTreeWalker(JSONValueConstRef root, const JSONKeysOptions& options)
+      : options_(options) {
+    path_element_stack_.push_back(
+        {.subtree = root, .remaining_depth = options.max_depth, .key = ""});
+  }
+
+  // Processes keys for the provided JSONPath given the JSON tree.
+  void Process();
+
+  // Fetch the resulting keys. In order for the result to be valid must have
+  // called Process().
+  //
+  // Result only valid on first call.
+  std::vector<std::string> ConsumeResult() {
+    std::vector<std::string> keys;
+    keys.reserve(keys_.size());
+    keys.insert(keys.end(), std::make_move_iterator(keys_.begin()),
+                std::make_move_iterator(keys_.end()));
+    keys_.clear();
+    return keys;
+  }
+
+ private:
+  struct StackElement {
+   public:
+    // The current subtree left to process.
+    JSONValueConstRef subtree;
+    int64_t remaining_depth;
+    // The current JSONPath key prefix.
+    std::string key;
+  };
+
+  std::string EscapeKey(absl::string_view key) {
+    std::string escaped_key;
+    // In addition to the normal key escaping, we need to escape the key if
+    // contains a '.'.
+    //
+    // For example:
+    // JSON '{"a.b": {"c": 1}}'
+    // Escaped Key: "\"a.b\".c"
+    if (zetasql::JsonStringNeedsEscaping(key) ||
+        absl::StrContains(key, ".")) {
+      zetasql::JsonEscapeString(key, &escaped_key);
+    } else {
+      escaped_key = key;
+    }
+    return escaped_key;
+  }
+
+  absl::btree_set<std::string> keys_;
+  std::vector<StackElement> path_element_stack_;
+  JSONKeysOptions options_;
+};
+
+void JsonKeysTreeWalker::Process() {
+  while (!path_element_stack_.empty()) {
+    StackElement stack_element = std::move(path_element_stack_.back());
+    path_element_stack_.pop_back();
+    JSONValueConstRef subtree = stack_element.subtree;
+    if (subtree.IsObject()) {
+      int64_t remaining_depth = stack_element.remaining_depth - 1;
+      for (const auto& [key, value] : subtree.GetMembers()) {
+        std::string new_key;
+        if (stack_element.key.empty()) {
+          new_key = EscapeKey(key);
+        } else {
+          new_key = absl::StrCat(stack_element.key, ".", EscapeKey(key));
+        }
+        keys_.insert(new_key);
+        // Continue processing subtree.
+        if (remaining_depth > 0) {
+          path_element_stack_.push_back({.subtree = value,
+                                         .remaining_depth = remaining_depth,
+                                         .key = std::move(new_key)});
+        }
+      }
+    }
+    if (subtree.IsArray() &&
+        options_.path_options != JsonPathOptions::kStrict) {
+      for (const JSONValueConstRef& element : subtree.GetArrayElements()) {
+        if (element.IsObject()) {
+          path_element_stack_.push_back(
+              {.subtree = element,
+               .remaining_depth = stack_element.remaining_depth,
+               .key = stack_element.key});
+        } else if (element.IsArray() &&
+                   options_.path_options == JsonPathOptions::kLaxRecursive) {
+          // If recursive, then process nested arrays.
+          path_element_stack_.push_back(
+              {.subtree = element,
+               .remaining_depth = stack_element.remaining_depth,
+               .key = stack_element.key});
+        }
+        // Nothing left to do.
+      }
+    }
+  }
+}
+
+}  // namespace
+
+absl::StatusOr<std::vector<std::string>> JsonKeys(
+    JSONValueConstRef input, const JSONKeysOptions& options) {
+  // Check for valid arguments.
+  if (options.max_depth <= 0) {
+    return MakeEvalError() << "max_depth must be positive.";
+  }
+
+  JsonKeysTreeWalker walker(input, options);
+  walker.Process();
   return walker.ConsumeResult();
 }
 

@@ -31,12 +31,12 @@ syntax notation rules:
 
 <pre>
 <span class="var">query_statement</span>:
-    <span class="var">query_expr</span>
+  <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
   [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...] ]
   { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <a href="#set_clause"><span class="var">set_operation</span></a> }
-  [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
+  [ <a href="#order_by_clause">ORDER</a> <a href="#order_by_clause">BY</a> <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
   [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
@@ -51,7 +51,6 @@ syntax notation rules:
   [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
   [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
   [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
-
 </pre>
 
 ## `SELECT` statement 
@@ -325,11 +324,11 @@ an explicit or [implicit][implicit-aliases] alias that matches a unique field of
 the named type.
 
 When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
-ordinals, these operators are applied first, on the columns in the `SELECT`
-list, and then the value construction happens last.  This means that `DISTINCT`
-can be applied on the input columns to the value construction, including in
-cases where `DISTINCT` would not be allowed after value construction because
-grouping is not supported on the constructed type.
+ordinals, these operators are first applied on the columns in the `SELECT` list.
+The value construction happens last. This means that `DISTINCT` can be applied
+on the input columns to the value construction, including in
+cases where `DISTINCT` wouldn't be allowed after value construction because
+grouping isn't supported on the constructed type.
 
 The following is an example of a `SELECT AS typename` query.
 
@@ -505,39 +504,46 @@ for the duration of the query, unless you qualify the table name, for example:
 <pre>
 <span class="var">unnest_operator</span>:
   {
-    <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> )
-    | UNNEST( <span class="var">array_path</span> )
-    | <span class="var">array_path</span>
+    <a href="#unnest">UNNEST</a>( <span class="var">array</span> ) [ <span class="var">as_alias</span> ]
+    | <span class="var">array_path</span> [ <span class="var">as_alias</span> ]
   }
-  [ <span class="var">as_alias</span> ]
   [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
+
+<span class="var">array</span>:
+  { <span class="var">array_expression</span> | <span class="var">array_path</span> }
 
 <span class="var">as_alias</span>:
   [AS] <span class="var">alias</span>
 </pre>
 
-The `UNNEST` operator takes an array and returns a table, with one row for each
-element in the array. For input arrays of most element types, the output of
-`UNNEST` generally has one column. `ARRAYS` with these element types return
-multiple columns:
+The `UNNEST` operator takes an array and returns a table with one row for each
+element in the array. The output of `UNNEST` is one [value table][value-tables] column.
+For these `ARRAY` element types, `SELECT *` against the value table column
+returns multiple columns:
 
 + `STRUCT`
 + `PROTO`
-+ `JSON`
 
 Input values:
 
 + `array_expression`: An expression that produces an array.
-+ `table_name`: The name of a table.
 + `array_path`: The path to an `ARRAY` or
-  non-`ARRAY` type, using the
-  [array elements field access operation][array-el-field-operator].`array_path`
-  must be prepended with a table in an implicit `UNNEST` operation,
-  but otherwise is optional.
+  non-`ARRAY` type, which may or may not contain a flattening operation, using the
+  [array elements field access operation][array-el-field-operator].
+    + In an implicit `UNNEST` operation, the path
+      must
+      start with
+      a
+      [range variable][range-variables] name.
+    + In an explicit `UNNEST` operation, the path can optionally start with a
+      [range variable][range-variables] name.
 
-  The `UNNEST` operation with a [correlated][correlated-join] `array_path` must
+  The `UNNEST` operation with any [correlated][correlated-join] `array_path` must
   be on the right side of a `CROSS JOIN`, `LEFT JOIN`, or
   `INNER JOIN` operation.
++ `as_alias`: If specified, defines the explicit name of the value table
+  column containing the array element values. It can be used to refer to
+  the column elsewhere in the query.
 + `WITH OFFSET`: `UNNEST` destroys the order of elements in the input
   array. Use this optional clause to return an additional column with
   the array element indexes, or _offsets_. Offset counting starts at zero for
@@ -560,10 +566,6 @@ Input values:
   ```
 
   
-+ `alias`: An alias for a value table. An input array that produces a
-  single column can have an optional alias, which you can use to refer to the
-  column elsewhere in the query. You can also use an additional alias with the
-  `WITH OFFSET` clause to rename the `offset` column.
 
 You can also use `UNNEST` outside of the `FROM` clause with the
 [`IN` operator][in-operator].
@@ -656,7 +658,7 @@ FROM UNNEST(
  *-------------------------+--------+----------------------------------*/
 ```
 
-As with structs, you can alias `UNNEST` here to define a range variable. You
+As with structs, you can alias `UNNEST` to define a range variable. You
 can reference this alias in the `SELECT` list to return a value table where each
 row is a protocol buffer element from the array.
 
@@ -1026,7 +1028,8 @@ UNPIVOT(
  *---------+------------------+-------------------+------------*/
 ```
 
-## `TABLESAMPLE` operator
+## `TABLESAMPLE` operator 
+<a id="tablesample_operator"></a>
 
 <pre>
 tablesample_clause:
@@ -1698,11 +1701,47 @@ cross join operation.
 #### `ON` clause 
 <a id="on_clause"></a>
 
-A combined row (the result of joining two rows) meets the `ON` join condition
-if join condition returns `TRUE`.
+```sql
+ON bool_expression
+```
+
+**Description**
+
+Given a row from each table, if the `ON` clause evaluates to `TRUE`, the query
+generates a consolidated row with the result of combining the given rows.
+
+Definitions:
+
++ `bool_expression`: The boolean expression that specifies the condition for
+  the join. This is frequently a [comparison operation][comparison-operators] or
+  logical combination of comparison operators.
+
+Details:
+
+Similarly to `CROSS JOIN`, `ON` produces a column once for each column in each
+input table.
+
+A `NULL` join condition evaluation is equivalent to a `FALSE` evaluation.
+
+If a column-order sensitive operation such as `UNION` or `SELECT *` is used
+with the `ON` join condition, the resulting table contains all of the columns
+from the left-hand input in order, and then all of the columns from the
+right-hand input in order.
+
+**Examples**
+
+The following examples show how to use the `ON` clause:
 
 ```sql
-FROM A JOIN B ON A.x = B.x
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT * FROM A INNER JOIN B ON A.x = B.x;
+
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT A.x, B.x FROM A INNER JOIN B ON A.x = B.x;
 
 /*
 Table A   Table B   Result (A.x, B.x)
@@ -1716,57 +1755,281 @@ Table A   Table B   Result (A.x, B.x)
 */
 ```
 
-**Example**
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT * FROM A LEFT OUTER JOIN B ON A.x = B.x;
 
-This query performs an `INNER JOIN` on the
-[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT A.x, B.x FROM A LEFT OUTER JOIN B ON A.x = B.x;
+
+/*
+Table A    Table B   Result
++------+   +---+     +-------------+
+| x    | * | x |  =  | x    | x    |
++------+   +---+     +-------------+
+| 1    |   | 2 |     | 1    | NULL |
+| 2    |   | 3 |     | 2    | 2    |
+| 3    |   | 4 |     | 3    | 3    |
+| NULL |   | 5 |     | NULL | NULL |
++------+   +---+     +-------------+
+*/
+```
 
 ```sql
-SELECT Roster.LastName, TeamMascot.Mascot
-FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT * FROM A FULL OUTER JOIN B ON A.x = B.x;
 
-/*---------------------------*
- | LastName   | Mascot       |
- +---------------------------+
- | Adams      | Jaguars      |
- | Buchanan   | Lakers       |
- | Coolidge   | Lakers       |
- | Davis      | Knights      |
- *---------------------------*/
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT A.x, B.x FROM A FULL OUTER JOIN B ON A.x = B.x;
+
+/*
+Table A    Table B   Result
++------+   +---+     +-------------+
+| x    | * | x |  =  | x    | x    |
++------+   +---+     +-------------+
+| 1    |   | 2 |     | 1    | NULL |
+| 2    |   | 3 |     | 2    | 2    |
+| 3    |   | 4 |     | 3    | 3    |
+| NULL |   | 5 |     | NULL | NULL |
++------+   +---+     | NULL | 4    |
+                     | NULL | 5    |
+                     +-------------+
+*/
 ```
 
 #### `USING` clause 
 <a id="using_clause"></a>
 
-The `USING` clause requires a column list of one or more columns which
-occur in both input tables. It performs an equality comparison on that column,
-and the rows meet the join condition if the equality comparison returns `TRUE`.
-
 ```sql
-FROM A JOIN B USING (x)
+USING ( column_name_list )
 
-/*
-Table A   Table B   Result
-+---+     +---+     +---+
-| x |  *  | x |  =  | x |
-+---+     +---+     +---+
-| 1 |     | 2 |     | 2 |
-| 2 |     | 3 |     | 3 |
-| 3 |     | 4 |     +---+
-+---+     +---+
-*/
+column_name_list:
+    column_name[, ...]
 ```
 
-**NOTE**: The `USING` keyword is not supported in
+**Description**
+
+When you are joining two tables, `USING` performs an
+[equality comparison operation][comparison-operators] on the columns named in
+`column_name_list`. Each column name in `column_name_list` must appear in both
+input tables. For each pair of rows from the input tables, if the
+equality comparisons all evaluate to `TRUE`, one row is added to the resulting
+column.
+
+Definitions:
+
++ `column_name_list`: A list of columns to include in the join condition.
++ `column_name`: The column that exists in both of the tables that you are
+  joining.
+
+Details:
+
+The `USING` keyword is not supported in
 strict
 mode.
 
-**Example**
+A `NULL` join condition evaluation is equivalent to a `FALSE` evaluation.
 
-This query performs an `INNER JOIN` on the
+If a column-order sensitive operation such as `UNION` or `SELECT *` is used
+with the `USING` join condition, the resulting table contains columns in this
+order:
+
++ The columns from `column_name_list` in the order they appear in the
+  `USING` clause.
++ All other columns of the left-hand input in the order they appear in the
+  input.
++ All other columns of the right-hand input in the order they appear in the
+  input.
+
+A column name in the `USING` clause must not be qualified by a
+table name.
+
+If the join is an `INNER JOIN` or a `LEFT OUTER JOIN`, the output
+columns are populated from the values in the first table. If the
+join is a `RIGHT OUTER JOIN`, the output columns are populated from the values
+in the second table. If the join is a `FULL OUTER JOIN`, the output columns
+are populated by [coalescing][coalesce] the values from the left and right
+tables in that order.
+
+**Examples**
+
+The following example shows how to use the `USING` clause with one
+column name in the column name list:
+
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
+SELECT * FROM A INNER JOIN B USING (x);
+
+/*
+Table A    Table B   Result
++------+   +---+     +---+
+| x    | * | x |  =  | x |
++------+   +---+     +---+
+| 1    |   | 2 |     | 2 |
+| 2    |   | 9 |     | 9 |
+| 9    |   | 9 |     | 9 |
+| NULL |   | 5 |     +---+
++------+   +---+
+*/
+```
+
+The following example shows how to use the `USING` clause with
+multiple column names in the column name list:
+
+```sql
+WITH
+  A AS (
+    SELECT 1 as x, 15 as y UNION ALL
+    SELECT 2, 10 UNION ALL
+    SELECT 9, 16 UNION ALL
+    SELECT NULL, 12),
+  B AS (
+    SELECT 2 as x, 10 as y UNION ALL
+    SELECT 9, 17 UNION ALL
+    SELECT 9, 16 UNION ALL
+    SELECT 5, 15)
+SELECT * FROM A INNER JOIN B USING (x, y);
+
+/*
+Table A         Table B        Result
++-----------+   +---------+     +---------+
+| x    | y  | * | x  | y  |  =  | x  | y  |
++-----------+   +---------+     +---------+
+| 1    | 15 |   | 2  | 10 |     | 2  | 10 |
+| 2    | 10 |   | 9  | 17 |     | 9  | 16 |
+| 9    | 16 |   | 9  | 16 |     +---------+
+| NULL | 12 |   | 5  | 15 |
++-----------+   +---------+
+*/
+```
+
+The following examples show additional ways in which to use the `USING` clause
+with one column name in the column name list:
+
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
+SELECT x, A.x, B.x FROM A INNER JOIN B USING (x)
+
+/*
+Table A    Table B   Result
++------+   +---+     +--------------------+
+| x    | * | x |  =  | x    | A.x  | B.x  |
++------+   +---+     +--------------------+
+| 1    |   | 2 |     | 2    | 2    | 2    |
+| 2    |   | 9 |     | 9    | 9    | 9    |
+| 9    |   | 9 |     | 9    | 9    | 9    |
+| NULL |   | 5 |     +--------------------+
++------+   +---+
+*/
+```
+
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 9 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
+SELECT x, A.x, B.x FROM A LEFT OUTER JOIN B USING (x)
+
+/*
+Table A    Table B   Result
++------+   +---+     +--------------------+
+| x    | * | x |  =  | x    | A.x  | B.x  |
++------+   +---+     +--------------------+
+| 1    |   | 2 |     | 1    | 1    | NULL |
+| 2    |   | 9 |     | 2    | 2    | 2    |
+| 9    |   | 9 |     | 9    | 9    | 9    |
+| NULL |   | 5 |     | 9    | 9    | 9    |
++------+   +---+     | NULL | NULL | NULL |
+                     +--------------------+
+*/
+```
+
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 2 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
+SELECT x, A.x, B.x FROM A RIGHT OUTER JOIN B USING (x)
+
+/*
+Table A    Table B   Result
++------+   +---+     +--------------------+
+| x    | * | x |  =  | x    | A.x  | B.x  |
++------+   +---+     +--------------------+
+| 1    |   | 2 |     | 2    | 2    | 2    |
+| 2    |   | 9 |     | 2    | 2    | 2    |
+| 2    |   | 9 |     | 9    | NULL | 9    |
+| NULL |   | 5 |     | 9    | NULL | 9    |
++------+   +---+     | 5    | NULL | 5    |
+                     +--------------------+
+*/
+```
+
+```sql
+WITH
+  A AS ( SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 2 UNION ALL SELECT NULL),
+  B AS ( SELECT 2 as x UNION ALL SELECT 9 UNION ALL SELECT 9 UNION ALL SELECT 5)
+SELECT x, A.x, B.x FROM A FULL OUTER JOIN B USING (x);
+
+/*
+Table A    Table B   Result
++------+   +---+     +--------------------+
+| x    | * | x |  =  | x    | A.x  | B.x  |
++------+   +---+     +--------------------+
+| 1    |   | 2 |     | 1    | 1    | NULL |
+| 2    |   | 9 |     | 2    | 2    | 2    |
+| 2    |   | 9 |     | 2    | 2    | 2    |
+| NULL |   | 5 |     | NULL | NULL | NULL |
++------+   +---+     | 9    | NULL | 9    |
+                     | 9    | NULL | 9    |
+                     | 5    | NULL | 5    |
+                     +--------------------+
+*/
+```
+
+The following example shows how to use the `USING` clause with
+only some column names in the column name list.
+
+```sql
+WITH
+  A AS (
+    SELECT 1 as x, 15 as y UNION ALL
+    SELECT 2, 10 UNION ALL
+    SELECT 9, 16 UNION ALL
+    SELECT NULL, 12),
+  B AS (
+    SELECT 2 as x, 10 as y UNION ALL
+    SELECT 9, 17 UNION ALL
+    SELECT 9, 16 UNION ALL
+    SELECT 5, 15)
+SELECT * FROM A INNER JOIN B USING (x);
+
+/*
+Table A         Table B         Result
++-----------+   +---------+     +-----------------+
+| x    | y  | * | x  | y  |  =  | x   | A.y | B.y |
++-----------+   +---------+     +-----------------+
+| 1    | 15 |   | 2  | 10 |     | 2   | 10  | 10  |
+| 2    | 10 |   | 9  | 17 |     | 9   | 16  | 17  |
+| 9    | 16 |   | 9  | 16 |     | 9   | 16  | 16  |
+| NULL | 12 |   | 5  | 15 |     +-----------------+
++-----------+   +---------+
+*/
+```
+
+The following query performs an `INNER JOIN` on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
-
-This statement returns the rows from `Roster` and `TeamMascot` where
+The query returns the rows from `Roster` and `TeamMascot` where
 `Roster.SchoolID` is the same as `TeamMascot.SchoolID`. The results include a
 single `SchoolID` column.
 
@@ -1783,14 +2046,26 @@ SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
  *----------------------------------------*/
 ```
 
-### `ON` and `USING` equivalency
+#### `ON` and `USING` equivalency
 
-The `ON` and `USING` keywords are not equivalent, but they are similar.
-`ON` returns multiple columns, and `USING` returns one.
+The [`ON`][on-clause] and [`USING`][using-clause] join conditions are not
+equivalent, but they share some rules and sometimes they can produce similar
+results.
+
+In the following examples, observe what is returned when all rows
+are produced for inner and outer joins. Also, look at how
+each join condition handles `NULL` values.
 
 ```sql
-FROM A JOIN B ON A.x = B.x
-FROM A JOIN B USING (x)
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT * FROM A INNER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT * FROM A INNER JOIN B USING (x);
 
 /*
 Table A   Table B   Result ON     Result USING
@@ -1804,22 +2079,188 @@ Table A   Table B   Result ON     Result USING
 */
 ```
 
-Although `ON` and `USING` are not equivalent, they can return the same results
-if you specify the columns you want to return.
-
 ```sql
-SELECT x FROM A JOIN B USING (x);
-SELECT A.x FROM A JOIN B ON A.x = B.x;
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT * FROM A LEFT OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT * FROM A LEFT OUTER JOIN B USING (x);
 
 /*
-Table A   Table B   Result
-+---+     +---+     +---+
-| x |  *  | x |  =  | x |
-+---+     +---+     +---+
-| 1 |     | 2 |     | 2 |
-| 2 |     | 3 |     | 3 |
-| 3 |     | 4 |     +---+
-+---+     +---+
+Table A    Table B   Result ON           Result USING
++------+   +---+     +-------------+     +------+
+| x    | * | x |  =  | x    | x    |     | x    |
++------+   +---+     +-------------+     +------+
+| 1    |   | 2 |     | 1    | NULL |     | 1    |
+| 2    |   | 3 |     | 2    | 2    |     | 2    |
+| 3    |   | 4 |     | 3    | 3    |     | 3    |
+| NULL |   | 5 |     | NULL | NULL |     | NULL |
++------+   +---+     +-------------+     +------+
+*/
+```
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT * FROM A FULL OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4)
+SELECT * FROM A FULL OUTER JOIN B USING (x);
+
+/*
+Table A   Table B   Result ON           Result USING
++---+     +---+     +-------------+     +---+
+| x |  *  | x |  =  | x    | x    |     | x |
++---+     +---+     +-------------+     +---+
+| 1 |     | 2 |     | 1    | NULL |     | 1 |
+| 2 |     | 3 |     | 2    | 2    |     | 2 |
+| 3 |     | 4 |     | 3    | 3    |     | 3 |
++---+     +---+     | NULL | 4    |     | 4 |
+                    +-------------+     +---+
+*/
+```
+
+Although `ON` and `USING` are not equivalent, they can return the same
+results in some situations if you specify the columns you want to return.
+
+In the following examples, observe what is returned when a specific row
+is produced for inner and outer joins. Also, look at how each
+join condition handles `NULL` values.
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT A.x FROM A INNER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT x FROM A INNER JOIN B USING (x);
+
+/*
+Table A    Table B   Result ON     Result USING
++------+   +---+     +---+         +---+
+| x    | * | x |  =  | x |         | x |
++------+   +---+     +---+         +---+
+| 1    |   | 2 |     | 2 |         | 2 |
+| 2    |   | 3 |     | 3 |         | 3 |
+| 3    |   | 4 |     +---+         +---+
+| NULL |   | 5 |
++------+   +---+
+*/
+```
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT A.x FROM A LEFT OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT x FROM A LEFT OUTER JOIN B USING (x);
+
+/*
+Table A    Table B   Result ON    Result USING
++------+   +---+     +------+     +------+
+| x    | * | x |  =  | x    |     | x    |
++------+   +---+     +------+     +------+
+| 1    |   | 2 |     | 1    |     | 1    |
+| 2    |   | 3 |     | 2    |     | 2    |
+| 3    |   | 4 |     | 3    |     | 3    |
+| NULL |   | 5 |     | NULL |     | NULL |
++------+   +---+     +------+     +------+
+*/
+```
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT A.x FROM A FULL OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT x FROM A FULL OUTER JOIN B USING (x);
+
+/*
+Table A    Table B   Result ON    Result USING
++------+   +---+     +------+     +------+
+| x    | * | x |  =  | x    |     | x    |
++------+   +---+     +------+     +------+
+| 1    |   | 2 |     | 1    |     | 1    |
+| 2    |   | 3 |     | 2    |     | 2    |
+| 3    |   | 4 |     | 3    |     | 3    |
+| NULL |   | 5 |     | NULL |     | NULL |
++------+   +---+     | NULL |     | 4    |
+                     | NULL |     | 5    |
+                     +------+     +------+
+*/
+```
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT B.x FROM A FULL OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT x FROM A FULL OUTER JOIN B USING (x);
+
+/*
+Table A    Table B   Result ON    Result USING
++------+   +---+     +------+     +------+
+| x    | * | x |  =  | x    |     | x    |
++------+   +---+     +------+     +------+
+| 1    |   | 2 |     | 2    |     | 1    |
+| 2    |   | 3 |     | 3    |     | 2    |
+| 3    |   | 4 |     | NULL |     | 3    |
+| NULL |   | 5 |     | NULL |     | NULL |
++------+   +---+     | 4    |     | 4    |
+                     | 5    |     | 5    |
+                     +------+     +------+
+*/
+```
+
+In the following example, observe what is returned when `COALESCE` is used
+with the `ON` clause. It provides the same results as a query
+with the `USING` clause.
+
+```sql
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT COALESCE(A.x, B.x) FROM A FULL OUTER JOIN B ON A.x = B.x;
+
+WITH
+  A AS (SELECT 1 as x UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT NULL),
+  B AS (SELECT 2 as x UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+SELECT x FROM A FULL OUTER JOIN B USING (x);
+
+/*
+Table A    Table B   Result ON    Result USING
++------+   +---+     +------+     +------+
+| x    | * | x |  =  | x    |     | x    |
++------+   +---+     +------+     +------+
+| 1    |   | 2 |     | 1    |     | 1    |
+| 2    |   | 3 |     | 2    |     | 2    |
+| 3    |   | 4 |     | 3    |     | 3    |
+| NULL |   | 5 |     | NULL |     | NULL |
++------+   +---+     | 4    |     | 4    |
+                     | 5    |     | 5    |
+                     +------+     +------+
 */
 ```
 
@@ -3650,8 +4091,8 @@ this example.
 <a id="set_op_results_specific_cols"></a>
 
 To produce results for only specific columns, use the optional `BY` clause
-with the `CORRESPONDING` set operation. In the following example, only results
-for `fruit` is produced:
+with the `CORRESPONDING` set operation. In the following example, the only
+results produced are for `fruit`:
 
 ```sql
 WITH
@@ -3673,7 +4114,7 @@ SELECT * FROM Produce1 UNION ALL CORRESPONDING BY (fruit) SELECT * FROM Produce2
 With the `CORRESPONDING` set operation, only columns appearing in both
 input queries are preserved and all other columns are removed from the results.
 
-In the following example, The columns `extra_col1` and `extra_col2` are dropped
+In the following example, the columns `extra_col1` and `extra_col2` are dropped
 as they only occur in one input query.
 
 ```sql
@@ -3753,7 +4194,7 @@ SELECT * FROM Produce2;
  +--------+------------*/
 ```
 
-## `LIMIT` and `OFFSET` clauses 
+## `LIMIT` and `OFFSET` clause 
 <a id="limit_and_offset_clause"></a>
 
 ```sql
@@ -3789,6 +4230,9 @@ these clauses are used after `ORDER BY`.
 
 A constant expression can be represented by a general expression, literal, or
 parameter value.
+
+Note: Although the `LIMIT` clause limits the rows that a query produces, it
+does not limit the amount of data processed by that query.
 
 **Examples**
 
@@ -5204,8 +5648,11 @@ In ZetaSQL, a range variable is a table expression alias in the
 range variable lets you reference rows being scanned from a table expression.
 A table expression represents an item in the `FROM` clause that returns a table.
 Common items that this expression can represent include
-tables, [value tables][value-tables], [subqueries][subquery-concepts],
-[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and [parenthesized joins][query-joins].
+tables,
+[value tables][value-tables],
+[subqueries][subquery-concepts],
+[table value functions (TVFs)][tvf-concepts],
+[joins][query-joins], and [parenthesized joins][query-joins].
 
 In general, a range variable provides a reference to the rows of a table
 expression. A range variable can be used to qualify a column reference and
@@ -5666,6 +6113,8 @@ Results:
 
 [explicit-implicit-unnest]: #explicit_implicit_unnest
 
+[range-variables]: #range_variables
+
 [group-by-groupable-item]: #group_by_grouping_item
 
 [group-by-values]: #group_by_values
@@ -5736,6 +6185,8 @@ Results:
 
 [field-access-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
 
+[comparison-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#comparison_operators
+
 [proto-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
 [flattening-trees-into-table]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_table
@@ -5767,6 +6218,8 @@ Results:
 [dp-define-privacy-unit-id]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_define_privacy_unit_id
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+
+[coalesce]: https://github.com/google/zetasql/blob/master/docs/conditional_expressions.md#coalesce
 
 <!-- mdlint on -->
 

@@ -436,71 +436,65 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#16]
 [UNPARSED_SQL]
 SELECT
-  projectscan_22.a_20 AS a_20,
-  projectscan_22.a_21 AS a_21
+  a_19.arr0 AS a_20,
+  a_19.arr1 AS a_21
 FROM
-  (
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("PAD" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
     SELECT
-      a_19.arr0 AS a_20,
-      a_19.arr1 AS a_21
+      STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
     FROM
-      UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
-      INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL,
-        ERROR("UNNEST does not allow NULL mode argument"), CAST("PAD" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
-        CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
-          a_16)), ARRAY(
+      (
         SELECT
-          STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+          filterscan_12.a_2 AS a_2,
+          filterscan_12.a_3 AS a_3,
+          filterscan_12.a_6 AS a_6,
+          filterscan_12.a_7 AS a_7,
+          filterscan_12.a_9 AS a_9
         FROM
           (
             SELECT
-              filterscan_12.a_2 AS a_2,
-              filterscan_12.a_3 AS a_3,
-              filterscan_12.a_6 AS a_6,
-              filterscan_12.a_7 AS a_7,
-              filterscan_12.a_9 AS a_9
+              projectscan_10.a_2 AS a_2,
+              projectscan_10.a_3 AS a_3,
+              projectscan_10.a_6 AS a_6,
+              projectscan_10.a_7 AS a_7,
+              projectscan_10.a_9 AS a_9
             FROM
               (
                 SELECT
-                  projectscan_10.a_2 AS a_2,
-                  projectscan_10.a_3 AS a_3,
-                  projectscan_10.a_6 AS a_6,
-                  projectscan_10.a_7 AS a_7,
-                  projectscan_10.a_9 AS a_9
+                  arrayscan_4.a_2 AS a_2,
+                  arrayscan_4.a_3 AS a_3,
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
                 FROM
                   (
                     SELECT
-                      arrayscan_4.a_2 AS a_2,
-                      arrayscan_4.a_3 AS a_3,
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+                      a_2 AS a_2,
+                      a_3 AS a_3
                     FROM
-                      (
-                        SELECT
-                          a_2 AS a_2,
-                          a_3 AS a_3
-                        FROM
-                          UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
-                      ) AS arrayscan_4
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
-                  ) AS projectscan_10
-                WHERE
-                  (projectscan_10.a_9) < a_11
-              ) AS filterscan_12
-            ORDER BY filterscan_12.a_9
-          ) AS orderbyscan_13
-      )) AS a_19)
-  ) AS projectscan_22;
+                      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+                  ) AS arrayscan_4
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_6 AS a_6,
+                      a_7 AS a_7
+                    FROM
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+              ) AS projectscan_10
+            WHERE
+              (projectscan_10.a_9) < a_11
+          ) AS filterscan_12
+        ORDER BY filterscan_12.a_9
+      ) AS orderbyscan_13
+  )) AS a_19);
 --
 ALTERNATION GROUP: 0.05
 --
@@ -685,71 +679,65 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#16]
 [UNPARSED_SQL]
 SELECT
-  projectscan_22.a_20 AS a_20,
-  projectscan_22.a_21 AS a_21
+  a_19.arr0 AS a_20,
+  a_19.arr1 AS a_21
 FROM
-  (
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
     SELECT
-      a_19.arr0 AS a_20,
-      a_19.arr1 AS a_21
+      STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
     FROM
-      UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
-      INT64 >[2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
-        ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
-        CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
-          a_16)), ARRAY(
+      (
         SELECT
-          STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+          filterscan_12.a_2 AS a_2,
+          filterscan_12.a_3 AS a_3,
+          filterscan_12.a_6 AS a_6,
+          filterscan_12.a_7 AS a_7,
+          filterscan_12.a_9 AS a_9
         FROM
           (
             SELECT
-              filterscan_12.a_2 AS a_2,
-              filterscan_12.a_3 AS a_3,
-              filterscan_12.a_6 AS a_6,
-              filterscan_12.a_7 AS a_7,
-              filterscan_12.a_9 AS a_9
+              projectscan_10.a_2 AS a_2,
+              projectscan_10.a_3 AS a_3,
+              projectscan_10.a_6 AS a_6,
+              projectscan_10.a_7 AS a_7,
+              projectscan_10.a_9 AS a_9
             FROM
               (
                 SELECT
-                  projectscan_10.a_2 AS a_2,
-                  projectscan_10.a_3 AS a_3,
-                  projectscan_10.a_6 AS a_6,
-                  projectscan_10.a_7 AS a_7,
-                  projectscan_10.a_9 AS a_9
+                  arrayscan_4.a_2 AS a_2,
+                  arrayscan_4.a_3 AS a_3,
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
                 FROM
                   (
                     SELECT
-                      arrayscan_4.a_2 AS a_2,
-                      arrayscan_4.a_3 AS a_3,
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+                      a_2 AS a_2,
+                      a_3 AS a_3
                     FROM
-                      (
-                        SELECT
-                          a_2 AS a_2,
-                          a_3 AS a_3
-                        FROM
-                          UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
-                      ) AS arrayscan_4
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
-                  ) AS projectscan_10
-                WHERE
-                  (projectscan_10.a_9) < a_11
-              ) AS filterscan_12
-            ORDER BY filterscan_12.a_9
-          ) AS orderbyscan_13
-      )) AS a_19)
-  ) AS projectscan_22;
+                      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+                  ) AS arrayscan_4
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_6 AS a_6,
+                      a_7 AS a_7
+                    FROM
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+              ) AS projectscan_10
+            WHERE
+              (projectscan_10.a_9) < a_11
+          ) AS filterscan_12
+        ORDER BY filterscan_12.a_9
+      ) AS orderbyscan_13
+  )) AS a_19);
 ==
 
 # `mode` argument that is a non-literal only works if it has ARRAY_ZIP_MODE as
@@ -1493,73 +1481,66 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#17]
 [UNPARSED_SQL]
 SELECT
-  projectscan_23.a_20 AS a_20,
-  projectscan_23.a_21 AS a_21,
-  projectscan_23.a_22 AS off
+  a_19.arr0 AS a_20,
+  a_19.arr1 AS a_21,
+  a_19.offset AS off
 FROM
-  (
+  UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
+  INT64 >[1, 2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
+    ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
+    CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
+      a_16)), ARRAY(
     SELECT
-      a_19.arr0 AS a_20,
-      a_19.arr1 AS a_21,
-      a_19.offset AS a_22
+      STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
     FROM
-      UNNEST(WITH(a_1 AS ARRAY< INT64 >[1, 2], a_15 AS `IF`((a_1) IS NULL, 0, ARRAY_LENGTH(a_1)), a_5 AS ARRAY<
-      INT64 >[1, 2], a_16 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_17 AS `IF`(CAST("STRICT" AS ARRAY_ZIP_MODE) IS NULL,
-        ERROR("UNNEST does not allow NULL mode argument"), CAST("STRICT" AS ARRAY_ZIP_MODE)), a_18 AS `IF`((a_17 =
-        CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_15, a_16)) != (GREATEST(a_15, a_16))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_11 AS `IF`(a_17 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_15, a_16), GREATEST(a_15,
-          a_16)), ARRAY(
+      (
         SELECT
-          STRUCT< arr0 INT64, arr1 INT64, offset INT64 > (orderbyscan_13.a_2, orderbyscan_13.a_6, orderbyscan_13.a_9) AS a_14
+          filterscan_12.a_2 AS a_2,
+          filterscan_12.a_3 AS a_3,
+          filterscan_12.a_6 AS a_6,
+          filterscan_12.a_7 AS a_7,
+          filterscan_12.a_9 AS a_9
         FROM
           (
             SELECT
-              filterscan_12.a_2 AS a_2,
-              filterscan_12.a_3 AS a_3,
-              filterscan_12.a_6 AS a_6,
-              filterscan_12.a_7 AS a_7,
-              filterscan_12.a_9 AS a_9
+              projectscan_10.a_2 AS a_2,
+              projectscan_10.a_3 AS a_3,
+              projectscan_10.a_6 AS a_6,
+              projectscan_10.a_7 AS a_7,
+              projectscan_10.a_9 AS a_9
             FROM
               (
                 SELECT
-                  projectscan_10.a_2 AS a_2,
-                  projectscan_10.a_3 AS a_3,
-                  projectscan_10.a_6 AS a_6,
-                  projectscan_10.a_7 AS a_7,
-                  projectscan_10.a_9 AS a_9
+                  arrayscan_4.a_2 AS a_2,
+                  arrayscan_4.a_3 AS a_3,
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
                 FROM
                   (
                     SELECT
-                      arrayscan_4.a_2 AS a_2,
-                      arrayscan_4.a_3 AS a_3,
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      COALESCE(arrayscan_4.a_3, arrayscan_8.a_7) AS a_9
+                      a_2 AS a_2,
+                      a_3 AS a_3
                     FROM
-                      (
-                        SELECT
-                          a_2 AS a_2,
-                          a_3 AS a_3
-                        FROM
-                          UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
-                      ) AS arrayscan_4
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
-                  ) AS projectscan_10
-                WHERE
-                  (projectscan_10.a_9) < a_11
-              ) AS filterscan_12
-            ORDER BY filterscan_12.a_9
-          ) AS orderbyscan_13
-      )) AS a_19)
-  ) AS projectscan_23;
+                      UNNEST(a_1 AS a_2) WITH OFFSET AS a_3
+                  ) AS arrayscan_4
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_6 AS a_6,
+                      a_7 AS a_7
+                    FROM
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  ON (arrayscan_4.a_3) = (arrayscan_8.a_7)
+              ) AS projectscan_10
+            WHERE
+              (projectscan_10.a_9) < a_11
+          ) AS filterscan_12
+        ORDER BY filterscan_12.a_9
+      ) AS orderbyscan_13
+  )) AS a_19);
 ==
 
 # ============== UNNEST with table alias or argument alias =========
@@ -3769,86 +3750,77 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#19]
 [UNPARSED_SQL]
 SELECT
-  projectscan_26.a_1 AS key,
-  projectscan_26.a_2 AS TestEnum,
-  projectscan_26.a_3 AS KitchenSink,
-  projectscan_26.a_24 AS repeated_int32_val,
-  projectscan_26.a_25 AS repeated_string_val
+  testtable_4.a_1 AS key,
+  testtable_4.a_2 AS TestEnum,
+  testtable_4.a_3 AS KitchenSink,
+  a_23.arr0 AS repeated_int32_val,
+  a_23.arr1 AS repeated_string_val
 FROM
   (
     SELECT
-      testtable_4.a_1 AS a_1,
-      testtable_4.a_2 AS a_2,
-      testtable_4.a_3 AS a_3,
-      a_23.arr0 AS a_24,
-      a_23.arr1 AS a_25
+      TestTable.key AS a_1,
+      TestTable.TestEnum AS a_2,
+      TestTable.KitchenSink AS a_3
+    FROM
+      TestTable
+  ) AS testtable_4
+  JOIN
+  UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
+    0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+    CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+      a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+      a_20)), ARRAY(
+    SELECT
+      STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
     FROM
       (
         SELECT
-          TestTable.key AS a_1,
-          TestTable.TestEnum AS a_2,
-          TestTable.KitchenSink AS a_3
-        FROM
-          TestTable
-      ) AS testtable_4
-      JOIN
-      UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
-        0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
-        CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
-          a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
-          a_20)), ARRAY(
-        SELECT
-          STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
         FROM
           (
             SELECT
-              filterscan_16.a_6 AS a_6,
-              filterscan_16.a_7 AS a_7,
-              filterscan_16.a_10 AS a_10,
-              filterscan_16.a_11 AS a_11,
-              filterscan_16.a_13 AS a_13
+              projectscan_14.a_6 AS a_6,
+              projectscan_14.a_7 AS a_7,
+              projectscan_14.a_10 AS a_10,
+              projectscan_14.a_11 AS a_11,
+              projectscan_14.a_13 AS a_13
             FROM
               (
                 SELECT
-                  projectscan_14.a_6 AS a_6,
-                  projectscan_14.a_7 AS a_7,
-                  projectscan_14.a_10 AS a_10,
-                  projectscan_14.a_11 AS a_11,
-                  projectscan_14.a_13 AS a_13
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  arrayscan_12.a_10 AS a_10,
+                  arrayscan_12.a_11 AS a_11,
+                  COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
                 FROM
                   (
                     SELECT
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      arrayscan_12.a_10 AS a_10,
-                      arrayscan_12.a_11 AS a_11,
-                      COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+                      a_6 AS a_6,
+                      a_7 AS a_7
                     FROM
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_10 AS a_10,
-                          a_11 AS a_11
-                        FROM
-                          UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
-                      ) AS arrayscan_12
-                      ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
-                  ) AS projectscan_14
-                WHERE
-                  (projectscan_14.a_13) < a_15
-              ) AS filterscan_16
-            ORDER BY filterscan_16.a_13
-          ) AS orderbyscan_17
-      )) AS a_23)
-  ) AS projectscan_26;
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_10 AS a_10,
+                      a_11 AS a_11
+                    FROM
+                      UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+                  ) AS arrayscan_12
+                  ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+              ) AS projectscan_14
+            WHERE
+              (projectscan_14.a_13) < a_15
+          ) AS filterscan_16
+        ORDER BY filterscan_16.a_13
+      ) AS orderbyscan_17
+  )) AS a_23);
 ==
 
 [show_unparsed]
@@ -4086,86 +4058,77 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#19]
 [UNPARSED_SQL]
 SELECT
-  projectscan_26.a_1 AS key,
-  projectscan_26.a_2 AS TestEnum,
-  projectscan_26.a_3 AS KitchenSink,
-  projectscan_26.a_24 AS repeated_int32_val,
-  projectscan_26.a_25 AS array2
+  testtable_4.a_1 AS key,
+  testtable_4.a_2 AS TestEnum,
+  testtable_4.a_3 AS KitchenSink,
+  a_23.arr0 AS repeated_int32_val,
+  a_23.arr1 AS array2
 FROM
   (
     SELECT
-      testtable_4.a_1 AS a_1,
-      testtable_4.a_2 AS a_2,
-      testtable_4.a_3 AS a_3,
-      a_23.arr0 AS a_24,
-      a_23.arr1 AS a_25
+      TestTable.key AS a_1,
+      TestTable.TestEnum AS a_2,
+      TestTable.KitchenSink AS a_3
+    FROM
+      TestTable
+  ) AS testtable_4
+  JOIN
+  UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_int32_val, a_20 AS `IF`((a_9) IS NULL,
+    0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+    CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+      a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+      a_20)), ARRAY(
+    SELECT
+      STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
     FROM
       (
         SELECT
-          TestTable.key AS a_1,
-          TestTable.TestEnum AS a_2,
-          TestTable.KitchenSink AS a_3
-        FROM
-          TestTable
-      ) AS testtable_4
-      JOIN
-      UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_int32_val, a_20 AS `IF`((a_9) IS NULL,
-        0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
-        CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
-          a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
-          a_20)), ARRAY(
-        SELECT
-          STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
         FROM
           (
             SELECT
-              filterscan_16.a_6 AS a_6,
-              filterscan_16.a_7 AS a_7,
-              filterscan_16.a_10 AS a_10,
-              filterscan_16.a_11 AS a_11,
-              filterscan_16.a_13 AS a_13
+              projectscan_14.a_6 AS a_6,
+              projectscan_14.a_7 AS a_7,
+              projectscan_14.a_10 AS a_10,
+              projectscan_14.a_11 AS a_11,
+              projectscan_14.a_13 AS a_13
             FROM
               (
                 SELECT
-                  projectscan_14.a_6 AS a_6,
-                  projectscan_14.a_7 AS a_7,
-                  projectscan_14.a_10 AS a_10,
-                  projectscan_14.a_11 AS a_11,
-                  projectscan_14.a_13 AS a_13
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  arrayscan_12.a_10 AS a_10,
+                  arrayscan_12.a_11 AS a_11,
+                  COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
                 FROM
                   (
                     SELECT
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      arrayscan_12.a_10 AS a_10,
-                      arrayscan_12.a_11 AS a_11,
-                      COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+                      a_6 AS a_6,
+                      a_7 AS a_7
                     FROM
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_10 AS a_10,
-                          a_11 AS a_11
-                        FROM
-                          UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
-                      ) AS arrayscan_12
-                      ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
-                  ) AS projectscan_14
-                WHERE
-                  (projectscan_14.a_13) < a_15
-              ) AS filterscan_16
-            ORDER BY filterscan_16.a_13
-          ) AS orderbyscan_17
-      )) AS a_23)
-  ) AS projectscan_26;
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_10 AS a_10,
+                      a_11 AS a_11
+                    FROM
+                      UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+                  ) AS arrayscan_12
+                  ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+              ) AS projectscan_14
+            WHERE
+              (projectscan_14.a_13) < a_15
+          ) AS filterscan_16
+        ORDER BY filterscan_16.a_13
+      ) AS orderbyscan_17
+  )) AS a_23);
 ==
 
 [show_unparsed]
@@ -4395,86 +4358,77 @@ QueryStmt
             +-element_column_list=[$array.$with_expr_element#19]
 [UNPARSED_SQL]
 SELECT
-  projectscan_26.a_1 AS key,
-  projectscan_26.a_2 AS TestEnum,
-  projectscan_26.a_3 AS KitchenSink,
-  projectscan_26.a_24 AS array1,
-  projectscan_26.a_25 AS array2
+  testtable_4.a_1 AS key,
+  testtable_4.a_2 AS TestEnum,
+  testtable_4.a_3 AS KitchenSink,
+  a_23.arr0 AS array1,
+  a_23.arr1 AS array2
 FROM
   (
     SELECT
-      testtable_4.a_1 AS a_1,
-      testtable_4.a_2 AS a_2,
-      testtable_4.a_3 AS a_3,
-      a_23.arr0 AS a_24,
-      a_23.arr1 AS a_25
+      TestTable.key AS a_1,
+      TestTable.TestEnum AS a_2,
+      TestTable.KitchenSink AS a_3
+    FROM
+      TestTable
+  ) AS testtable_4
+  JOIN
+  UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
+    0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+    CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
+      a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+    CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
+      a_20)), ARRAY(
+    SELECT
+      STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
     FROM
       (
         SELECT
-          TestTable.key AS a_1,
-          TestTable.TestEnum AS a_2,
-          TestTable.KitchenSink AS a_3
-        FROM
-          TestTable
-      ) AS testtable_4
-      JOIN
-      UNNEST(WITH(a_5 AS testtable_4.a_3.repeated_int32_val, a_19 AS `IF`((a_5) IS NULL, 0, ARRAY_LENGTH(a_5)), a_9 AS testtable_4.a_3.repeated_string_val, a_20 AS `IF`((a_9) IS NULL,
-        0, ARRAY_LENGTH(a_9)), a_21 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
-        CAST("PAD" AS ARRAY_ZIP_MODE)), a_22 AS `IF`((a_21 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_19,
-          a_20)) != (GREATEST(a_19, a_20))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-        CAST(NULL AS INT64)), a_15 AS `IF`(a_21 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_19, a_20), GREATEST(a_19,
-          a_20)), ARRAY(
-        SELECT
-          STRUCT< arr0 INT32, arr1 STRING, offset INT64 > (orderbyscan_17.a_6, orderbyscan_17.a_10, orderbyscan_17.a_13) AS a_18
+          filterscan_16.a_6 AS a_6,
+          filterscan_16.a_7 AS a_7,
+          filterscan_16.a_10 AS a_10,
+          filterscan_16.a_11 AS a_11,
+          filterscan_16.a_13 AS a_13
         FROM
           (
             SELECT
-              filterscan_16.a_6 AS a_6,
-              filterscan_16.a_7 AS a_7,
-              filterscan_16.a_10 AS a_10,
-              filterscan_16.a_11 AS a_11,
-              filterscan_16.a_13 AS a_13
+              projectscan_14.a_6 AS a_6,
+              projectscan_14.a_7 AS a_7,
+              projectscan_14.a_10 AS a_10,
+              projectscan_14.a_11 AS a_11,
+              projectscan_14.a_13 AS a_13
             FROM
               (
                 SELECT
-                  projectscan_14.a_6 AS a_6,
-                  projectscan_14.a_7 AS a_7,
-                  projectscan_14.a_10 AS a_10,
-                  projectscan_14.a_11 AS a_11,
-                  projectscan_14.a_13 AS a_13
+                  arrayscan_8.a_6 AS a_6,
+                  arrayscan_8.a_7 AS a_7,
+                  arrayscan_12.a_10 AS a_10,
+                  arrayscan_12.a_11 AS a_11,
+                  COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
                 FROM
                   (
                     SELECT
-                      arrayscan_8.a_6 AS a_6,
-                      arrayscan_8.a_7 AS a_7,
-                      arrayscan_12.a_10 AS a_10,
-                      arrayscan_12.a_11 AS a_11,
-                      COALESCE(arrayscan_8.a_7, arrayscan_12.a_11) AS a_13
+                      a_6 AS a_6,
+                      a_7 AS a_7
                     FROM
-                      (
-                        SELECT
-                          a_6 AS a_6,
-                          a_7 AS a_7
-                        FROM
-                          UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
-                      ) AS arrayscan_8
-                      FULL JOIN
-                      (
-                        SELECT
-                          a_10 AS a_10,
-                          a_11 AS a_11
-                        FROM
-                          UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
-                      ) AS arrayscan_12
-                      ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
-                  ) AS projectscan_14
-                WHERE
-                  (projectscan_14.a_13) < a_15
-              ) AS filterscan_16
-            ORDER BY filterscan_16.a_13
-          ) AS orderbyscan_17
-      )) AS a_23)
-  ) AS projectscan_26;
+                      UNNEST(a_5 AS a_6) WITH OFFSET AS a_7
+                  ) AS arrayscan_8
+                  FULL JOIN
+                  (
+                    SELECT
+                      a_10 AS a_10,
+                      a_11 AS a_11
+                    FROM
+                      UNNEST(a_9 AS a_10) WITH OFFSET AS a_11
+                  ) AS arrayscan_12
+                  ON (arrayscan_8.a_7) = (arrayscan_12.a_11)
+              ) AS projectscan_14
+            WHERE
+              (projectscan_14.a_13) < a_15
+          ) AS filterscan_16
+        ORDER BY filterscan_16.a_13
+      ) AS orderbyscan_17
+  )) AS a_23);
 ==
 
 # 2 arguments: path expressions reference columns from different lhs tables.
@@ -4972,76 +4926,70 @@ QueryStmt
 SELECT
   (
     SELECT
-      STRUCT< array1 INT32, array2 INT32 > (projectscan_28.a_25, projectscan_28.a_26) AS a_29
+      STRUCT< array1 INT32, array2 INT32 > (projectscan_27.a_25, projectscan_27.a_26) AS a_28
     FROM
       (
         SELECT
-          projectscan_27.a_25 AS a_25,
-          projectscan_27.a_26 AS a_26
+          a_24.arr0 AS a_25,
+          a_24.arr1 AS a_26
         FROM
-          (
+          UNNEST(WITH(a_6 AS testtable_2.a_1.repeated_int32_val, a_20 AS `IF`((a_6) IS NULL, 0, ARRAY_LENGTH(a_6)), a_10 AS complextypes_4.a_3, a_21 AS `IF`((a_10) IS NULL,
+            0, ARRAY_LENGTH(a_10)), a_22 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
+            CAST("PAD" AS ARRAY_ZIP_MODE)), a_23 AS `IF`((a_22 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_20,
+              a_21)) != (GREATEST(a_20, a_21))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
+            CAST(NULL AS INT64)), a_16 AS `IF`(a_22 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_20, a_21), GREATEST(a_20,
+              a_21)), ARRAY(
             SELECT
-              a_24.arr0 AS a_25,
-              a_24.arr1 AS a_26
+              STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_18.a_7, orderbyscan_18.a_11, orderbyscan_18.a_14) AS a_19
             FROM
-              UNNEST(WITH(a_6 AS testtable_2.a_1.repeated_int32_val, a_20 AS `IF`((a_6) IS NULL, 0, ARRAY_LENGTH(a_6)), a_10 AS complextypes_4.a_3, a_21 AS `IF`((a_10) IS NULL,
-                0, ARRAY_LENGTH(a_10)), a_22 AS `IF`(CAST("PAD" AS ARRAY_ZIP_MODE) IS NULL, ERROR("UNNEST does not allow NULL mode argument"),
-                CAST("PAD" AS ARRAY_ZIP_MODE)), a_23 AS `IF`((a_22 = CAST("STRICT" AS ARRAY_ZIP_MODE)) AND ((LEAST(a_20,
-                  a_21)) != (GREATEST(a_20, a_21))), ERROR("Unnested arrays under STRICT mode must have equal lengths"),
-                CAST(NULL AS INT64)), a_16 AS `IF`(a_22 = CAST("TRUNCATE" AS ARRAY_ZIP_MODE), LEAST(a_20, a_21), GREATEST(a_20,
-                  a_21)), ARRAY(
+              (
                 SELECT
-                  STRUCT< arr0 INT32, arr1 INT32, offset INT64 > (orderbyscan_18.a_7, orderbyscan_18.a_11, orderbyscan_18.a_14) AS a_19
+                  filterscan_17.a_7 AS a_7,
+                  filterscan_17.a_8 AS a_8,
+                  filterscan_17.a_11 AS a_11,
+                  filterscan_17.a_12 AS a_12,
+                  filterscan_17.a_14 AS a_14
                 FROM
                   (
                     SELECT
-                      filterscan_17.a_7 AS a_7,
-                      filterscan_17.a_8 AS a_8,
-                      filterscan_17.a_11 AS a_11,
-                      filterscan_17.a_12 AS a_12,
-                      filterscan_17.a_14 AS a_14
+                      projectscan_15.a_7 AS a_7,
+                      projectscan_15.a_8 AS a_8,
+                      projectscan_15.a_11 AS a_11,
+                      projectscan_15.a_12 AS a_12,
+                      projectscan_15.a_14 AS a_14
                     FROM
                       (
                         SELECT
-                          projectscan_15.a_7 AS a_7,
-                          projectscan_15.a_8 AS a_8,
-                          projectscan_15.a_11 AS a_11,
-                          projectscan_15.a_12 AS a_12,
-                          projectscan_15.a_14 AS a_14
+                          arrayscan_9.a_7 AS a_7,
+                          arrayscan_9.a_8 AS a_8,
+                          arrayscan_13.a_11 AS a_11,
+                          arrayscan_13.a_12 AS a_12,
+                          COALESCE(arrayscan_9.a_8, arrayscan_13.a_12) AS a_14
                         FROM
                           (
                             SELECT
-                              arrayscan_9.a_7 AS a_7,
-                              arrayscan_9.a_8 AS a_8,
-                              arrayscan_13.a_11 AS a_11,
-                              arrayscan_13.a_12 AS a_12,
-                              COALESCE(arrayscan_9.a_8, arrayscan_13.a_12) AS a_14
+                              a_7 AS a_7,
+                              a_8 AS a_8
                             FROM
-                              (
-                                SELECT
-                                  a_7 AS a_7,
-                                  a_8 AS a_8
-                                FROM
-                                  UNNEST(a_6 AS a_7) WITH OFFSET AS a_8
-                              ) AS arrayscan_9
-                              FULL JOIN
-                              (
-                                SELECT
-                                  a_11 AS a_11,
-                                  a_12 AS a_12
-                                FROM
-                                  UNNEST(a_10 AS a_11) WITH OFFSET AS a_12
-                              ) AS arrayscan_13
-                              ON (arrayscan_9.a_8) = (arrayscan_13.a_12)
-                          ) AS projectscan_15
-                        WHERE
-                          (projectscan_15.a_14) < a_16
-                      ) AS filterscan_17
-                    ORDER BY filterscan_17.a_14
-                  ) AS orderbyscan_18
-              )) AS a_24)
-          ) AS projectscan_27
-      ) AS projectscan_28
+                              UNNEST(a_6 AS a_7) WITH OFFSET AS a_8
+                          ) AS arrayscan_9
+                          FULL JOIN
+                          (
+                            SELECT
+                              a_11 AS a_11,
+                              a_12 AS a_12
+                            FROM
+                              UNNEST(a_10 AS a_11) WITH OFFSET AS a_12
+                          ) AS arrayscan_13
+                          ON (arrayscan_9.a_8) = (arrayscan_13.a_12)
+                      ) AS projectscan_15
+                    WHERE
+                      (projectscan_15.a_14) < a_16
+                  ) AS filterscan_17
+                ORDER BY filterscan_17.a_14
+              ) AS orderbyscan_18
+          )) AS a_24)
+      ) AS projectscan_27
   ) AS col1
 FROM
   (

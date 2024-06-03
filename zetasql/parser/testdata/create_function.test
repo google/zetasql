@@ -1151,7 +1151,7 @@ CREATE FUNCTION myfunc()
 RETURNS string REMOTE
 ==
 
-# Remote function with connection.
+# Remote function with custom connection.
 create function myfunc ( ) returns string remote with connection myconn;
 --
 CreateFunctionStatement [0-71] [create function...ction myconn]
@@ -1169,6 +1169,25 @@ CreateFunctionStatement [0-71] [create function...ction myconn]
 --
 CREATE FUNCTION myfunc()
 RETURNS string REMOTE WITH CONNECTION myconn
+==
+
+# Remote function with default connection.
+create function myfunc ( ) returns string remote with connection default;
+--
+CreateFunctionStatement [0-72] [create function...tion default]
+  FunctionDeclaration [16-26] [myfunc ( )]
+    PathExpression [16-22] [myfunc]
+      Identifier(myfunc) [16-22] [myfunc]
+    FunctionParameters [23-26] [( )]
+  SimpleType [35-41] [string]
+    PathExpression [35-41] [string]
+      Identifier(string) [35-41] [string]
+  WithConnectionClause [49-72] [with connection default]
+    ConnectionClause [54-72] [connection default]
+      DefaultLiteral [65-72] [default]
+--
+CREATE FUNCTION myfunc()
+RETURNS string REMOTE WITH CONNECTION DEFAULT
 ==
 
 # Remote function with connection name with -.

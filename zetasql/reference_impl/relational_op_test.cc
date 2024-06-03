@@ -3862,8 +3862,10 @@ TEST_F(CreateIteratorTest, LoopOp) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(loop_assign[2], ComputeSum(z, Int64(1), z));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto loop_op, LoopOp::Create(std::move(initial_assign), std::move(body),
-                                   std::move(loop_assign)));
+      auto loop_op,
+      LoopOp::Create(std::move(initial_assign), std::move(body),
+                     std::move(loop_assign), /*lower_bound=*/nullptr,
+                     /*upper_bound=*/nullptr));
 
   EXPECT_EQ(loop_op->IteratorDebugString(),
             "LoopTupleIterator: any_rows = false, inner iterator: "
@@ -3964,6 +3966,74 @@ LoopOp(
                           IsTupleSlotWith(Int64(24), IsNull()),
                           IsTupleSlotWith(Int64(25), IsNull()),
                           IsTupleSlotWith(Int64(26), IsNull()), _));
+}
+
+TEST_F(CreateIteratorTest, LoopOpWithBounds) {
+  VariableId n("n"), a("a");
+
+  std::vector<std::unique_ptr<ExprArg>> initial_assign(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(initial_assign[0], AssignValueToVar(n, Int64(0)));
+
+  std::vector<std::unique_ptr<ExprArg>> body_compute_exprs(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_n, DerefExpr::Create(n, Int64Type()));
+  body_compute_exprs[0] = std::make_unique<ExprArg>(n, std::move(deref_n));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_expr, ConstExpr::Create(Value::Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto enum_op,
+                       EnumerateOp::Create(std::move(const_expr)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto body,
+      ComputeOp::Create(std::move(body_compute_exprs), std::move(enum_op)));
+
+  std::vector<std::unique_ptr<ExprArg>> loop_assign(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(loop_assign[0], ComputeSum(n, Int64(1), n));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValueExpr> lower_bound,
+                       ConstExpr::Create(Value::Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValueExpr> upper_bound,
+                       ConstExpr::Create(Value::Int64(3)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto loop_op,
+      LoopOp::Create(std::move(initial_assign), std::move(body),
+                     std::move(loop_assign), std::move(lower_bound),
+                     std::move(upper_bound)));
+
+  EXPECT_EQ(loop_op->IteratorDebugString(),
+            "LoopTupleIterator: any_rows = false, inner iterator: "
+            "ComputeTupleIterator(EnumerateTupleIterator(<count>))");
+  EXPECT_EQ(loop_op->DebugString(), absl::StripAsciiWhitespace(R"(
+LoopOp(
++-initial_assign: {
+| +-$n := ConstExpr(0)},
++-body: ComputeOp(
+| +-map: {
+| | +-$n := $n},
+| +-input: EnumerateOp(ConstExpr(1))),
++-loop_assign: {
+| +-$n := Add($n, ConstExpr(1))},
++-lower_bound: ConstExpr(1),
++-upper_bound: ConstExpr(3)))"));
+
+  std::unique_ptr<TupleSchema> output_schema = loop_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(n));
+  TupleSchema params_schema({});
+  ZETASQL_ASSERT_OK(loop_op->SetSchemasForEvaluation({&params_schema}));
+
+  EvaluationContext context((EvaluationOptions()));
+  TupleData params_data = CreateTestTupleData({});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      loop_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_THAT(data, SizeIs(3));
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()), _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()), _));
+  EXPECT_THAT(data[2].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(3), IsNull()), _));
 }
 
 TEST_F(CreateIteratorTest, DistinctOp) {

@@ -458,7 +458,7 @@ QueryStmt
     +-column_list=SimpleTypes.[int64#2, int32#1, float#8]
     +-input_scan=
       +-JoinScan
-        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#21, uint32#21, double#27]
+        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#22, uint32#22, double#28]
         +-left_scan=
         | +-ProjectScan
         |   +-column_list=SimpleTypes.[int32#1, float#8, int64#2]
@@ -466,24 +466,24 @@ QueryStmt
         |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, float#8], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-right_scan=
         | +-ProjectScan
-        |   +-column_list=SimpleTypes.[uint32#21, uint32#21, double#27]
+        |   +-column_list=SimpleTypes.[uint32#22, uint32#22, double#28]
         |   +-input_scan=
-        |     +-TableScan(column_list=SimpleTypes.[uint32#21, double#27], table=SimpleTypes, column_index_list=[2, 8])
+        |     +-TableScan(column_list=SimpleTypes.[uint32#22, double#28], table=SimpleTypes, column_index_list=[2, 8])
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(2) BOOL) -> BOOL)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-Cast(INT32 -> INT64)
         |   | | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
         |     +-Cast(FLOAT -> DOUBLE)
         |     | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#27)
+        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#28)
         +-has_using=TRUE
 --
 ALTERNATION GROUP:  left
@@ -498,7 +498,7 @@ QueryStmt
     +-column_list=SimpleTypes.[int64#2, int32#1, float#8]
     +-input_scan=
       +-JoinScan
-        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#21, uint32#21, double#27]
+        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#22, uint32#22, double#28]
         +-join_type=LEFT
         +-left_scan=
         | +-ProjectScan
@@ -507,39 +507,39 @@ QueryStmt
         |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, float#8], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-right_scan=
         | +-ProjectScan
-        |   +-column_list=SimpleTypes.[uint32#21, uint32#21, double#27]
+        |   +-column_list=SimpleTypes.[uint32#22, uint32#22, double#28]
         |   +-input_scan=
-        |     +-TableScan(column_list=SimpleTypes.[uint32#21, double#27], table=SimpleTypes, column_index_list=[2, 8])
+        |     +-TableScan(column_list=SimpleTypes.[uint32#22, double#28], table=SimpleTypes, column_index_list=[2, 8])
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(2) BOOL) -> BOOL)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-Cast(INT32 -> INT64)
         |   | | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
         |     +-Cast(FLOAT -> DOUBLE)
         |     | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#27)
+        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#28)
         +-has_using=TRUE
 --
 ALTERNATION GROUP:  right
 --
 QueryStmt
 +-output_column_list=
-| +-SimpleTypes.uint32#21 AS b [UINT32]
-| +-SimpleTypes.uint32#21 AS a [UINT32]
-| +-SimpleTypes.double#27 AS c [DOUBLE]
+| +-SimpleTypes.uint32#22 AS b [UINT32]
+| +-SimpleTypes.uint32#22 AS a [UINT32]
+| +-SimpleTypes.double#28 AS c [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=SimpleTypes.[uint32#21, uint32#21, double#27]
+    +-column_list=SimpleTypes.[uint32#22, uint32#22, double#28]
     +-input_scan=
       +-JoinScan
-        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#21, uint32#21, double#27]
+        +-column_list=SimpleTypes.[int32#1, float#8, int64#2, uint32#22, uint32#22, double#28]
         +-join_type=RIGHT
         +-left_scan=
         | +-ProjectScan
@@ -548,24 +548,24 @@ QueryStmt
         |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, float#8], table=SimpleTypes, column_index_list=[0, 1, 7])
         +-right_scan=
         | +-ProjectScan
-        |   +-column_list=SimpleTypes.[uint32#21, uint32#21, double#27]
+        |   +-column_list=SimpleTypes.[uint32#22, uint32#22, double#28]
         |   +-input_scan=
-        |     +-TableScan(column_list=SimpleTypes.[uint32#21, double#27], table=SimpleTypes, column_index_list=[2, 8])
+        |     +-TableScan(column_list=SimpleTypes.[uint32#22, double#28], table=SimpleTypes, column_index_list=[2, 8])
         +-join_expr=
         | +-FunctionCall(ZetaSQL:$and(BOOL, repeated(2) BOOL) -> BOOL)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
         |   | +-Cast(INT32 -> INT64)
         |   | | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         |   | +-Cast(UINT32 -> UINT64)
-        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#21)
+        |   |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#22)
         |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
         |     +-Cast(FLOAT -> DOUBLE)
         |     | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#27)
+        |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#28)
         +-has_using=TRUE
 ==
 

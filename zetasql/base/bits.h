@@ -45,7 +45,10 @@
 // Bits) containing a few bit patterns (which vary based on value of template
 // parameter).
 
+#include <cstdint>
+
 #include "absl/base/casts.h"
+#include "zetasql/base/check.h"
 #include "absl/numeric/int128.h"
 #if defined(__i386__) || defined(__x86_64__)
 #include <x86intrin.h>
@@ -55,7 +58,6 @@
 
 #include "gtest/gtest_prod.h"
 #include "zetasql/base/endian.h"
-#include "zetasql/base/logging.h"
 
 namespace zetasql_base {
 
@@ -229,15 +231,18 @@ class Bits {
 
   // Viewing bytes as a stream of unsigned bytes, does that stream
   // contain any byte equal to c?
-  template <class T> static bool BytesContainByte(T bytes, uint8_t c);
+  template <class T>
+  static bool BytesContainByte(T bytes, uint8_t c);
 
   // Viewing bytes as a stream of unsigned bytes, does that stream
   // contain any byte b < c?
-  template <class T> static bool BytesContainByteLessThan(T bytes, uint8_t c);
+  template <class T>
+  static bool BytesContainByteLessThan(T bytes, uint8_t c);
 
   // Viewing bytes as a stream of unsigned bytes, are all elements of that
   // stream in [lo, hi]?
-  template <class T> static bool BytesAllInRange(T bytes, uint8_t lo, uint8_t hi);
+  template <class T>
+  static bool BytesAllInRange(T bytes, uint8_t lo, uint8_t hi);
 
   // Extract 'nbits' consecutive bits from 'src'.  Position of bits are
   // specified by 'offset' from the LSB.  'T' is a scalar type (integral,
@@ -327,14 +332,12 @@ class Bits {
   static int PopcountWithBuiltin(unsigned long n);       // NOLINT(runtime/int)
   static int PopcountWithBuiltin(unsigned long long n);  // NOLINT(runtime/int)
 #if defined(__BMI__) && (defined(__i386__) || defined(__x86_64__))
-  static inline uint32_t GetBitsImpl(const uint32_t src,
-                                   const int offset,
-                                   const int nbits);
+  static inline uint32_t GetBitsImpl(const uint32_t src, const int offset,
+                                     const int nbits);
 #endif
 #if defined(__BMI__) && defined(__x86_64__)
-  static inline uint64_t GetBitsImpl(const uint64_t src,
-                                   const int offset,
-                                   const int nbits);
+  static inline uint64_t GetBitsImpl(const uint64_t src, const int offset,
+                                     const int nbits);
 #endif
 #if defined(__BMI2__) && (defined(__i386__) || defined(__x86_64__))
   static inline uint32_t GetLowBitsImpl(const uint32_t src, const int nbits);
@@ -383,13 +386,9 @@ inline int Bits::Log2Floor(uint32_t n) {
   return n == 0 ? -1 : 31 ^ __builtin_clz(n);
 }
 
-inline int Bits::Log2FloorNonZero(uint32_t n) {
-  return 31 ^ __builtin_clz(n);
-}
+inline int Bits::Log2FloorNonZero(uint32_t n) { return 31 ^ __builtin_clz(n); }
 
-inline int Bits::FindLSBSetNonZero(uint32_t n) {
-  return __builtin_ctz(n);
-}
+inline int Bits::FindLSBSetNonZero(uint32_t n) { return __builtin_ctz(n); }
 
 inline int Bits::Log2Floor64(uint64_t n) {
   return n == 0 ? -1 : 63 ^ __builtin_clzll(n);
@@ -399,9 +398,7 @@ inline int Bits::Log2FloorNonZero64(uint64_t n) {
   return 63 ^ __builtin_clzll(n);
 }
 
-inline int Bits::FindLSBSetNonZero64(uint64_t n) {
-  return __builtin_ctzll(n);
-}
+inline int Bits::FindLSBSetNonZero64(uint64_t n) { return __builtin_ctzll(n); }
 
 #elif defined(COMPILER_MSVC)
 
@@ -452,9 +449,7 @@ inline int Bits::Log2FloorNonZero64(uint64_t n) {
 
 #else  // !__GNUC__ && !COMPILER_MSVC
 
-inline int Bits::Log2Floor(uint32_t n) {
-  return Bits::Log2Floor_Portable(n);
-}
+inline int Bits::Log2Floor(uint32_t n) { return Bits::Log2Floor_Portable(n); }
 
 inline int Bits::Log2FloorNonZero(uint32_t n) {
   return Bits::Log2FloorNonZero_Portable(n);
@@ -561,8 +556,8 @@ inline uint64_t Bits::ReverseBits64(uint64_t n) {
   n = ((n >> 4) & 0x0F0F0F0F0F0F0F0FULL) | ((n & 0x0F0F0F0F0F0F0F0FULL) << 4);
   return zetasql_base::gbswap_64(n);
 #else
-  return ReverseBits32( n >> 32 ) |
-         (static_cast<uint64_t>(ReverseBits32(n &  0xffffffff)) << 32);
+  return ReverseBits32(n >> 32) |
+         (static_cast<uint64_t>(ReverseBits32(n & 0xffffffff)) << 32);
 #endif
 }
 
@@ -620,7 +615,8 @@ inline bool Bits::BytesContainByteLessThan(T bytes, uint8_t c) {
       ((((bytes - l * c) | (bytes ^ h)) & h) != 0);
 }
 
-template <class T> inline bool Bits::BytesContainByte(T bytes, uint8_t c) {
+template <class T>
+inline bool Bits::BytesContainByte(T bytes, uint8_t c) {
   // Usually c will be manifestly constant.
   return Bits::BytesContainByteLessThan<T>(bytes ^ (c * BitPattern<T>::l), 1);
 }
@@ -704,17 +700,15 @@ inline int Bits::PopcountWithBuiltin(unsigned long long n) {
 }
 
 #if defined(__BMI__) && (defined(__i386__) || defined(__x86_64__))
-inline uint32_t Bits::GetBitsImpl(const uint32_t src,
-                                const int offset,
-                                const int nbits) {
+inline uint32_t Bits::GetBitsImpl(const uint32_t src, const int offset,
+                                  const int nbits) {
   return _bextr_u32(src, offset, nbits);
 }
 #endif
 
 #if defined(__BMI__) && defined(__x86_64__)
-inline uint64_t Bits::GetBitsImpl(const uint64_t src,
-                                const int offset,
-                                const int nbits) {
+inline uint64_t Bits::GetBitsImpl(const uint64_t src, const int offset,
+                                  const int nbits) {
   return _bextr_u64(src, offset, nbits);
 }
 #endif

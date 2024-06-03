@@ -18,7 +18,6 @@
 
 #include <cstdint>
 #include <ios>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +27,6 @@
 #include "zetasql/public/parse_tokens.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 
@@ -38,14 +36,12 @@ namespace {
 
 using ::testing::ElementsAre;
 
-auto &kEofSentinelInput = StringStreamBufWithSentinel::kEofSentinelInput;
-
 // Reads sequences of characters from `input` using
 // StringStreamWithSentinel. `read_sizes` is a list of numbers of chars to
 // read.
 std::vector<std::string> ReadFromStream(absl::string_view input,
                                         absl::Span<const size_t> read_sizes) {
-  StringStreamWithSentinel s(input);
+  StringViewStream s(input);
   std::vector<std::string> result;
   for (size_t n : read_sizes) {
     std::vector<char> stream(n);
@@ -63,30 +59,29 @@ std::vector<std::string> ReadFromStream(absl::string_view input,
 TEST(StringStreamWithSentinel, Read) {
   absl::string_view input = "abcdef";
   EXPECT_THAT(ReadFromStream(input, {3, 2, 1, 1}),
-              ElementsAre("abc", "de", "f", kEofSentinelInput));
+              ElementsAre("abc", "de", "f", ""));
   // Read N+10 chars.
-  EXPECT_THAT(ReadFromStream(input, {16}),
-              ElementsAre(absl::StrCat("abcdef", kEofSentinelInput)));
+  EXPECT_THAT(ReadFromStream(input, {16}), ElementsAre("abcdef"));
   // Read N chars and then 1 char.
   EXPECT_THAT(ReadFromStream(input, {input.size(), 1}),
-              ElementsAre("abcdef", kEofSentinelInput));
+              ElementsAre("abcdef", ""));
   // Read N-1 chars and then 2 chars.
   EXPECT_THAT(ReadFromStream(input, {input.size() - 1, 2}),
-              ElementsAre("abcde", absl::StrCat("f", kEofSentinelInput)));
+              ElementsAre("abcde", "f"));
   // Read N chars and then 10 chars.
   EXPECT_THAT(ReadFromStream(input, {input.size(), 10}),
-              ElementsAre("abcdef", absl::StrCat(kEofSentinelInput)));
+              ElementsAre("abcdef", ""));
   // Read 2, N-3 and then 2 chars.
   EXPECT_THAT(ReadFromStream(input, {2, input.size() - 3, 2}),
-              ElementsAre("ab", "cde", absl::StrCat("f", kEofSentinelInput)));
+              ElementsAre("ab", "cde", "f"));
   // Read 2, N chars.
   EXPECT_THAT(ReadFromStream(input, {2, input.size()}),
-              ElementsAre("ab", absl::StrCat("cdef", kEofSentinelInput)));
+              ElementsAre("ab", "cdef"));
 }
 
 TEST(StringStreamWithSentinel, GetAndPeek) {
   absl::string_view str = "abc";
-  StringStreamWithSentinel s(str);
+  StringViewStream s(str);
 
   {
     char c[3] = {'\0', '\0'};
@@ -108,18 +103,6 @@ TEST(StringStreamWithSentinel, GetAndPeek) {
   }
 
   {
-    char c = s.peek();
-    EXPECT_EQ(c, '\n');
-    EXPECT_FALSE(s.eof());
-  }
-
-  {
-    char c = s.get();
-    EXPECT_EQ(c, '\n');
-    EXPECT_FALSE(s.eof());
-  }
-
-  {
     s.get();
     EXPECT_TRUE(s.eof());
   }
@@ -127,7 +110,7 @@ TEST(StringStreamWithSentinel, GetAndPeek) {
 
 TEST(StringStreamWithSentinel, SeekAndPeek) {
   absl::string_view str = "abcdefg";
-  StringStreamWithSentinel s(str);
+  StringViewStream s(str);
   s.seekg(2);
   EXPECT_EQ(s.peek(), 'c');
   s.seekg(1);
@@ -135,14 +118,12 @@ TEST(StringStreamWithSentinel, SeekAndPeek) {
   s.seekg(6);
   EXPECT_EQ(s.peek(), 'g');
   s.seekg(7);
-  EXPECT_EQ(s.peek(), '\n');
-  s.seekg(8);
   EXPECT_EQ(s.peek(), -1);
 }
 
 TEST(StringStreamWithSentinel, Unget) {
   absl::string_view str = "abcd";
-  StringStreamWithSentinel s(str);
+  StringViewStream s(str);
 
   {
     char c[4] = {'\0', '\0', '\0'};
@@ -151,11 +132,7 @@ TEST(StringStreamWithSentinel, Unget) {
     EXPECT_FALSE(s.eof());
   }
 
-  {
-    char c = s.peek();
-    EXPECT_EQ(c, '\n');
-    EXPECT_FALSE(s.eof());
-  }
+  EXPECT_EQ(s.peek(), -1);
 
   {
     s.unget();
@@ -168,7 +145,7 @@ TEST(StringStreamWithSentinel, Unget) {
   {
     char c[6] = {'\0', '\0', '\0', '\0', '\0', '\0'};
     s.read(c, 6);
-    EXPECT_EQ(absl::string_view(c, 2), "d\n");
+    EXPECT_EQ(absl::string_view(c, 1), "d");
     EXPECT_TRUE(s.eof());
   }
 }

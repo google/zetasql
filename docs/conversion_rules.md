@@ -16,7 +16,7 @@ supertyping.
 
 There are also conversions that have their own function names, such as
 `PARSE_DATE()`. To learn more about these functions, see
-[Conversion functions][con-rules-link-to-conversion-functions-other]
+[Conversion functions][con-rules-link-to-conversion-functions-other].
 
 ### Comparison of casting and coercion 
 <a id="comparison_chart"></a>

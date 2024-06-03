@@ -462,17 +462,17 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-        | +-$agg1#19 :=
+        | +-$agg1#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-option_list=
@@ -481,29 +481,29 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.$agg1_partial#21, $group_by.$uid#22]
+        |   +-column_list=[$aggregate.$agg1_partial#22, $group_by.$uid#23]
         |   +-input_scan=
         |   | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         |   +-group_by_list=
-        |   | +-$uid#22 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        |   | +-$uid#23 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   +-aggregate_list=
-        |     +-$agg1_partial#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |     +-$agg1_partial#22 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-aggregate_list=
-        | +-$agg1#19 :=
+        | +-$agg1#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#21)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#22)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$aggregate.$agg1#19)
+          +-ColumnRef(type=INT64, column=$aggregate.$agg1#20)
 
 ==
 
@@ -1621,17 +1621,17 @@ from SimpleTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-        | +-$agg1#19 :=
+        | +-$agg1#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
@@ -1641,31 +1641,31 @@ QueryStmt
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#19]
+    +-column_list=[$aggregate.$agg1#20]
     +-input_scan=
       +-DifferentialPrivacyAggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#20]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.$agg1_partial#21, $group_by.$uid#22]
+        |   +-column_list=[$aggregate.$agg1_partial#22, $group_by.$uid#23]
         |   +-input_scan=
         |   | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         |   +-group_by_list=
-        |   | +-$uid#22 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        |   | +-$uid#23 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         |   +-aggregate_list=
-        |     +-$agg1_partial#21 :=
+        |     +-$agg1_partial#22 :=
         |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
         |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
         +-aggregate_list=
-        | +-$agg1#19 :=
+        | +-$agg1#20 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_sum(INT64, optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
-        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#21)
+        |     +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#22)
         |     +-Literal(type=STRUCT<INT64, INT64>, value={0, 1})
         +-group_selection_threshold_expr=
-          +-ColumnRef(type=INT64, column=$aggregate.$agg1#19)
+          +-ColumnRef(type=INT64, column=$aggregate.$agg1#20)
 ==
 
 # Count(uid) counting unique users with PROTO result.

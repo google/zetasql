@@ -2366,12 +2366,34 @@ SELECT string_agg(value, b"foo") from KeyValue;
        ^
 ==
 
-# string_agg(bytes, string) is not supported
+[language_features={{|V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES}}]
 SELECT string_agg(cast(value as bytes), "foo") from KeyValue;
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for aggregate function STRING_AGG for argument types: BYTES, STRING. Supported signatures: STRING_AGG(STRING); STRING_AGG(STRING, STRING); STRING_AGG(BYTES); STRING_AGG(BYTES, BYTES) [at 1:8]
 SELECT string_agg(cast(value as bytes), "foo") from KeyValue;
        ^
+--
+ALTERNATION GROUP: V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:string_agg(BYTES, BYTES) -> BYTES)
+              +-Cast(STRING -> BYTES)
+              | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+              +-Literal(type=BYTES, value=b"foo")
 ==
 
 select key, string_agg(value, value) from KeyValue group by key
@@ -2589,44 +2611,44 @@ group by 1,2,3,4,5,6,7,8,9,10,11,12;
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.bool#25 AS bool [BOOL]
-| +-$groupby.int32#26 AS int32 [INT32]
-| +-$groupby.int64#27 AS int64 [INT64]
-| +-$groupby.uint32#28 AS uint32 [UINT32]
-| +-$groupby.uint64#29 AS uint64 [UINT64]
-| +-$groupby.float#30 AS float [FLOAT]
-| +-$groupby.double#31 AS double [DOUBLE]
-| +-$groupby.string#32 AS string [STRING]
-| +-$groupby.bytes#33 AS bytes [BYTES]
-| +-$groupby.date#34 AS date [DATE]
-| +-$groupby.timestamp#35 AS timestamp [TIMESTAMP]
-| +-$groupby.TestEnum#36 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-$groupby.bool#26 AS bool [BOOL]
+| +-$groupby.int32#27 AS int32 [INT32]
+| +-$groupby.int64#28 AS int64 [INT64]
+| +-$groupby.uint32#29 AS uint32 [UINT32]
+| +-$groupby.uint64#30 AS uint64 [UINT64]
+| +-$groupby.float#31 AS float [FLOAT]
+| +-$groupby.double#32 AS double [DOUBLE]
+| +-$groupby.string#33 AS string [STRING]
+| +-$groupby.bytes#34 AS bytes [BYTES]
+| +-$groupby.date#35 AS date [DATE]
+| +-$groupby.timestamp#36 AS timestamp [TIMESTAMP]
+| +-$groupby.TestEnum#37 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-ProjectScan
-    +-column_list=$groupby.[bool#25, int32#26, int64#27, uint32#28, uint64#29, float#30, double#31, string#32, bytes#33, date#34, timestamp#35, TestEnum#36]
+    +-column_list=$groupby.[bool#26, int32#27, int64#28, uint32#29, uint64#30, float#31, double#32, string#33, bytes#34, date#35, timestamp#36, TestEnum#37]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$groupby.[bool#25, int32#26, int64#27, uint32#28, uint64#29, float#30, double#31, string#32, bytes#33, date#34, timestamp#35, TestEnum#36]
+        +-column_list=$groupby.[bool#26, int32#27, int64#28, uint32#29, uint64#30, float#31, double#32, string#33, bytes#34, date#35, timestamp#36, TestEnum#37]
         +-input_scan=
         | +-JoinScan
-        |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20]
+        |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21]
         |   +-left_scan=
         |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14])
         |   +-right_scan=
-        |     +-TableScan(column_list=[ComplexTypes.TestEnum#20], table=ComplexTypes, column_index_list=[1])
+        |     +-TableScan(column_list=[ComplexTypes.TestEnum#21], table=ComplexTypes, column_index_list=[1])
         +-group_by_list=
-          +-bool#25 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
-          +-int32#26 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-          +-int64#27 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-          +-uint32#28 := ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
-          +-uint64#29 := ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
-          +-float#30 := ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-          +-double#31 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-          +-string#32 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
-          +-bytes#33 := ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
-          +-date#34 := ColumnRef(type=DATE, column=SimpleTypes.date#10)
-          +-timestamp#35 := ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-          +-TestEnum#36 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
+          +-bool#26 := ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+          +-int32#27 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+          +-int64#28 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+          +-uint32#29 := ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+          +-uint64#30 := ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+          +-float#31 := ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+          +-double#32 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+          +-string#33 := ColumnRef(type=STRING, column=SimpleTypes.string#5)
+          +-bytes#34 := ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+          +-date#35 := ColumnRef(type=DATE, column=SimpleTypes.date#10)
+          +-timestamp#36 := ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
+          +-TestEnum#37 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#21)
 ==
 
 select KitchenSink from ComplexTypes group by KitchenSink;
@@ -2786,21 +2808,21 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
-| +-$aggregate.$agg2#20 AS `$col2` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
+| +-$aggregate.$agg2#21 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20]
+    +-column_list=$aggregate.[$agg1#20, $agg2#21]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
           | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
           |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-          +-$agg2#20 :=
+          +-$agg2#21 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
 
@@ -2822,79 +2844,79 @@ from SimpleTypes, ComplexTypes;
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#25 AS `$col1` [INT64]
-| +-$aggregate.$agg2#26 AS `$col2` [INT64]
-| +-$aggregate.$agg3#27 AS `$col3` [INT64]
-| +-$aggregate.$agg4#28 AS `$col4` [INT64]
-| +-$aggregate.$agg5#29 AS `$col5` [INT64]
-| +-$aggregate.$agg6#30 AS `$col6` [INT64]
-| +-$aggregate.$agg7#31 AS `$col7` [INT64]
-| +-$aggregate.$agg8#32 AS `$col8` [INT64]
-| +-$aggregate.$agg9#33 AS `$col9` [INT64]
-| +-$aggregate.$agg10#34 AS `$col10` [INT64]
-| +-$aggregate.$agg11#35 AS `$col11` [INT64]
-| +-$aggregate.$agg12#36 AS `$col12` [INT64]
+| +-$aggregate.$agg1#26 AS `$col1` [INT64]
+| +-$aggregate.$agg2#27 AS `$col2` [INT64]
+| +-$aggregate.$agg3#28 AS `$col3` [INT64]
+| +-$aggregate.$agg4#29 AS `$col4` [INT64]
+| +-$aggregate.$agg5#30 AS `$col5` [INT64]
+| +-$aggregate.$agg6#31 AS `$col6` [INT64]
+| +-$aggregate.$agg7#32 AS `$col7` [INT64]
+| +-$aggregate.$agg8#33 AS `$col8` [INT64]
+| +-$aggregate.$agg9#34 AS `$col9` [INT64]
+| +-$aggregate.$agg10#35 AS `$col10` [INT64]
+| +-$aggregate.$agg11#36 AS `$col11` [INT64]
+| +-$aggregate.$agg12#37 AS `$col12` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#25, $agg2#26, $agg3#27, $agg4#28, $agg5#29, $agg6#30, $agg7#31, $agg8#32, $agg9#33, $agg10#34, $agg11#35, $agg12#36]
+    +-column_list=$aggregate.[$agg1#26, $agg2#27, $agg3#28, $agg4#29, $agg5#30, $agg6#31, $agg7#32, $agg8#33, $agg9#34, $agg10#35, $agg11#36, $agg12#37]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#25, $agg2#26, $agg3#27, $agg4#28, $agg5#29, $agg6#30, $agg7#31, $agg8#32, $agg9#33, $agg10#34, $agg11#35, $agg12#36]
+        +-column_list=$aggregate.[$agg1#26, $agg2#27, $agg3#28, $agg4#29, $agg5#30, $agg6#31, $agg7#32, $agg8#33, $agg9#34, $agg10#35, $agg11#36, $agg12#37]
         +-input_scan=
         | +-JoinScan
-        |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#20]
+        |   +-column_list=[SimpleTypes.int32#1, SimpleTypes.int64#2, SimpleTypes.uint32#3, SimpleTypes.uint64#4, SimpleTypes.string#5, SimpleTypes.bytes#6, SimpleTypes.bool#7, SimpleTypes.float#8, SimpleTypes.double#9, SimpleTypes.date#10, SimpleTypes.timestamp#15, ComplexTypes.TestEnum#21]
         |   +-left_scan=
         |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14])
         |   +-right_scan=
-        |     +-TableScan(column_list=[ComplexTypes.TestEnum#20], table=ComplexTypes, column_index_list=[1])
+        |     +-TableScan(column_list=[ComplexTypes.TestEnum#21], table=ComplexTypes, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#25 :=
+          +-$agg1#26 :=
           | +-AggregateFunctionCall(ZetaSQL:count(BOOL) -> INT64)
           |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
           |   +-distinct=TRUE
-          +-$agg2#26 :=
+          +-$agg2#27 :=
           | +-AggregateFunctionCall(ZetaSQL:count(INT32) -> INT64)
           |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
           |   +-distinct=TRUE
-          +-$agg3#27 :=
+          +-$agg3#28 :=
           | +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
           |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
           |   +-distinct=TRUE
-          +-$agg4#28 :=
+          +-$agg4#29 :=
           | +-AggregateFunctionCall(ZetaSQL:count(UINT32) -> INT64)
           |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
           |   +-distinct=TRUE
-          +-$agg5#29 :=
+          +-$agg5#30 :=
           | +-AggregateFunctionCall(ZetaSQL:count(UINT64) -> INT64)
           |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
           |   +-distinct=TRUE
-          +-$agg6#30 :=
+          +-$agg6#31 :=
           | +-AggregateFunctionCall(ZetaSQL:count(FLOAT) -> INT64)
           |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
           |   +-distinct=TRUE
-          +-$agg7#31 :=
+          +-$agg7#32 :=
           | +-AggregateFunctionCall(ZetaSQL:count(DOUBLE) -> INT64)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
           |   +-distinct=TRUE
-          +-$agg8#32 :=
+          +-$agg8#33 :=
           | +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
           |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
           |   +-distinct=TRUE
-          +-$agg9#33 :=
+          +-$agg9#34 :=
           | +-AggregateFunctionCall(ZetaSQL:count(BYTES) -> INT64)
           |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
           |   +-distinct=TRUE
-          +-$agg10#34 :=
+          +-$agg10#35 :=
           | +-AggregateFunctionCall(ZetaSQL:count(DATE) -> INT64)
           |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
           |   +-distinct=TRUE
-          +-$agg11#35 :=
+          +-$agg11#36 :=
           | +-AggregateFunctionCall(ZetaSQL:count(TIMESTAMP) -> INT64)
           |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
           |   +-distinct=TRUE
-          +-$agg12#36 :=
+          +-$agg12#37 :=
             +-AggregateFunctionCall(ZetaSQL:count(ENUM<zetasql_test__.TestEnum>) -> INT64)
-              +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
+              +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#21)
               +-distinct=TRUE
 ==
 
@@ -4071,22 +4093,22 @@ ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
-| +-$aggregate.$agg2#20 AS `$col2` [INT64]
+| +-$aggregate.$agg1#20 AS `$col1` [INT64]
+| +-$aggregate.$agg2#21 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20]
+    +-column_list=$aggregate.[$agg1#20, $agg2#21]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[int64#2, float#8], table=SimpleTypes, column_index_list=[1, 7])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
           | +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
           |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
           |   +-distinct=TRUE
-          +-$agg2#20 :=
+          +-$agg2#21 :=
             +-AggregateFunctionCall(ZetaSQL:count(FLOAT) -> INT64)
               +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
               +-distinct=TRUE
@@ -4105,20 +4127,20 @@ ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.double#20 AS double [DOUBLE]
-| +-$aggregate.$agg1#19 AS `$col2` [INT64]
+| +-$groupby.double#21 AS double [DOUBLE]
+| +-$aggregate.$agg1#20 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$groupby.double#20, $aggregate.$agg1#19]
+    +-column_list=[$groupby.double#21, $aggregate.$agg1#20]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.double#20, $aggregate.$agg1#19]
+        +-column_list=[$groupby.double#21, $aggregate.$agg1#20]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
         +-group_by_list=
-        | +-double#20 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+        | +-double#21 := ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
         +-aggregate_list=
-          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+          +-$agg1#20 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
 ==
 
 select count(*), count(CAST(NULL AS STRUCT<a INT32>)) from KeyValue
@@ -4150,53 +4172,53 @@ ORDER BY {{1|int64_col}}, {{2|uint64_col}}
 --
 QueryStmt
 +-output_column_list=
-| +-$distinct.int64_col#23 AS int64_col [INT64]
-| +-$distinct.uint64_col#24 AS uint64_col [UINT64]
+| +-$distinct.int64_col#24 AS int64_col [INT64]
+| +-$distinct.uint64_col#25 AS uint64_col [UINT64]
 +-query=
   +-OrderByScan
-    +-column_list=$distinct.[int64_col#23, uint64_col#24]
+    +-column_list=$distinct.[int64_col#24, uint64_col#25]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AggregateScan
-    |   +-column_list=$distinct.[int64_col#23, uint64_col#24]
+    |   +-column_list=$distinct.[int64_col#24, uint64_col#25]
     |   +-input_scan=
     |   | +-ProjectScan
-    |   |   +-column_list=[$groupby.int64_col#21, $aggregate.$agg1#19, $query.uint64_col#22]
+    |   |   +-column_list=[$groupby.int64_col#22, $aggregate.$agg1#20, $query.uint64_col#23]
     |   |   +-expr_list=
-    |   |   | +-uint64_col#22 :=
+    |   |   | +-uint64_col#23 :=
     |   |   |   +-Cast(INT64 -> UINT64)
-    |   |   |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#19)
+    |   |   |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#20)
     |   |   +-input_scan=
     |   |     +-AggregateScan
-    |   |       +-column_list=[$groupby.int64_col#21, $aggregate.$agg1#19]
+    |   |       +-column_list=[$groupby.int64_col#22, $aggregate.$agg1#20]
     |   |       +-input_scan=
     |   |       | +-ProjectScan
-    |   |       |   +-column_list=[SimpleTypes.int64#2, $pre_groupby.int64_col#20]
+    |   |       |   +-column_list=[SimpleTypes.int64#2, $pre_groupby.int64_col#21]
     |   |       |   +-expr_list=
-    |   |       |   | +-int64_col#20 :=
+    |   |       |   | +-int64_col#21 :=
     |   |       |   |   +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
     |   |       |   |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |   |       |   |     +-Literal(type=INT64, value=10)
     |   |       |   +-input_scan=
     |   |       |     +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
     |   |       +-group_by_list=
-    |   |       | +-int64_col#21 := ColumnRef(type=INT64, column=$pre_groupby.int64_col#20)
+    |   |       | +-int64_col#22 := ColumnRef(type=INT64, column=$pre_groupby.int64_col#21)
     |   |       +-aggregate_list=
-    |   |         +-$agg1#19 :=
+    |   |         +-$agg1#20 :=
     |   |           +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
     |   |             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
     |   |               +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
     |   |               +-Literal(type=INT64, value=1)
     |   +-group_by_list=
-    |     +-int64_col#23 := ColumnRef(type=INT64, column=$groupby.int64_col#21)
-    |     +-uint64_col#24 := ColumnRef(type=UINT64, column=$query.uint64_col#22)
+    |     +-int64_col#24 := ColumnRef(type=INT64, column=$groupby.int64_col#22)
+    |     +-uint64_col#25 := ColumnRef(type=UINT64, column=$query.uint64_col#23)
     +-order_by_item_list=
       +-OrderByItem
       | +-column_ref=
-      |   +-ColumnRef(type=INT64, column=$distinct.int64_col#23)
+      |   +-ColumnRef(type=INT64, column=$distinct.int64_col#24)
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=UINT64, column=$distinct.uint64_col#24)
+          +-ColumnRef(type=UINT64, column=$distinct.uint64_col#25)
 ==
 
 # Aggregate of a correlated column reference.
@@ -4698,57 +4720,57 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
-| +-$aggregate.$agg2#20 AS `$col2` [DOUBLE]
-| +-$aggregate.$agg3#21 AS `$col3` [DOUBLE]
-| +-$aggregate.$agg4#22 AS `$col4` [DOUBLE]
-| +-$aggregate.$agg5#23 AS `$col5` [DOUBLE]
-| +-$aggregate.$agg6#24 AS `$col6` [DOUBLE]
-| +-$aggregate.$agg7#25 AS `$col7` [DOUBLE]
-| +-$aggregate.$agg8#26 AS `$col8` [DOUBLE]
-| +-$aggregate.$agg9#27 AS `$col9` [DOUBLE]
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#21 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#22 AS `$col3` [DOUBLE]
+| +-$aggregate.$agg4#23 AS `$col4` [DOUBLE]
+| +-$aggregate.$agg5#24 AS `$col5` [DOUBLE]
+| +-$aggregate.$agg6#25 AS `$col6` [DOUBLE]
+| +-$aggregate.$agg7#26 AS `$col7` [DOUBLE]
+| +-$aggregate.$agg8#27 AS `$col8` [DOUBLE]
+| +-$aggregate.$agg9#28 AS `$col9` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22, $agg5#23, $agg6#24, $agg7#25, $agg8#26, $agg9#27]
+    +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22, $agg4#23, $agg5#24, $agg6#25, $agg7#26, $agg8#27, $agg9#28]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22, $agg5#23, $agg6#24, $agg7#25, $agg8#26, $agg9#27]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22, $agg4#23, $agg5#24, $agg6#25, $agg7#26, $agg8#27, $agg9#28]
         +-input_scan=
         | +-TableScan(column_list=SimpleTypes.[float#8, double#9], table=SimpleTypes, column_index_list=[7, 8])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
           | +-AggregateFunctionCall(ZetaSQL:corr(DOUBLE, DOUBLE) -> DOUBLE)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
           |   +-Cast(FLOAT -> DOUBLE)
           |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-          +-$agg2#20 :=
+          +-$agg2#21 :=
           | +-AggregateFunctionCall(ZetaSQL:covar_pop(DOUBLE, DOUBLE) -> DOUBLE)
           |   +-Cast(FLOAT -> DOUBLE)
           |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-          +-$agg3#21 :=
+          +-$agg3#22 :=
           | +-AggregateFunctionCall(ZetaSQL:covar_samp(DOUBLE, DOUBLE) -> DOUBLE)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
           |   +-Cast(FLOAT -> DOUBLE)
           |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-          +-$agg4#22 :=
+          +-$agg4#23 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_pop(DOUBLE) -> DOUBLE)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-          +-$agg5#23 :=
+          +-$agg5#24 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_samp(DOUBLE) -> DOUBLE)
           |   +-Cast(FLOAT -> DOUBLE)
           |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-          +-$agg6#24 :=
+          +-$agg6#25 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_samp(DOUBLE) -> DOUBLE)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-          +-$agg7#25 :=
+          +-$agg7#26 :=
           | +-AggregateFunctionCall(ZetaSQL:var_pop(DOUBLE) -> DOUBLE)
           |   +-Cast(FLOAT -> DOUBLE)
           |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-          +-$agg8#26 :=
+          +-$agg8#27 :=
           | +-AggregateFunctionCall(ZetaSQL:var_samp(DOUBLE) -> DOUBLE)
           |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-          +-$agg9#27 :=
+          +-$agg9#28 :=
             +-AggregateFunctionCall(ZetaSQL:var_samp(DOUBLE) -> DOUBLE)
               +-Cast(FLOAT -> DOUBLE)
                 +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
@@ -4764,27 +4786,27 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
-| +-$aggregate.$agg2#20 AS `$col2` [DOUBLE]
-| +-$aggregate.$agg3#21 AS `$col3` [DOUBLE]
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#21 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#22 AS `$col3` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21]
+    +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
           | +-AggregateFunctionCall(ZetaSQL:corr(NUMERIC, NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg2#20 :=
+          +-$agg2#21 :=
           | +-AggregateFunctionCall(ZetaSQL:covar_pop(NUMERIC, NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg3#21 :=
+          +-$agg3#22 :=
             +-AggregateFunctionCall(ZetaSQL:covar_samp(NUMERIC, NUMERIC) -> DOUBLE)
               +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
               +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
@@ -4800,37 +4822,37 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
-| +-$aggregate.$agg2#20 AS `$col2` [DOUBLE]
-| +-$aggregate.$agg3#21 AS `$col3` [DOUBLE]
-| +-$aggregate.$agg4#22 AS `$col4` [DOUBLE]
-| +-$aggregate.$agg5#23 AS `$col5` [DOUBLE]
-| +-$aggregate.$agg6#24 AS `$col6` [DOUBLE]
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#21 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#22 AS `$col3` [DOUBLE]
+| +-$aggregate.$agg4#23 AS `$col4` [DOUBLE]
+| +-$aggregate.$agg5#24 AS `$col5` [DOUBLE]
+| +-$aggregate.$agg6#25 AS `$col6` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22, $agg5#23, $agg6#24]
+    +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22, $agg4#23, $agg5#24, $agg6#25]
     +-input_scan=
       +-AggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22, $agg5#23, $agg6#24]
+        +-column_list=$aggregate.[$agg1#20, $agg2#21, $agg3#22, $agg4#23, $agg5#24, $agg6#25]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#20 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_pop(NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg2#20 :=
+          +-$agg2#21 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_samp(NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg3#21 :=
+          +-$agg3#22 :=
           | +-AggregateFunctionCall(ZetaSQL:stddev_samp(NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg4#22 :=
+          +-$agg4#23 :=
           | +-AggregateFunctionCall(ZetaSQL:var_pop(NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg5#23 :=
+          +-$agg5#24 :=
           | +-AggregateFunctionCall(ZetaSQL:var_samp(NUMERIC) -> DOUBLE)
           |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
-          +-$agg6#24 :=
+          +-$agg6#25 :=
             +-AggregateFunctionCall(ZetaSQL:var_samp(NUMERIC) -> DOUBLE)
               +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
 ==

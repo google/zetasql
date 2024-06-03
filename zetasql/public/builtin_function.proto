@@ -50,12 +50,12 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2095)
+  // 2000-2199 Geography functions            (NextId: 2096)
   // 2200-2231 Anonymization functions        (NextId: 2232)
-  // 2300-2499 Numeric, more math & distances (NextId: 2381)
+  // 2300-2499 Numeric, more math & distances (NextId: 2388)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2627)
-  // 2700-2799 Aggregate functions II         (NextId: 2764)
+  // 2600-2699 More misc functions.           (NextId: 2658)
+  // 2700-2799 Aggregate functions II         (NextId: 2773)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2921)
   // 3000-3100 Map functions                  (NextId: 3001)
@@ -799,6 +799,7 @@ enum FunctionSignatureId {
 
   FN_RAND = 1618;           // rand() -> double
   FN_GENERATE_UUID = 1679;  // generate_uuid() -> string
+  FN_NEW_UUID = 2657;       // new_uuid() -> uuid
 
   FN_JSON_EXTRACT = 1619;       // json_extract(string, string) -> string
   FN_JSON_EXTRACT_JSON = 1684;  // json_extract(json, string) -> json
@@ -1063,6 +1064,7 @@ enum FunctionSignatureId {
   FN_ST_WITHIN = 2027;
   FN_ST_COVEREDBY = 2028;
   FN_ST_TOUCHES = 2029;
+  FN_ST_HAUSDORFF_DWITHIN = 2095;
 
   // Accessors
   FN_ST_IS_EMPTY = 2030;
@@ -1375,9 +1377,13 @@ enum FunctionSignatureId {
   // approx_cosine_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
   FN_APPROX_COSINE_DISTANCE_FLOAT = 2356;
   // approx_cosine_distance(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
-  FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_OPTIONS = 2357;
+  FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_JSON_OPTIONS = 2357;
   // approx_cosine_distance(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
-  FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_OPTIONS = 2358;
+  FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_JSON_OPTIONS = 2358;
+  // approx_cosine_distance(array<DOUBLE>, array<DOUBLE>, proto) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS = 2381;
+  // approx_cosine_distance(array<FLOAT>, array<FLOAT>, proto) -> DOUBLE
+  FN_APPROX_COSINE_DISTANCE_FLOAT_WITH_PROTO_OPTIONS = 2382;
 
   // euclidean_distance(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
   FN_EUCLIDEAN_DISTANCE_DENSE_DOUBLE = 2348;
@@ -1395,9 +1401,13 @@ enum FunctionSignatureId {
   // approx_euclidean_distance(array<FLOAT>, array<FLOAT>) -> DOUBLE
   FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT = 2360;
   // approx_euclidean_distance(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
-  FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_OPTIONS = 2361;
+  FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_JSON_OPTIONS = 2361;
   // approx_euclidean_distance(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
-  FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_OPTIONS = 2362;
+  FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_JSON_OPTIONS = 2362;
+  // approx_euclidean_distance(array<DOUBLE>, array<DOUBLE>, proto) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_DOUBLE_WITH_PROTO_OPTIONS = 2383;
+  // approx_euclidean_distance(array<FLOAT>, array<FLOAT>, proto) -> DOUBLE
+  FN_APPROX_EUCLIDEAN_DISTANCE_FLOAT_WITH_PROTO_OPTIONS = 2384;
 
   // edit_distance(STRING, STRING[, INT64]) -> INT64
   FN_EDIT_DISTANCE = 2351;
@@ -1418,11 +1428,17 @@ enum FunctionSignatureId {
   // approx_dot_product(array<DOUBLE>, array<DOUBLE>) -> DOUBLE
   FN_APPROX_DOT_PRODUCT_DOUBLE = 2368;
   // approx_dot_product(array<INT64>, array<INT64>, json) -> DOUBLE
-  FN_APPROX_DOT_PRODUCT_INT64_WITH_OPTIONS = 2369;
+  FN_APPROX_DOT_PRODUCT_INT64_WITH_JSON_OPTIONS = 2369;
   // approx_dot_product(array<FLOAT>, array<FLOAT>, json) -> DOUBLE
-  FN_APPROX_DOT_PRODUCT_FLOAT_WITH_OPTIONS = 2370;
+  FN_APPROX_DOT_PRODUCT_FLOAT_WITH_JSON_OPTIONS = 2370;
   // approx_dot_product(array<DOUBLE>, array<DOUBLE>, json) -> DOUBLE
-  FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_OPTIONS = 2371;
+  FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_JSON_OPTIONS = 2371;
+  // approx_dot_product(array<INT64>, array<INT64>, proto) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_INT64_WITH_PROTO_OPTIONS = 2385;
+  // approx_dot_product(array<FLOAT>, array<FLOAT>, proto) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_FLOAT_WITH_PROTO_OPTIONS = 2386;
+  // approx_dot_product(array<DOUBLE>, array<DOUBLE>, proto) -> DOUBLE
+  FN_APPROX_DOT_PRODUCT_DOUBLE_WITH_PROTO_OPTIONS = 2387;
 
   // manhattan_distance(array<INT64>, array<INT64>) -> DOUBLE
   FN_MANHATTAN_DISTANCE_INT64 = 2372;
@@ -1494,6 +1510,17 @@ enum FunctionSignatureId {
   // lax_uint64_array(JSON) -> array<UINT64>
   FN_JSON_LAX_TO_UINT64_ARRAY = 2650;
 
+  // json_keys(JSON [, INT64][, STRING]) -> array<STRING>
+  FN_JSON_KEYS = 2656;
+
   // Map functions
   FN_MAP_FROM_ARRAY = 3000;  // map_from_array(array<struct<K, V>>) -> map<K, V>
+  FN_MAP_ENTRIES_SORTED =
+      3001;  // map_entries_sorted(map<K, V>) -> array<struct<K, V>>
+  FN_MAP_ENTRIES_UNSORTED =
+      3002;           // map_entries_unsorted(map<K, V>) -> array<struct<K, V>>
+  FN_MAP_GET = 3003;  // map_get(map<K, V>, K, V = NULL) -> V
+  FN_MAP_SUBSCRIPT = 3004;           // map<K, V>[K] -> V
+  FN_MAP_SUBSCRIPT_WITH_KEY = 3005;  // map<K, V>[{safe_}key(K)] -> V
+  FN_MAP_CONTAINS_KEY = 3006;        // map_contains_key(map<K, V>, K) -> bool
 }

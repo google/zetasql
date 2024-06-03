@@ -381,4 +381,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(CastTokenList, CastTemplateTest,
                          testing::ValuesIn(GetFunctionTestsCastTokenList()));
 
+INSTANTIATE_TEST_SUITE_P(CastUuid, CastTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCastUuid()));
+
 }  // namespace zetasql

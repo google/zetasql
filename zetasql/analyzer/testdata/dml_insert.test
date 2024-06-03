@@ -1542,17 +1542,17 @@ InsertStmt
 +-insert_column_list=[SimpleTypes.int32#1]
 +-query=
 | +-ProjectScan
-|   +-column_list=[$insert_cast.$col1#20]
+|   +-column_list=[$insert_cast.$col1#21]
 |   +-expr_list=
-|   | +-$col1#20 := Literal(type=INT32, value=1)
+|   | +-$col1#21 := Literal(type=INT32, value=1)
 |   +-input_scan=
 |     +-ProjectScan
-|       +-column_list=[$insert.$col1#19]
+|       +-column_list=[$insert.$col1#20]
 |       +-expr_list=
-|       | +-$col1#19 := Literal(type=INT64, value=1)
+|       | +-$col1#20 := Literal(type=INT64, value=1)
 |       +-input_scan=
 |         +-SingleRowScan
-+-query_output_column_list=[$insert_cast.$col1#20]
++-query_output_column_list=[$insert_cast.$col1#21]
 +-column_access_list=WRITE
 ==
 
@@ -1581,23 +1581,23 @@ InsertStmt
 +-insert_column_list=[SimpleTypes.int32#1]
 +-query=
 | +-ProjectScan
-|   +-column_list=[$insert_cast.$col1#38]
+|   +-column_list=[$insert_cast.$col1#40]
 |   +-expr_list=
-|   | +-$col1#38 :=
+|   | +-$col1#40 :=
 |   |   +-Cast(INT64 -> INT32)
-|   |     +-ColumnRef(type=INT64, column=$insert.$col1#37)
+|   |     +-ColumnRef(type=INT64, column=$insert.$col1#39)
 |   +-input_scan=
 |     +-ProjectScan
-|       +-column_list=[$insert.$col1#37]
+|       +-column_list=[$insert.$col1#39]
 |       +-expr_list=
-|       | +-$col1#37 :=
+|       | +-$col1#39 :=
 |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 |       |     +-Cast(INT32 -> INT64)
-|       |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#19)
+|       |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#20)
 |       |     +-Literal(type=INT64, value=1)
 |       +-input_scan=
-|         +-TableScan(column_list=[SimpleTypes.int32#19], table=SimpleTypes, column_index_list=[0])
-+-query_output_column_list=[$insert_cast.$col1#38]
+|         +-TableScan(column_list=[SimpleTypes.int32#20], table=SimpleTypes, column_index_list=[0])
++-query_output_column_list=[$insert_cast.$col1#40]
 +-column_access_list=WRITE
 ==
 
@@ -1610,17 +1610,17 @@ InsertStmt
 +-insert_column_list=[SimpleTypes.int32#1]
 +-query=
 | +-ProjectScan
-|   +-column_list=[$insert_cast.int64#37]
+|   +-column_list=[$insert_cast.int64#39]
 |   +-expr_list=
-|   | +-int64#37 :=
+|   | +-int64#39 :=
 |   |   +-Cast(INT64 -> INT32)
-|   |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#20)
+|   |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#21)
 |   +-input_scan=
 |     +-ProjectScan
-|       +-column_list=[SimpleTypes.int64#20]
+|       +-column_list=[SimpleTypes.int64#21]
 |       +-input_scan=
-|         +-TableScan(column_list=[SimpleTypes.int64#20], table=SimpleTypes, column_index_list=[1])
-+-query_output_column_list=[$insert_cast.int64#37]
+|         +-TableScan(column_list=[SimpleTypes.int64#21], table=SimpleTypes, column_index_list=[1])
++-query_output_column_list=[$insert_cast.int64#39]
 +-column_access_list=WRITE
 ==
 

@@ -451,19 +451,19 @@ ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
-| +-$analytic.$analytic1#20 AS `$col1` [INT64]
+| +-$analytic.$analytic1#21 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$analytic.$analytic1#20]
+    +-column_list=[$analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.double#9, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
         +-function_group_list=
           +-AnalyticFunctionGroup
             +-analytic_function_list=
-              +-$analytic1#20 :=
+              +-$analytic1#21 :=
                 +-AnalyticFunctionCall(sample_functions:afn_agg(DOUBLE) -> INT64)
                   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
                   +-distinct=TRUE
@@ -1367,13 +1367,13 @@ FROM SimpleTypes
 QueryStmt
 +-output_column_list=
 | +-SimpleTypes.int32#1 AS foo [INT32]
-| +-$analytic.$analytic1#20 AS `$col2` [INT64]
+| +-$analytic.$analytic1#21 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#20]
+    +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#21]
     +-input_scan=
       +-AnalyticScan
-        +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#20]
+        +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#21]
         +-input_scan=
         | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
         +-function_group_list=
@@ -1389,7 +1389,7 @@ QueryStmt
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
             +-analytic_function_list=
-              +-$analytic1#20 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+              +-$analytic1#21 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
 ==
 
 SELECT any_value(a) OVER (PARTITION BY b ORDER BY a) AS a,
@@ -1774,7 +1774,7 @@ QueryStmt
     +-is_ordered=TRUE
     +-input_scan=
     | +-AnalyticScan
-    |   +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#19, $analytic.$analytic2#20, $analytic.$analytic3#21]
+    |   +-column_list=[SimpleTypes.int32#1, $analytic.$analytic1#20, $analytic.$analytic2#21, $analytic.$analytic3#22]
     |   +-input_scan=
     |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     |   +-function_group_list=
@@ -1786,7 +1786,7 @@ QueryStmt
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |     | +-analytic_function_list=
-    |     |   +-$analytic1#19 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+    |     |   +-$analytic1#20 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
     |     +-AnalyticFunctionGroup
     |     | +-partition_by=
     |     | | +-WindowPartitioning
@@ -1799,10 +1799,10 @@ QueryStmt
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |     | +-analytic_function_list=
-    |     |   +-$analytic2#20 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+    |     |   +-$analytic2#21 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
     |     +-AnalyticFunctionGroup
     |       +-analytic_function_list=
-    |         +-$analytic3#21 :=
+    |         +-$analytic3#22 :=
     |           +-AnalyticFunctionCall(ZetaSQL:any_value(INT32) -> INT32)
     |             +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |             +-window_frame=
@@ -1814,13 +1814,13 @@ QueryStmt
     +-order_by_item_list=
       +-OrderByItem
       | +-column_ref=
-      |   +-ColumnRef(type=INT64, column=$analytic.$analytic1#19)
+      |   +-ColumnRef(type=INT64, column=$analytic.$analytic1#20)
       +-OrderByItem
       | +-column_ref=
-      |   +-ColumnRef(type=INT64, column=$analytic.$analytic2#20)
+      |   +-ColumnRef(type=INT64, column=$analytic.$analytic2#21)
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=INT32, column=$analytic.$analytic3#21)
+          +-ColumnRef(type=INT32, column=$analytic.$analytic3#22)
 ==
 
 select DISTINCT int32 as foo
@@ -1839,26 +1839,64 @@ order by rank() over (order by foo);
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-| +-$aggregate.sum_int64#19 AS sum_int64 [INT64]
+| +-$groupby.foo#21 AS foo [INT32]
+| +-$aggregate.sum_int64#20 AS sum_int64 [INT64]
 +-query=
   +-OrderByScan
-    +-column_list=[$groupby.foo#20, $aggregate.sum_int64#19]
+    +-column_list=[$groupby.foo#21, $aggregate.sum_int64#20]
     +-is_ordered=TRUE
     +-input_scan=
     | +-AnalyticScan
-    |   +-column_list=[$groupby.foo#20, $aggregate.sum_int64#19, $analytic.$analytic1#21]
+    |   +-column_list=[$groupby.foo#21, $aggregate.sum_int64#20, $analytic.$analytic1#22]
     |   +-input_scan=
     |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20, $aggregate.sum_int64#19]
+    |   |   +-column_list=[$groupby.foo#21, $aggregate.sum_int64#20]
     |   |   +-input_scan=
     |   |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2], table=SimpleTypes, column_index_list=[0, 1])
     |   |   +-group_by_list=
-    |   |   | +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |   |   | +-foo#21 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |   |   +-aggregate_list=
-    |   |     +-sum_int64#19 :=
+    |   |     +-sum_int64#20 :=
     |   |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
     |   |         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |   +-function_group_list=
+    |     +-AnalyticFunctionGroup
+    |       +-order_by=
+    |       | +-WindowOrdering
+    |       |   +-order_by_item_list=
+    |       |     +-OrderByItem
+    |       |       +-column_ref=
+    |       |         +-ColumnRef(type=INT32, column=$groupby.foo#21)
+    |       +-analytic_function_list=
+    |         +-$analytic1#22 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$analytic.$analytic1#22)
+==
+
+select int32 as foo
+from SimpleTypes
+group by foo, 1, int32
+order by rank() over (order by int32);
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.foo#20 AS foo [INT32]
++-query=
+  +-OrderByScan
+    +-column_list=[$groupby.foo#20]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AnalyticScan
+    |   +-column_list=[$groupby.foo#20, $analytic.$analytic1#21]
+    |   +-input_scan=
+    |   | +-AggregateScan
+    |   |   +-column_list=[$groupby.foo#20]
+    |   |   +-input_scan=
+    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+    |   |   +-group_by_list=
+    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |   +-function_group_list=
     |     +-AnalyticFunctionGroup
     |       +-order_by=
@@ -1873,44 +1911,6 @@ QueryStmt
       +-OrderByItem
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#21)
-==
-
-select int32 as foo
-from SimpleTypes
-group by foo, 1, int32
-order by rank() over (order by int32);
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#19 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#19]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AnalyticScan
-    |   +-column_list=[$groupby.foo#19, $analytic.$analytic1#20]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#19]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#19 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-function_group_list=
-    |     +-AnalyticFunctionGroup
-    |       +-order_by=
-    |       | +-WindowOrdering
-    |       |   +-order_by_item_list=
-    |       |     +-OrderByItem
-    |       |       +-column_ref=
-    |       |         +-ColumnRef(type=INT32, column=$groupby.foo#19)
-    |       +-analytic_function_list=
-    |         +-$analytic1#20 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=$analytic.$analytic1#20)
 ==
 
 [language_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_IN_AGGREGATE]

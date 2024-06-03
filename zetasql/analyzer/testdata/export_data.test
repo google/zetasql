@@ -277,6 +277,26 @@ ExportDataStmt
         +-output_column_list=[$union_all2.f1_#2]
 ==
 
+export data with connection ``
+options (format=sstable, filename='/tmp/file.ss')
+as select * from KeyValue
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:29]
+export data with connection ``
+                            ^
+
+==
+
+export data with connection default
+options (format=sstable, filename='/tmp/file.ss')
+as select * from KeyValue
+--
+ERROR: CONNECTION DEFAULT is not supported [at 1:29]
+export data with connection default
+                            ^
+
+==
+
 export data with connection connection1
 options (format=sstable, filename='/tmp/file.ss')
 as select * from KeyValue

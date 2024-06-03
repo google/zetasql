@@ -21,12 +21,12 @@ select st_geogpoint(double, int64) from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [GEOGRAPHY]
+| +-$query.$col1#20 AS `$col1` [GEOGRAPHY]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:st_geogpoint(DOUBLE, DOUBLE) -> GEOGRAPHY)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
     |     +-Cast(INT64 -> DOUBLE)

@@ -96,7 +96,8 @@ and [`TIMESTAMP` range][data-types-link-to-timestamp_type].
 
 </td>
   <td>
-    Gets the number of intervals between two <code>TIMESTAMP</code> values.
+    Gets the number of unit boundaries between two <code>TIMESTAMP</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -493,16 +494,16 @@ each element in `timestamp_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008");
 
 -- This works because %c can find all matching elements in timestamp_string.
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008");
 ```
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
@@ -712,30 +713,37 @@ SELECT
 ### `TIMESTAMP_DIFF`
 
 ```sql
-TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
+TIMESTAMP_DIFF(end_timestamp, start_timestamp, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `date_part` intervals between two
-timestamps (`timestamp_expression_a` - `timestamp_expression_b`).
-If the first timestamp is earlier than the second one,
-the output is negative. Produces an error if the computation overflows the
-result type, such as if the difference in
-nanoseconds
-between the two timestamps would overflow an
-`INT64` value.
+Gets the number of unit boundaries between two `TIMESTAMP` values
+(`end_timestamp` - `start_timestamp`) at a particular time granularity.
 
-`TIMESTAMP_DIFF` supports the following values for `date_part`:
+**Definitions**
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
++   `start_timestamp`: The starting `TIMESTAMP` value.
++   `end_timestamp`: The ending `TIMESTAMP` value.
++   `granularity`: The timestamp part that represents the granularity.
+    This can be:
+
+    
+    + `NANOSECOND`
+      (if the SQL engine supports it)
+    + `MICROSECOND`
+    + `MILLISECOND`
+    + `SECOND`
+    + `MINUTE`
+    + `HOUR`. Equivalent to 60 `MINUTE`s.
+    + `DAY`. Equivalent to 24 `HOUR`s.
+
+**Details**
+
+If `end_timestamp` is earlier than `start_timestamp`, the output is negative.
+Produces an error if the computation overflows, such as if the difference
+in nanoseconds
+between the two `TIMESTAMP` values overflows.
 
 **Return Data Type**
 
@@ -767,7 +775,7 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS ne
  | negative_diff |
  +---------------+
  | -61           |
- *---------------+
+ *---------------*/
 ```
 
 In this example, the result is 0 because only the number of whole specified
@@ -780,7 +788,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
  | diff          |
  +---------------+
  | 0             |
- *---------------+
+ *---------------*/
 ```
 
 ### `TIMESTAMP_FROM_UNIX_MICROS`

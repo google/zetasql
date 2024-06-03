@@ -1146,15 +1146,87 @@ SELECT * FROM t;
 ARRAY<STRUCT<n INT64>>[unknown order:{1}, {2}, {3}, {4}, {5}]
 ==
 
-[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
-[labels=bug_in_reference_impl]
+[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE,V_1_4_ENFORCE_CONDITIONAL_EVALUATION]
 [name=conditional_evaluation_in_cte_including_recursive]
 WITH
   t AS (
     WITH RECURSIVE
       t1 AS (SELECT 0 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
-    SELECT IF(sum(n) = 0, sum(n), SUM(1/n)) FROM t1
+    SELECT IF(sum(n) > 0, sum(n), SUM(1/n)) FROM t1
   )
 SELECT * FROM t;
 --
-ARRAY<STRUCT<n INT64>>[unknown order:{1}, {2}, {3}, {4}, {5}]
+ARRAY<STRUCT<DOUBLE>>[{15}]
+==
+
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[name=explicit_recursion_depth_union_all]
+WITH RECURSIVE t AS (
+  SELECT 0 AS n
+  UNION ALL
+  SELECT MOD(n + 1, 3) AS n FROM t
+) WITH DEPTH AS depth BETWEEN 1 AND 4
+SELECT n, depth FROM t
+ORDER BY depth;
+
+--
+ARRAY<STRUCT<n INT64, depth INT64>>[known order:
+  {1, 1},
+  {2, 2},
+  {0, 3},
+  {1, 4}
+]
+==
+
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[name=explicit_recursion_depth_union_distinct]
+WITH RECURSIVE t AS (
+  SELECT 0 AS n
+  UNION DISTINCT
+  SELECT MOD(n + 1, 3) AS n FROM t
+) WITH DEPTH AS depth BETWEEN 1 AND 4
+SELECT n, depth FROM t
+ORDER BY depth;
+
+--
+
+# Note that there is no {0, 3} in this output because {0, 3} won't be generated
+# because 0 is already generated in depth 0.
+ARRAY<STRUCT<n INT64, depth INT64>>[known order:{1, 1}, {2, 2}]
+
+==
+
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[name=explicit_recursion_depth_union_all_multiple_rows_each_iteration]
+WITH RECURSIVE t AS (
+  SELECT 0 AS n
+  UNION ALL
+  SELECT (10 * n + v) AS n
+  FROM t, UNNEST([1, 2]) AS v
+) WITH DEPTH AS depth BETWEEN 1 AND 2
+SELECT n, depth FROM t
+ORDER BY depth, n;
+
+--
+ARRAY<STRUCT<n INT64, depth INT64>>[known order:
+  {1, 1},
+  {2, 1},
+  {11, 2},
+  {12, 2},
+  {21, 2},
+  {22, 2}
+]
+==
+
+[required_features=V_1_3_WITH_RECURSIVE,V_1_4_WITH_RECURSIVE_DEPTH_MODIFIER]
+[name=explicit_recursion_depth_union_distinct_multiple_rows_each_iteration]
+WITH RECURSIVE t AS (
+  SELECT 0 AS n
+  UNION DISTINCT
+  SELECT MOD(10 * n + v, 3) AS n
+  FROM t, UNNEST([1, 2]) AS v
+) WITH DEPTH AS depth BETWEEN 1 AND 2
+SELECT n, depth FROM t
+ORDER BY depth, n;
+--
+ARRAY<STRUCT<n INT64, depth INT64>>[known order:{1, 1}, {2, 1}]

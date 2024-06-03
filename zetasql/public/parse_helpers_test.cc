@@ -179,8 +179,8 @@ TEST(IsValidStatementSyntaxTest, BasicStatements) {
   EXPECT_EQ(
       internal::StatusToString(status),
       "generic::invalid_argument: Syntax error: Expected end of input but "
-      "got identifier "
-      "\"did\" [zetasql.ErrorLocation] { line: 1 column: 22 }");
+      "got identifier \"did\" [zetasql.ErrorLocation] { line: 1 column: 22 "
+      "input_start_line_offset: 0 input_start_column_offset: 0 }");
 
   status = IsValidStatementSyntax("SELECT * FROM oops I did it again",
                                   ERROR_MESSAGE_ONE_LINE);
@@ -250,8 +250,10 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
                                  ERROR_MESSAGE_WITH_PAYLOAD, &at_end_of_input);
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                HasSubstr("Syntax error")));
-  EXPECT_THAT(internal::StatusToString(status),
-              HasSubstr("[zetasql.ErrorLocation] { line: 1 column: 22 }"));
+  EXPECT_THAT(
+      internal::StatusToString(status),
+      HasSubstr("[zetasql.ErrorLocation] { line: 1 column: 22 "
+                "input_start_line_offset: 0 input_start_column_offset: 0 }"));
 
   // Test where the ParseResumeLocation is in the middle of a string.
   parse_resume_location = ParseResumeLocation::FromString(

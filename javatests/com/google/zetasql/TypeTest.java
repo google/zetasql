@@ -84,6 +84,7 @@ public class TypeTest {
     verifyIsType(Arrays.asList(TypeKind.TYPE_DATETIME), Type::isDatetime, "isDatetime");
     verifyIsType(Arrays.asList(TypeKind.TYPE_TIME), Type::isTime, "isTime");
     verifyIsType(Arrays.asList(TypeKind.TYPE_INTERVAL), Type::isInterval, "isInterval");
+    verifyIsType(Arrays.asList(TypeKind.TYPE_UUID), Type::isUuid, "isUuid");
     verifyIsType(Arrays.asList(TypeKind.TYPE_GEOGRAPHY), Type::isGeography, "isGeography");
     verifyIsType(Arrays.asList(TypeKind.TYPE_JSON), Type::isJson, "isJson");
     verifyIsType(Arrays.asList(TypeKind.TYPE_ENUM), Type::isEnum, "isEnum");
@@ -131,6 +132,7 @@ public class TypeTest {
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_JSON));
+    types.add(TypeFactory.createSimpleType(TypeKind.TYPE_UUID));
 
     for (Type type : types) {
       String typeString = type.getKind().toString();

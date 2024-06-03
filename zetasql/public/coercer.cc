@@ -17,6 +17,7 @@
 #include "zetasql/public/coercer.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -28,7 +29,9 @@
 
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/functions/string.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -44,6 +47,7 @@
 #include "absl/strings/match.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -316,6 +320,77 @@ absl::Status CheckSupertypesGlobalOrderForCoercer(
 
   return TypeGlobalOrderChecker::Check(supertypes_list, catalog);
 }
+
+// Determines whether a string literal can be implicitly converted to bytes.
+// Coercion is only allowed if individual characters are in the range [0, 127].
+// For details, see: (broken link)
+bool IsValidStringLiteralToBytesImplicitCoercion(const Value& literal_value) {
+  if (!literal_value.has_content()) {
+    return false;
+  }
+
+  absl::Status status;
+  std::vector<int64_t> codepoints;
+  if (!functions::StringToCodePoints(literal_value.string_value(), &codepoints,
+                                     &status)) {
+    return false;
+  }
+  // Only string literal containing characters [0-127] can be implicitly coerced
+  // to BYTES.
+  if (!std::all_of(codepoints.begin(), codepoints.end(),
+                   [](int64_t c) { return c <= 127; })) {
+    return false;
+  }
+
+  return true;
+}
+
+// This method supports the logic to implicitly coerce string literals to the
+// bytes type.
+//
+// <literal_types> is a set of InputArgumentTypes for the base types related to
+// the <argument_set> entries.  This method will check to see if all of the
+// entries in <argument_set> are either string or bytes type, and if so will
+// replace the <literal_types> entries. It does so by repopulating
+// <literal_types> from the <argument_set>, while 'promoting' the
+// InputArgumentType of bytes to non-literal.  In effect, recursing on this new
+// set of <literal_types> will allow string literals (or parameters being
+// treated as literals) to correctly coerce/supertype to bytes.
+//
+// The caller will only invoke this method if each item in <argument_set> is
+// either a literal or parameter that should be treated as a literal. The caller
+// will recurse on the resulting <literal_types> value.
+absl::Status UpdateLiteralTypesForStringAndBytesArgument(
+    const InputArgumentTypeSet& argument_set, bool treat_parameters_as_literals,
+    InputArgumentTypeSet* literal_types) {
+  for (const auto& arg : literal_types->arguments()) {
+    if (!arg.type()->IsString() && !arg.type()->IsBytes()) {
+      return absl::OkStatus();
+    }
+  }
+
+  literal_types->clear();
+  for (const InputArgumentType& it : argument_set.arguments()) {
+    if (it.is_untyped()) {
+      // Ignore untyped NULL arguments since they coerce to any type.
+      continue;
+    }
+    if (it.is_literal() ||
+        (treat_parameters_as_literals && it.is_query_parameter())) {
+      if (it.type()->IsString()) {
+        // For STRING input argument type, preserve the existing argument type.
+        literal_types->Insert(it);
+      } else {
+        // For BYTES input argument type, promote the existing argument type to
+        // non-literal.
+        ZETASQL_RET_CHECK(it.type()->IsBytes());
+        literal_types->Insert(InputArgumentType(it.type()));
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
@@ -443,6 +518,10 @@ class Coercer::Context : public Coercer::ContextBase {
 
   bool IsIntToOpaqueEnumInProductExternal(const Type* from_type,
                                           const Type* to_type) const;
+
+  // Returns true if 'literal_value' can be coerced to 'to_type'.
+  bool CoercesFromLiteralForBuiltinSimpleTypes(const Value& literal_value,
+                                               const Type* to_type) const;
 };
 
 int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type) {
@@ -451,20 +530,6 @@ int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type) {
   }
   return Type::GetTypeCoercionCost(to_type->kind(),
                                    literal_value.type()->kind());
-}
-
-static bool GetCastFunctionType(const TypeKind from_kind,
-                                const TypeKind to_kind,
-                                CastFunctionType* cast_type) {
-  const CastFunctionProperty* cast_function_property = zetasql_base::FindOrNull(
-      internal::GetZetaSQLCasts(), TypeKindPair(from_kind, to_kind));
-  if (cast_function_property == nullptr) {
-    return false;
-  }
-  if (cast_type != nullptr) {
-    *cast_type = cast_function_property->type;
-  }
-  return true;
 }
 
 void Coercer::StripFieldAliasesFromStructType(const Type** struct_type) const {
@@ -775,6 +840,13 @@ absl::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
 
   if (non_literal_candidate_supertypes.empty()) {
     ZETASQL_RET_CHECK(!literal_types.empty());
+
+    if (language_options_.LanguageFeatureEnabled(
+            FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES)) {
+      ZETASQL_RETURN_IF_ERROR(UpdateLiteralTypesForStringAndBytesArgument(
+          argument_set, treat_parameters_as_literals, &literal_types));
+    }
+
     // We did not have any non-literal arguments but we did have literal
     // arguments.  The <literal_types> list contains related
     // arguments that are neither literals nor parameters and we perform
@@ -1235,6 +1307,41 @@ absl::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
   return true;
 }
 
+bool Coercer::Context::CoercesFromLiteralForBuiltinSimpleTypes(
+    const Value& literal_value, const Type* to_type) const {
+  // Note - ideally IsValidStringLiteralToBytesImplicitCoercion should
+  // be checked alongside the other literal coercion checks in
+  // FunctionResolver::ConvertLiteralToType, but this isn't currently feasible.
+  // In that method we don't have the context to distinguish between explicit
+  // and implicit cast calls, and results in unwanted AST changes for valid
+  // statements like `CAST("\x80" as BYTES)`.
+  if (literal_value.type()->IsString() && to_type->IsBytes() &&
+      language_options().LanguageFeatureEnabled(
+          FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES) &&
+      (literal_value.is_null() ||
+       IsValidStringLiteralToBytesImplicitCoercion(literal_value))) {
+    return true;
+  }
+
+  const CastFunctionProperty* cast_function_property =
+      zetasql_base::FindOrNull(internal::GetZetaSQLCasts(),
+                      TypeKindPair(literal_value.type_kind(), to_type->kind()));
+
+  if (cast_function_property == nullptr) {
+    return false;
+  }
+
+  if (is_explicit()) {
+    return SupportsExplicitCast(cast_function_property->type);
+  }
+
+  if (!SupportsLiteralCoercion(cast_function_property->type)) {
+    return false;
+  }
+
+  return true;
+}
+
 absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
     const InputArgumentType& array_argument, const Type* to_type,
     SignatureMatchResult* result) {
@@ -1315,11 +1422,7 @@ absl::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
   // not other INT, FLOAT or DATE/TIMESTAMP literals, and we need to be able
   // to swizzle them to these other literal types in order to provide desired
   // behavior.
-  CastFunctionType cast_type;
-  const bool is_valid_cast = GetCastFunctionType(literal_value.type()->kind(),
-                                                 to_type->kind(), &cast_type);
-  if (is_valid_cast && (SupportsLiteralCoercion(cast_type) ||
-                        (is_explicit() && SupportsExplicitCast(cast_type)))) {
+  if (CoercesFromLiteralForBuiltinSimpleTypes(literal_value, to_type)) {
     // TODO: We may want to consider implicitly coercing a STRING
     // literal to DATE/TIMESTAMP to be an exact match (or distance 0) since we
     // don't produce DATE/TIMESTAMP literals in the parser.  The parsed

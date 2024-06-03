@@ -135,3 +135,13 @@ java_proto_library(
     name = "placeholder_descriptor_java_proto",
     deps = [":placeholder_descriptor_proto"],
 )
+
+proto_library(
+    name = "script_exception_proto",
+    srcs = ["script_exception.proto"],
+)
+
+cc_proto_library(
+    name = "script_exception_cc_proto",
+    deps = [":script_exception_proto"],
+)

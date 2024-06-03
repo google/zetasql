@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/functions/json.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,6 +37,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -162,7 +164,7 @@ class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
 class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit JsonSubscriptFunction()
-      : SimpleBuiltinScalarFunction(FunctionKind::kSubscript,
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonSubscript,
                                     types::JsonType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -281,6 +283,16 @@ class JsonArrayInsertAppendFunction : public SimpleBuiltinScalarFunction {
   explicit JsonArrayInsertAppendFunction(FunctionKind kind)
       : SimpleBuiltinScalarFunction(kind, types::JsonType()) {}
 
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonKeysFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonKeysFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonKeys,
+                                    types::StringArrayType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
@@ -677,7 +689,7 @@ absl::StatusOr<Value> JsonTypeFunction::Eval(
     return Value::Null(output_type());
   }
   JSONValue json_storage;
-  LanguageOptions language_options = context->GetLanguageOptions();
+  const LanguageOptions& language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
       .wide_number_mode = (language_options.LanguageFeatureEnabled(
                                FEATURE_JSON_STRICT_NUMBER_PARSING)
@@ -699,7 +711,7 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
     return Value::Null(output_type());
   }
   JSONValue json_storage;
-  LanguageOptions language_options = context->GetLanguageOptions();
+  const LanguageOptions& language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
       .wide_number_mode = (language_options.LanguageFeatureEnabled(
                                FEATURE_JSON_STRICT_NUMBER_PARSING)
@@ -1347,6 +1359,56 @@ absl::StatusOr<Value> JsonStripNullsFunction::Eval(
   return Value::Json(std::move(result));
 }
 
+absl::StatusOr<Value> JsonKeysFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  // Function signature:
+  // JSON_KEYS(JSON json_doc[, INT64 max_depth][,
+  // STRING mode=>{"strict", "lax", "lax recursive"}]) -> Array<STRING>
+  int64_t max_depth = std::numeric_limits<int64_t>::max();
+  if (!args[1].is_null()) {
+    max_depth = args[1].int64_value();
+  }
+  if (max_depth <= 0) {
+    return MakeEvalError() << "max_depth must be positive.";
+  }
+
+  // Verify `mode` is valid.
+  constexpr absl::string_view kDefaultJsonPathOptions = "strict";
+  absl::string_view json_path_options_backing = kDefaultJsonPathOptions;
+  if (!args[2].is_null()) {
+    json_path_options_backing = args[2].string_value();
+  }
+  functions::json_internal::JsonPathOptions json_path_options;
+  if (zetasql_base::CaseEqual(json_path_options_backing, "strict")) {
+    json_path_options = functions::json_internal::JsonPathOptions::kStrict;
+  } else if (zetasql_base::CaseEqual(json_path_options_backing, "lax")) {
+    json_path_options = functions::json_internal::JsonPathOptions::kLax;
+  } else if (zetasql_base::CaseEqual(json_path_options_backing,
+                                    "lax recursive")) {
+    json_path_options =
+        functions::json_internal::JsonPathOptions::kLaxRecursive;
+  } else {
+    return MakeEvalError() << "Invalid JSON mode specified";
+  }
+
+  // Check if JSON input or mode is NULL.
+  if (args[0].is_null() || args[2].is_null()) {
+    return Value::Null(types::StringArrayType());
+  }
+
+  JSONParsingOptions json_parsing_options =
+      GetJSONParsingOptions(context->GetLanguageOptions());
+  JSONValue input_backing;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef input,
+      GetJSONValueConstRef(args[0], json_parsing_options, input_backing));
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto keys, functions::JsonKeys(input, {.path_options = json_path_options,
+                                             .max_depth = max_depth}));
+  return values::StringArray(keys);
+}
+
 }  // namespace
 
 void RegisterBuiltinJsonFunctions() {
@@ -1363,7 +1425,7 @@ void RegisterBuiltinJsonFunctions() {
         return new JsonExtractArrayFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kSubscript},
+      {FunctionKind::kJsonSubscript},
       [](FunctionKind kind, const Type* output_type) {
         return new JsonSubscriptFunction();
       });
@@ -1443,6 +1505,11 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonArrayAppend},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new JsonArrayInsertAppendFunction(kind);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonKeys},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonKeysFunction();
       });
 }
 

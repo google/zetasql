@@ -272,12 +272,12 @@ select [1, `int64`] from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<INT64>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT64) -> ARRAY<INT64>)
     |     +-Literal(type=INT64, value=1)
     |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
@@ -289,12 +289,12 @@ select [1.5, `double`] from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<DOUBLE>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) DOUBLE) -> ARRAY<DOUBLE>)
     |     +-Literal(type=DOUBLE, value=1.5)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
@@ -322,12 +322,12 @@ select [1.5, `int64`] from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<DOUBLE>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) DOUBLE) -> ARRAY<DOUBLE>)
     |     +-Literal(type=DOUBLE, value=1.5)
     |     +-Cast(INT64 -> DOUBLE)
@@ -340,12 +340,12 @@ select [`double`, `int64`] from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<DOUBLE>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) DOUBLE) -> ARRAY<DOUBLE>)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
     |     +-Cast(INT64 -> DOUBLE)
@@ -476,12 +476,12 @@ select ["1970-01-01", `date`] from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<DATE>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<DATE>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) DATE) -> ARRAY<DATE>)
     |     +-Literal(type=DATE, value=1970-01-01)
     |     +-ColumnRef(type=DATE, column=SimpleTypes.date#10)

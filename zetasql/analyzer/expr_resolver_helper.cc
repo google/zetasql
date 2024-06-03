@@ -17,6 +17,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -29,6 +30,7 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
@@ -133,7 +135,9 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
       for (const auto& arg : expr->GetAs<ResolvedFlatten>()->get_field_list()) {
         ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
                          IsConstantExpression(arg.get()));
-        if (arg_is_constant_expr) return false;
+        if (!arg_is_constant_expr) {
+          return false;
+        }
       }
       return IsConstantExpression(expr->GetAs<ResolvedFlatten>()->expr());
 
@@ -254,65 +258,137 @@ absl::StatusOr<bool> IsNonAggregateFunctionArg(const ResolvedExpr* expr) {
 }
 
 ExprResolutionInfo::ExprResolutionInfo(
+    QueryResolutionInfo* query_resolution_info_in,
+    const NameScope* name_scope_in, ExprResolutionInfoOptions options)
+    : name_scope(name_scope_in),
+      aggregate_name_scope(name_scope_in),
+      analytic_name_scope(name_scope_in),
+      allows_aggregation(options.allows_aggregation.value_or(false)),
+      allows_analytic(options.allows_analytic.value_or(false)),
+      clause_name(options.clause_name == nullptr ? "" : options.clause_name),
+      query_resolution_info(query_resolution_info_in),
+      use_post_grouping_columns(
+          options.use_post_grouping_columns.value_or(false)),
+      top_level_ast_expr(options.top_level_ast_expr),
+      column_alias(options.column_alias)
+{
+  ABSL_DCHECK(options.name_scope == nullptr)
+      << "Pass name_scope in the required argument, not in options";
+}
+
+ExprResolutionInfo::ExprResolutionInfo(
+    QueryResolutionInfo* query_resolution_info, const NameScope* name_scope_in,
+    const NameScope* aggregate_name_scope_in,
+    const NameScope* analyic_name_scope_in, ExprResolutionInfoOptions options)
+    : ExprResolutionInfo(query_resolution_info, name_scope_in, options) {
+  // Hack because I can't use initializer syntax and a delegated constructor.
+  const_cast<const NameScope*&>(this->aggregate_name_scope) =
+      aggregate_name_scope_in;
+  const_cast<const NameScope*&>(this->analytic_name_scope) =
+      analyic_name_scope_in;
+}
+
+ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,
+                                       ExprResolutionInfoOptions options)
+    : ExprResolutionInfo(/*query_resolution_info=*/nullptr, name_scope_in,
+                         options) {}
+
+// Macro for args that copy from the parent, overriding with the value
+// from options if present.
+#define ARG_UPDATE(x) x(options.x ? options.x : parent->x)
+// Use this version for options that need to unwrap an std::optional.
+#define ARG_UPDATE_OPT(x) x(options.x.value_or(parent->x))
+
+ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
+                                       ExprResolutionInfoOptions options)
+    : parent(parent),
+      ARG_UPDATE(name_scope),
+      aggregate_name_scope(options.aggregate_name_scope
+                               ? options.aggregate_name_scope
+                               : parent->aggregate_name_scope),
+      analytic_name_scope(options.analytic_name_scope
+                              ? options.analytic_name_scope
+                              : parent->analytic_name_scope),
+      ARG_UPDATE_OPT(allows_aggregation),
+      ARG_UPDATE_OPT(allows_analytic),
+      ARG_UPDATE(clause_name),
+      query_resolution_info(parent->query_resolution_info),
+      ARG_UPDATE_OPT(use_post_grouping_columns),
+      ARG_UPDATE(top_level_ast_expr),
+      column_alias(!options.column_alias.empty() ? options.column_alias
+                                                 : parent->column_alias)
+{
+  // This constructor can only be used to switch the name scope to the parent's
+  // aggregate or analytic scope, not to introduce a new scope,
+  // unless allow_new_scopes is set.
+  ABSL_DCHECK(options.allow_new_scopes ||
+         name_scope == parent->aggregate_name_scope ||
+         name_scope == parent->analytic_name_scope ||
+         name_scope == parent->name_scope)
+      << "Setting new NameScape in child ExprResolutionInfo not allowed "
+         "by default";
+}
+
+#undef ARG_UPDATE
+#undef ARG_AND
+
+// Keep this version that avoids going through Options for efficiency,
+// since this is used frequently.
+ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
+    : parent(parent),
+      name_scope(parent->name_scope),
+      aggregate_name_scope(parent->aggregate_name_scope),
+      analytic_name_scope(parent->analytic_name_scope),
+      allows_aggregation(parent->allows_aggregation),
+      allows_analytic(parent->allows_analytic),
+      clause_name(parent->clause_name),
+      query_resolution_info(parent->query_resolution_info),
+      use_post_grouping_columns(parent->use_post_grouping_columns),
+      top_level_ast_expr(parent->top_level_ast_expr),
+      column_alias(parent->column_alias)
+{}
+
+ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
     const NameScope* analytic_name_scope_in, bool allows_aggregation_in,
     bool allows_analytic_in, bool use_post_grouping_columns_in,
     const char* clause_name_in, QueryResolutionInfo* query_resolution_info_in,
     const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
-    : name_scope(name_scope_in),
-      aggregate_name_scope(aggregate_name_scope_in),
-      analytic_name_scope(analytic_name_scope_in),
-      allows_aggregation(allows_aggregation_in),
-      allows_analytic(allows_analytic_in),
-      clause_name(clause_name_in),
-      query_resolution_info(query_resolution_info_in),
-      use_post_grouping_columns(use_post_grouping_columns_in),
-      top_level_ast_expr(top_level_ast_expr_in),
-      column_alias(column_alias_in) {}
+    : ExprResolutionInfo(
+          query_resolution_info_in, name_scope_in, aggregate_name_scope_in,
+          analytic_name_scope_in,
+          {.allows_aggregation = allows_aggregation_in,
+           .allows_analytic = allows_analytic_in,
+           .use_post_grouping_columns = use_post_grouping_columns_in,
+           .clause_name = clause_name_in,
+           .top_level_ast_expr = top_level_ast_expr_in,
+           .column_alias = column_alias_in}) {
+  ABSL_DCHECK(clause_name != nullptr);
+}
 
+// TODO This is the bad constructor that should be removed.
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in,
     QueryResolutionInfo* query_resolution_info_in,
     const ASTExpression* top_level_ast_expr_in, IdString column_alias_in,
     const char* clause_name_in)
-    : ExprResolutionInfo(
-          name_scope_in, name_scope_in, name_scope_in,
-          /*allows_aggregation_in=*/(clause_name_in == nullptr),
-          true /* allows_analytic */, false /* use_post_grouping_columns */,
-          (clause_name_in == nullptr ? "" : clause_name_in),
-          query_resolution_info_in, top_level_ast_expr_in, column_alias_in) {}
+    : ExprResolutionInfo(query_resolution_info_in, name_scope_in,
+                         {.allows_aggregation = (clause_name_in == nullptr),
+                          .allows_analytic = true,
+                          .use_post_grouping_columns = false,
+                          .clause_name = clause_name_in,
+                          .top_level_ast_expr = top_level_ast_expr_in,
+                          .column_alias = column_alias_in}) {
+  ABSL_DCHECK(clause_name != nullptr);
+}
 
 ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,
                                        const char* clause_name_in)
-    : ExprResolutionInfo(name_scope_in, name_scope_in, name_scope_in,
-                         false /* allows_aggregation */,
-                         false /* allows_analytic */,
-                         false /* use_post_grouping_columns */, clause_name_in,
-                         nullptr /* query_resolution_info */) {}
-
-ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
-    : ExprResolutionInfo(parent->name_scope, parent->aggregate_name_scope,
-                         parent->analytic_name_scope,
-                         parent->allows_aggregation, parent->allows_analytic,
-                         parent->use_post_grouping_columns, parent->clause_name,
-                         parent->query_resolution_info,
-                         parent->top_level_ast_expr, parent->column_alias) {
-  // Hack because I can't use initializer syntax and a delegated constructor.
-  const_cast<ExprResolutionInfo*&>(this->parent) = parent;
-}
-
-ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
-                                       const NameScope* name_scope_in,
-                                       const char* clause_name_in,
-                                       bool allows_analytic_in)
-    : ExprResolutionInfo(name_scope_in, parent->aggregate_name_scope,
-                         parent->analytic_name_scope,
-                         parent->allows_aggregation, allows_analytic_in,
-                         parent->use_post_grouping_columns, clause_name_in,
-                         parent->query_resolution_info,
-                         parent->top_level_ast_expr, parent->column_alias) {
-  // Hack because I can't use initializer syntax and a delegated constructor.
-  const_cast<ExprResolutionInfo*&>(this->parent) = parent;
+    : name_scope(name_scope_in),
+      aggregate_name_scope(name_scope_in),
+      analytic_name_scope(name_scope_in),
+      clause_name(clause_name_in) {
+  ABSL_DCHECK(clause_name != nullptr);
 }
 
 ExprResolutionInfo::~ExprResolutionInfo() {

@@ -189,8 +189,6 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_get_sql_callback(&AnonCountStarFunctionSQL)
               .set_signature_text_callback(
                   &SignatureTextForAnonCountStarFunction)
-              .set_supported_signatures_callback(
-                  &SupportedSignaturesForAnonCountStarFunction)
               .set_bad_argument_error_prefix_callback(
                   &AnonCountStarBadArgumentErrorPrefix),
           // TODO: internal function names shouldn't be resolvable,
@@ -299,9 +297,6 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_get_sql_callback(&AnonQuantilesWithReportJsonFunctionSQL)
               .set_signature_text_callback(absl::bind_front(
                   &SignatureTextForAnonQuantilesWithReportFunction,
-                  /*report_format=*/"JSON"))
-              .set_supported_signatures_callback(absl::bind_front(
-                  &SupportedSignaturesForAnonQuantilesWithReportFunction,
                   /*report_format=*/"JSON")),
           "array_agg"));
 
@@ -330,9 +325,6 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_get_sql_callback(&AnonQuantilesWithReportProtoFunctionSQL)
               .set_signature_text_callback(absl::bind_front(
                   &SignatureTextForAnonQuantilesWithReportFunction,
-                  /*report_format=*/"PROTO"))
-              .set_supported_signatures_callback(absl::bind_front(
-                  &SupportedSignaturesForAnonQuantilesWithReportFunction,
                   /*report_format=*/"PROTO")),
           "array_agg"));
 
@@ -380,9 +372,6 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_signature_text_callback(absl::bind_front(
                   &SignatureTextForAnonCountStarWithReportFunction,
                   /*report_format=*/"JSON"))
-              .set_supported_signatures_callback(absl::bind_front(
-                  &SupportedSignaturesForAnonCountStarWithReportFunction,
-                  /*report_format=*/"JSON"))
               .set_bad_argument_error_prefix_callback(
                   &AnonCountStarBadArgumentErrorPrefix),
           "$count_star"));
@@ -401,9 +390,6 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_get_sql_callback(&AnonCountStarWithReportProtoFunctionSQL)
               .set_signature_text_callback(absl::bind_front(
                   &SignatureTextForAnonCountStarWithReportFunction,
-                  /*report_format=*/"PROTO"))
-              .set_supported_signatures_callback(absl::bind_front(
-                  &SupportedSignaturesForAnonCountStarWithReportFunction,
                   /*report_format=*/"PROTO"))
               .set_bad_argument_error_prefix_callback(
                   &AnonCountStarBadArgumentErrorPrefix),
@@ -544,7 +530,7 @@ absl::Status GetDifferentialPrivacyFunctions(
           .set_supports_having_modifier(false)
           .set_volatility(FunctionEnums::VOLATILE)
           .set_no_matching_signature_callback(no_matching_signature_callback)
-          .add_required_language_feature(FEATURE_DIFFERENTIAL_PRIVACY);
+          .AddRequiredLanguageFeature(FEATURE_DIFFERENTIAL_PRIVACY);
 
   const FunctionArgumentTypeOptions percentile_arg_options =
       FunctionArgumentTypeOptions()
@@ -633,7 +619,7 @@ absl::Status GetDifferentialPrivacyFunctions(
         };
         return FunctionSignatureOptions()
             .set_constraints(dp_report_constraint)
-            .add_required_language_feature(
+            .AddRequiredLanguageFeature(
                 FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
       };
 
@@ -685,27 +671,6 @@ absl::Status GetDifferentialPrivacyFunctions(
             /*print_template_details=*/true));
   };
 
-  auto supported_signatures_function =
-      [&signature_text_function](const LanguageOptions& language_options,
-                                 const Function& function) {
-        std::string supported_signatures;
-        for (const FunctionSignature& signature : function.signatures()) {
-          if (signature.IsDeprecated() || signature.IsInternal() ||
-              signature.HasUnsupportedType(language_options) ||
-              !signature.options().check_all_required_features_are_enabled(
-                  language_options.GetEnabledLanguageFeatures())) {
-            continue;
-          }
-          if (!supported_signatures.empty()) {
-            absl::StrAppend(&supported_signatures, "; ");
-          }
-          absl::StrAppend(
-              &supported_signatures,
-              signature_text_function(language_options, function, signature));
-        }
-        return supported_signatures;
-      };
-
   InsertCreatedFunction(
       functions, options,
       new AnonFunction(
@@ -737,7 +702,6 @@ absl::Status GetDifferentialPrivacyFunctions(
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("COUNT"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("count"),
           "count"));
 
@@ -769,10 +733,12 @@ absl::Status GetDifferentialPrivacyFunctions(
                                     0)}},
           dp_options.Copy()
               .set_get_sql_callback(&DPCountStarSQL)
-              // TODO: Fix this callback, which returns only one
-              // signature for a function with 3 signatures.
+              // TODO: Showing 3 signatures is very long and
+              // repetitive for this function. Remove after engines switch to
+              // showing detailed mismatch errors.
               .set_supported_signatures_callback(
                   &SupportedSignaturesForDPCountStar)
+              .set_signature_text_callback(signature_text_function)
               .set_sql_name("count(*)"),
           "$count_star"));
 
@@ -863,7 +829,6 @@ absl::Status GetDifferentialPrivacyFunctions(
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("SUM"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("sum"),
           "sum"));
 
@@ -905,7 +870,6 @@ absl::Status GetDifferentialPrivacyFunctions(
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("AVG"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("avg"),
           "avg"));
 
@@ -930,7 +894,6 @@ absl::Status GetDifferentialPrivacyFunctions(
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("VAR_POP"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("var_pop"),
           "array_agg"));
 
@@ -955,7 +918,6 @@ absl::Status GetDifferentialPrivacyFunctions(
           dp_options.Copy()
               .set_get_sql_callback(get_sql_callback_for_function("STDDEV_POP"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("stddev_pop"),
           "array_agg"));
 
@@ -985,7 +947,6 @@ absl::Status GetDifferentialPrivacyFunctions(
               .set_get_sql_callback(
                   get_sql_callback_for_function("PERCENTILE_CONT"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("percentile_cont"),
           "array_agg"));
 
@@ -1061,7 +1022,6 @@ absl::Status GetDifferentialPrivacyFunctions(
               .set_get_sql_callback(
                   get_sql_callback_for_function("APPROX_QUANTILES"))
               .set_signature_text_callback(signature_text_function)
-              .set_supported_signatures_callback(supported_signatures_function)
               .set_sql_name("approx_quantiles"),
           "array_agg"));
   return absl::OkStatus();

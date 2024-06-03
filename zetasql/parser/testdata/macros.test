@@ -51,17 +51,11 @@ DEFINE MACRO m1 /* unfinished comment
                 ^
 ==
 
-# Invalid tokens are still invalid in macros in strict mode
+# "3m" does not error in macro definitions.
+# Do not test GetParseTokens() because it errors when identifiers follow
+# literals without spaces.
 [language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
-DEFINE MACRO m1 3m
---
-ERROR: Syntax error: Missing whitespace between literal and alias [at 1:18]
-DEFINE MACRO m1 3m
-                 ^
-==
-
-# Invalid tokens allowed in lenient mode
-[language_features=V_1_4_SQL_MACROS]
+[no_test_get_parse_tokens]
 DEFINE MACRO m1 3m
 --
 DefineMacroStatement [0-18] [DEFINE MACRO m1 3m]
@@ -69,6 +63,95 @@ DefineMacroStatement [0-18] [DEFINE MACRO m1 3m]
   MacroBody(3m) [16-18] [3m]
 --
 DEFINE MACRO m1 3m
+==
+
+# "3.3m" is not an error in macro definitions.
+[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 3.3m
+--
+DefineMacroStatement [0-20] [DEFINE MACRO m1 3.3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3.3m) [16-20] [3.3m]
+--
+DEFINE MACRO m1 3.3m
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 .3m
+--
+DefineMacroStatement [0-19] [DEFINE MACRO m1 .3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(.3m) [16-19] [.3m]
+--
+DEFINE MACRO m1.3m
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 FULL .3E10m
+--
+DefineMacroStatement [0-27] [DEFINE MACRO m1 FULL .3E10m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(FULL .3E10m) [16-27] [FULL .3E10m]
+--
+DEFINE MACRO m1 FULL .3E10m
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_4_ENFORCE_STRICT_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 3E10m
+--
+DefineMacroStatement [0-21] [DEFINE MACRO m1 3E10m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3E10m) [16-21] [3E10m]
+--
+DEFINE MACRO m1 3E10m
+==
+
+[language_features=V_1_4_SQL_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 3m
+--
+DefineMacroStatement [0-18] [DEFINE MACRO m1 3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3m) [16-18] [3m]
+--
+DEFINE MACRO m1 3m
+==
+
+[language_features=V_1_4_SQL_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 3.3m
+--
+DefineMacroStatement [0-20] [DEFINE MACRO m1 3.3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3.3m) [16-20] [3.3m]
+--
+DEFINE MACRO m1 3.3m
+==
+
+[language_features=V_1_4_SQL_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 .3m
+--
+DefineMacroStatement [0-19] [DEFINE MACRO m1 .3m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(.3m) [16-19] [.3m]
+--
+DEFINE MACRO m1.3m
+==
+
+[language_features=V_1_4_SQL_MACROS]
+[no_test_get_parse_tokens]
+DEFINE MACRO m1 3E10m
+--
+DefineMacroStatement [0-21] [DEFINE MACRO m1 3E10m]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(3E10m) [16-21] [3E10m]
+--
+DEFINE MACRO m1 3E10m
 ==
 
 # Tokens do now splice, so * and / are acceptable as 2 tokens here
@@ -96,7 +179,7 @@ DEFINE MACRO add $1 + $2
 [language_features=]
 SELECT $1 + $2
 --
-ERROR: Unexpected macro [at 1:8]
+ERROR: Syntax error: Unexpected "$1" [at 1:8]
 SELECT $1 + $2
        ^
 ==
@@ -104,9 +187,11 @@ SELECT $1 + $2
 # The macro name cannot be a reserved keyword
 DEFINE macro EXCEPT $subquery;
 --
-ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:14]
-DEFINE macro EXCEPT $subquery;
-             ^
+DefineMacroStatement [0-29] [DEFINE macro EXCEPT $subquery]
+  Identifier(`EXCEPT`) [13-19] [EXCEPT]
+  MacroBody($subquery) [20-29] [$subquery]
+--
+DEFINE MACRO `EXCEPT` $subquery
 ==
 
 # This looks like a bug. The EXCEPT keyword has some special magic in the lexer
@@ -118,3 +203,35 @@ DefineMacroStatement [0-33] [DEFINE macro...$subquery]
   MacroBody(EXCEPT $subquery) [17-33] [EXCEPT $subquery]
 --
 DEFINE MACRO foo EXCEPT $subquery
+==
+
+# Macro name is empty identifier
+DEFINE MACRO ``;
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:14]
+DEFINE MACRO ``;
+             ^
+==
+
+# Macro name is empty
+DEFINE MACRO ;
+--
+ERROR: Syntax error: Expected macro name but got ";" [at 1:14]
+DEFINE MACRO ;
+             ^
+==
+
+# Macro name is empty identifier, no semicolon
+DEFINE MACRO ``
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:14]
+DEFINE MACRO ``
+             ^
+==
+
+# Macro name is empty, no semicolon
+DEFINE MACRO
+--
+ERROR: Syntax error: Expected macro name but got end of statement [at 1:13]
+DEFINE MACRO
+            ^

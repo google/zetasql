@@ -1023,7 +1023,6 @@ SELECT
   'hi' AS b
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 create table x-5-z as select * from a-3-b;
 --
@@ -1117,12 +1116,12 @@ SELECT
   'foo' AS b
 ==
 
-create table t1 (a int64, b string,) 
-with connection connection1 
+create table t1 (a int64, b string,)
+with connection default
 as select 1 a, 'foo' b
 --
 
-CreateTableStatement [0-89] [create table...a, 'foo' b]
+CreateTableStatement [0-83] [create table...a, 'foo' b]
   PathExpression [13-15] [t1]
     Identifier(t1) [13-15] [t1]
   TableElementList [16-36] [(a int64, b string,)]
@@ -1136,49 +1135,39 @@ CreateTableStatement [0-89] [create table...a, 'foo' b]
       SimpleColumnSchema [28-34] [string]
         PathExpression [28-34] [string]
           Identifier(string) [28-34] [string]
-  WithConnectionClause [38-65] [with connection connection1]
-    ConnectionClause [43-65] [connection connection1]
-      PathExpression [54-65] [connection1]
-        Identifier(connection1) [54-65] [connection1]
-  Query [70-89] [select 1 a, 'foo' b]
-    Select [70-89] [select 1 a, 'foo' b]
-      SelectList [77-89] [1 a, 'foo' b]
-        SelectColumn [77-80] [1 a]
-          IntLiteral(1) [77-78] [1]
-          Alias [79-80] [a]
-            Identifier(a) [79-80] [a]
-        SelectColumn [82-89] ['foo' b]
-          StringLiteral [82-87] ['foo']
-            StringLiteralComponent('foo') [82-87] ['foo']
-          Alias [88-89] [b]
-            Identifier(b) [88-89] [b]
+  WithConnectionClause [37-60] [with connection default]
+    ConnectionClause [42-60] [connection default]
+      DefaultLiteral [53-60] [default]
+  Query [64-83] [select 1 a, 'foo' b]
+    Select [64-83] [select 1 a, 'foo' b]
+      SelectList [71-83] [1 a, 'foo' b]
+        SelectColumn [71-74] [1 a]
+          IntLiteral(1) [71-72] [1]
+          Alias [73-74] [a]
+            Identifier(a) [73-74] [a]
+        SelectColumn [76-83] ['foo' b]
+          StringLiteral [76-81] ['foo']
+            StringLiteralComponent('foo') [76-81] ['foo']
+          Alias [82-83] [b]
+            Identifier(b) [82-83] [b]
 --
 CREATE TABLE t1
 (
   a int64,
   b string
-) WITH CONNECTION connection1 AS
+) WITH CONNECTION DEFAULT AS
 SELECT
   1 AS a,
   'foo' AS b
 ==
 
-create table t1 (a int64, b string,) 
-as select 1 a, 'foo' b
-with connection connection1 
---
-
-ERROR: Syntax error: Expected end of input but got keyword WITH [at 3:1]
-with connection connection1 
-^
-==
 
 create table t1 (a int64, b string,)
-with connection connection1 
-options(foo=x, bar=b)
+with connection connection1
 as select 1 a, 'foo' b
 --
-CreateTableStatement [0-110] [create table...a, 'foo' b]
+
+CreateTableStatement [0-87] [create table...a, 'foo' b]
   PathExpression [13-15] [t1]
     Identifier(t1) [13-15] [t1]
   TableElementList [16-36] [(a int64, b string,)]
@@ -1196,27 +1185,83 @@ CreateTableStatement [0-110] [create table...a, 'foo' b]
     ConnectionClause [42-64] [connection connection1]
       PathExpression [53-64] [connection1]
         Identifier(connection1) [53-64] [connection1]
-  OptionsList [73-87] [(foo=x, bar=b)]
-    OptionsEntry [74-79] [foo=x]
-      Identifier(foo) [74-77] [foo]
-      PathExpression [78-79] [x]
-        Identifier(x) [78-79] [x]
-    OptionsEntry [81-86] [bar=b]
-      Identifier(bar) [81-84] [bar]
-      PathExpression [85-86] [b]
-        Identifier(b) [85-86] [b]
-  Query [91-110] [select 1 a, 'foo' b]
-    Select [91-110] [select 1 a, 'foo' b]
-      SelectList [98-110] [1 a, 'foo' b]
-        SelectColumn [98-101] [1 a]
-          IntLiteral(1) [98-99] [1]
-          Alias [100-101] [a]
-            Identifier(a) [100-101] [a]
-        SelectColumn [103-110] ['foo' b]
-          StringLiteral [103-108] ['foo']
-            StringLiteralComponent('foo') [103-108] ['foo']
-          Alias [109-110] [b]
-            Identifier(b) [109-110] [b]
+  Query [68-87] [select 1 a, 'foo' b]
+    Select [68-87] [select 1 a, 'foo' b]
+      SelectList [75-87] [1 a, 'foo' b]
+        SelectColumn [75-78] [1 a]
+          IntLiteral(1) [75-76] [1]
+          Alias [77-78] [a]
+            Identifier(a) [77-78] [a]
+        SelectColumn [80-87] ['foo' b]
+          StringLiteral [80-85] ['foo']
+            StringLiteralComponent('foo') [80-85] ['foo']
+          Alias [86-87] [b]
+            Identifier(b) [86-87] [b]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) WITH CONNECTION connection1 AS
+SELECT
+  1 AS a,
+  'foo' AS b
+==
+
+create table t1 (a int64, b string,)
+as select 1 a, 'foo' b
+with connection connection1
+--
+
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 3:1]
+with connection connection1
+^
+==
+
+create table t1 (a int64, b string,)
+with connection connection1
+options(foo=x, bar=b)
+as select 1 a, 'foo' b
+--
+CreateTableStatement [0-109] [create table...a, 'foo' b]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TableElementList [16-36] [(a int64, b string,)]
+    ColumnDefinition [17-24] [a int64]
+      Identifier(a) [17-18] [a]
+      SimpleColumnSchema [19-24] [int64]
+        PathExpression [19-24] [int64]
+          Identifier(int64) [19-24] [int64]
+    ColumnDefinition [26-34] [b string]
+      Identifier(b) [26-27] [b]
+      SimpleColumnSchema [28-34] [string]
+        PathExpression [28-34] [string]
+          Identifier(string) [28-34] [string]
+  WithConnectionClause [37-64] [with connection connection1]
+    ConnectionClause [42-64] [connection connection1]
+      PathExpression [53-64] [connection1]
+        Identifier(connection1) [53-64] [connection1]
+  OptionsList [72-86] [(foo=x, bar=b)]
+    OptionsEntry [73-78] [foo=x]
+      Identifier(foo) [73-76] [foo]
+      PathExpression [77-78] [x]
+        Identifier(x) [77-78] [x]
+    OptionsEntry [80-85] [bar=b]
+      Identifier(bar) [80-83] [bar]
+      PathExpression [84-85] [b]
+        Identifier(b) [84-85] [b]
+  Query [90-109] [select 1 a, 'foo' b]
+    Select [90-109] [select 1 a, 'foo' b]
+      SelectList [97-109] [1 a, 'foo' b]
+        SelectColumn [97-100] [1 a]
+          IntLiteral(1) [97-98] [1]
+          Alias [99-100] [a]
+            Identifier(a) [99-100] [a]
+        SelectColumn [102-109] ['foo' b]
+          StringLiteral [102-107] ['foo']
+            StringLiteralComponent('foo') [102-107] ['foo']
+          Alias [108-109] [b]
+            Identifier(b) [108-109] [b]
 --
 CREATE TABLE t1
 (
@@ -1229,12 +1274,12 @@ SELECT
 ==
 
 create table t1 (a int64, b string,)
-with connection us.connection1 
+with connection us.connection1
 options(foo=x, bar=b)
 as select 1 a, 'foo' b
 --
 
-CreateTableStatement [0-113] [create table...a, 'foo' b]
+CreateTableStatement [0-112] [create table...a, 'foo' b]
   PathExpression [13-15] [t1]
     Identifier(t1) [13-15] [t1]
   TableElementList [16-36] [(a int64, b string,)]
@@ -1253,27 +1298,27 @@ CreateTableStatement [0-113] [create table...a, 'foo' b]
       PathExpression [53-67] [us.connection1]
         Identifier(us) [53-55] [us]
         Identifier(connection1) [56-67] [connection1]
-  OptionsList [76-90] [(foo=x, bar=b)]
-    OptionsEntry [77-82] [foo=x]
-      Identifier(foo) [77-80] [foo]
-      PathExpression [81-82] [x]
-        Identifier(x) [81-82] [x]
-    OptionsEntry [84-89] [bar=b]
-      Identifier(bar) [84-87] [bar]
-      PathExpression [88-89] [b]
-        Identifier(b) [88-89] [b]
-  Query [94-113] [select 1 a, 'foo' b]
-    Select [94-113] [select 1 a, 'foo' b]
-      SelectList [101-113] [1 a, 'foo' b]
-        SelectColumn [101-104] [1 a]
-          IntLiteral(1) [101-102] [1]
-          Alias [103-104] [a]
-            Identifier(a) [103-104] [a]
-        SelectColumn [106-113] ['foo' b]
-          StringLiteral [106-111] ['foo']
-            StringLiteralComponent('foo') [106-111] ['foo']
-          Alias [112-113] [b]
-            Identifier(b) [112-113] [b]
+  OptionsList [75-89] [(foo=x, bar=b)]
+    OptionsEntry [76-81] [foo=x]
+      Identifier(foo) [76-79] [foo]
+      PathExpression [80-81] [x]
+        Identifier(x) [80-81] [x]
+    OptionsEntry [83-88] [bar=b]
+      Identifier(bar) [83-86] [bar]
+      PathExpression [87-88] [b]
+        Identifier(b) [87-88] [b]
+  Query [93-112] [select 1 a, 'foo' b]
+    Select [93-112] [select 1 a, 'foo' b]
+      SelectList [100-112] [1 a, 'foo' b]
+        SelectColumn [100-103] [1 a]
+          IntLiteral(1) [100-101] [1]
+          Alias [102-103] [a]
+            Identifier(a) [102-103] [a]
+        SelectColumn [105-112] ['foo' b]
+          StringLiteral [105-110] ['foo']
+            StringLiteralComponent('foo') [105-110] ['foo']
+          Alias [111-112] [b]
+            Identifier(b) [111-112] [b]
 --
 CREATE TABLE t1
 (
@@ -1286,12 +1331,12 @@ SELECT
 ==
 
 create table t1 (a int64, b string,)
-with connection myproject.us.connection1 
+with connection myproject.us.connection1
 options(foo=x, bar=b)
 as select 1 a, 'foo' b
 --
 
-CreateTableStatement [0-123] [create table...a, 'foo' b]
+CreateTableStatement [0-122] [create table...a, 'foo' b]
   PathExpression [13-15] [t1]
     Identifier(t1) [13-15] [t1]
   TableElementList [16-36] [(a int64, b string,)]
@@ -1311,27 +1356,27 @@ CreateTableStatement [0-123] [create table...a, 'foo' b]
         Identifier(myproject) [53-62] [myproject]
         Identifier(us) [63-65] [us]
         Identifier(connection1) [66-77] [connection1]
-  OptionsList [86-100] [(foo=x, bar=b)]
-    OptionsEntry [87-92] [foo=x]
-      Identifier(foo) [87-90] [foo]
-      PathExpression [91-92] [x]
-        Identifier(x) [91-92] [x]
-    OptionsEntry [94-99] [bar=b]
-      Identifier(bar) [94-97] [bar]
-      PathExpression [98-99] [b]
-        Identifier(b) [98-99] [b]
-  Query [104-123] [select 1 a, 'foo' b]
-    Select [104-123] [select 1 a, 'foo' b]
-      SelectList [111-123] [1 a, 'foo' b]
-        SelectColumn [111-114] [1 a]
-          IntLiteral(1) [111-112] [1]
-          Alias [113-114] [a]
-            Identifier(a) [113-114] [a]
-        SelectColumn [116-123] ['foo' b]
-          StringLiteral [116-121] ['foo']
-            StringLiteralComponent('foo') [116-121] ['foo']
-          Alias [122-123] [b]
-            Identifier(b) [122-123] [b]
+  OptionsList [85-99] [(foo=x, bar=b)]
+    OptionsEntry [86-91] [foo=x]
+      Identifier(foo) [86-89] [foo]
+      PathExpression [90-91] [x]
+        Identifier(x) [90-91] [x]
+    OptionsEntry [93-98] [bar=b]
+      Identifier(bar) [93-96] [bar]
+      PathExpression [97-98] [b]
+        Identifier(b) [97-98] [b]
+  Query [103-122] [select 1 a, 'foo' b]
+    Select [103-122] [select 1 a, 'foo' b]
+      SelectList [110-122] [1 a, 'foo' b]
+        SelectColumn [110-113] [1 a]
+          IntLiteral(1) [110-111] [1]
+          Alias [112-113] [a]
+            Identifier(a) [112-113] [a]
+        SelectColumn [115-122] ['foo' b]
+          StringLiteral [115-120] ['foo']
+            StringLiteralComponent('foo') [115-120] ['foo']
+          Alias [121-122] [b]
+            Identifier(b) [121-122] [b]
 --
 CREATE TABLE t1
 (

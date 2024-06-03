@@ -49,7 +49,8 @@ ZetaSQL supports the following date functions.
 
 </td>
   <td>
-    Gets the number of intervals between two <code>DATE</code> values.
+    Gets the number of unit boundaries between two <code>DATE</code> values
+    at a particular time granularity.
   </td>
 </tr>
 
@@ -332,36 +333,41 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 ### `DATE_DIFF`
 
 ```sql
-DATE_DIFF(date_expression_a, date_expression_b, date_part)
+DATE_DIFF(end_date, start_date, granularity)
 ```
 
 **Description**
 
-Returns the whole number of specified `date_part` intervals between two
-`DATE` objects (`date_expression_a` - `date_expression_b`).
-If the first `DATE` is earlier than the second one,
-the output is negative.
+Gets the number of unit boundaries between two `DATE` values (`end_date` -
+`start_date`) at a particular time granularity.
 
-`DATE_DIFF` supports the following `date_part` values:
+**Definitions**
 
-+  `DAY`
-+  `WEEK` This date part begins on Sunday.
-+  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
-   `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
-   `FRIDAY`, and `SATURDAY`.
-+  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
-   boundaries. ISO weeks begin on Monday.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-+  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
++   `start_date`: The starting `DATE` value.
++   `end_date`: The ending `DATE` value.
++   `granularity`: The date part that represents the granularity. This can be:
+
+    +  `DAY`
+    +  `WEEK` This date part begins on Sunday.
+    +  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
+       `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+       `FRIDAY`, and `SATURDAY`.
+    +  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week] boundaries. ISO weeks
+       begin on Monday.
+    +  `MONTH`
+    +  `QUARTER`
+    +  `YEAR`
+    +  `ISOYEAR`: Uses the [ISO 8601][ISO-8601] week-numbering year boundary.
+       The ISO year boundary is the Monday of the first week whose Thursday
+       belongs to the corresponding Gregorian calendar year.
+
+**Details**
+
+If `end_date` is earlier than `start_date`, the output is negative.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -873,16 +879,16 @@ each element in `date_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008');
 
 -- This produces an error because the year element is in different locations.
-SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008');
 
 -- This produces an error because one of the year elements is missing.
-SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
+SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008');
 
 -- This works because %F can find all matching elements in date_string.
-SELECT PARSE_DATE('%F', '2000-12-30')
+SELECT PARSE_DATE('%F', '2000-12-30');
 ```
 
 When using `PARSE_DATE`, keep the following in mind:

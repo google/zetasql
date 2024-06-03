@@ -23,7 +23,7 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import java.util.Objects;
 
-/** Represents a MAP<K, V> type, where K is the key and V is the value. */
+/** Represents a {@code MAP<K, V>} type, where K is the key and V is the value. */
 public class MapType extends Type {
   static boolean equalsImpl(MapType type1, MapType type2, boolean equivalent) {
     return type1.keyType.equalsInternal(type2.keyType, equivalent)

@@ -60,7 +60,7 @@ struct
 
 struct<
 --
-ERROR: Syntax error: Unexpected end of type [at 1:8]
+ERROR: Syntax error: Expected ">" but got end of type [at 1:8]
 struct<
        ^
 ==
@@ -903,9 +903,228 @@ ERROR: Syntax error: Unexpected end of type [at 1:14]
 ==
 
 # Empty statement - just whitespace.
-  
+
 
 --
 ERROR: Syntax error: Unexpected end of type [at 1:1]
 
 ^
+==
+
+BOOL
+--
+SimpleType [0-4] [BOOL]
+  PathExpression [0-4] [BOOL]
+    Identifier(BOOL) [0-4] [BOOL]
+--
+BOOL
+==
+
+STRUCT<{{| }}>
+--
+ALTERNATION GROUP: <empty>
+--
+StructType [0-8] [STRUCT<>]
+--
+STRUCT< >
+--
+ALTERNATION GROUP:  
+--
+StructType [0-9] [STRUCT< >]
+--
+STRUCT< >
+==
+
+ARRAY<{{| }}>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:6]
+ARRAY<>
+     ^
+--
+ALTERNATION GROUP:  
+--
+ERROR: Syntax error: Unexpected ">" [at 1:8]
+ARRAY< >
+       ^
+==
+
+RANGE<{{| }}>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:6]
+RANGE<>
+     ^
+--
+ALTERNATION GROUP:  
+--
+ERROR: Syntax error: Unexpected ">" [at 1:8]
+RANGE< >
+       ^
+==
+
+STRUCT<BOOL>
+--
+StructType [0-12] [STRUCT<BOOL>]
+  StructField [7-11] [BOOL]
+    SimpleType [7-11] [BOOL]
+      PathExpression [7-11] [BOOL]
+        Identifier(BOOL) [7-11] [BOOL]
+--
+STRUCT< BOOL >
+==
+
+STRUCT<a BOOL>
+--
+StructType [0-14] [STRUCT<a BOOL>]
+  StructField [7-13] [a BOOL]
+    Identifier(a) [7-8] [a]
+    SimpleType [9-13] [BOOL]
+      PathExpression [9-13] [BOOL]
+        Identifier(BOOL) [9-13] [BOOL]
+--
+STRUCT< a BOOL >
+==
+
+STRUCT<BOOL, STRING>
+--
+StructType [0-20] [STRUCT<BOOL, STRING>]
+  StructField [7-11] [BOOL]
+    SimpleType [7-11] [BOOL]
+      PathExpression [7-11] [BOOL]
+        Identifier(BOOL) [7-11] [BOOL]
+  StructField [13-19] [STRING]
+    SimpleType [13-19] [STRING]
+      PathExpression [13-19] [STRING]
+        Identifier(STRING) [13-19] [STRING]
+--
+STRUCT< BOOL, STRING >
+==
+
+STRUCT<a BOOL, b STRING>
+--
+StructType [0-24] [STRUCT<a BOOL, b STRING>]
+  StructField [7-13] [a BOOL]
+    Identifier(a) [7-8] [a]
+    SimpleType [9-13] [BOOL]
+      PathExpression [9-13] [BOOL]
+        Identifier(BOOL) [9-13] [BOOL]
+  StructField [15-23] [b STRING]
+    Identifier(b) [15-16] [b]
+    SimpleType [17-23] [STRING]
+      PathExpression [17-23] [STRING]
+        Identifier(STRING) [17-23] [STRING]
+--
+STRUCT< a BOOL, b STRING >
+==
+
+ARRAY<a BOOL, b STRING>
+--
+ERROR: Syntax error: Expected ">" but got identifier "BOOL" [at 1:9]
+ARRAY<a BOOL, b STRING>
+        ^
+==
+
+ARRAY<STRUCT<a BOOL, b STRING>{{| }}>
+--
+ALTERNATION GROUP: <empty>
+--
+ArrayType [0-31] [ARRAY<STRUCT...b STRING>>]
+  StructType [6-30] [STRUCT<a BOOL, b STRING>]
+    StructField [13-19] [a BOOL]
+      Identifier(a) [13-14] [a]
+      SimpleType [15-19] [BOOL]
+        PathExpression [15-19] [BOOL]
+          Identifier(BOOL) [15-19] [BOOL]
+    StructField [21-29] [b STRING]
+      Identifier(b) [21-22] [b]
+      SimpleType [23-29] [STRING]
+        PathExpression [23-29] [STRING]
+          Identifier(STRING) [23-29] [STRING]
+--
+ARRAY< STRUCT< a BOOL, b STRING > >
+--
+ALTERNATION GROUP:  
+--
+ArrayType [0-32] [ARRAY<STRUCT...STRING> >]
+  StructType [6-30] [STRUCT<a BOOL, b STRING>]
+    StructField [13-19] [a BOOL]
+      Identifier(a) [13-14] [a]
+      SimpleType [15-19] [BOOL]
+        PathExpression [15-19] [BOOL]
+          Identifier(BOOL) [15-19] [BOOL]
+    StructField [21-29] [b STRING]
+      Identifier(b) [21-22] [b]
+      SimpleType [23-29] [STRING]
+        PathExpression [23-29] [STRING]
+          Identifier(STRING) [23-29] [STRING]
+--
+ARRAY< STRUCT< a BOOL, b STRING > >
+==
+
+ARRAY<STRUCT<a BOOL, b ARRAY<>{{| }}>{{| }}>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ARRAY<STRUCT<a BOOL, b ARRAY<>>>
+                            ^
+--
+ALTERNATION GROUP:  
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ARRAY<STRUCT<a BOOL, b ARRAY<>> >
+                            ^
+--
+ALTERNATION GROUP:  ,
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ARRAY<STRUCT<a BOOL, b ARRAY<> >>
+                            ^
+--
+ALTERNATION GROUP:  , 
+--
+ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ARRAY<STRUCT<a BOOL, b ARRAY<> > >
+                            ^
+==
+
+ARRAY<TYPEOF(a <> b)>
+--
+ERROR: Syntax error: Unexpected identifier "a" [at 1:14]
+ARRAY<TYPEOF(a <> b)>
+             ^
+==
+
+ARRAY<TYPEOF(a >> b)>
+--
+ERROR: Syntax error: Unexpected identifier "a" [at 1:14]
+ARRAY<TYPEOF(a >> b)>
+             ^
+==
+
+MAP<STRING, MAP<STRING, MAP<STRING, MAP<STRING, BOOL>>>>
+--
+MapType [0-56] [MAP<STRING..., BOOL>>>>]
+  SimpleType [4-10] [STRING]
+    PathExpression [4-10] [STRING]
+      Identifier(STRING) [4-10] [STRING]
+  MapType [12-55] [MAP<STRING...STRING, BOOL>>>]
+    SimpleType [16-22] [STRING]
+      PathExpression [16-22] [STRING]
+        Identifier(STRING) [16-22] [STRING]
+    MapType [24-54] [MAP<STRING, MAP<STRING, BOOL>>]
+      SimpleType [28-34] [STRING]
+        PathExpression [28-34] [STRING]
+          Identifier(STRING) [28-34] [STRING]
+      MapType [36-53] [MAP<STRING, BOOL>]
+        SimpleType [40-46] [STRING]
+          PathExpression [40-46] [STRING]
+            Identifier(STRING) [40-46] [STRING]
+        SimpleType [48-52] [BOOL]
+          PathExpression [48-52] [BOOL]
+            Identifier(BOOL) [48-52] [BOOL]
+--
+MAP< STRING, MAP< STRING, MAP< STRING, MAP< STRING, BOOL > > > >

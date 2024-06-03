@@ -72,7 +72,7 @@ absl::Status FunctionOptions::Deserialize(
   options->set_supports_order_by(proto.supports_order_by());
   options->set_supports_safe_error_mode(proto.supports_safe_error_mode());
   for (const int each : proto.required_language_feature()) {
-    options->add_required_language_feature(LanguageFeature(each));
+    options->AddRequiredLanguageFeature(LanguageFeature(each));
   }
   options->set_supports_limit(proto.supports_limit());
   options->set_supports_null_handling_modifier(
@@ -122,7 +122,7 @@ FunctionOptions& FunctionOptions::set_evaluator(
   return *this;
 }
 
-bool FunctionOptions::check_all_required_features_are_enabled(
+bool FunctionOptions::CheckAllRequiredFeaturesAreEnabled(
     const LanguageOptions::LanguageFeatureSet& enabled_features) const {
   for (const LanguageFeature& feature : required_language_features) {
     if (enabled_features.find(feature) == enabled_features.end()) {
@@ -132,37 +132,12 @@ bool FunctionOptions::check_all_required_features_are_enabled(
   return true;
 }
 
+bool FunctionOptions::RequiresFeature(LanguageFeature feature) const {
+  return required_language_features.find(feature) !=
+         required_language_features.end();
+}
+
 const char Function::kZetaSQLFunctionGroupName[] = "ZetaSQL";
-
-const FunctionEnums::Mode Function::SCALAR;
-const FunctionEnums::Mode Function::AGGREGATE;
-const FunctionEnums::Mode Function::ANALYTIC;
-
-Function::Function(absl::string_view name, absl::string_view group, Mode mode,
-                   FunctionOptions function_options)
-    : group_(group),
-      mode_(mode),
-      function_options_(std::move(function_options)) {
-  function_name_path_.emplace_back(name);
-  ZETASQL_CHECK_OK(CheckWindowSupportOptions());
-  ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
-}
-
-Function::Function(absl::string_view name, absl::string_view group, Mode mode,
-                   std::vector<FunctionSignature> function_signatures,
-                   FunctionOptions function_options)
-    : group_(group),
-      mode_(mode),
-      function_signatures_(std::move(function_signatures)),
-      function_options_(std::move(function_options)) {
-  function_name_path_.emplace_back(name);
-  ZETASQL_CHECK_OK(CheckWindowSupportOptions());
-  for (const FunctionSignature& signature : function_signatures_) {
-    ZETASQL_CHECK_OK(signature.IsValidForFunction())
-        << signature.DebugString(FullName());
-  }
-  ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
-}
 
 Function::Function(std::vector<std::string> name_path, absl::string_view group,
                    Mode mode,
@@ -402,9 +377,8 @@ void Function::AddSignature(const FunctionSignature& signature) {
 }
 
 absl::Status Function::AddSignature(const TypeKind result_kind,
-                                    const std::vector<TypeKind>& input_kinds,
-                                    void* context,
-                                    TypeFactory* factory) {
+                                    absl::Span<const TypeKind> input_kinds,
+                                    void* context, TypeFactory* factory) {
   if (!Type::IsSimpleType(result_kind)) {
     return MakeSqlError()
            << "Result TypeKinds should be simple type kinds, but found: "
@@ -531,7 +505,7 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
 // static
 const std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
     absl::string_view qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+    absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
     absl::Span<const absl::string_view> argument_names,
     bool argument_types_on_new_line) {
   return absl::StrCat(
@@ -583,6 +557,7 @@ std::string Function::GetSupportedSignaturesUserFacingText(
     if (!supported_signatures.empty()) {
       absl::StrAppend(&supported_signatures, "; ");
     }
+    (*num_signatures)++;
     if (HasSignatureTextCallback()) {
       absl::StrAppend(
           &supported_signatures,
@@ -591,7 +566,6 @@ std::string Function::GetSupportedSignaturesUserFacingText(
       std::vector<std::string> argument_texts =
           signature.GetArgumentsUserFacingTextWithCardinality(
               language_options, print_style, print_template_details);
-      (*num_signatures)++;
       absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
     }
   }

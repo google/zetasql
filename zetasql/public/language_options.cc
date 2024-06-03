@@ -71,6 +71,12 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_ARRAY_ZIP);
       features.insert(FEATURE_V_1_4_GROUPING_SETS);
       features.insert(FEATURE_V_1_4_GROUPING_BUILTIN);
+      features.insert(FEATURE_V_1_4_MULTIWAY_UNNEST);
+      features.insert(FEATURE_V_1_4_IMPLICIT_COERCION_STRING_LITERAL_TO_BYTES);
+      features.insert(FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF);
+      features.insert(FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS);
+      features.insert(FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS);
+      features.insert(FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

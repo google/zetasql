@@ -146,6 +146,11 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // StatusBuilder.  Returns `*this` to allow method chaining.
   StatusBuilder& SetErrorCode(absl::StatusCode code);
 
+  // Sets the status code for the status that will be returned by this
+  // StatusBuilder. Returns `*this` to allow method chaining.
+  StatusBuilder& SetCode(absl::StatusCode code) &;
+  ABSL_MUST_USE_RESULT StatusBuilder&& SetCode(absl::StatusCode code) &&;
+
   ///////////////////////////////// Adaptors /////////////////////////////////
   //
   // A StatusBuilder `adaptor` is a functor which can be included in a builder

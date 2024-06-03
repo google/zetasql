@@ -200,7 +200,6 @@ SHOW MATERIALIZED TABLES from KitchenSync
                   ^
 ==
 
-[no_test_get_parse_tokens]
 [language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 SHOW TABLES FROM my-project.dataset.table;
 --
@@ -222,7 +221,6 @@ ShowStatement [0-41] [SHOW TABLES...dataset.table]
 SHOW TABLES FROM `my-project`.dataset.table
 ==
 
-[no_test_get_parse_tokens]
 [language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME{{|,V_1_3_ALLOW_SLASH_PATHS}}]
 SHOW TABLES FROM /span/db/my-mdb-grp:my_db
 --

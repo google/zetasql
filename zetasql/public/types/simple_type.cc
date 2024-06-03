@@ -49,6 +49,7 @@
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/functional/any_invocable.h"
@@ -65,6 +66,8 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -132,6 +135,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
       {"tokenlist", {TYPE_TOKENLIST}},
+      {"uuid", {TYPE_UUID}},
   };
   return *result;
 }
@@ -216,6 +220,7 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
       {TYPE_JSON, TypeKindInfo::BuildWithTypeFeature(FEATURE_JSON_TYPE)},
       {TYPE_TOKENLIST,
        TypeKindInfo::BuildWithTypeFeature(FEATURE_TOKENIZED_SEARCH)},
+      {TYPE_UUID, TypeKindInfo::BuildWithTypeFeature(FEATURE_V_1_4_UUID_TYPE)},
   };
   return *result;
 }
@@ -283,6 +288,10 @@ const IntervalValue& GetIntervalValue(const ValueContent& value) {
 
 const tokens::TokenList& GetTokenListValue(const ValueContent& value) {
   return value.GetAs<internal::TokenListRef*>()->value();
+}
+
+const UuidValue& GetUuidValue(const ValueContent& value) {
+  return value.GetAs<internal::UuidRef*>()->value();
 }
 
 std::string AddTypePrefix(absl::string_view value, const Type* type,
@@ -478,6 +487,9 @@ void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
     case TYPE_TOKENLIST:
       from.GetAs<internal::TokenListRef*>()->Ref();
       break;
+    case TYPE_UUID:
+      from.GetAs<internal::UuidRef*>()->Ref();
+      break;
     default:
       break;
   }
@@ -514,6 +526,9 @@ void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
     case TYPE_TOKENLIST:
       value.GetAs<internal::TokenListRef*>()->Unref();
       return;
+    case TYPE_UUID:
+      value.GetAs<internal::UuidRef*>()->Unref();
+      return;
     default:
       return;
   }
@@ -539,6 +554,8 @@ uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(
       return value.GetAs<internal::JSONRef*>()->physical_byte_size();
     case TYPE_TOKENLIST:
       return value.GetAs<internal::TokenListRef*>()->physical_byte_size();
+    case TYPE_UUID:
+      return sizeof(internal::UuidRef);
     default:
       return 0;
   }
@@ -624,6 +641,8 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       return absl::HashState::combine(std::move(state), GetJsonString(value));
     case TYPE_TOKENLIST:
       return HashTokenList(value, std::move(state));
+    case TYPE_UUID:
+      return absl::HashState::combine(std::move(state), GetUuidValue(value));
     default:
       ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();
       return state;
@@ -688,6 +707,8 @@ bool SimpleType::ValueContentEquals(
     }
     case TYPE_TOKENLIST:
       return GetTokenListValue(x).EquivalentTo(GetTokenListValue(y));
+    case TYPE_UUID:
+      return ReferencedValueEquals<internal::UuidRef>(x, y);
     default:
       ABSL_LOG(FATAL) << "Unexpected simple type kind: " << kind();
   }
@@ -748,6 +769,8 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
       return ReferencedValueLess<internal::NumericRef>(x, y);
     case TYPE_BIGNUMERIC:
       return ReferencedValueLess<internal::BigNumericRef>(x, y);
+    case TYPE_UUID:
+      return ReferencedValueLess<internal::UuidRef>(x, y);
     default:
       ABSL_LOG(ERROR) << "Cannot compare " << DebugString() << " to "
                   << DebugString();
@@ -955,6 +978,14 @@ std::string SimpleType::FormatValueContent(
                  ? absl::StrCat("JSON ", ToStringLiteral(s))
                  : s;
     }
+    case TYPE_UUID: {
+      std::string s = GetUuidValue(value).ToString();
+      return options.add_simple_type_prefix()
+                 ? internal::GetCastExpressionString(
+                       ToSingleQuotedStringLiteral(s), this,
+                       options.product_mode)
+                 : s;
+    }
     case TYPE_TOKENLIST:
       return FormatTokenList(value, options);
     default:
@@ -1028,6 +1059,9 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
       break;
     case TYPE_TOKENLIST:
       value_proto->set_tokenlist_value(GetTokenListValue(value).GetBytes());
+      break;
+    case TYPE_UUID:
+      value_proto->set_uuid_value(GetUuidValue(value).SerializeAsBytes());
       break;
     default:
       return absl::Status(absl::StatusCode::kInternal,
@@ -1189,6 +1223,15 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
           tokens::TokenList::FromBytes(value_proto.tokenlist_value())));
       break;
     }
+    case TYPE_UUID: {
+      if (!value_proto.has_uuid_value()) {
+        return TypeMismatchError(value_proto);
+      }
+      ZETASQL_ASSIGN_OR_RETURN(UuidValue uuid_v, UuidValue::DeserializeFromBytes(
+                                             value_proto.uuid_value()));
+      value->set(new internal::UuidRef(uuid_v));
+      break;
+    }
     default:
       return absl::Status(absl::StatusCode::kInternal,
                           absl::StrCat("Unsupported type ", DebugString()));
@@ -1285,7 +1328,7 @@ absl::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParameters(
   }
 
   StringTypeParametersProto type_parameters_proto;
-  TypeParameterValue param = type_parameter_values[0];
+  const TypeParameterValue& param = type_parameter_values[0];
   if (!param.IsSpecialLiteral() && param.GetValue().has_int64_value()) {
     if (param.GetValue().int64_value() <= 0) {
       return MakeSqlError()
@@ -1336,7 +1379,7 @@ SimpleType::ResolveNumericBignumericTypeParameters(
 
   // For NUMERIC, precision can only be an integer.
   // For BIGNUMERIC, precision can be an integer or MAX literal.
-  TypeParameterValue precision_param = type_parameter_values[0];
+  const TypeParameterValue& precision_param = type_parameter_values[0];
   if (!precision_param.IsSpecialLiteral() &&
       precision_param.GetValue().has_int64_value()) {
     const int max_precision =

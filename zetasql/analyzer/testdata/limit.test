@@ -834,3 +834,78 @@ ALTERNATION GROUPS:
 ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:52]
 select key FROM KeyValue ORDER BY 1 LIMIT 1 OFFSET 18446744073709551615;
                                                    ^
+==
+
+[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+SELECT key
+FROM KeyValue
+LIMIT FLATTEN(STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales).sales.quantity)[OFFSET(0)]
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1]
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-limit=
+      +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+        +-Flatten
+        | +-type=ARRAY<INT64>
+        | +-expr=
+        | | +-GetStructField
+        | |   +-type=ARRAY<STRUCT<quantity INT64>>
+        | |   +-expr=
+        | |   | +-Literal(type=STRUCT<sales ARRAY<STRUCT<quantity INT64>>>, value={sales:[{quantity:1}, {quantity:2}]})
+        | |   +-field_idx=0
+        | +-get_field_list=
+        |   +-GetStructField
+        |     +-type=INT64
+        |     +-expr=
+        |     | +-FlattenedArg(type=STRUCT<quantity INT64>)
+        |     +-field_idx=0
+        +-Literal(type=INT64, value=0)
+==
+
+[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_4_LIMIT_OFFSET_EXPRESSIONS]
+SELECT key
+FROM KeyValue
+LIMIT 2
+OFFSET FLATTEN(STRUCT([STRUCT(1 AS quantity), STRUCT(2 AS quantity)] AS sales).sales.quantity)[OFFSET(0)]
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1]
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-limit=
+    | +-Literal(type=INT64, value=2)
+    +-offset=
+      +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+        +-Flatten
+        | +-type=ARRAY<INT64>
+        | +-expr=
+        | | +-GetStructField
+        | |   +-type=ARRAY<STRUCT<quantity INT64>>
+        | |   +-expr=
+        | |   | +-Literal(type=STRUCT<sales ARRAY<STRUCT<quantity INT64>>>, value={sales:[{quantity:1}, {quantity:2}]})
+        | |   +-field_idx=0
+        | +-get_field_list=
+        |   +-GetStructField
+        |     +-type=INT64
+        |     +-expr=
+        |     | +-FlattenedArg(type=STRUCT<quantity INT64>)
+        |     +-field_idx=0
+        +-Literal(type=INT64, value=0)
+==
+

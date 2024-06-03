@@ -233,9 +233,6 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                /*explicit_datepart_name=*/""))
           .set_signature_text_callback(absl::bind_front(
               &ExtractSignatureText, /*explicit_datepart_name=*/""))
-          .set_supported_signatures_callback(
-              absl::bind_front(&ExtractSupportedSignatures,
-                               /*explicit_datepart_name=*/""))
           .set_get_sql_callback(&ExtractFunctionSQL));
 
   InsertSimpleFunction(
@@ -253,8 +250,6 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
               absl::bind_front(&NoMatchingSignatureForExtractFunction, "DATE"))
           .set_signature_text_callback(absl::bind_front(
               &ExtractSignatureText, /*explicit_datepart_name=*/"DATE"))
-          .set_supported_signatures_callback(absl::bind_front(
-              &ExtractSupportedSignatures, /*explicit_datepart_name=*/"DATE"))
           .set_get_sql_callback(
               absl::bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
 
@@ -273,8 +268,6 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
               absl::bind_front(&NoMatchingSignatureForExtractFunction, "TIME"))
           .set_signature_text_callback(absl::bind_front(
               &ExtractSignatureText, /*explicit_datepart_name=*/"TIME"))
-          .set_supported_signatures_callback(
-              absl::bind_front(&ExtractSupportedSignatures, "TIME"))
           .set_get_sql_callback(
               absl::bind_front(ExtractDateOrTimeFunctionSQL, "TIME")));
 
@@ -292,8 +285,6 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForExtractFunction, "DATETIME"))
           .set_signature_text_callback(absl::bind_front(
               &ExtractSignatureText, /*explicit_datepart_name=*/"DATETIME"))
-          .set_supported_signatures_callback(
-              absl::bind_front(&ExtractSupportedSignatures, "DATETIME"))
           .set_get_sql_callback(
               absl::bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
 }
@@ -301,7 +292,7 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
 namespace {
 
 std::string NoStringLiterals(const FunctionSignature& matched_signature,
-                             const std::vector<InputArgumentType>& arguments) {
+                             absl::Span<const InputArgumentType> arguments) {
   for (int i = 0; i < arguments.size(); ++i) {
     const InputArgumentType& argument = arguments[i];
     if (argument.is_literal() && argument.type()->IsString()) {
@@ -335,7 +326,7 @@ void GetDatetimeConversionFunctions(
   FunctionSignatureOptions date_time_constructor_options =
       FunctionSignatureOptions()
           .set_constraints(&NoStringLiterals)
-          .add_required_language_feature(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+          .AddRequiredLanguageFeature(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
   InsertFunction(functions, options, "date", SCALAR,
                  {
                      {date_type,
@@ -395,7 +386,7 @@ void GetDatetimeConversionFunctions(
                   {timestamp_type,
                    {timestamp_type},
                    FN_TIMESTAMP_FROM_TIMESTAMP,
-                   FunctionSignatureOptions().add_required_language_feature(
+                   FunctionSignatureOptions().AddRequiredLanguageFeature(
                        FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)}});
   InsertSimpleFunction(
       functions, options, "timestamp_seconds", SCALAR,
@@ -439,9 +430,9 @@ void GetTimeAndDatetimeConstructionAndConversionFunctions(
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions time_and_datetime_function_options =
-      FunctionOptions().add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
   FunctionSignatureOptions date_time_constructor_options =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
 
   InsertFunction(functions, options, "time", SCALAR,
@@ -533,8 +524,7 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
   const Type* datetime_type = type_factory->get_datetime();
   const Type* time_type = type_factory->get_time();
   FunctionOptions require_civil_time_types(function_is_stable);
-  require_civil_time_types.add_required_language_feature(
-      FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
   InsertSimpleFunction(
       functions, options, "current_datetime", SCALAR,
       {{datetime_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATETIME}},
@@ -579,12 +569,11 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
   const Function::Mode SCALAR = Function::SCALAR;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.add_required_language_feature(
-      FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .add_required_language_feature(
+          .AddRequiredLanguageFeature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0>);
@@ -750,14 +739,13 @@ void GetDatetimeDiffTruncLastFunctions(
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.add_required_language_feature(
-      FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
 
   const Type* diff_type = int64_type;
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .add_required_language_feature(
+          .AddRequiredLanguageFeature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0, 1>);
@@ -908,7 +896,7 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .add_required_language_feature(
+          .AddRequiredLanguageFeature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<0, 2>);
@@ -944,8 +932,7 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
            FN_TIMESTAMP_BUCKET,
            extended_datetime_signatures},
       },
-      FunctionOptions().add_required_language_feature(
-          FEATURE_V_1_2_CIVIL_TIME));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME));
   InsertFunction(
       functions, options, "timestamp_bucket", SCALAR,
       {
@@ -977,12 +964,11 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
       FunctionArgumentType::OPTIONAL;
 
   FunctionOptions require_civil_time_types;
-  require_civil_time_types.add_required_language_feature(
-      FEATURE_V_1_2_CIVIL_TIME);
+  require_civil_time_types.AddRequiredLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
 
   FunctionSignatureOptions extended_datetime_signatures =
       FunctionSignatureOptions()
-          .add_required_language_feature(
+          .AddRequiredLanguageFeature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
           .set_is_aliased_signature(true)
           .set_constraints(&NoLiteralOrParameterString<1>);
@@ -1053,7 +1039,7 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
 
 namespace {
 
-std::string IntervalConstructorSQL(const std::vector<std::string>& inputs) {
+std::string IntervalConstructorSQL(absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrFormat("INTERVAL %s %s", inputs[0], inputs[1]);
 }
@@ -1091,7 +1077,7 @@ void GetIntervalFunctions(TypeFactory* type_factory,
             {int64_type, with_name("second")},
         },
         FN_MAKE_INTERVAL}},
-      FunctionOptions().add_required_language_feature(FEATURE_INTERVAL_TYPE));
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_INTERVAL_TYPE));
 
   InsertFunction(functions, options, "justify_hours", SCALAR,
                  {{interval_type, {interval_type}, FN_JUSTIFY_HOURS}});
@@ -1130,13 +1116,13 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   FunctionSignatureOptions has_interval_type_argument;
   has_interval_type_argument.set_constraints(&CheckHasIntervalTypeArgument);
   FunctionSignatureOptions date_arithmetics_options =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_V_1_3_DATE_ARITHMETICS);
   FunctionSignatureOptions interval_options =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_INTERVAL_TYPE);
   FunctionSignatureOptions civil_time_options =
-      FunctionSignatureOptions().add_required_language_feature(
+      FunctionSignatureOptions().AddRequiredLanguageFeature(
           FEATURE_V_1_2_CIVIL_TIME);
 
   // Note that the '$' prefix is used in function names for those that do not

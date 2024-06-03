@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <string>
 #include <vector>
 
 #include "zetasql/common/builtin_function_internal.h"
@@ -27,9 +28,11 @@
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -40,10 +43,12 @@ namespace zetasql {
 
 namespace {
 constexpr absl::string_view kMapFromArray = "MAP_FROM_ARRAY";
+constexpr absl::string_view kMapEntriesSorted = "MAP_ENTRIES_SORTED";
+constexpr absl::string_view kMapEntriesUnsorted = "MAP_ENTRIES_UNSORTED";
 }
 
 static absl::Status CheckMapFromArrayPreResolutionArguments(
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 1) {
     return MakeSqlError() << "No matching signature for function "
@@ -68,7 +73,7 @@ static absl::Status CheckMapFromArrayPreResolutionArguments(
 static absl::StatusOr<const Type*> ComputeMapFromArrayResultType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
+    absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
   auto& input_argument = arguments[0];
@@ -111,6 +116,45 @@ static absl::StatusOr<const Type*> ComputeMapFromArrayResultType(
                                    struct_type->field(1).type);
 }
 
+static absl::StatusOr<const Type*> ComputeMapEntriesFunctionResultType(
+    absl::string_view function_name, bool require_orderable_key,
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  auto& input_argument = arguments[0];
+
+  if (!input_argument.type()->IsMap()) {
+    return MakeSqlError()
+           << function_name
+           << " input argument must be of type MAP<K, V>, but got type "
+           << arguments[0].type()->TypeName(
+                  analyzer_options.language().product_mode());
+  }
+
+  const Type* map_key_type = GetMapKeyType(input_argument.type());
+  std::string ordering_type_description;
+  if (require_orderable_key &&
+      !map_key_type->SupportsOrdering(analyzer_options.language(),
+                                      &ordering_type_description)) {
+    return MakeSqlError() << function_name
+                          << " map key type must be orderable, but was not: "
+                          << ordering_type_description << " is not orderable";
+  }
+
+  const Type* struct_type;
+  ZETASQL_RET_CHECK_OK(type_factory->MakeStructType(
+      {StructType::StructField("key", map_key_type),
+       StructType::StructField("value",
+                               GetMapValueType(input_argument.type()))},
+      &struct_type));
+
+  const Type* array_type;
+  ZETASQL_RET_CHECK_OK(type_factory->MakeArrayType(struct_type, &array_type));
+  return array_type;
+}
+
 void GetMapCoreFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions) {
@@ -126,7 +170,48 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
           .set_compute_result_type_callback(&ComputeMapFromArrayResultType)
           .set_pre_resolution_argument_constraint(
               &CheckMapFromArrayPreResolutionArguments)
-          .add_required_language_feature(FEATURE_V_1_4_MAP_TYPE));
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  // MAP_ENTRIES_SORTED(MAP<K,V> input_map) -> ARRAY<STRUCT<K,V>>
+  InsertFunction(
+      functions, options, "map_entries_sorted", Function::SCALAR,
+      {
+          {ARG_TYPE_ARBITRARY, {ARG_MAP_TYPE_ANY_1_2}, FN_MAP_ENTRIES_SORTED},
+      },
+      FunctionOptions()
+          .set_compute_result_type_callback(absl::bind_front(
+              &ComputeMapEntriesFunctionResultType, kMapEntriesSorted,
+              /*require_orderable_key=*/true))
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  InsertFunction(
+      functions, options, "map_entries_unsorted", Function::SCALAR,
+      {
+          {ARG_TYPE_ARBITRARY, {ARG_MAP_TYPE_ANY_1_2}, FN_MAP_ENTRIES_UNSORTED},
+      },
+      FunctionOptions()
+          .set_compute_result_type_callback(absl::bind_front(
+              &ComputeMapEntriesFunctionResultType, kMapEntriesUnsorted,
+              /*require_orderable_key=*/false))
+          .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+  InsertFunction(
+      functions, options, "map_get", Function::SCALAR,
+      {
+          {ARG_TYPE_ANY_2,
+           {ARG_MAP_TYPE_ANY_1_2,
+            ARG_TYPE_ANY_1,
+            {ARG_TYPE_ANY_2, FunctionEnums::OPTIONAL}},
+           FN_MAP_GET},
+      },
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+  InsertFunction(
+      functions, options, "map_contains_key", Function::SCALAR,
+      {
+          {type_factory->get_bool(),
+           {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
+           FN_MAP_CONTAINS_KEY},
+      },
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
 }
 
 }  // namespace zetasql

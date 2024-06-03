@@ -50,6 +50,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/no_destructor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -796,27 +797,27 @@ absl::Status CheckExtractPostResolutionArguments(
         static_cast<zetasql::functions::DateTimestampPart>(
             arguments[1].literal_value()->enum_value());
 
+    using DateTimePartSet = absl::flat_hash_set<functions::DateTimestampPart>;
     if (arguments[0].type()->IsDate()) {
-      static std::set<functions::DateTimestampPart> valid_parts = {
-          functions::YEAR,          functions::ISOYEAR,
-          functions::QUARTER,       functions::MONTH,
-          functions::WEEK,          functions::WEEK_MONDAY,
-          functions::WEEK_TUESDAY,  functions::WEEK_WEDNESDAY,
-          functions::WEEK_THURSDAY, functions::WEEK_FRIDAY,
-          functions::WEEK_SATURDAY, functions::ISOWEEK,
-          functions::DAY,           functions::DAYOFWEEK,
-          functions::DAYOFYEAR};
-      if (!zetasql_base::ContainsKey(valid_parts, date_part)) {
+      static zetasql_base::NoDestructor<DateTimePartSet> valid_parts(DateTimePartSet(
+          {functions::YEAR, functions::ISOYEAR, functions::QUARTER,
+           functions::MONTH, functions::WEEK, functions::WEEK_MONDAY,
+           functions::WEEK_TUESDAY, functions::WEEK_WEDNESDAY,
+           functions::WEEK_THURSDAY, functions::WEEK_FRIDAY,
+           functions::WEEK_SATURDAY, functions::ISOWEEK, functions::DAY,
+           functions::DAYOFWEEK, functions::DAYOFYEAR}));
+      if (!valid_parts->contains(date_part)) {
         return MakeSqlError() << ExtractingNotSupportedDatePart(
                    "DATE", DateTimestampPartToSQL(
                                arguments[1].literal_value()->enum_value()));
       }
     }
     if (arguments[0].type()->IsTime()) {
-      static std::set<functions::DateTimestampPart> valid_parts = {
-          functions::NANOSECOND, functions::MICROSECOND, functions::MILLISECOND,
-          functions::SECOND,     functions::MINUTE,      functions::HOUR};
-      if (!zetasql_base::ContainsKey(valid_parts, date_part)) {
+      static zetasql_base::NoDestructor<DateTimePartSet> valid_parts(
+          DateTimePartSet({functions::NANOSECOND, functions::MICROSECOND,
+                           functions::MILLISECOND, functions::SECOND,
+                           functions::MINUTE, functions::HOUR}));
+      if (!valid_parts->contains(date_part)) {
         return MakeSqlError() << ExtractingNotSupportedDatePart(
                    "TIME", DateTimestampPartToSQL(
                                arguments[1].literal_value()->enum_value()));
@@ -1165,7 +1166,7 @@ std::string NoMatchingSignatureForInFunction(
         qualified_function_name, arguments, product_mode);
   }
   bool is_string_literal_compared_to_bytes = false;
-  const InputArgumentType lhs_argument = arguments[0];
+  const InputArgumentType& lhs_argument = arguments[0];
   InputArgumentTypeSet rhs_argument_set;
   for (int idx = 1; idx < arguments.size(); ++idx) {
     rhs_argument_set.Insert(arguments[idx]);
@@ -1192,8 +1193,8 @@ std::string NoMatchingSignatureForInArrayFunction(
     return error_message;
   }
 
-  const InputArgumentType lhs_arg = arguments[0];
-  const InputArgumentType rhs_arg = arguments[1];
+  const InputArgumentType& lhs_arg = arguments[0];
+  const InputArgumentType& rhs_arg = arguments[1];
   bool is_string_literal_compared_to_bytes = false;
   // The rhs can be an untyped or an array type. This is enforced in
   // CheckInArrayArguments.
@@ -1221,7 +1222,7 @@ std::string NoMatchingSignatureForLikeExprFunction(
            "expression";
   }
   bool is_string_literal_compared_to_bytes = false;
-  const InputArgumentType lhs_argument = arguments[0];
+  const InputArgumentType& lhs_argument = arguments[0];
   InputArgumentTypeSet rhs_argument_set;
   for (int idx = 1; idx < arguments.size(); ++idx) {
     rhs_argument_set.Insert(arguments[idx]);
@@ -1253,8 +1254,8 @@ std::string NoMatchingSignatureForLikeExprArrayFunction(
   std::string error_message =
       Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
           function_name, arguments, product_mode);
-  const InputArgumentType lhs_arg = arguments[0];
-  const InputArgumentType rhs_arg = arguments[1];
+  const InputArgumentType& lhs_arg = arguments[0];
+  const InputArgumentType& rhs_arg = arguments[1];
   bool is_string_literal_compared_to_bytes = false;
   if (rhs_arg.type() != nullptr && lhs_arg.type() != nullptr &&
       rhs_arg.type()->IsArray()) {
@@ -1767,7 +1768,7 @@ static bool FunctionIsDisabled(const ZetaSQLBuiltinFunctionOptions& options,
     return true;
   }
 
-  if (!function_options.check_all_required_features_are_enabled(
+  if (!function_options.CheckAllRequiredFeaturesAreEnabled(
           language_options.GetEnabledLanguageFeatures())) {
     return true;
   }
@@ -1794,6 +1795,8 @@ static bool FunctionSignatureIsDisabled(
           !options.include_function_ids.contains(id)) ||
          options.exclude_function_ids.contains(id) ||
          signature.HasUnsupportedType(options.language_options);
+  // TODO: b/333096857 - Also check that the signature has all required features
+  // enabled.
 }
 
 static bool FunctionSignatureIsDisabled(

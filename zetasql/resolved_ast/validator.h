@@ -127,8 +127,7 @@ class Validator {
       const ResolvedCreateEntityStmt* stmt);
   absl::Status ValidateResolvedAlterEntityStmt(
       const ResolvedAlterEntityStmt* stmt);
-  absl::Status ValidateResolvedCloneDataStmt(
-      const ResolvedCloneDataStmt* stmt);
+  absl::Status ValidateResolvedCloneDataStmt(const ResolvedCloneDataStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt);
   absl::Status ValidateResolvedExportModelStmt(
@@ -329,7 +328,8 @@ class Validator {
   absl::Status ValidateResolvedAggregateComputedColumn(
       const ResolvedComputedColumnImpl* computed_column,
       const std::set<ResolvedColumn>& input_scan_visible_columns,
-      const std::set<ResolvedColumn>& visible_parameters);
+      const std::set<ResolvedColumn>& visible_parameters,
+      const std::set<ResolvedColumn>& available_side_effect_columns);
 
   // Verifies that all the internal references in <expr> are present in
   // the <visible_columns> scope.
@@ -491,8 +491,7 @@ class Validator {
       absl::Span<const std::unique_ptr<const ResolvedTableAndColumnInfo>>
           table_and_column_info_list);
 
-  absl::Status ValidateCollateExpr(
-      const ResolvedExpr* resolved_collate);
+  absl::Status ValidateCollateExpr(const ResolvedExpr* resolved_collate);
 
   absl::Status ValidateColumnAnnotations(
       const ResolvedColumnAnnotations* annotations);
@@ -800,18 +799,13 @@ class Validator {
 
   const LanguageOptions language_options_;
 
-  // The number of nested "recursive contexts" we are in. A "recursive context"
-  // is either a WITH entry of a recursive WITH or the body of a recursive view.
-  // A ResolvedRecursiveScan node is legal only if this value is > 0.
-  int nested_recursive_context_count_ = 0;
-
   // A stack of ResolvedRecursiveScans we are currently inside the recursive
   // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
   // with a ResolvedRecursiveScan.
   std::vector<RecursiveScanInfo> nested_recursive_scans_;
 
   // Pre-aggregation columns, reflecting the columns available from the related
-  // FROM clause. Captured by WITH GROUP_ROWS expression, to be used by
+  // FROM clause. Captured by WITH GROUP ROWS expression, to be used by
   // GROUP_ROWS() function in it.
   std::optional<std::set<ResolvedColumn>> input_columns_for_group_rows_;
 

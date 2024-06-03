@@ -21,39 +21,18 @@
 #include <ios>
 #include <istream>
 #include <streambuf>
-#include <string>
 
-#include "zetasql/base/logging.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace parser {
 
-// An implementation of std::streambuf used by ZetaSQL parser that
-// automatically appends a sentinel character ("\n") to the end of the source
-// string view. This class is NOT a standard stream implementation and should
-// only be used by ZetaSQL analyzer.
-//
-// The sentinel is added because some tokenizer rules try to match trailing
-// context of the form [^...] where "..." is a set of characters that should
-// *not* be present after the token. Unfortunately these rules actually also
-// need to be triggered if, instead of "any character that is not in [...]",
-// there is EOF. For instance, the unterminated comment rule cannot include the
-// last star in "/* abcdef *" because it looks for a * followed by "something
-// that is not a star". To solve this, we add a sentinel character at the end of
-// the stream that is not in any [...] used by affected rules. The sentinel
-// character is never returned as a token; when it is found, we return EOF
-// instead. All "open ended tokens" (unclosed string literal / comment) that
-// would include this bogus character in their location range are not affected
-// because they are all error tokens, and they immediately produce errors that
-// mention only their start location.
-class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
+// An implementation of std::streambuf used by ZetaSQL. This class is NOT a
+// standard stream implementation and should only be used by ZetaSQL analyzer.
+class StringViewStreamBuf final : public std::basic_streambuf<char> {
  public:
-  static constexpr absl::string_view kEofSentinelInput = "\n";
-
-  // Does not copy the string view data. Both 'src' and 'kEofSentinelInput'
-  // must outlive this class.
-  explicit StringStreamBufWithSentinel(absl::string_view src) noexcept
+  // Does not copy the string view data. `src` must outlive this class.
+  explicit StringViewStreamBuf(absl::string_view src) noexcept
       : src_(src.data() == nullptr ? absl::string_view("") : src) {
     auto *buff = const_cast<char_type *>(src_.data());
     setg(buff, buff, buff + src_.length());
@@ -65,33 +44,11 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
   // the end of the sequence is reached.
   std::streamsize xsgetn(char_type *s, std::streamsize n) override {
     if (n == 0) return 0;
-    // Whether the output should include sentinel.
-    bool append_sentinel = false;
     if (gptr() + n > egptr()) {
-      // The number of characters requested has passed the end of source.
-      if (passed_sentinel_) {
-        // Return 0 when reaching EOF since sentinel has already been returned
-        // previously and no character was read.
-        return 0;
-      }
-      // Retrieves all the left-over characters including the sentinel.
-      append_sentinel = true;
-      n = egptr() + kEofSentinelInput.size() - gptr();
+      n = egptr() - gptr();
     }
-
-    if (append_sentinel) {
-      std::memcpy(static_cast<void *>(s), gptr(), n - 1);
-      // Append the sentinel.
-      std::memcpy(static_cast<void *>(s + n - 1), kEofSentinelInput.data(),
-                  kEofSentinelInput.size());
-      passed_sentinel_ = true;
-      auto *buff = const_cast<char_type *>(kEofSentinelInput.data());
-      setg(buff, buff + kEofSentinelInput.size(),
-           buff + kEofSentinelInput.size());
-    } else {
-      std::memcpy(static_cast<void *>(s), gptr(), n);
-      gbump(static_cast<int>(n));
-    }
+    std::memcpy(static_cast<void *>(s), gptr(), n);
+    gbump(static_cast<int>(n));
     return n;
   }
 
@@ -100,12 +57,7 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
   // to get an estimate on the number of characters available in the associated
   // input sequence.
   std::streamsize showmanyc() override {
-    if (passed_sentinel_) {
-      return static_cast<std::streamsize>(egptr() - gptr());
-    }
-    // Include the size of sentinel since the cursor hasn't passed it yet.
-    return static_cast<std::streamsize>(egptr() + kEofSentinelInput.size() -
-                                        gptr());
+    return static_cast<std::streamsize>(egptr() - gptr());
   }
 
   // Override of underflow: Get character on underflow.
@@ -114,14 +66,7 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
   // position.
   int_type underflow() override {
     if (gptr() >= egptr()) {
-      if (passed_sentinel_) {
-        // EOF after passing sentinel.
-        return traits_type::eof();
-      }
-      // Cursor has passed the end of source view. Now move it to sentinel.
-      passed_sentinel_ = true;
-      auto *buff = const_cast<char_type *>(kEofSentinelInput.data());
-      setg(buff, buff, buff + kEofSentinelInput.size());
+      return traits_type::eof();
     }
     return gptr()[0];
   }
@@ -132,14 +77,7 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
   // indicator to the next character.
   int_type uflow() override {
     if (gptr() >= egptr()) {
-      if (passed_sentinel_) {
-        // EOF after passing sentinel.
-        return traits_type::eof();
-      }
-      // Cursor has passed the end of source view. Now move it to sentinel.
-      passed_sentinel_ = true;
-      auto *buff = const_cast<char_type *>(kEofSentinelInput.data());
-      setg(buff, buff, buff + kEofSentinelInput.size());
+      return traits_type::eof();
     }
     gbump(1);
     return gptr()[-1];
@@ -151,14 +89,6 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
   int_type pbackfail(int_type c) override {
     if (gptr() > egptr()) {
       return traits_type::eof();
-    }
-    if (passed_sentinel_ && gptr() == eback()) {
-      // If cursor is at the sentinel, point it back to the last character of
-      // 'src_'.
-      passed_sentinel_ = false;
-      auto *buff = const_cast<char_type *>(src_.data());
-      setg(buff, buff + src_.length() - 1, buff + src_.length());
-      return traits_type::to_int_type(kEofSentinelInput.data()[0]);
     }
     gbump(-1);
     return c;
@@ -197,7 +127,7 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
     return pos;
   }
 
-  ~StringStreamBufWithSentinel() override {}
+  ~StringViewStreamBuf() override = default;
 
  private:
   // Indicates whether the cursor has passed the sentinel.
@@ -208,23 +138,22 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
 
 // An implementation of std::basic_istream used by ZetaSQL parser.
 // This is NOT a standard implementation of std::basic_istream. Please see the
-// class comments of StringStreamWithSentinelBuf for more details.
-class StringStreamWithSentinel final : public std::basic_istream<char> {
+// class comments of StringViewStreamBuf for more details.
+class StringViewStream final : public std::basic_istream<char> {
  public:
-  explicit StringStreamWithSentinel(absl::string_view src)
+  explicit StringViewStream(absl::string_view src)
       : std::basic_istream<char>(&sb_), sb_(src) {}
 
   // Not movable or copyable.
-  StringStreamWithSentinel(const StringStreamWithSentinel &) = delete;
-  StringStreamWithSentinel &operator=(const StringStreamWithSentinel &) =
-      delete;
-  StringStreamWithSentinel(StringStreamWithSentinel &&other) = delete;
-  StringStreamWithSentinel &operator=(StringStreamWithSentinel &&rhs) = delete;
+  StringViewStream(const StringViewStream &) = delete;
+  StringViewStream &operator=(const StringViewStream &) = delete;
+  StringViewStream(StringViewStream &&other) = delete;
+  StringViewStream &operator=(StringViewStream &&rhs) = delete;
 
-  ~StringStreamWithSentinel() override = default;
+  ~StringViewStream() override = default;
 
  private:
-  StringStreamBufWithSentinel sb_;
+  StringViewStreamBuf sb_;
 };
 
 }  // namespace parser

@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 """ Rule for junit suite generation """
+
+load("//third_party/bazel_rules/rules_java/java:java_test.bzl", "java_test")
 
 def _package_from_path(package_path):
     package = "com.google.zetasql"
@@ -47,7 +48,7 @@ def junit_test_suites(
 
         test_name = name + "_" + f
         tests.append(test_name)
-        native.java_test(
+        java_test(
             name = test_name,
             test_class = package + "." + f,
             runtime_deps = deps + runtime_deps,

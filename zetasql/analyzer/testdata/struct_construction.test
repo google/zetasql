@@ -339,12 +339,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<STRUCT<INT32, UINT32>>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<STRUCT<INT32, UINT32>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<INT32, UINT32>) -> ARRAY<STRUCT<INT32, UINT32>>)
     |     +-Literal(type=STRUCT<INT32, UINT32>, value={1, 2})
     |     +-MakeStruct
@@ -361,12 +361,12 @@ from SimpleTypes
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#19 AS `$col1` [ARRAY<STRUCT<INT64, UINT64>>]
+| +-$query.$col1#20 AS `$col1` [ARRAY<STRUCT<INT64, UINT64>>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#19]
+    +-column_list=[$query.$col1#20]
     +-expr_list=
-    | +-$col1#19 :=
+    | +-$col1#20 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<INT64, UINT64>) -> ARRAY<STRUCT<INT64, UINT64>>)
     |     +-MakeStruct
     |     | +-type=STRUCT<INT64, UINT64>

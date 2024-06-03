@@ -493,6 +493,9 @@ def Field(name,
   is_required_builder_arg = not is_default_constructible or (
       is_required_for_ctor and not vector and not is_ignorable_default)
 
+  # `propagate_order` can be enabled only for non-vector, node-typed fields.
+  assert not propagate_order or (is_node_type and not vector)
+
   return {
       'ctype': ctype,
       'java_type': java_type,
@@ -524,6 +527,8 @@ def Field(name,
       'is_node_ptr': is_node_type and not vector,
       'is_node_vector': is_node_type and vector,
       'is_enum_vector': is_enum and vector,
+      'is_resolved_column': ctype == SCALAR_RESOLVED_COLUMN and not vector,
+      'is_resolved_column_vector': ctype == SCALAR_RESOLVED_COLUMN and vector,
       'is_move_only': is_move_only,
       'is_not_ignorable': ignorable == NOT_IGNORABLE,
       'is_ignorable_default': is_ignorable_default,
@@ -534,7 +539,7 @@ def Field(name,
       'to_string_method': to_string_method,
       'java_to_string_method': java_to_string_method,
       'propagate_order': propagate_order,
-      'not_serialize_if_default': not_serialize_if_default
+      'not_serialize_if_default': not_serialize_if_default,
   }
 
 
@@ -556,7 +561,7 @@ class TreeGenerator(object):
   def AddNode(
       self,
       name,
-      tag_id,  # Next tag_id: 257
+      tag_id,  # Next tag_id: 261
       parent,
       fields,
       is_abstract=False,
@@ -1498,7 +1503,7 @@ def main(unused_argv):
               ignorable=IGNORABLE_DEFAULT,
               is_constructor_arg=False,
               comment="""
-              Holds a table subquery defined in WITH GROUP_ROWS(...) that is
+              Holds a table subquery defined in WITH GROUP ROWS(...) that is
               evaluated over the input rows of a ResolvedAggregateScan
               corresponding to the current group. The function itself is
               evaluated over the rows returned from the subquery.
@@ -1543,8 +1548,28 @@ def main(unused_argv):
       emit_default_constructor=False,
       comment="""
       An aggregate function call.  The signature always has mode AGGREGATE.
-      This node only ever shows up as the outer function call in a
-      ResolvedAggregateScan::aggregate_list.
+
+      FEATURE_V_1_4_MULTILEVEL_AGGREGATION enables multi-level aggregate
+      expressions (e.g. 'SUM(AVG(1 + X) GROUP BY key)' ). The GROUP BY modifier
+      within an aggregate function body indicates the presence of a multi-level
+      aggregate expression.
+
+      `group_by_aggregate_list` can only be present if `group_by_list` is
+      present. `group_by_list` and `group_by_aggregate_list` are mutually
+      exclusive with `having_modifier`.
+
+      If `group_by_list` is empty, then standard column visibility rules apply
+      (i.e. columns supplied by input scan to the enclosing AggregateScan are
+      visible to argument expressions and aggregate function modifiers, as are
+      correlated columns).
+
+      If `group_by_list` is non-empty, the initial aggregation is applied first,
+      computing the aggregate and grouping columns in `group_by_aggregate_list`
+      `group_by_list`.  Only these computed columns (plus correlated columns)
+      are visible to argument expressions and aggregate function modifiers
+      (e.g. DISTINCT, IGNORE / RESPECT NULLS, LIMIT, ORDER BY). These
+      modifiers are applied on the output rows from the initial aggregation,
+      as input to the final aggregation.
               """,
       fields=[
           Field(
@@ -1554,7 +1579,8 @@ def main(unused_argv):
               ignorable=IGNORABLE_DEFAULT,
               comment="""
               Apply HAVING MAX/MIN filtering to the stream of input values.
-                      """),
+                      """,
+          ),
           Field(
               'order_by_item_list',
               'ResolvedOrderByItem',
@@ -1564,12 +1590,9 @@ def main(unused_argv):
               Apply ordering to the stream of input values before calling
               function.
                       """,
-              vector=True),
-          Field(
-              'limit',
-              'ResolvedExpr',
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT),
+              vector=True,
+          ),
+          Field('limit', 'ResolvedExpr', tag_id=4, ignorable=IGNORABLE_DEFAULT),
           Field(
               'function_call_info',
               SCALAR_FUNCTION_CALL_INFO,
@@ -1589,8 +1612,37 @@ def main(unused_argv):
               TemplatedSQLFunctionCall subclass which includes the
               fully-resolved function body in context of the actual concrete
               types of the arguments provided to the function call.
-                      """)
-      ])
+                      """,
+          ),
+          Field(
+              'group_by_list',
+              'ResolvedComputedColumnBase',
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              Group the stream of input values by columns in this list, and
+              compute the aggregates defined in `group_by_aggregate_list`.
+              Used only for multi-level aggregation, when
+              FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.
+                      """,
+              vector=True,
+              is_optional_constructor_arg=True,
+          ),
+          Field(
+              'group_by_aggregate_list',
+              'ResolvedComputedColumnBase',
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              Aggregate columns to compute over the grouping keys defined in
+              `group_by_list`. Used only for multi-level aggregation, when
+              FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.
+                      """,
+              vector=True,
+              is_optional_constructor_arg=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedAnalyticFunctionCall',
@@ -3922,7 +3974,7 @@ value.
       emit_default_constructor=False,
       comment="""
       ResolvedGroupRowsScan represents a call to a special TVF GROUP_ROWS().
-      It can only show up inside WITH GROUP_ROWS clause, which is resolved as
+      It can only show up inside WITH GROUP ROWS clause, which is resolved as
       the field with_group_rows_subquery in ResolvedNonScalarFunctionCallBase
       ResolvedGroupRowsScan. This scan produces rows corresponding to the input
       of ResolvedAggregateScan that belong to the current group.
@@ -4315,7 +4367,7 @@ value.
         [OPTIONS (name=value, ...)]
 
         CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
-        [IF NOT EXISTS] <name> WITH CONNECTION <connection>
+        [IF NOT EXISTS] <name> [WITH CONNECTION] <connection>
         OPTIONS (name=value, ...)
 
       <option_list> contains engine-specific options associated with the schema
@@ -4364,7 +4416,7 @@ value.
       comment="""
       This statement:
         CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
-        [IF NOT EXISTS] <name> WITH CONNECTION <connection>
+        [IF NOT EXISTS] <name> [WITH CONNECTION] <connection>
         OPTIONS (name=value, ...)
 
         <connection> encapsulates engine-specific metadata used to connect
@@ -5732,10 +5784,12 @@ value.
           Field('order_by', 'ResolvedWindowOrdering', tag_id=3),
           Field(
               'analytic_function_list',
-              'ResolvedComputedColumn',
+              'ResolvedComputedColumnBase',
               tag_id=4,
-              vector=True)
-      ])
+              vector=True,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedWindowFrameExpr',
@@ -6599,7 +6653,7 @@ value.
       Common superclass of GRANT/REVOKE statements.
 
       <privilege_list> is the list of privileges to be granted/revoked. ALL
-      PRIVILEGES should be granted/fromed if it is empty.
+      PRIVILEGES should be granted/revoked if it is empty.
       <object_type_list> is an optional list of string identifiers, e.g., TABLE,
       VIEW, MATERIALIZED VIEW.
       <name_path> is a vector of segments of the object identifier's pathname.

@@ -23,15 +23,11 @@
 
 // #include <math.h>  // Needed for old-fashioned ::isinf calls.
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <vector>
+#include <cstdint>
+#include <type_traits>
 
-#include "absl/base/attributes.h"
-#include "absl/base/casts.h"
+#include "zetasql/base/check.h"
 #include "zetasql/base/bits.h"
-#include "zetasql/base/logging.h"
 #include "zetasql/base/mathlimits.h"
 
 namespace zetasql_base {
@@ -133,7 +129,7 @@ class MathUtil {
   //   rounded.
   //
   //   There are template specializations of Round() which call these
-  //   functions (for "int" and "int64" only), but it's safer to call them
+  //   functions (for "int" and "int64_t" only), but it's safer to call them
   //   directly.
   //   --------------------------------------------------------------------
 
@@ -294,13 +290,9 @@ class MathUtil {
     return FastInt64Round(static_cast<double>(x));
   }
 
-  static int32_t FastIntRound(long double x) {
-    return Round<int32_t>(x);
-  }
+  static int32_t FastIntRound(long double x) { return Round<int32_t>(x); }
 
-  static int64_t FastInt64Round(long double x) {
-    return Round<int64_t>(x);
-  }
+  static int64_t FastInt64Round(long double x) { return Round<int64_t>(x); }
 
   // Smallest of two values
   // Works correctly for special floating point values.
@@ -441,22 +433,22 @@ class MathUtil {
 // Intel versions when possible.  Note that gcc does not currently support
 // partial specialization of templatized functions.
 
-template<>
+template <>
 inline int32_t MathUtil::Round<int32_t, float>(float x) {
   return FastIntRound(x);
 }
 
-template<>
+template <>
 inline int32_t MathUtil::Round<int32_t, double>(double x) {
   return FastIntRound(x);
 }
 
-template<>
+template <>
 inline int64_t MathUtil::Round<int64_t, float>(float x) {
   return FastInt64Round(x);
 }
 
-template<>
+template <>
 inline int64_t MathUtil::Round<int64_t, double>(double x) {
   return FastInt64Round(x);
 }
