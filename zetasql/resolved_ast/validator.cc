@@ -64,6 +64,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -104,7 +105,8 @@ namespace zetasql {
 
 Validator::Validator(const LanguageOptions& language_options,
                      ValidatorOptions validator_options)
-    : options_(validator_options), language_options_(language_options) {}
+    : options_(std::move(validator_options)),
+      language_options_(language_options) {}
 
 static bool IsEmptyWindowFrame(const ResolvedWindowFrame& window_frame) {
   const ResolvedWindowFrameExpr* frame_start_expr = window_frame.start_expr();
@@ -4830,6 +4832,10 @@ absl::Status Validator::ValidateResolvedScan(
       scan_subtype_status =
           ValidateGroupRowsScan(scan->GetAs<ResolvedGroupRowsScan>());
       break;
+    case RESOLVED_BARRIER_SCAN:
+      scan_subtype_status = ValidateResolvedBarrierScan(
+          scan->GetAs<ResolvedBarrierScan>(), visible_parameters);
+      break;
     default:
       return InternalErrorBuilder()
              << "Unhandled node kind: " << scan->node_kind_string()
@@ -6558,6 +6564,19 @@ absl::Status Validator::ValidateBoolExpr(
       ValidateResolvedExpr(visible_columns, visible_parameters, expr));
   VALIDATOR_RET_CHECK(expr->type()->IsBool())
       << "Expects BOOL found: " << expr->type()->DebugString();
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedBarrierScan(
+    const ResolvedBarrierScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
+
+  // BarrierScan can only reference columns from the input scan.
+  std::set<ResolvedColumn> input_scan_columns;
+  ZETASQL_RETURN_IF_ERROR(
+      AddColumnList(scan->input_scan()->column_list(), &input_scan_columns));
+  ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, input_scan_columns));
   return absl::OkStatus();
 }
 

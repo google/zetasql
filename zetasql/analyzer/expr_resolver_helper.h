@@ -202,9 +202,9 @@ struct ExprResolutionInfo {
 
   // Construct an ExprResolutionInfo for expressions in
   // `query_resolution_info`, setting the initial NameScope.
-  // Everything else gets defaults other than what's set in `options`.
-  ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
-                     const NameScope* name_scope_in);
+  // All other fields get their default value, except those overridden in
+  // `options`.  This includes defaulting `allows_aggregation` and
+  // `allows_analytic` to false.
   ExprResolutionInfo(QueryResolutionInfo* query_resolution_info,
                      const NameScope* name_scope_in,
                      ExprResolutionInfoOptions options);
@@ -244,6 +244,7 @@ struct ExprResolutionInfo {
   //
   // Construct an ExprResolutionInfo that allows analytic expressions.
   // Aggregation is allowed unless <clause_name_in> is passed in.
+  // (But each is allowed only if the QueryResolutionInfo allows it.)
   // Does not take ownership of <query_resolution_info_in>.
   // Currently used for initially resolving select list columns, and
   // resolving LIMIT with an empty NameScope, so never resolves against

@@ -52,6 +52,7 @@ namespace zetasql {
 
 class ProtoType;
 class Type;
+class ValueEqualityCheckOptions;
 
 namespace internal {  // For ZetaSQL internal use only
 
@@ -91,6 +92,12 @@ class ValueContentOrderedList {
   }
 };
 
+// A NullableValueContent key and value pair representing a map entry.
+struct ValueContentMapEntry {
+  internal::NullableValueContent key;
+  internal::NullableValueContent value;
+};
+
 // Interface for the Map type to access map value content.
 class ValueContentMap {
  public:
@@ -100,6 +107,9 @@ class ValueContentMap {
   virtual std::vector<
       std::pair<internal::NullableValueContent, internal::NullableValueContent>>
   value_content_entries() const = 0;
+  virtual std::optional<NullableValueContent> GetContentMapValueByKey(
+      const NullableValueContent& key, const Type* key_type,
+      const ValueEqualityCheckOptions& options) const = 0;
 
   // Returns this container as const SubType*. Must only be used when it
   // is known that the object *is* this subclass.
@@ -107,6 +117,71 @@ class ValueContentMap {
   const SubType* GetAs() const {
     return static_cast<const SubType*>(this);
   }
+
+  class iterator;
+
+ protected:
+  // An internal iterator-like interface to be extended by subclasses of
+  // ValueContentMap. This interface cannot exactly conform to a typical C++
+  // iterator because of the type indirection necessary between the Type and
+  // Value classes. This wrapped by ValueContentMap::iterator which provides a
+  // standard C++ forward iterator.
+  class IteratorImpl {
+   public:
+    virtual ~IteratorImpl() = default;
+
+    using ElementType = internal::ValueContentMapEntry;
+    // Returns a unique_ptr to a new IteratorImpl instance with a copy of this
+    // instance's data.
+    virtual std::unique_ptr<IteratorImpl> Copy() = 0;
+    virtual const ElementType& Deref() = 0;
+    virtual void Increment() = 0;
+    virtual bool Equals(const IteratorImpl& other) const = 0;
+  };
+
+ public:
+  // An iterator over the contents of ValueContentMap generally conforming to
+  // the standard C++ forward iterator interface. Returns pairs of
+  // NullableValueContent representing each map entry.
+  class iterator {
+    friend class ValueContentMap;
+    using element_type = const internal::ValueContentMapEntry;
+
+   public:
+    iterator(const iterator& other) : iter_impl_(other.iter_impl_->Copy()) {}
+    iterator& operator=(const iterator& other) {
+      iter_impl_ = other.iter_impl_->Copy();
+      return *this;
+    }
+
+    element_type& operator*() { return iter_impl_->Deref(); }
+    element_type* operator->() { return &iter_impl_->Deref(); }
+
+    iterator& operator++() {
+      iter_impl_->Increment();
+      return *this;
+    }
+
+    friend bool operator==(const iterator& a, const iterator& b) {
+      return a.iter_impl_->Equals(*b.iter_impl_);
+    }
+
+    friend bool operator!=(const iterator& a, const iterator& b) {
+      return !(a == b);
+    }
+
+   private:
+    explicit iterator(std::unique_ptr<IteratorImpl>&& iter_impl)
+        : iter_impl_(std::move(iter_impl)) {}
+    std::unique_ptr<IteratorImpl> iter_impl_;
+  };
+
+  iterator begin() const { return iterator(begin_internal()); }
+  iterator end() const { return iterator(end_internal()); }
+
+ private:
+  virtual std::unique_ptr<IteratorImpl> begin_internal() const = 0;
+  virtual std::unique_ptr<IteratorImpl> end_internal() const = 0;
 };
 
 // -------------------------------------------------------

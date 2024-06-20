@@ -40,6 +40,7 @@
 #include "zetasql/analyzer/named_argument_info.h"
 #include "zetasql/analyzer/path_expression_span.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
+#include "zetasql/analyzer/set_operation_resolver_base.h"
 #include "zetasql/common/warning_sink.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer_options.h"
@@ -64,9 +65,11 @@
 #include "zetasql/public/types/collation.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -358,7 +361,7 @@ class Resolver {
   }
 
   // Returns the highest column id that has been allocated.
-  int max_column_id() const { return max_column_id_; }
+  int max_column_id() const { return column_factory_->max_column_id(); }
 
   // Clear state so this can be used to resolve a second statement whose text
   // is contained in <sql>.
@@ -478,10 +481,8 @@ class Resolver {
   // Pool where IdStrings are allocated.  Copied from AnalyzerOptions.
   IdStringPool* const id_string_pool_;
 
-  // Next unique column_id to allocate.  Pointer may come from AnalyzerOptions.
-  zetasql_base::SequenceNumber* next_column_id_sequence_ = nullptr;  // Not owned.
-  std::unique_ptr<zetasql_base::SequenceNumber> owned_column_id_sequence_;
-  int max_column_id_ = 0;
+  // Allocate the next unique column_id.
+  std::unique_ptr<ColumnFactory> column_factory_;
 
   // Next unique subquery ID to allocate. Used for display only.
   int next_subquery_id_;
@@ -1852,25 +1853,46 @@ class Resolver {
       const ASTWhereClause* where_clause, const NameScope* from_scan_scope,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
-  // Performs first pass analysis on the SELECT list expressions.  This
-  // pass includes star and dot-star expansion, and resolves expressions
-  // against the FROM clause.  Populates the SelectColumnStateList in
-  // <query_resolution_info>, and also records information about referenced
-  // and resolved aggregation and analytic functions.
+  // Performs first pass analysis on the SELECT list expressions against the
+  // FROM clause. This pass includes star and dot-star expansion, but defers
+  // resolution of expressions that use GROUP ROWS or GROUP BY modifiers (see
+  // comments for `ResolveDeferredFirstPassSelectListExprs`).
+  // Populates the SelectColumnStateList in <query_resolution_info>, and also
+  // records information about referenced and resolved aggregation and analytic
+  // functions.
   absl::Status ResolveSelectListExprsFirstPass(
       const ASTSelectList* select_list, const NameScope* from_scan_scope,
       const std::shared_ptr<const NameList>& from_clause_name_list,
       QueryResolutionInfo* query_resolution_info,
       const Type* inferred_type_for_query = nullptr);
 
-  // Performs first pass analysis on a SELECT list expression.
-  // <ast_select_column_idx> indicates an index into the original ASTSelect
-  // list, before any star expansion.
+  // Resolve SELECT list expressions that were excluded from first pass
+  // resolution. The only expressions currently excluded from first pass
+  // resolution are those that use GROUP ROWS or GROUP BY modifiers outside of
+  // an expression subquery. A placeholder `SelectColumnState` object is created
+  // for these expressions during first pass resolution.
+  absl::Status ResolveDeferredFirstPassSelectListExprs(
+      const NameScope* name_scope,
+      const std::shared_ptr<const NameList>& name_list,
+      QueryResolutionInfo* query_resolution_info,
+      const Type* inferred_type_for_query = nullptr);
+
+  // Performs first pass analysis on a SELECT list expression. Resulting
+  // `SelectColumnState` objects are written to the `SelectColumnStateList` of
+  // `query_resolution_info`, starting at `select_column_state_list_write_idx`.
+  // If `select_column_state_list_write_idx` points at an existing
+  // `SelectColumnState`, it is overwritten. Overwrites are not permitted when
+  // resolving star and dot-star expansion. Overwrites are only performed when
+  // resolving SELECT list expressions that were excluded from first pass
+  // resolution (i.e. `ResolveDeferredFirstPassSelectListExprs`).
+  // Precondition: `select_column_state_list_write_idx` <=
+  // query_resolution_info->select_column_state_list()->Size()
   absl::Status ResolveSelectColumnFirstPass(
       const ASTSelectColumn* ast_select_column,
       const NameScope* from_scan_scope,
       const std::shared_ptr<const NameList>& from_clause_name_list,
-      int ast_select_column_idx, QueryResolutionInfo* query_resolution_info,
+      IdString select_column_alias, int select_column_state_list_write_idx,
+      QueryResolutionInfo* query_resolution_info,
       const Type* inferred_type = nullptr);
 
   // Finishes resolving the SelectColumnStateList after first pass
@@ -2381,7 +2403,7 @@ class Resolver {
   };
 
   // Helper class used to implement ResolveSetOperation().
-  class SetOperationResolver {
+  class SetOperationResolver : public SetOperationResolverBase {
    public:
     SetOperationResolver(const ASTSetOperation* set_operation,
                          Resolver* resolver);
@@ -2497,30 +2519,6 @@ class Resolver {
     // metadata. Must be called after verifying all set operation metadata share
     // the same column propagation mode.
     ASTSetOperation::ColumnPropagationMode ASTColumnPropagationMode() const;
-
-    // Coerces the types given by `column_type_lists` into a list of common
-    // super types. Returns an error if the type coercion for any columns is
-    // impossible.
-    //
-    // `column_identifier_in_error_string` is a function that takes in a
-    // column_idx and returns its column identifier used in error strings.
-    absl::StatusOr<std::vector<const Type*>> GetSuperTypes(
-        absl::Span<const std::vector<InputArgumentType>> column_type_lists,
-        std::function<std::string(int)> column_identifier_in_error_string)
-        const;
-
-    // Returns a column list where column names are from `final_column_names`
-    // and column types are from `final_column_types`.
-    //
-    // `final_column_names` and `final_column_types` must have the same length.
-    absl::StatusOr<ResolvedColumnList> BuildFinalColumnList(
-        const std::vector<IdString>& final_column_names,
-        const std::vector<const Type*>& final_column_types) const;
-
-    // Returns the input argument type for the given `column` in the context of
-    // the `resolved_scan`.
-    InputArgumentType GetColumnInputArgumentType(
-        const ResolvedColumn& column, const ResolvedScan* resolved_scan) const;
 
     // Checks whether all the inputs in `resolved_inputs` have the same number
     // of columns in their namelists.
@@ -3472,10 +3470,6 @@ class Resolver {
 
   // Options to be used when attempting to resolve a proto field access.
   struct MaybeResolveProtoFieldOptions {
-    MaybeResolveProtoFieldOptions() {}
-
-    ~MaybeResolveProtoFieldOptions() {}
-
     // If true, an error will be returned if the field is not found. If false,
     // then instead of returning an error on field not found, returns OK with a
     // NULL <resolved_expr_out>.
@@ -4444,7 +4438,7 @@ class Resolver {
 
   // Resolve <options_list> and add the options onto <resolved_options>
   // as ResolvedHints.
-  // <allow_alter_array_opertors> indicates whether the += and -= operators
+  // <allow_alter_array_operators> indicates whether the += and -= operators
   // should be allowed.
   absl::Status ResolveOptionsList(
       const ASTOptionsList* options_list, bool allow_alter_array_operators,

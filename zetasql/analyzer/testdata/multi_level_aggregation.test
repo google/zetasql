@@ -11,6 +11,18 @@ ERROR: GROUP BY in arguments is not supported on scalar functions [at 3:24]
                        ^
 ==
 
+# Display appropriate error message when attempting to group by an expression
+# containing GROUP BY modifiers.
+SELECT
+  ABS(ANY_VALUE(int64) GROUP BY string)
+FROM SimpleTypes
+GROUP BY 1
+--
+ERROR: Column 1 contains a GROUP ROWS subquery or a GROUP BY modifier, which is not allowed in GROUP BY [at 4:10]
+GROUP BY 1
+         ^
+==
+
 # Multi-level aggregation fails when language feature is not enabled.
 [language_features=]
 SELECT

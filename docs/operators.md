@@ -345,6 +345,185 @@ ambiguity. For example:
 
 `(x < y) IS FALSE`
 
+### Operator list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#field_access_operator">Field access operator</a>
+
+</td>
+  <td>Gets the value of a field.</td>
+</tr>
+
+<tr>
+  <td><a href="#array_subscript_operator">Array subscript operator</a>
+
+</td>
+  <td>Gets a value from an array at a specific position.</td>
+</tr>
+
+<tr>
+  <td><a href="#struct_subscript_operator">Struct subscript operator</a>
+
+</td>
+  <td>Gets the value of a field at a selected position in a struct.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_subscript_operator">JSON subscript operator</a>
+
+</td>
+  <td>Gets a value of an array element or field in a JSON expression.</td>
+</tr>
+
+<tr>
+  <td><a href="#proto_subscript_operator">Protocol buffer map subscript operator</a>
+
+</td>
+  <td>Gets the value in a protocol buffer map for a given key.</td>
+</tr>
+
+<tr>
+  <td><a href="#array_el_field_operator">Array elements field access operator</a>
+
+</td>
+  <td>Traverses through the levels of a nested data type inside an array.</td>
+</tr>
+
+<tr>
+  <td><a href="#arithmetic_operators">Arithmetic operators</a>
+
+</td>
+  <td>Performs arithmetic operations.</td>
+</tr>
+
+<tr>
+  <td><a href="#date_arithmetics_operators">Date arithmetics operators</a>
+
+</td>
+  <td>Performs arithmetic operations on dates.</td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_subtraction">Datetime subtraction</a>
+
+</td>
+  <td>Computes the difference between two datetimes as an interval.</td>
+</tr>
+
+<tr>
+  <td><a href="#interval_arithmetic_operators">Interval arithmetic operators</a>
+
+</td>
+  <td>
+    Adds an interval to a datetime or subtracts an interval from a datetime.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bitwise_operators">Bitwise operators</a>
+
+</td>
+  <td>Performs bit manipulation.</td>
+</tr>
+
+<tr>
+  <td><a href="#logical_operators">Logical operators</a>
+
+</td>
+  <td>
+    Tests for the truth of some condition and produces <code>TRUE</code>,
+    <code>FALSE</code>, or <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#comparison_operators">Comparison operators</a>
+
+</td>
+  <td>
+    Compares operands and produces the results of the comparison as a
+    <code>BOOL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#exists_operator"><code>EXISTS</code> operator</a>
+
+</td>
+  <td>Checks if a subquery produces one or more rows.</td>
+</tr>
+
+<tr>
+  <td><a href="#in_operators"><code>IN</code> operator</a>
+
+</td>
+  <td>Checks for an equal value in a set of values.</td>
+</tr>
+
+<tr>
+  <td><a href="#is_operators"><code>IS</code> operators</a>
+
+</td>
+  <td>
+    Checks for the truth of a condition and produces either <code>TRUE</code> or
+    <code>FALSE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#is_distinct"><code>IS DISTINCT FROM</code> operator</a>
+
+</td>
+  <td>Checks if values are considered to be distinct from each other.</td>
+</tr>
+
+<tr>
+  <td><a href="#like_operator"><code>LIKE</code> operator</a>
+
+</td>
+  <td>Checks if values are like or not like one another.</td>
+</tr>
+
+<tr>
+  <td><a href="#like_operator_quantified">Quantified <code>LIKE</code> operator</a>
+
+</td>
+  <td>Checks a search value for matches against several patterns.</td>
+</tr>
+
+<tr>
+  <td><a href="#new_operator"><code>NEW</code> operator</a>
+
+</td>
+  <td>Creates a protocol buffer.</td>
+</tr>
+
+<tr>
+  <td><a href="#concatenation_operator">Concatenation operator</a>
+
+</td>
+  <td>Combines multiple values into one.</td>
+</tr>
+
+<tr>
+  <td><a href="#with_expression"><code>WITH</code> expression</a>
+
+</td>
+  <td>Creates variables for re-use and produces a result expression.</td>
+</tr>
+
+  </tbody>
+</table>
+
 ### Field access operator 
 <a id="field_access_operator"></a>
 
@@ -398,6 +577,8 @@ SELECT t.customer.address.country FROM orders AS t;
  | Canada  |
  *---------*/
 ```
+
+[struct-subscript-operator]: #struct_subscript_operator
 
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
@@ -491,7 +672,8 @@ FROM Items
 -- Error. Array index 6 is out of bounds.
 ```
 
-### Struct subscript operator
+### Struct subscript operator 
+<a id="struct_subscript_operator"></a>
 
 ```
 struct_expression[struct_subscript_specifier]
@@ -571,7 +753,8 @@ FROM Items
 -- Error. Field ordinal 6 is out of bounds in STRUCT
 ```
 
-### JSON subscript operator
+### JSON subscript operator 
+<a id="json_subscript_operator"></a>
 
 ```
 json_expression[array_element_id]
@@ -758,6 +941,8 @@ FROM
  | 2         |
  *-----------*/
 ```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
@@ -1110,7 +1295,16 @@ SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
  *----------------------*/
 ```
 
-### Arithmetic operators
+[array-subscript-operator]: #array_subscript_operator
+
+[flatten-operation]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
+### Arithmetic operators 
+<a id="arithmetic_operators"></a>
 
 All arithmetic operators accept input of numeric type `T`, and the result type
 has type `T` unless otherwise indicated in the description below:
@@ -1249,7 +1443,8 @@ Result types for Unary Minus:
 
 </table>
 
-### Date arithmetics operators
+### Date arithmetics operators 
+<a id="date_arithmetics_operators"></a>
 
 Operators '+' and '-' can be used for arithmetic operations on dates.
 
@@ -1281,7 +1476,8 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
  *------------+------------*/
 ```
 
-### Datetime subtraction
+### Datetime subtraction 
+<a id="datetime_subtraction"></a>
 
 ```sql
 date_expression - date_expression
@@ -1311,7 +1507,8 @@ SELECT
  *-------------------+------------------------*/
 ```
 
-### Interval arithmetic operators
+### Interval arithmetic operators 
+<a id="interval_arithmetic_operators"></a>
 
 **Addition and subtraction**
 
@@ -1372,7 +1569,8 @@ SELECT
  *----------------+--------------+-------------+--------------*/
 ```
 
-### Bitwise operators
+### Bitwise operators 
+<a id="bitwise_operators"></a>
 
 All bitwise operators return the same type
  and the same length as
@@ -1479,7 +1677,8 @@ This operator throws an error if <code>Y</code> is negative.</td>
 </tbody>
 </table>
 
-### Logical operators
+### Logical operators 
+<a id="logical_operators"></a>
 
 ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
 Logical operators allow only `BOOL` or `NULL` input
@@ -1562,7 +1761,10 @@ SELECT entry FROM entry_table WHERE entry IS NULL
  *-------*/
 ```
 
-### Comparison operators
+[three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
+
+### Comparison operators 
+<a id="comparison_operators"></a>
 
 Compares operands and produces the results of the comparison as a `BOOL`
 value. These comparison operators are available:
@@ -1749,6 +1951,10 @@ The following rules apply when comparing these data types:
       </tbody>
     </table>
 
+[data-type-comparable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparable_data_types
+
+[json-functions]: https://github.com/google/zetasql/blob/master/docs/json_functions.md
+
 ### `EXISTS` operator 
 <a id="exists_operator"></a>
 
@@ -1782,6 +1988,8 @@ SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
  | FALSE  |
  *--------*/
 ```
+
+[exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
 
 ### `IN` operator 
 <a id="in_operators"></a>
@@ -2016,7 +2224,22 @@ WHERE (info.shape, info.color) IN (('round', 'blue'));
  *------------------------------------*/
 ```
 
-### `IS` operators
+[semantic-rules-in]: #semantic_rules_in
+
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
+[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
+
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+
+### `IS` operators 
+<a id="is_operators"></a>
 
 IS operators return TRUE or FALSE for the condition they are testing. They never
 return `NULL`, even for `NULL` inputs, unlike the `IS_INF` and `IS_NAN`
@@ -2117,6 +2340,8 @@ inverted.
   </tbody>
 </table>
 
+[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+
 ### `IS DISTINCT FROM` operator 
 <a id="is_distinct"></a>
 
@@ -2192,6 +2417,10 @@ SELECT 1 IS NOT DISTINCT FROM 2
 ```sql
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
+
+[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
+
+[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 ### `LIKE` operator 
 <a id="like_operator"></a>
@@ -2448,6 +2677,12 @@ is ignored.
 -- Returns TRUE
 COLLATE('\u0083', 'und:ci') LIKE '';
 ```
+
+[ignorable-chars]: https://www.unicode.org/charts/collation/chart_Ignored.html
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
 
 ### Quantified `LIKE` operator 
 <a id="like_operator_quantified"></a>
@@ -2768,6 +3003,18 @@ SELECT
 SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
 
+[like-operator]: #like_operator
+
+[semantic-rules-quant-like]: #semantic_rules_quant_like
+
+[reg-expressions-quant-like]: #reg_expressions_quant_like
+
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
 ### `NEW` operator 
 <a id="new_operator"></a>
 
@@ -2828,7 +3075,10 @@ FROM
 To learn more about protocol buffers in ZetaSQL, see [Work with
 protocol buffers][protocol-buffers].
 
-### Concatenation operator
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+
+### Concatenation operator 
+<a id="concatenation_operator"></a>
 
 The concatenation operator combines multiple values into one.
 
@@ -2859,7 +3109,8 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
-### `WITH` expression
+### `WITH` expression 
+<a id="with_expression"></a>
 
 ```sql
 WITH(variable_assignment[, ...], result_expression)
@@ -2959,66 +3210,4 @@ FROM UNNEST([
 -- ERROR: WITH variables like 'diff' cannot be used in aggregate or analytic
 -- function arguments.
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
-
-[semantic-rules-in]: #semantic_rules_in
-
-[array-subscript-operator]: #array_subscript_operator
-
-[field-access-operator]: #field_access_operator
-
-[struct-subscript-operator]: #struct_subscript_operator
-
-[like-operator]: #like_operator
-
-[semantic-rules-quant-like]: #semantic_rules_quant_like
-
-[reg-expressions-quant-like]: #reg_expressions_quant_like
-
-[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
-
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-
-[data-type-comparable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparable_data_types
-
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
-
-[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
-
-[default-und]: https://github.com/unicode-org/cldr/blob/main/common/collation/root.xml
-
-[ignorable-chars]: https://www.unicode.org/charts/collation/chart_Ignored.html
-
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
-
-[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
-
-[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
-
-[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
-
-[exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
-
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-
-[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
-
-[operators-link-to-array-safeoffset]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#safe-offset-and-safe-ordinal
-
-[flatten-operation]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
-
-[json-functions]: https://github.com/google/zetasql/blob/master/docs/json_functions.md
-
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
-
-[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
-<!-- mdlint on -->
 

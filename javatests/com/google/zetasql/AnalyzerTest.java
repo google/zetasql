@@ -375,7 +375,7 @@ public class AnalyzerTest {
     assertThat(resolvedStatement).isNotNull();
 
     // Sql builder normalizes expression.
-    String expectedResponse = "SELECT t_2.a_1 AS bar FROM (SELECT t.bar AS a_1 FROM t) AS t_2";
+    String expectedResponse = "SELECT t.bar AS bar FROM t";
     String response = Analyzer.buildStatement(resolvedStatement, catalog);
     assertEquals(expectedResponse, response);
   }

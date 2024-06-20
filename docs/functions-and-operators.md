@@ -357,6 +357,185 @@ ambiguity. For example:
 
 `(x < y) IS FALSE`
 
+### Operator list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#field_access_operator">Field access operator</a>
+
+</td>
+  <td>Gets the value of a field.</td>
+</tr>
+
+<tr>
+  <td><a href="#array_subscript_operator">Array subscript operator</a>
+
+</td>
+  <td>Gets a value from an array at a specific position.</td>
+</tr>
+
+<tr>
+  <td><a href="#struct_subscript_operator">Struct subscript operator</a>
+
+</td>
+  <td>Gets the value of a field at a selected position in a struct.</td>
+</tr>
+
+<tr>
+  <td><a href="#json_subscript_operator">JSON subscript operator</a>
+
+</td>
+  <td>Gets a value of an array element or field in a JSON expression.</td>
+</tr>
+
+<tr>
+  <td><a href="#proto_subscript_operator">Protocol buffer map subscript operator</a>
+
+</td>
+  <td>Gets the value in a protocol buffer map for a given key.</td>
+</tr>
+
+<tr>
+  <td><a href="#array_el_field_operator">Array elements field access operator</a>
+
+</td>
+  <td>Traverses through the levels of a nested data type inside an array.</td>
+</tr>
+
+<tr>
+  <td><a href="#arithmetic_operators">Arithmetic operators</a>
+
+</td>
+  <td>Performs arithmetic operations.</td>
+</tr>
+
+<tr>
+  <td><a href="#date_arithmetics_operators">Date arithmetics operators</a>
+
+</td>
+  <td>Performs arithmetic operations on dates.</td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_subtraction">Datetime subtraction</a>
+
+</td>
+  <td>Computes the difference between two datetimes as an interval.</td>
+</tr>
+
+<tr>
+  <td><a href="#interval_arithmetic_operators">Interval arithmetic operators</a>
+
+</td>
+  <td>
+    Adds an interval to a datetime or subtracts an interval from a datetime.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bitwise_operators">Bitwise operators</a>
+
+</td>
+  <td>Performs bit manipulation.</td>
+</tr>
+
+<tr>
+  <td><a href="#logical_operators">Logical operators</a>
+
+</td>
+  <td>
+    Tests for the truth of some condition and produces <code>TRUE</code>,
+    <code>FALSE</code>, or <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#comparison_operators">Comparison operators</a>
+
+</td>
+  <td>
+    Compares operands and produces the results of the comparison as a
+    <code>BOOL</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#exists_operator"><code>EXISTS</code> operator</a>
+
+</td>
+  <td>Checks if a subquery produces one or more rows.</td>
+</tr>
+
+<tr>
+  <td><a href="#in_operators"><code>IN</code> operator</a>
+
+</td>
+  <td>Checks for an equal value in a set of values.</td>
+</tr>
+
+<tr>
+  <td><a href="#is_operators"><code>IS</code> operators</a>
+
+</td>
+  <td>
+    Checks for the truth of a condition and produces either <code>TRUE</code> or
+    <code>FALSE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#is_distinct"><code>IS DISTINCT FROM</code> operator</a>
+
+</td>
+  <td>Checks if values are considered to be distinct from each other.</td>
+</tr>
+
+<tr>
+  <td><a href="#like_operator"><code>LIKE</code> operator</a>
+
+</td>
+  <td>Checks if values are like or not like one another.</td>
+</tr>
+
+<tr>
+  <td><a href="#like_operator_quantified">Quantified <code>LIKE</code> operator</a>
+
+</td>
+  <td>Checks a search value for matches against several patterns.</td>
+</tr>
+
+<tr>
+  <td><a href="#new_operator"><code>NEW</code> operator</a>
+
+</td>
+  <td>Creates a protocol buffer.</td>
+</tr>
+
+<tr>
+  <td><a href="#concatenation_operator">Concatenation operator</a>
+
+</td>
+  <td>Combines multiple values into one.</td>
+</tr>
+
+<tr>
+  <td><a href="#with_expression"><code>WITH</code> expression</a>
+
+</td>
+  <td>Creates variables for re-use and produces a result expression.</td>
+</tr>
+
+  </tbody>
+</table>
+
 ### Field access operator 
 <a id="field_access_operator"></a>
 
@@ -410,6 +589,8 @@ SELECT t.customer.address.country FROM orders AS t;
  | Canada  |
  *---------*/
 ```
+
+[struct-subscript-operator]: #struct_subscript_operator
 
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
@@ -503,7 +684,8 @@ FROM Items
 -- Error. Array index 6 is out of bounds.
 ```
 
-### Struct subscript operator
+### Struct subscript operator 
+<a id="struct_subscript_operator"></a>
 
 ```
 struct_expression[struct_subscript_specifier]
@@ -583,7 +765,8 @@ FROM Items
 -- Error. Field ordinal 6 is out of bounds in STRUCT
 ```
 
-### JSON subscript operator
+### JSON subscript operator 
+<a id="json_subscript_operator"></a>
 
 ```
 json_expression[array_element_id]
@@ -770,6 +953,8 @@ FROM
  | 2         |
  *-----------*/
 ```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
@@ -1122,7 +1307,16 @@ SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
  *----------------------*/
 ```
 
-### Arithmetic operators
+[array-subscript-operator]: #array_subscript_operator
+
+[flatten-operation]: #flatten
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
+### Arithmetic operators 
+<a id="arithmetic_operators"></a>
 
 All arithmetic operators accept input of numeric type `T`, and the result type
 has type `T` unless otherwise indicated in the description below:
@@ -1261,7 +1455,8 @@ Result types for Unary Minus:
 
 </table>
 
-### Date arithmetics operators
+### Date arithmetics operators 
+<a id="date_arithmetics_operators"></a>
 
 Operators '+' and '-' can be used for arithmetic operations on dates.
 
@@ -1293,7 +1488,8 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
  *------------+------------*/
 ```
 
-### Datetime subtraction
+### Datetime subtraction 
+<a id="datetime_subtraction"></a>
 
 ```sql
 date_expression - date_expression
@@ -1323,7 +1519,8 @@ SELECT
  *-------------------+------------------------*/
 ```
 
-### Interval arithmetic operators
+### Interval arithmetic operators 
+<a id="interval_arithmetic_operators"></a>
 
 **Addition and subtraction**
 
@@ -1384,7 +1581,8 @@ SELECT
  *----------------+--------------+-------------+--------------*/
 ```
 
-### Bitwise operators
+### Bitwise operators 
+<a id="bitwise_operators"></a>
 
 All bitwise operators return the same type
  and the same length as
@@ -1491,7 +1689,8 @@ This operator throws an error if <code>Y</code> is negative.</td>
 </tbody>
 </table>
 
-### Logical operators
+### Logical operators 
+<a id="logical_operators"></a>
 
 ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
 Logical operators allow only `BOOL` or `NULL` input
@@ -1574,7 +1773,10 @@ SELECT entry FROM entry_table WHERE entry IS NULL
  *-------*/
 ```
 
-### Comparison operators
+[three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
+
+### Comparison operators 
+<a id="comparison_operators"></a>
 
 Compares operands and produces the results of the comparison as a `BOOL`
 value. These comparison operators are available:
@@ -1761,6 +1963,10 @@ The following rules apply when comparing these data types:
       </tbody>
     </table>
 
+[data-type-comparable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparable_data_types
+
+[json-functions]: #json_functions
+
 ### `EXISTS` operator 
 <a id="exists_operator"></a>
 
@@ -1794,6 +2000,8 @@ SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
  | FALSE  |
  *--------*/
 ```
+
+[exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
 
 ### `IN` operator 
 <a id="in_operators"></a>
@@ -2028,7 +2236,22 @@ WHERE (info.shape, info.color) IN (('round', 'blue'));
  *------------------------------------*/
 ```
 
-### `IS` operators
+[semantic-rules-in]: #semantic_rules_in
+
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
+[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
+
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+
+### `IS` operators 
+<a id="is_operators"></a>
 
 IS operators return TRUE or FALSE for the condition they are testing. They never
 return `NULL`, even for `NULL` inputs, unlike the `IS_INF` and `IS_NAN`
@@ -2129,6 +2352,8 @@ inverted.
   </tbody>
 </table>
 
+[operators-link-to-math-functions]: #mathematical_functions
+
 ### `IS DISTINCT FROM` operator 
 <a id="is_distinct"></a>
 
@@ -2204,6 +2429,10 @@ SELECT 1 IS NOT DISTINCT FROM 2
 ```sql
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
+
+[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
+
+[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 ### `LIKE` operator 
 <a id="like_operator"></a>
@@ -2460,6 +2689,12 @@ is ignored.
 -- Returns TRUE
 COLLATE('\u0083', 'und:ci') LIKE '';
 ```
+
+[ignorable-chars]: https://www.unicode.org/charts/collation/chart_Ignored.html
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
 
 ### Quantified `LIKE` operator 
 <a id="like_operator_quantified"></a>
@@ -2780,6 +3015,18 @@ SELECT
 SELECT b'a' LIKE ALL (COLLATE('a', 'und:ci'), 'A');
 ```
 
+[like-operator]: #like_operator
+
+[semantic-rules-quant-like]: #semantic_rules_quant_like
+
+[reg-expressions-quant-like]: #reg_expressions_quant_like
+
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
 ### `NEW` operator 
 <a id="new_operator"></a>
 
@@ -2840,7 +3087,10 @@ FROM
 To learn more about protocol buffers in ZetaSQL, see [Work with
 protocol buffers][protocol-buffers].
 
-### Concatenation operator
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+
+### Concatenation operator 
+<a id="concatenation_operator"></a>
 
 The concatenation operator combines multiple values into one.
 
@@ -2871,7 +3121,8 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
-### `WITH` expression
+### `WITH` expression 
+<a id="with_expression"></a>
 
 ```sql
 WITH(variable_assignment[, ...], result_expression)
@@ -2972,68 +3223,6 @@ FROM UNNEST([
 -- function arguments.
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
-
-[semantic-rules-in]: #semantic_rules_in
-
-[array-subscript-operator]: #array_subscript_operator
-
-[field-access-operator]: #field_access_operator
-
-[struct-subscript-operator]: #struct_subscript_operator
-
-[like-operator]: #like_operator
-
-[semantic-rules-quant-like]: #semantic_rules_quant_like
-
-[reg-expressions-quant-like]: #reg_expressions_quant_like
-
-[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
-
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-
-[data-type-comparable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparable_data_types
-
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
-
-[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
-
-[default-und]: https://github.com/unicode-org/cldr/blob/main/common/collation/root.xml
-
-[ignorable-chars]: https://www.unicode.org/charts/collation/chart_Ignored.html
-
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
-
-[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
-
-[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
-
-[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
-
-[exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
-
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-
-[operators-link-to-math-functions]: #mathematical_functions
-
-[operators-link-to-array-safeoffset]: #safe-offset-and-safe-ordinal
-
-[flatten-operation]: #flatten
-
-[json-functions]: #json_functions
-
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
-
-[grapheme-cluster]: https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
-<!-- mdlint on -->
-
 ## Conditional expressions
 
 ZetaSQL supports conditional expressions.
@@ -3044,7 +3233,103 @@ regular functions are evaluated before calling the function. Short-circuiting in
 conditional expressions can be exploited for error handling or performance
 tuning.
 
-### `CASE expr`
+### Expression list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#case_expr"><code>CASE expr</code></a>
+
+</td>
+  <td>
+    Compares the given expression to each successive <code>WHEN</code> clause
+    and produces the first result where the values are equal.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#case"><code>CASE</code></a>
+
+</td>
+  <td>
+    Evaluates the condition of each successive <code>WHEN</code> clause and
+    produces the first result where the condition evaluates to
+    <code>TRUE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#coalesce"><code>COALESCE</code></a>
+
+</td>
+  <td>
+    Produces the value of the first non-<code>NULL</code> expression, if any,
+    otherwise <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#if"><code>IF</code></a>
+
+</td>
+  <td>
+    If an expression evaluates to <code>TRUE</code>, produces a specified
+    result, otherwise produces the evaluation for an <i>else result</i>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ifnull"><code>IFNULL</code></a>
+
+</td>
+  <td>
+    If an expression evaluates to <code>NULL</code>, produces a specified
+    result, otherwise produces the expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nullif"><code>NULLIF</code></a>
+
+</td>
+  <td>
+    Produces <code>NULL</code> if the first expression that matches another
+    evaluates to <code>TRUE</code>, otherwise returns the first expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nullifzero"><code>NULLIFZERO</code></a>
+
+</td>
+  <td>
+    Produces <code>NULL</code> if an expression is <code>0</code>,
+    otherwise produces the expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#zeroifnull"><code>ZEROIFNULL</code></a>
+
+</td>
+  <td>
+    Produces <code>0</code> if an expression is <code>NULL</code>, otherwise
+    produces the expression.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
+### `CASE expr` 
+<a id="case_expr"></a>
 
 ```sql
 CASE expr
@@ -3112,7 +3397,14 @@ FROM Numbers
  *------------------*/
 ```
 
-### `CASE`
+[logical-operators]: #logical_operators
+
+[case]: #case
+
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `CASE` 
+<a id="case"></a>
 
 ```sql
 CASE
@@ -3174,7 +3466,12 @@ FROM Numbers
  *------------------*/
 ```
 
-### `COALESCE`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[logical-operators]: #logical_operators
+
+### `COALESCE` 
+<a id="coalesce"></a>
 
 ```sql
 COALESCE(expr[, ...])
@@ -3214,7 +3511,10 @@ SELECT COALESCE(NULL, 'B', 'C') as result
  *--------*/
 ```
 
-### `IF`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `IF` 
+<a id="if"></a>
 
 ```sql
 IF(expr, true_result, else_result)
@@ -3257,7 +3557,10 @@ FROM Numbers
  *------------------*/
 ```
 
-### `IFNULL`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `IFNULL` 
+<a id="ifnull"></a>
 
 ```sql
 IFNULL(expr, null_result)
@@ -3298,7 +3601,10 @@ SELECT IFNULL(10, 0) as result
  *--------*/
 ```
 
-### `NULLIF`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `NULLIF` 
+<a id="nullif"></a>
 
 ```sql
 NULLIF(expr, expr_to_match)
@@ -3342,7 +3648,10 @@ SELECT NULLIF(10, 0) as result
  *--------*/
 ```
 
-### `NULLIFZERO`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `NULLIFZERO` 
+<a id="nullifzero"></a>
 
 ```sql
 NULLIFZERO(expr)
@@ -3369,7 +3678,8 @@ SELECT NULLIFZERO(0) AS result
  *--------*/
 ```
 
-### `ZEROIFNULL`
+### `ZEROIFNULL` 
+<a id="zeroifnull"></a>
 
 ```sql
 ZEROIFNULL(expr)
@@ -3395,16 +3705,6 @@ SELECT ZEROIFNULL(NULL) AS result
  | 0      |
  *--------*/
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
-
-[logical-operators]: #logical_operators
-
-[case]: #case
-
-<!-- mdlint on -->
 
 ---
 ## FUNCTIONS
@@ -3600,7 +3900,9 @@ window_specification:
 
 Returns `expression` for some row chosen from the group. Which row is chosen is
 nondeterministic, not random. Returns `NULL` when the input produces no
-rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
+rows. Returns `NULL` when `expression`
+or `expression2` is
+`NULL` for all rows in the group.
 
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
 rows for which `expression` is `NULL` are considered and may be selected.
@@ -5308,7 +5610,6 @@ _do not allow_ users to specify the precision for the estimation with
 sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
-+  [KLL functions][kll-functions] to estimate quantile values.
 
 ### Function list
 
@@ -26336,830 +26637,6 @@ FROM t;
 
 [JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
 
-## KLL quantile functions
-
-ZetaSQL supports KLL functions.
-
-The [KLL16 algorithm][kll-sketches] estimates
-quantiles from [sketches][kll-sketches]. If you do not want
-to work with sketches and do not need customized precision, consider
-using [approximate aggregate functions][approx-functions-reference]
-with system-defined precision.
-
-KLL functions are approximate aggregate functions.
-Approximate aggregation requires significantly less memory than an exact
-quantiles computation, but also introduces statistical error.
-This makes approximate aggregation appropriate for large data streams for
-which linear memory usage is impractical, as well as for data that is
-already approximate.
-
-Note: While `APPROX_QUANTILES` is also returning approximate quantile results,
-the functions from this section allow for partial aggregations and
-re-aggregations.
-
-### Function list
-
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Summary</th>
-    </tr>
-  </thead>
-  <tbody>
-
-<tr>
-  <td><a href="#kll_quantilesextract_int64"><code>KLL_QUANTILES.EXTRACT_INT64</code></a>
-
-</td>
-  <td>
-    Gets a selected number of quantiles from an
-    <code>INT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesextract_uint64"><code>KLL_QUANTILES.EXTRACT_UINT64</code></a>
-
-</td>
-  <td>
-    Gets a selected number of quantiles from an
-    <code>UINT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesextract_double"><code>KLL_QUANTILES.EXTRACT_DOUBLE</code></a>
-
-</td>
-  <td>
-    Gets a selected number of quantiles from a
-    <code>DOUBLE</code>-initialized KLL sketch.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#kll_quantilesextract_point_int64"><code>KLL_QUANTILES.EXTRACT_POINT_INT64</code></a>
-
-</td>
-  <td>
-    Gets a specific quantile from an
-    <code>INT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesextract_point_uint64"><code>KLL_QUANTILES.EXTRACT_POINT_UINT64</code></a>
-
-</td>
-  <td>
-    Gets a specific quantile from an
-    <code>UINT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesextract_point_double"><code>KLL_QUANTILES.EXTRACT_POINT_DOUBLE</code></a>
-
-</td>
-  <td>
-    Gets a specific quantile from a
-    <code>DOUBLE</code>-initialized KLL sketch.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#kll_quantilesinit_int64"><code>KLL_QUANTILES.INIT_INT64</code></a>
-
-</td>
-  <td>
-    Aggregates values into an
-    <code>INT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesinit_uint64"><code>KLL_QUANTILES.INIT_UINT64</code></a>
-
-</td>
-  <td>
-    Aggregates values into an
-    <code>UINT64</code>-initialized KLL sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesinit_double"><code>KLL_QUANTILES.INIT_DOUBLE</code></a>
-
-</td>
-  <td>
-    Aggregates values into a
-    <code>DOUBLE</code>-initialized KLL sketch.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#kll_quantilesmerge_int64"><code>KLL_QUANTILES.MERGE_INT64</code></a>
-
-</td>
-  <td>
-    Merges <code>INT64</code>-initialized KLL sketches into a new sketch, and
-    then gets the quantiles from the new sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesmerge_uint64"><code>KLL_QUANTILES.MERGE_UINT64</code></a>
-
-</td>
-  <td>
-    Merges <code>UINT64</code>-initialized KLL sketches into a new sketch, and
-    then gets the quantiles from the new sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesmerge_double"><code>KLL_QUANTILES.MERGE_DOUBLE</code></a>
-
-</td>
-  <td>
-    Merges <code>DOUBLE</code>-initialized KLL sketches
-    into a new sketch, and then gets the quantiles from the new sketch.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#kll_quantilesmerge_partial"><code>KLL_QUANTILES.MERGE_PARTIAL</code></a>
-
-</td>
-  <td>
-     Merges KLL sketches of the same underlying type into a new sketch.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#kll_quantilesmerge_point_int64"><code>KLL_QUANTILES.MERGE_POINT_INT64</code></a>
-
-</td>
-  <td>
-    Merges <code>INT64</code>-initialized KLL sketches into a new sketch, and
-    then gets a specific quantile from the new sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesmerge_point_uint64"><code>KLL_QUANTILES.MERGE_POINT_UINT64</code></a>
-
-</td>
-  <td>
-    Merges <code>UINT64</code>-initialized KLL sketches into a new sketch, and
-    then gets a specific quantile from the new sketch.
-  </td>
-</tr>
-<tr>
-  <td><a href="#kll_quantilesmerge_point_double"><code>KLL_QUANTILES.MERGE_POINT_DOUBLE</code></a>
-
-</td>
-  <td>
-    Merges <code>DOUBLE</code>-initialized KLL sketches
-    into a new sketch, and then gets a specific quantile from the new sketch.
-  </td>
-</tr>
-
-  </tbody>
-</table>
-
-### `KLL_QUANTILES.EXTRACT_INT64`
-
-```sql
-KLL_QUANTILES.EXTRACT_INT64(sketch, number_of_segments)
-```
-
-**Description**
-
-Gets a selected number of approximate quantiles from an
-`INT64`-initialized KLL sketch, including the minimum value and the
-maximum value in the input set.
-
-**Definitions**
-
-+ `sketch`: `BYTES` KLL sketch initialized on the `INT64` data type.
-  If this is not a valid KLL quantiles sketch or if the underlying type
-  of the sketch can't be coerced into the `INT64` type, an error is produced.
-+ `number_of_segments`: A positive `INT64` value that represents the number of
-  roughly equal-sized subsets that the quantiles partition the sketch-captured
-  input values into.
-
-**Details**
-
-The number of returned values produced is always `number_of_segments + 1` as
-an array in this order:
-
-+   minimum value in input set
-+   each approximate quantile
-+   maximum value in input set
-
-For example, if `number_of_segments` is `3`, and the result of this function
-is `[0, 34, 67, 100]`, this means that `0` is the minimum value,
-`34` and `67` are the approximate quantiles, and `100` is the maximum value.
-In addition, the result represents the following three segments:
-`0 to 34`, `34 to 67`, and `67 to 100`.
-
-Note: This scalar function is similar to the aggregate function
-`KLL_QUANTILES.MERGE_INT64`.
-
-**Return Type**
-
-`ARRAY<INT64>`
-
-**Example**
-
-The following query initializes a KLL sketch, `kll_sketch`, from `Data`, and
-then extracts the minimum value (`0`), the maximum value (`100`), and
-approximate quantiles in between.
-
-```sql
-WITH Data AS (
-  SELECT x FROM UNNEST(GENERATE_ARRAY(1, 100)) AS x
-)
-SELECT
-  KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median,
-  KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 3) AS terciles,
-  KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 4) AS quartiles,
-  KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 6) AS sextiles,
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch FROM Data);
-
-/*------------+---------------+------------------+------------------------*
- | median     | terciles      | quartiles        | sextiles               |
- +------------+---------------+------------------+------------------------+
- | [0,50,100] | [0,34,67,100] | [0,25,50,75,100] | [0,17,34,50,67,84,100] |
- *------------+---------------+------------------+------------------------*/
-```
-
-### `KLL_QUANTILES.EXTRACT_UINT64`
-
-```sql
-KLL_QUANTILES.EXTRACT_UINT64(sketch, number_of_segments)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Return Type**
-
-`ARRAY<UINT64>`
-
-### `KLL_QUANTILES.EXTRACT_DOUBLE`
-
-```sql
-KLL_QUANTILES.EXTRACT_DOUBLE(sketch, number_of_segments)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-**Return Type**
-
-`ARRAY<DOUBLE>`
-
-### `KLL_QUANTILES.EXTRACT_POINT_INT64`
-
-```sql
-KLL_QUANTILES.EXTRACT_POINT_INT64(sketch, phi)
-```
-
-**Description**
-
-Takes a single KLL sketch as `BYTES` and returns a single quantile.
-The `phi` argument specifies the quantile to return as a fraction of the total
-number of rows in the input, normalized between 0 and 1. This means that the
-function will return a value *v* such that approximately Φ * *n* inputs are less
-than or equal to *v*, and a (1-Φ) * *n* inputs are greater than or equal to *v*.
-This is a scalar function.
-
-Returns an error if the underlying type of the input sketch is not compatible
-with type `INT64`.
-
-Returns an error if the input is not a valid KLL quantiles sketch.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`INT64`
-
-**Example**
-
-The following query initializes a KLL sketch from five rows of data. Then
-it returns the value of the eighth decile or 80th percentile of the sketch.
-
-```sql
-SELECT KLL_QUANTILES.EXTRACT_POINT_INT64(kll_sketch, .8) AS quintile
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5 AS x));
-
-/*----------*
- | quintile |
- +----------+
- |      4   |
- *----------*/
-```
-
-### `KLL_QUANTILES.EXTRACT_POINT_UINT64`
-
-```sql
-KLL_QUANTILES.EXTRACT_POINT_UINT64(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`UINT64`
-
-### `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
-
-```sql
-KLL_QUANTILES.EXTRACT_POINT_DOUBLE(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on
-  `DOUBLE` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`DOUBLE`
-
-### `KLL_QUANTILES.INIT_INT64`
-
-```sql
-KLL_QUANTILES.INIT_INT64(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Takes one or more `input` values and aggregates them into a
-[KLL][kll-sketches] sketch. This function represents the output sketch
-using the `BYTES` data type. This is an
-aggregate function.
-
-The `precision` argument defines the exactness of the returned approximate
-quantile _q_. For more information about precision, see
-[Precision for KLL sketches][precision-kll].
-
-By default, values in an initialized KLL sketch are weighted equally as `1`.
-If you would you like to weight values differently, use the
-mandatory-named argument, `weight`, which assigns weight to each input in the
-resulting KLL sketch. `weight` is a multiplier. For example, if you assign a
-weight of `3` to an input value, it's as if three instances of the input value
-are included in the generation of the KLL sketch. The maximum value for
-`weight` is `2,147,483,647`.
-
-**Supported Argument Types**
-
-+ `input`: `INT64`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-**Examples**
-
-The following query takes a column of type `INT64` and outputs a sketch as
-`BYTES` that allows you to retrieve values whose ranks are within
-±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
-
-```sql
-SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-FROM (SELECT 1 AS x UNION ALL
-      SELECT 2 AS x UNION ALL
-      SELECT 3 AS x UNION ALL
-      SELECT 4 AS x UNION ALL
-      SELECT 5 AS x);
-
-/*----------------------------------------------------------------------*
- | kll_sketch                                                           |
- +----------------------------------------------------------------------+
- | "\010q\020\005 \004\212\007\025\010\200                              |
- | \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
- *----------------------------------------------------------------------*/
-```
-
-The following examples illustrate how weight works when you initialize a
-KLL sketch. The results are converted to quantiles.
-
-```sql
-WITH points AS (
-  SELECT 1 AS x, 1 AS y UNION ALL
-  SELECT 2 AS x, 1 AS y UNION ALL
-  SELECT 3 AS x, 1 AS y UNION ALL
-  SELECT 4 AS x, 1 AS y UNION ALL
-  SELECT 5 AS x, 1 AS y)
-SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
-FROM
-  (
-    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
-    FROM points
-  );
-
-/*---------*
- | median  |
- +---------+
- | [1,3,5] |
- *---------*/
-```
-
-```sql
-WITH points AS (
-  SELECT 1 AS x, 1 AS y UNION ALL
-  SELECT 2 AS x, 3 AS y UNION ALL
-  SELECT 3 AS x, 1 AS y UNION ALL
-  SELECT 4 AS x, 1 AS y UNION ALL
-  SELECT 5 AS x, 1 AS y)
-SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
-FROM
-  (
-    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
-    FROM points
-  );
-
-/*---------*
- | median  |
- +---------+
- | [1,2,5] |
- *---------*/
-```
-
-### `KLL_QUANTILES.INIT_UINT64`
-
-```sql
-KLL_QUANTILES.INIT_UINT64(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
-but accepts `input` of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `input`: `UINT64`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-### `KLL_QUANTILES.INIT_DOUBLE`
-
-```sql
-KLL_QUANTILES.INIT_DOUBLE(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
-but accepts `input` of type `DOUBLE`.
-
-`KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
-[floating point sort order][sort-order]. For example, `NaN` orders before
-<code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `input`: `DOUBLE`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-[kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
-
-[precision-kll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_kll
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
-
-### `KLL_QUANTILES.MERGE_INT64`
-
-```sql
-KLL_QUANTILES.MERGE_INT64(sketch, number)
-```
-
-**Description**
-
-Takes KLL sketches as `BYTES` and merges them into
-a new sketch, then returns the quantiles that divide the input into
-`number` equal-sized groups, along with the minimum and maximum values of the
-input. The output is an `ARRAY` containing the exact minimum value from
-the input data that you used to initialize the sketches, each
-approximate quantile, and the exact maximum value from the initial input data.
-This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if the underlying type of one or more input sketches is not
-compatible with type `INT64`.
-
-Returns an error if the input is not a valid KLL quantiles sketch.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<INT64>`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches and returns an `ARRAY` containing the minimum,
-median, and maximum values in the input sketches.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-/*---------------*
- | merged_sketch |
- +---------------+
- | [1,5,10]      |
- *---------------*/
-```
-
-### `KLL_QUANTILES.MERGE_UINT64`
-
-```sql
-KLL_QUANTILES.MERGE_UINT64(sketch, number)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<UINT64>`
-
-### `KLL_QUANTILES.MERGE_DOUBLE`
-
-```sql
-KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-`KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
-[floating point sort order][sort-order]. For example, `NaN` orders before
-<code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on
-  `DOUBLE` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<DOUBLE>`
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
-
-### `KLL_QUANTILES.MERGE_PARTIAL`
-
-```sql
-KLL_QUANTILES.MERGE_PARTIAL(sketch)
-```
-
-**Description**
-
-Takes KLL sketches of the same underlying type and merges them to return a new
-sketch of the same underlying type. This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if two or more sketches don't have compatible underlying types,
-such as one sketch of `INT64` values and another of
-`DOUBLE` values.
-
-Returns an error if one or more inputs are not a valid KLL quantiles sketch.
-
-Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
-sketches, the function returns `NULL`.
-
-You can initialize sketches with different optional clauses and merge them. For
-example, you can initialize a sketch with the `DISTINCT` clause and another
-sketch without any optional clauses, and then merge these two sketches.
-However, if you initialize sketches with the `DISTINCT` clause and merge them,
-the resulting sketch may still contain duplicates.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches into a new sketch, also as `BYTES`. Both
-input sketches have the same underlying data type and precision.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-/*-----------------------------------------------------------------------------*
- | merged_sketch                                                               |
- +-----------------------------------------------------------------------------+
- | "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
- | \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
- *-----------------------------------------------------------------------------*/
-```
-
-### `KLL_QUANTILES.MERGE_POINT_INT64`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
-```
-
-**Description**
-
-Takes KLL sketches as `BYTES` and merges them, then extracts a single
-quantile from the merged sketch. The `phi` argument specifies the quantile
-to return as a fraction of the total number of rows in the input, normalized
-between 0 and 1. This means that the function will return a value *v* such that
-approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
-inputs are greater than or equal to *v*. This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if the underlying type of one or more input sketches is not
-compatible with type `INT64`.
-
-Returns an error if the input is not a valid KLL quantiles sketch.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`INT64`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches and returns the value of the ninth decile or
-90th percentile of the merged sketch.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-/*---------------*
- | merged_sketch |
- +---------------+
- |             9 |
- *---------------*/
-```
-
-### `KLL_QUANTILES.MERGE_POINT_UINT64`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`UINT64`
-
-### `KLL_QUANTILES.MERGE_POINT_DOUBLE`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the
-ZetaSQL [floating point sort order][sort-order]. For example, `NaN`
-orders before <code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on
-  `DOUBLE` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`DOUBLE`
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
-
-[kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
-
-[approx-functions-reference]: #approximate_aggregate_functions
-
 ## Mathematical functions
 
 ZetaSQL supports mathematical functions.
@@ -33170,15 +32647,6 @@ ZetaSQL supports the following protocol buffer functions.
   <tbody>
 
 <tr>
-  <td><a href="#contains_key"><code>CONTAINS_KEY</code></a>
-
-</td>
-  <td>
-    Checks if a protocol buffer map field contains a given key.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
 
 </td>
@@ -33216,15 +32684,6 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#modify_map"><code>MODIFY_MAP</code></a>
-
-</td>
-  <td>
-    Modifies a protocol buffer map field.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
 
 </td>
@@ -33232,6 +32691,24 @@ ZetaSQL supports the following protocol buffer functions.
     Produces the default protocol buffer field value if the
     protocol buffer field is <code>NULL</code>. Otherwise, returns the
     protocol buffer field value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_map_contains_key"><code>PROTO_MAP_CONTAINS_KEY</code></a>
+
+</td>
+  <td>
+    Checks if a protocol buffer map field contains a given key.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_modify_map"><code>PROTO_MODIFY_MAP</code></a>
+
+</td>
+  <td>
+    Modifies a protocol buffer map field.
   </td>
 </tr>
 
@@ -33255,60 +32732,6 @@ ZetaSQL supports the following protocol buffer functions.
 
   </tbody>
 </table>
-
-### `CONTAINS_KEY`
-
-```sql
-CONTAINS_KEY(proto_map_field_expression, key)
-```
-
-**Description**
-
-Returns whether a [protocol buffer map field][proto-map] contains a given key.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key`: A key in the protocol buffer map field.
-
-`NULL` handling:
-
-+ If `map_field` is `NULL`, returns `NULL`.
-+ If `key` is `NULL`, returns `FALSE`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the function returns `TRUE` when the key is
-present, `FALSE` otherwise.
-
-```sql
-SELECT
-  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
-  CONTAINS_KEY(m.purchased, 'B') AS contains_b
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
-
-/*------------+------------*
- | contains_a | contains_b |
- +------------+------------+
- | TRUE       | FALSE      |
- *------------+------------*/
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### `ENUM_VALUE_DESCRIPTOR_PROTO`
 
@@ -33971,72 +33394,6 @@ SELECT FROM_PROTO(DATE '2019-10-30')
  *------------*/
 ```
 
-### `MODIFY_MAP`
-
-```sql
-MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
-
-key_value_pair:
-  key, value
-```
-
-**Description**
-
-Modifies a [protocol buffer map field][proto-map] and returns the modified map
-field.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key_value_pair`: A key-value pair in the protocol buffer map field.
-
-Modification behavior:
-
-+ If the key is not already in the map field, adds the key and its value to the
-  map field.
-+ If the key is already in the map field, replaces its value.
-+ If the key is in the map field and the value is `NULL`, removes the key and
-  its value from the map field.
-
-`NULL` handling:
-
-+ If `key` is `NULL`, produces an error.
-+ If the same `key` appears more than once, produces an error.
-+ If `map` is `NULL`, `map` is treated as empty.
-
-**Return type**
-
-In the input protocol buffer map field, `V` as represented in `map<K,V>`.
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the query deletes key `A`, replaces `B`, and adds
-`C` in a map field called `purchased`.
-
-```sql
-SELECT
-  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
-
-/*---------------------------------------------*
- | result_map                                  |
- +---------------------------------------------+
- | { key: 'B' value: 4 } { key: 'C' value: 6 } |
- *---------------------------------------------*/
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
 ### `PROTO_DEFAULT_IF_NULL`
 
 ```sql
@@ -34103,6 +33460,126 @@ default value for `country`.
  | Unknown         |
  *-----------------*/
 ```
+
+### `PROTO_MAP_CONTAINS_KEY`
+
+```sql
+PROTO_MAP_CONTAINS_KEY(proto_map_field_expression, key)
+```
+
+**Description**
+
+Returns whether a [protocol buffer map field][proto-map] contains a given key.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key`: A key in the protocol buffer map field.
+
+`NULL` handling:
+
++ If `map_field` is `NULL`, returns `NULL`.
++ If `key` is `NULL`, returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the function returns `TRUE` when the key is
+present, `FALSE` otherwise.
+
+```sql
+SELECT
+  PROTO_MAP_CONTAINS_KEY(m.purchased, 'A') AS contains_a,
+  PROTO_MAP_CONTAINS_KEY(m.purchased, 'B') AS contains_b
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
+/*------------+------------*
+ | contains_a | contains_b |
+ +------------+------------+
+ | TRUE       | FALSE      |
+ *------------+------------*/
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `PROTO_MODIFY_MAP`
+
+```sql
+PROTO_MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
+
+key_value_pair:
+  key, value
+```
+
+**Description**
+
+Modifies a [protocol buffer map field][proto-map] and returns the modified map
+field.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_value_pair`: A key-value pair in the protocol buffer map field.
+
+Modification behavior:
+
++ If the key is not already in the map field, adds the key and its value to the
+  map field.
++ If the key is already in the map field, replaces its value.
++ If the key is in the map field and the value is `NULL`, removes the key and
+  its value from the map field.
+
+`NULL` handling:
+
++ If `key` is `NULL`, produces an error.
++ If the same `key` appears more than once, produces an error.
++ If `map` is `NULL`, `map` is treated as empty.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the query deletes key `A`, replaces `B`, and adds
+`C` in a map field called `purchased`.
+
+```sql
+SELECT
+  PROTO_MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
+
+/*---------------------------------------------*
+ | result_map                                  |
+ +---------------------------------------------+
+ | { key: 'B' value: 4 } { key: 'C' value: 6 } |
+ *---------------------------------------------*/
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### `REPLACE_FIELDS`
 

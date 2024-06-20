@@ -23,7 +23,6 @@
 #include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
-#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -35,12 +34,12 @@ namespace macros {
 inline absl::StatusOr<ExpansionOutput> ExpandMacros(
     absl::string_view filename, absl::string_view input,
     const MacroCatalog& catalog, const LanguageOptions& language_options,
-    ErrorMessageOptions error_message_options) {
+    DiagnosticOptions diagnostic_options) {
   return MacroExpander::ExpandMacros(
       std::make_unique<FlexTokenProvider>(
           filename, input, /*preserve_comments=*/false, /*start_offset=*/0,
           /*end_offset=*/std::nullopt),
-      language_options, catalog, error_message_options);
+      language_options, catalog, diagnostic_options);
 }
 
 }  // namespace macros

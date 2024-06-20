@@ -646,6 +646,10 @@ class Validator {
   absl::Status ValidateResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* stmt);
 
+  absl::Status ValidateResolvedBarrierScan(
+      const ResolvedBarrierScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   // Validates that <expr> is a valid expression of bool type.
   absl::Status ValidateBoolExpr(
       const std::set<ResolvedColumn>& visible_columns,

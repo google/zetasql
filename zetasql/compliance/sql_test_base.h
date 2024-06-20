@@ -90,19 +90,19 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/cleanup/cleanup.h"
-#include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/flags/declare.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/source_location.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
 #include "re2/re2.h"
-#include "zetasql/base/status.h"
 
 ABSL_DECLARE_FLAG(bool, zetasql_detect_falsly_required_features);
 ABSL_DECLARE_FLAG(bool, zetasql_compliance_write_labels_to_file);
@@ -510,6 +510,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
                                             const std::string& actual,
                                             const std::string& extra) const;
 
+  // Returns the minimum float margin to use for comparing
+  // two ComplianceTestCaseResult so that result can be considered equal.
+  FloatMargin GetFloatEqualityMargin(
+      absl::StatusOr<ComplianceTestCaseResult> actual,
+      absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits);
+
  protected:
   SQLTestBase();
 
@@ -548,27 +554,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       std::unique_ptr<FilebasedSQLTestFileOptions> test_file_options);
 
   void ClearParameters() { parameters_.clear(); }
-
-  // Return true if we are testing the reference implementation.
-  // In this mode, we should run all statements, in all relevant modes, and test
-  // all outputs (against expected outputs from code or from files).
-  //
-  // When this is false, we are testing an engine and comparing its output to
-  // the reference implementation's output.  We will run each statement using
-  // the engine's options (from TestDriver::GetSupportedLanguageOptions) and
-  // compare against the reference output with the same options.
-  //
-  // TODO: There are many blocks of code in the cc file that look like:
-  // if (IsTestingReferenceImpl()) {
-  //   ...  // Do something
-  // } else {
-  //   ... // Do something else
-  // }
-  // Consider creating another interface with two implementations of each
-  // method: one that implements the behavior for testing the reference
-  // implementation, and one that implements the behavior for testing a real
-  // engine.
-  bool IsTestingReferenceImpl() const;
 
   virtual absl::Status CreateDatabase(const TestDatabase& test_db);
 
@@ -627,7 +612,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Check 'feature' to ensure that it is required for evaluating the test case.
   // This is useful for codebased tests that have an expected result instead of
   // an expected golden file output. When 'require_inclusive' is false we are
-  // checking if the feature is falsly prohibited. When checking for falsely
+  // checking if the feature is falsely prohibited. When checking for falsely
   // prohibited features we make sure adding that feature causes the test to
   // fail.
   bool IsFeatureFalselyRequired(
@@ -777,6 +762,29 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   std::string name_prefix_;
   bool name_prefix_need_result_type_name_ = false;
   std::string result_type_name_;
+
+  // Return true if we are checking the "golden" expected output against the
+  // reference implementation. In this mode, we should run all statements, in
+  // all relevant modes, and test all outputs (against expected outputs from
+  // code or from files).
+  //
+  // When this is false, we are testing an engine (or a specific configuration
+  // of the reference implementation) and comparing its output to the reference
+  // implementation's output. We will run each statement using
+  // the engine's options (from TestDriver::GetSupportedLanguageOptions) and
+  // compare against the reference output with the same options.
+  //
+  // TODO: There are many blocks of code in the cc file that look like:
+  // if (IsVerifyingGoldens()) {
+  //   ...  // Do something
+  // } else {
+  //   ...  // Do something else
+  // }
+  // Consider creating another interface with two implementations of each
+  // method: one that implements the behavior for testing the reference
+  // implementation, and one that implements the behavior for testing a real
+  // engine.
+  bool IsVerifyingGoldens() const;
 
   // Return a set of effective labels, include <filename>:<statement_name>,
   // labels, and global_labels.

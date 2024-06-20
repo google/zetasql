@@ -1382,7 +1382,7 @@ message ResolvedASTRewriteOptions {
 // We support these rewrites to allow syntactic improvements which generate new
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
-// Next ID: 27
+// Next ID: 28
 enum ResolvedASTRewrite {
   reserved 13, 15, 21;
 

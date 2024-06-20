@@ -124,6 +124,15 @@ class ContainerType : public Type {
     }
     return type->FormatValueContent(element.value_content(), options);
   }
+
+  // Returns a FormatValueContentOptions with debug options set, for use
+  // printing ValueContent in error messages.
+  FormatValueContentOptions DebugFormatValueContentOptions() const {
+    Type::FormatValueContentOptions format_options;
+    format_options.product_mode = ProductMode::PRODUCT_INTERNAL;
+    format_options.mode = Type::FormatValueContentOptions::Mode::kDebug;
+    return format_options;
+  }
 };
 
 }  // namespace zetasql

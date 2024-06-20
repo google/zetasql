@@ -18,15 +18,6 @@ ZetaSQL supports the following protocol buffer functions.
   <tbody>
 
 <tr>
-  <td><a href="#contains_key"><code>CONTAINS_KEY</code></a>
-
-</td>
-  <td>
-    Checks if a protocol buffer map field contains a given key.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#enum_value_descriptor_proto"><code>ENUM_VALUE_DESCRIPTOR_PROTO</code></a>
 
 </td>
@@ -64,15 +55,6 @@ ZetaSQL supports the following protocol buffer functions.
 </tr>
 
 <tr>
-  <td><a href="#modify_map"><code>MODIFY_MAP</code></a>
-
-</td>
-  <td>
-    Modifies a protocol buffer map field.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#proto_default_if_null"><code>PROTO_DEFAULT_IF_NULL</code></a>
 
 </td>
@@ -80,6 +62,24 @@ ZetaSQL supports the following protocol buffer functions.
     Produces the default protocol buffer field value if the
     protocol buffer field is <code>NULL</code>. Otherwise, returns the
     protocol buffer field value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_map_contains_key"><code>PROTO_MAP_CONTAINS_KEY</code></a>
+
+</td>
+  <td>
+    Checks if a protocol buffer map field contains a given key.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#proto_modify_map"><code>PROTO_MODIFY_MAP</code></a>
+
+</td>
+  <td>
+    Modifies a protocol buffer map field.
   </td>
 </tr>
 
@@ -103,60 +103,6 @@ ZetaSQL supports the following protocol buffer functions.
 
   </tbody>
 </table>
-
-### `CONTAINS_KEY`
-
-```sql
-CONTAINS_KEY(proto_map_field_expression, key)
-```
-
-**Description**
-
-Returns whether a [protocol buffer map field][proto-map] contains a given key.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key`: A key in the protocol buffer map field.
-
-`NULL` handling:
-
-+ If `map_field` is `NULL`, returns `NULL`.
-+ If `key` is `NULL`, returns `FALSE`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the function returns `TRUE` when the key is
-present, `FALSE` otherwise.
-
-```sql
-SELECT
-  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
-  CONTAINS_KEY(m.purchased, 'B') AS contains_b
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
-
-/*------------+------------*
- | contains_a | contains_b |
- +------------+------------+
- | TRUE       | FALSE      |
- *------------+------------*/
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### `ENUM_VALUE_DESCRIPTOR_PROTO`
 
@@ -819,72 +765,6 @@ SELECT FROM_PROTO(DATE '2019-10-30')
  *------------*/
 ```
 
-### `MODIFY_MAP`
-
-```sql
-MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
-
-key_value_pair:
-  key, value
-```
-
-**Description**
-
-Modifies a [protocol buffer map field][proto-map] and returns the modified map
-field.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key_value_pair`: A key-value pair in the protocol buffer map field.
-
-Modification behavior:
-
-+ If the key is not already in the map field, adds the key and its value to the
-  map field.
-+ If the key is already in the map field, replaces its value.
-+ If the key is in the map field and the value is `NULL`, removes the key and
-  its value from the map field.
-
-`NULL` handling:
-
-+ If `key` is `NULL`, produces an error.
-+ If the same `key` appears more than once, produces an error.
-+ If `map` is `NULL`, `map` is treated as empty.
-
-**Return type**
-
-In the input protocol buffer map field, `V` as represented in `map<K,V>`.
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the query deletes key `A`, replaces `B`, and adds
-`C` in a map field called `purchased`.
-
-```sql
-SELECT
-  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
-
-/*---------------------------------------------*
- | result_map                                  |
- +---------------------------------------------+
- | { key: 'B' value: 4 } { key: 'C' value: 6 } |
- *---------------------------------------------*/
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
 ### `PROTO_DEFAULT_IF_NULL`
 
 ```sql
@@ -951,6 +831,126 @@ default value for `country`.
  | Unknown         |
  *-----------------*/
 ```
+
+### `PROTO_MAP_CONTAINS_KEY`
+
+```sql
+PROTO_MAP_CONTAINS_KEY(proto_map_field_expression, key)
+```
+
+**Description**
+
+Returns whether a [protocol buffer map field][proto-map] contains a given key.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key`: A key in the protocol buffer map field.
+
+`NULL` handling:
+
++ If `map_field` is `NULL`, returns `NULL`.
++ If `key` is `NULL`, returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the function returns `TRUE` when the key is
+present, `FALSE` otherwise.
+
+```sql
+SELECT
+  PROTO_MAP_CONTAINS_KEY(m.purchased, 'A') AS contains_a,
+  PROTO_MAP_CONTAINS_KEY(m.purchased, 'B') AS contains_b
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
+/*------------+------------*
+ | contains_a | contains_b |
+ +------------+------------+
+ | TRUE       | FALSE      |
+ *------------+------------*/
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `PROTO_MODIFY_MAP`
+
+```sql
+PROTO_MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
+
+key_value_pair:
+  key, value
+```
+
+**Description**
+
+Modifies a [protocol buffer map field][proto-map] and returns the modified map
+field.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_value_pair`: A key-value pair in the protocol buffer map field.
+
+Modification behavior:
+
++ If the key is not already in the map field, adds the key and its value to the
+  map field.
++ If the key is already in the map field, replaces its value.
++ If the key is in the map field and the value is `NULL`, removes the key and
+  its value from the map field.
+
+`NULL` handling:
+
++ If `key` is `NULL`, produces an error.
++ If the same `key` appears more than once, produces an error.
++ If `map` is `NULL`, `map` is treated as empty.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the query deletes key `A`, replaces `B`, and adds
+`C` in a map field called `purchased`.
+
+```sql
+SELECT
+  PROTO_MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
+
+/*---------------------------------------------*
+ | result_map                                  |
+ +---------------------------------------------+
+ | { key: 'B' value: 4 } { key: 'C' value: 6 } |
+ *---------------------------------------------*/
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 ### `REPLACE_FIELDS`
 

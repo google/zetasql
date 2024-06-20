@@ -186,9 +186,9 @@ select percent_rank() over () from KeyValue
 # FROM clause is required;
 select percent_rank() over (ORDER BY (select @test_param_int64))
 --
-ERROR: SELECT without FROM clause cannot use analytic functions [at 1:1]
+ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:8]
 select percent_rank() over (ORDER BY (select @test_param_int64))
-^
+       ^
 ==
 
 select cume_dist() over (order by key)

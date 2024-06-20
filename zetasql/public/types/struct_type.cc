@@ -40,6 +40,7 @@
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
@@ -513,9 +514,21 @@ bool StructType::ValueContentLess(const ValueContent& x, const ValueContent& y,
 
 absl::Status StructType::SerializeValueContent(const ValueContent& value,
                                                ValueProto* value_proto) const {
-  return absl::FailedPreconditionError(
-      "SerializeValueContent should never be called for StructType, since its "
-      "value content is maintained in the Value class");
+  const internal::ValueContentOrderedList* struct_value_content =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
+
+  auto* struct_value_proto = value_proto->mutable_struct_value();
+
+  for (int i = 0; i < struct_value_content->num_elements(); ++i) {
+    auto* field_value_proto = struct_value_proto->add_field();
+    const internal::NullableValueContent& field_value_content =
+        struct_value_content->element(i);
+    if (!field_value_content.is_null()) {
+      ZETASQL_RETURN_IF_ERROR(field(i).type->SerializeValueContent(
+          field_value_content.value_content(), field_value_proto));
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status StructType::DeserializeValueContent(const ValueProto& value_proto,

@@ -197,6 +197,14 @@ WITH a as select 1
           ^
 ==
 
+# No query after the WITH.
+WITH a as (select 1)
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:21]
+WITH a as (select 1)
+                    ^
+==
+
 # A comma at the end of the WITH clause is an error.
 WITH a as (select 1),
 select * from a;

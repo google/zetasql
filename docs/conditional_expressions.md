@@ -12,7 +12,103 @@ regular functions are evaluated before calling the function. Short-circuiting in
 conditional expressions can be exploited for error handling or performance
 tuning.
 
-### `CASE expr`
+### Expression list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#case_expr"><code>CASE expr</code></a>
+
+</td>
+  <td>
+    Compares the given expression to each successive <code>WHEN</code> clause
+    and produces the first result where the values are equal.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#case"><code>CASE</code></a>
+
+</td>
+  <td>
+    Evaluates the condition of each successive <code>WHEN</code> clause and
+    produces the first result where the condition evaluates to
+    <code>TRUE</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#coalesce"><code>COALESCE</code></a>
+
+</td>
+  <td>
+    Produces the value of the first non-<code>NULL</code> expression, if any,
+    otherwise <code>NULL</code>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#if"><code>IF</code></a>
+
+</td>
+  <td>
+    If an expression evaluates to <code>TRUE</code>, produces a specified
+    result, otherwise produces the evaluation for an <i>else result</i>.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#ifnull"><code>IFNULL</code></a>
+
+</td>
+  <td>
+    If an expression evaluates to <code>NULL</code>, produces a specified
+    result, otherwise produces the expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nullif"><code>NULLIF</code></a>
+
+</td>
+  <td>
+    Produces <code>NULL</code> if the first expression that matches another
+    evaluates to <code>TRUE</code>, otherwise returns the first expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#nullifzero"><code>NULLIFZERO</code></a>
+
+</td>
+  <td>
+    Produces <code>NULL</code> if an expression is <code>0</code>,
+    otherwise produces the expression.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#zeroifnull"><code>ZEROIFNULL</code></a>
+
+</td>
+  <td>
+    Produces <code>0</code> if an expression is <code>NULL</code>, otherwise
+    produces the expression.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
+### `CASE expr` 
+<a id="case_expr"></a>
 
 ```sql
 CASE expr
@@ -80,7 +176,14 @@ FROM Numbers
  *------------------*/
 ```
 
-### `CASE`
+[logical-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
+
+[case]: #case
+
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `CASE` 
+<a id="case"></a>
 
 ```sql
 CASE
@@ -142,7 +245,12 @@ FROM Numbers
  *------------------*/
 ```
 
-### `COALESCE`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[logical-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
+
+### `COALESCE` 
+<a id="coalesce"></a>
 
 ```sql
 COALESCE(expr[, ...])
@@ -182,7 +290,10 @@ SELECT COALESCE(NULL, 'B', 'C') as result
  *--------*/
 ```
 
-### `IF`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `IF` 
+<a id="if"></a>
 
 ```sql
 IF(expr, true_result, else_result)
@@ -225,7 +336,10 @@ FROM Numbers
  *------------------*/
 ```
 
-### `IFNULL`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `IFNULL` 
+<a id="ifnull"></a>
 
 ```sql
 IFNULL(expr, null_result)
@@ -266,7 +380,10 @@ SELECT IFNULL(10, 0) as result
  *--------*/
 ```
 
-### `NULLIF`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `NULLIF` 
+<a id="nullif"></a>
 
 ```sql
 NULLIF(expr, expr_to_match)
@@ -310,7 +427,10 @@ SELECT NULLIF(10, 0) as result
  *--------*/
 ```
 
-### `NULLIFZERO`
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### `NULLIFZERO` 
+<a id="nullifzero"></a>
 
 ```sql
 NULLIFZERO(expr)
@@ -337,7 +457,8 @@ SELECT NULLIFZERO(0) AS result
  *--------*/
 ```
 
-### `ZEROIFNULL`
+### `ZEROIFNULL` 
+<a id="zeroifnull"></a>
 
 ```sql
 ZEROIFNULL(expr)
@@ -363,14 +484,4 @@ SELECT ZEROIFNULL(NULL) AS result
  | 0      |
  *--------*/
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
-
-[logical-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
-
-[case]: #case
-
-<!-- mdlint on -->
 

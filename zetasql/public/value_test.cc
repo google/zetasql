@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -35,6 +36,7 @@
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/uuid_value.h"
@@ -84,9 +86,11 @@ namespace zetasql {
 namespace {
 
 using ::google::protobuf::internal::WireFormatLite;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::EndsWith;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -114,6 +118,24 @@ void TestHashNotEqual(const Value& a, const Value& b) {
   EXPECT_NE(absl::Hash<Value>()(a), absl::Hash<Value>()(b))
       << "\na: " << a << "\n"
       << "b: " << b;
+}
+
+MATCHER_P(ValueAndHashEq, other_value,
+          absl::StrFormat("equal value and hash code to %s",
+                          other_value.DebugString(true))) {
+  *result_listener << absl::StrFormat("aka %s", arg.DebugString(true));
+  return arg.Equals(other_value) && other_value.Equals(arg) &&
+         arg.HashCode() == other_value.HashCode() &&
+         absl::Hash<Value>()(arg) == absl::Hash<Value>()(other_value);
+}
+
+MATCHER_P(ValueAndHashNotEq, other_value,
+          absl::StrFormat("value inequality and unequal hash code with %s",
+                          other_value.DebugString())) {
+  *result_listener << absl::StrFormat("aka %s", arg.DebugString(true));
+  return !arg.Equals(other_value) && !other_value.Equals(arg) &&
+         arg.HashCode() != other_value.HashCode() &&
+         absl::Hash<Value>()(arg) != absl::Hash<Value>()(other_value);
 }
 
 absl::Time ParseTimeWithFormat(absl::string_view format,
@@ -1189,6 +1211,8 @@ TEST_F(ValueTest, HashCode) {
   const ArrayType* array_other_enum_type = GetTestArrayType(other_enum_type);
   const ArrayType* array_proto_type = GetTestArrayType(proto_type);
   const ArrayType* array_other_proto_type = GetTestArrayType(other_proto_type);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_string_type,
+                       MakeMapType(types::StringType(), types::StringType()));
 
   // Include all simple types and some simple examples of complex types.
   // Complex types have additional testing in other tests.
@@ -1226,6 +1250,7 @@ TEST_F(ValueTest, HashCode) {
       Value::Null(MakeRangeType(DateType())),
       Value::Null(MakeRangeType(DatetimeType())),
       Value::Null(MakeRangeType(TimestampType())),
+      Value::Null(map_string_type),
       // Simple scalar types.
       Value::Int32(1001),
       Value::Int32(1002),
@@ -1356,6 +1381,14 @@ TEST_F(ValueTest, HashCode) {
           Value::Timestamp(absl::FromCivil(
               absl::CivilSecond(2020, 01, 01, 0, 0, 0), absl::UTCTimeZone()))),
       Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp()),
+      Map({{"a", Value::Int32(1)},
+           {"b", Value::Int32(2)},
+           {"c", Value::Int32(3)},
+           {"d", Value::Int32(4)}}),
+      Map({{Value::Int32(1), "a"},
+           {Value::Int32(2), "b"},
+           {Value::Int32(3), "c"},
+           {Value::Int32(4), "d"}}),
   }));
 }
 
@@ -2645,6 +2678,471 @@ INSTANTIATE_TEST_SUITE_P(
         },
     }));
 
+TEST_F(ValueTest, MapValueEquality) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type_string,
+                       MakeMapType(StringType(), StringType()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type_int64,
+                       MakeMapType(Int64Type(), Int64Type()));
+
+  EXPECT_THAT(Null(map_type_string), ValueAndHashEq(Null(map_type_string)));
+  EXPECT_THAT(Null(map_type_string), ValueAndHashNotEq(Null(map_type_int64)));
+  EXPECT_THAT(Null(map_type_string), ValueAndHashNotEq(Map({{"a", "b"}})));
+  EXPECT_THAT(Map({{"a", "b"}}), ValueAndHashEq(Map({{"a", "b"}})));
+
+  Value map_of_string = Map({{"a", "b"}});
+  EXPECT_THAT(map_of_string, ValueAndHashEq(map_of_string));
+
+  EXPECT_THAT(Map({{"a", "b"}}),
+              ValueAndHashNotEq(Map({{"a", "b"}, {"c", "d"}})));
+  EXPECT_THAT(Map({{"a", "b"}, {"c", "d"}}),
+              ValueAndHashEq(Map({{"a", "b"}, {"c", "d"}})));
+
+  EXPECT_THAT(
+      Map({{"a", "b"}, {"c", "d"}}),
+      ValueAndHashNotEq(Map({{"a", "b"}, {NullString(), NullString()}})));
+
+  EXPECT_THAT(Map({{"a", "b"}, {NullString(), NullString()}}),
+              ValueAndHashEq(Map({{"a", "b"}, {NullString(), NullString()}})));
+
+  EXPECT_THAT(Map({{NullString(), "a"}, {"b", NullString()}}),
+              ValueAndHashEq(Map({{NullString(), "a"}, {"b", NullString()}})));
+
+  Value map_of_array_0 = Map({{"a", Value::Null(types::Int64ArrayType())}});
+  Value map_of_array_1 =
+      Map({{"a", Array({Value::Int64(1), Value::Int64(2)})}});
+  Value map_of_array_2 = Map({{"a", Array({Value::Int64(1)})}});
+
+  EXPECT_THAT(map_of_array_0, ValueAndHashEq(map_of_array_0));
+  EXPECT_THAT(map_of_array_0, ValueAndHashNotEq(map_of_array_1));
+  EXPECT_THAT(map_of_array_1, ValueAndHashEq(map_of_array_1));
+  EXPECT_THAT(map_of_array_1, ValueAndHashNotEq(map_of_array_2));
+  EXPECT_THAT(map_of_array_2, ValueAndHashEq(map_of_array_2));
+  EXPECT_THAT(map_of_array_2, ValueAndHashNotEq(map_of_array_0));
+
+  Value array_of_map_of_array_1 = Array({map_of_array_1});
+  Value array_of_map_of_array_2 = Array({map_of_array_2});
+
+  EXPECT_THAT(array_of_map_of_array_1, ValueAndHashEq(array_of_map_of_array_1));
+  EXPECT_THAT(array_of_map_of_array_1,
+              ValueAndHashNotEq(array_of_map_of_array_2));
+  EXPECT_THAT(array_of_map_of_array_2, ValueAndHashEq(array_of_map_of_array_2));
+}
+
+TEST_F(ValueTest, MapValueEqualitySimpleInternalValue) {
+  auto map_1 = Map({{"a", "b"}});
+  auto map_2 = Map({{"a", "b"}, {"c", "d"}});
+  auto map_3 = Map({{"a", "c"}, {"c", "d"}});
+
+  EXPECT_TRUE(InternalValue::Equals(map_1, map_1));
+
+  EXPECT_FALSE(InternalValue::Equals(map_1, map_2));
+  EXPECT_FALSE(InternalValue::Equals(map_2, map_1));
+
+  EXPECT_TRUE(InternalValue::Equals(map_2, map_2));
+
+  EXPECT_FALSE(InternalValue::Equals(map_2, map_3));
+  EXPECT_FALSE(InternalValue::Equals(map_3, map_2));
+
+  EXPECT_TRUE(InternalValue::Equals(map_3, map_3));
+
+  EXPECT_FALSE(InternalValue::Equals(map_3, map_1));
+  EXPECT_FALSE(InternalValue::Equals(map_1, map_3));
+
+  std::string why = "";
+  EXPECT_FALSE(InternalValue::Equals(
+      map_1, map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_EQ(why,
+            "Number of map entries was not equal: {1} and {2} in respective "
+            "maps {{\"a\": \"b\"}} and {{\"a\": \"b\", \"c\": \"d\"}}\n");
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_2, map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_EQ(why,
+            "Number of map entries was not equal: {2} and {1} in respective "
+            "maps {{\"a\": \"b\", \"c\": \"d\"}} and {{\"a\": \"b\"}}\n");
+}
+
+TEST_F(ValueTest, MapValueEqualityWithFloatMarginOptions) {
+  auto map_1 = Map({{"a", 0.5f}});
+  auto map_2 = Map({{"a", 0.50000006f}});
+  auto map_3 = Map({{0.5f, "a"}});
+  auto map_4 = Map({{0.50000006f, "a"}});
+  auto map_5 = Map({
+      {0.5f, "a"},
+      {0.50000006f, "b"},
+  });
+  auto map_6 = Map({
+      {0.5f, "a"},
+      {0.50000006f, "a"},
+  });
+  auto map_7 = Map({
+      {NullString(), 0.5f},
+  });
+  auto map_8 = Map({
+      {NullString(), 0.50000006f},
+  });
+
+  std::string why = "";
+  EXPECT_FALSE(InternalValue::Equals(
+      map_1, map_2,
+      ValueEqualityCheckOptions{.float_margin = kExactFloatMargin,
+                                .reason = &why}));
+  EXPECT_EQ(why,
+            "The value for key {\"a\"} did not match. Value was {0.5} and "
+            "{0.50000006} in respective maps {{\"a\": 0.5}} and {{\"a\": "
+            "0.50000006}}.\n");
+
+  EXPECT_TRUE(InternalValue::Equals(
+      map_1, map_2,
+      ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                .reason = &why}))
+      << why;
+  EXPECT_FALSE(InternalValue::Equals(
+      map_3, map_4,
+      ValueEqualityCheckOptions{.float_margin = kExactFloatMargin,
+                                .reason = &why}));
+  EXPECT_EQ(why,
+            "Key {0.5} did not exist in both maps. Present in {{0.5: \"a\"}} "
+            "but not present in {{0.50000006: \"a\"}}.\n");
+
+  EXPECT_TRUE(InternalValue::Equals(
+      map_3, map_4,
+      ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                .reason = &why}))
+      << why;
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_5, map_6,
+      ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                .reason = &why}));
+  EXPECT_EQ(why,
+            "The value for key {0.50000006} did not match. Value was {\"b\"} "
+            "and {\"a\"} in respective maps {{0.5: \"a\", 0.50000006: \"b\"}} "
+            "and {{0.5: \"a\", 0.50000006: \"a\"}}.\n");
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_6, map_5,
+      ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                .reason = &why}));
+  EXPECT_EQ(why,
+            "The value for key {0.50000006} did not match. Value was {\"b\"} "
+            "and {\"a\"} in respective maps {{0.5: \"a\", 0.50000006: \"b\"}} "
+            "and {{0.5: \"a\", 0.50000006: \"a\"}}.\n");
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_7, map_8,
+      ValueEqualityCheckOptions{.float_margin = kExactFloatMargin,
+                                .reason = &why}));
+  EXPECT_EQ(why,
+            "The value for key {NULL} did not match. Value was {0.5} and "
+            "{0.50000006} in respective maps {{NULL: 0.5}} and {{NULL: "
+            "0.50000006}}.\n");
+
+  EXPECT_TRUE(InternalValue::Equals(
+      map_1, map_2,
+      ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                .reason = &why}));
+  EXPECT_THAT(why, Eq("")) << "Reason should not be set when values are equal.";
+}
+
+TEST_F(ValueTest, MapValueEqualityWithArrayBagValues) {
+  auto map_1 = Map({
+      {"k1", Array({"a", "b"})},
+      {"k2", Array({"c", "d"})},
+  });
+
+  // map_2 is map_1 but with "k1"=>["b", "a"](bag)
+  auto map_2 = Map({
+      {"k1", Array({"b", "a"}, InternalValue::kIgnoresOrder)},
+      {"k2", Array({"c", "d"})},
+  });
+
+  // map_3 is map_1 but with "k2"=>["d", "c"](ord)
+  auto map_3 = Map({
+      {"k1", Array({"a", "b"}, InternalValue::kIgnoresOrder)},
+      {"k2", Array({"d", "c"})},
+  });
+
+  EXPECT_TRUE(InternalValue::Equals(map_1, map_1));
+  EXPECT_TRUE(InternalValue::Equals(map_2, map_2));
+
+  EXPECT_TRUE(InternalValue::Equals(map_1, map_2));
+  EXPECT_TRUE(InternalValue::Equals(map_2, map_1));
+
+  std::string why = "";
+  // map_1 and map_3 are considered equal, since the map value arrays will all
+  // be considered as bags. (See also:
+  // ValueTest::AsymmetricNestedArrayBagEqualityConsidersOrderednessBySlot)
+  EXPECT_TRUE(InternalValue::Equals(map_1, map_3,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_TRUE(InternalValue::Equals(map_3, map_1,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_THAT(why, Eq("")) << "Reason should not be set when values are equal.";
+}
+
+TEST_F(ValueTest, MapValueEqualityWithOrderedArrayValues) {
+  auto map_1 = Map({
+      {"k1", Array({"a", "b"})},
+      {"k2", Array({"c", "d"})},
+  });
+
+  // map_2 is map_1 but with "k1"=>["b", "a"]
+  auto map_2 = Map({
+      {"k1", Array({"b", "a"})},
+      {"k2", Array({"c", "d"})},
+  });
+
+  // map_3 is map_1 but with "k2"=>["d", "c"](ord)
+  auto map_3 = Map({
+      {"k1", Array({"a", "b"})},
+      {"k2", Array({"d", "c"})},
+  });
+
+  std::string why = "";
+  EXPECT_TRUE(InternalValue::Equals(map_1, map_1,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_TRUE(InternalValue::Equals(map_2, map_2,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_THAT(why, Eq("")) << "Reason should not be set when values are equal.";
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_1, map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k1\"} did not match."));
+  EXPECT_FALSE(InternalValue::Equals(
+      map_2, map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k1\"} did not match."));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      map_1, map_3, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k2\"} did not match."));
+  EXPECT_FALSE(InternalValue::Equals(
+      map_3, map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k2\"} did not match."));
+}
+
+class MapValueEqualityTest
+    : public ::testing::TestWithParam<std::tuple<Value, Value>> {};
+
+TEST_P(MapValueEqualityTest, MapValueEqualityWithArrayBagKeysAndValues2) {
+  auto [map_a, map_b] = GetParam();
+
+  std::string why = "";
+  EXPECT_TRUE(InternalValue::Equals(map_a, map_b,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_TRUE(InternalValue::Equals(map_b, map_a,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+  EXPECT_THAT(why, Eq("")) << "Reason should not be set when values are equal.";
+}
+
+// All MAP values in this dataset are equivalent.
+std::vector<Value> MapValueEqualityWithArrayBagKeysAndValuesTestDataEqual() {
+  return std::vector<Value>{
+      Map({
+          {Array({"k1", "k99"}, InternalValue::kIgnoresOrder),
+           Array({"a", "b"}, InternalValue::kIgnoresOrder)},
+          {Array({"k2", "k2b"}), Array({"c", "d"})},
+      }),
+      Map({
+          {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+           Array({"a", "b"}, InternalValue::kIgnoresOrder)},
+          {Array({"k2", "k2b"}), Array({"d", "c"})},
+      }),
+      Map({
+          {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+           Array({"b", "a"}, InternalValue::kIgnoresOrder)},
+          {Array({"k2", "k2b"}), Array({"d", "c"})},
+      }),
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MapValueEqualityTest, MapValueEqualityTest,
+    ::testing::Combine(
+        ::testing::ValuesIn(
+            MapValueEqualityWithArrayBagKeysAndValuesTestDataEqual()),
+        ::testing::ValuesIn(
+            MapValueEqualityWithArrayBagKeysAndValuesTestDataEqual())));
+
+TEST_F(ValueTest, MapValueInequalityWithArrayBagKeysAndValues) {
+  auto arrkey_map_1 = Map({
+      {Array({"k1", "k99"}, InternalValue::kIgnoresOrder),
+       Array({"a", "b"}, InternalValue::kIgnoresOrder)},
+      {Array({"k2", "k2b"}), Array({"c", "d"})},
+  });
+
+  auto arrkey_map_2 = Map({
+      {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+       Array({"a", "b"}, InternalValue::kIgnoresOrder)},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+
+  auto arrkey_map_3 = Map({
+      {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+       Array({"b", "a"}, InternalValue::kIgnoresOrder)},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+  auto arrkey_map_4 = Map({
+      {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+       Array({"b", "x"}, InternalValue::kIgnoresOrder)},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+  auto arrkey_map_5 = Map({
+      {Array({"k99", "k1"}, InternalValue::kIgnoresOrder),
+       Array({"b", "a"}, InternalValue::kIgnoresOrder)},
+      {Array({"k2", "k2b"}), Array({"c", "x"})},
+  });
+
+  // Equality of maps 1-3 is checked in the parameterized test above.
+
+  std::string why = "";
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("The value for key {[\"k1\", \"k99\"]} did not match"));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("The value for key {[\"k99\", \"k1\"]} did not match"));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_2, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_3, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_3, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+
+  EXPECT_TRUE(InternalValue::Equals(arrkey_map_4, arrkey_map_4,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_5, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("Value was {[\"c\", \"d\"]} and {[\"c\", \"x\"]} "
+                             "in respective maps"));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_5, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("Value was {[\"c\", \"x\"]} and {[\"c\", \"d\"]} "
+                             "in respective maps"));
+  EXPECT_TRUE(InternalValue::Equals(arrkey_map_5, arrkey_map_5,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+}
+
+TEST_F(ValueTest, MapValueEqualityWithOrderedArrayKeysAndValues) {
+  auto arrkey_map_1 = Map({
+      {Array({"k1", "k99"}), Array({"a", "b"})},
+      {Array({"k2", "k2b"}), Array({"c", "d"})},
+  });
+
+  auto arrkey_map_2 = Map({
+      {Array({"k99", "k1"}), Array({"a", "b"})},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+
+  auto arrkey_map_3 = Map({
+      {Array({"k99", "k1"}), Array({"b", "a"})},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+  auto arrkey_map_4 = Map({
+      {Array({"k99", "k1"}), Array({"b", "x"})},
+      {Array({"k2", "k2b"}), Array({"d", "c"})},
+  });
+  auto arrkey_map_5 = Map({
+      {Array({"k99", "k1"}), Array({"b", "a"})},
+      {Array({"k2", "k2b"}), Array({"c", "x"})},
+  });
+
+  std::string why = "";
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("Key {[\"k1\", \"k99\"]} did not exist in both maps"));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_2, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(
+      why, HasSubstr(
+               "The value for key {[\"k2\", \"k2b\"]} did not match. Value was "
+               "{[\"d\", \"c\"]} and {[\"c\", \"d\"]} in respective maps"));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_3, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("Key {[\"k1\", \"k99\"]} did not exist in both maps"));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_3, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("The value for key {[\"k2\", \"k2b\"]} did not match"));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_2, arrkey_map_3, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("The value for key {[\"k99\", \"k1\"]} did not match"));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_3, arrkey_map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why,
+              HasSubstr("The value for key {[\"k99\", \"k1\"]} did not match"));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_2, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_4, arrkey_map_3, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_3, arrkey_map_4, ValueEqualityCheckOptions{.reason = &why}));
+
+  EXPECT_TRUE(InternalValue::Equals(arrkey_map_4, arrkey_map_4,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_1, arrkey_map_5, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_FALSE(InternalValue::Equals(
+      arrkey_map_5, arrkey_map_1, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_TRUE(InternalValue::Equals(arrkey_map_5, arrkey_map_5,
+                                    ValueEqualityCheckOptions{.reason = &why}))
+      << why;
+}
+
+TEST_F(ValueTest, MapValueEqualityNestedInContainer) {
+  auto nested_map_1 = Map({{"k1", Map({{"n1", "a"}})}});
+  auto nested_map_2 = Map({{"k1", Map({{"n1", "b"}})}});
+  auto map_in_array_1 = Array({nested_map_1, nested_map_2});
+  auto map_in_struct_1 = Struct({""}, {nested_map_1});
+  auto map_in_struct_2 = Struct({""}, {nested_map_2});
+
+  std::string why = "";
+
+  EXPECT_TRUE(InternalValue::Equals(nested_map_1, nested_map_1));
+
+  EXPECT_FALSE(InternalValue::Equals(
+      nested_map_1, nested_map_2, ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k1\"} did not match"));
+
+  EXPECT_TRUE(InternalValue::Equals(map_in_array_1, map_in_array_1));
+  EXPECT_TRUE(InternalValue::Equals(map_in_struct_1, map_in_struct_1));
+  EXPECT_FALSE(
+      InternalValue::Equals(map_in_struct_1, map_in_struct_2,
+                            ValueEqualityCheckOptions{.reason = &why}));
+  EXPECT_THAT(why, HasSubstr("The value for key {\"k1\"} did not match"));
+}
+
 // A sanity test to make sure EqualsInternal does not blow up in the case
 // where structs have different numbers of fields.
 TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
@@ -3308,6 +3806,21 @@ TEST_F(ValueTest, HashSet) {
 
   EXPECT_EQ(false, s.insert(array1).second);
   EXPECT_EQ(false, s.insert(array2).second);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type_int64,
+                       MakeMapType(types::Int64Type(), types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type_string,
+                       MakeMapType(types::StringType(), types::StringType()));
+
+  EXPECT_TRUE(s.insert(Null(map_type_int64)).second);
+  EXPECT_TRUE(s.insert(Null(map_type_string)).second);
+  EXPECT_FALSE(s.insert(Null(map_type_int64)).second);
+  EXPECT_FALSE(s.insert(Null(map_type_string)).second);
+
+  EXPECT_TRUE(s.insert(Map({{"a", 1}, {"b", 2}})).second);
+  EXPECT_FALSE(s.insert(Map({{"a", 1}, {"b", 2}})).second);
+  EXPECT_TRUE(s.insert(Map({{1, "a"}, {2, "b"}})).second);
+  EXPECT_FALSE(s.insert(Map({{1, "a"}, {2, "b"}})).second);
 }
 
 TEST_F(ValueTest, TimestampBounds) {
@@ -4932,6 +5445,14 @@ TEST_F(ValueTest, Serialize) {
        {"p", Null(GetTestProtoType())},
        {"s", Struct({{"a", Array({NullInt64(), Int64(999)})},
                      {"t", TimestampFromUnixMicros(1430855635016138)}})}}));
+  SerializeDeserialize(Array({Struct(
+      {{"a", Int32Array({0, 1, 2, 3, 4, 5})},
+       {"b", Bytes("\001\000\002\005")},
+       {"d", Date(365)},
+       {"e", Struct({})},
+       {"p", Null(GetTestProtoType())},
+       {"s", Struct({{"a", Array({NullInt64(), Int64(999)})},
+                     {"t", TimestampFromUnixMicros(1430855635016138)}})}})}));
 }
 
 TEST_F(ValueTest, Serialize_NullRangesSucceed) {

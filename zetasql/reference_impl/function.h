@@ -258,8 +258,8 @@ enum class FunctionKind {
   // MaybeSetNonDeterministicArrayOutput.
   kProtoMapAtKey,
   kSafeProtoMapAtKey,
-  kContainsKey,
-  kModifyMap,
+  kProtoMapContainsKey,
+  kProtoModifyMap,
   // JSON functions
   kJsonExtract,
   kJsonExtractScalar,

@@ -269,11 +269,11 @@ absl::Status CollectSortUniqueColumnRefs(
 
 // A shallow-copy rewriter that replaces column ids allocated by a different
 // ColumnFactory and remaps the columns so that columns in the copy are
-// allocated by 'column_factory'.
+// allocated by `column_factory`.
 class ColumnRemappingResolvedASTRewriter : public ResolvedASTRewriteVisitor {
  public:
   ColumnRemappingResolvedASTRewriter(ColumnReplacementMap& column_map,
-                                     ColumnFactory& column_factory)
+                                     ColumnFactory* column_factory)
       : column_map_(column_map), column_factory_(column_factory) {}
 
   absl::StatusOr<ResolvedColumn> PostVisitResolvedColumn(
@@ -283,7 +283,10 @@ class ColumnRemappingResolvedASTRewriter : public ResolvedASTRewriteVisitor {
       return it->second;
     }
 
-    ResolvedColumn new_column = column_factory_.MakeCol(
+    if (column_factory_ == nullptr) {
+      return column;
+    }
+    ResolvedColumn new_column = column_factory_->MakeCol(
         column.table_name(), column.name(), column.annotated_type());
     column_map_[column] = new_column;
     return new_column;
@@ -295,8 +298,9 @@ class ColumnRemappingResolvedASTRewriter : public ResolvedASTRewriteVisitor {
   ColumnReplacementMap& column_map_;
 
   // All ResolvedColumns in the copied ResolvedAST will have new column ids
-  // allocated by `column_factory_`.
-  ColumnFactory& column_factory_;
+  // allocated by `column_factory_`. If this is a nullptr, ignore columns that
+  // are not in `column_map_`.
+  ColumnFactory* column_factory_;
 };
 
 // A visitor that copies a ResolvedAST with columns ids allocated by a
@@ -339,7 +343,7 @@ CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
 
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RemapColumnsImpl(
     std::unique_ptr<const ResolvedNode> input_tree,
-    ColumnFactory& column_factory, ColumnReplacementMap& column_map) {
+    ColumnFactory* column_factory, ColumnReplacementMap& column_map) {
   ColumnRemappingResolvedASTRewriter rewriter(column_map, column_factory);
   return rewriter.VisitAll(std::move(input_tree));
 }
@@ -936,6 +940,125 @@ FunctionCallBuilder::Less(std::unique_ptr<const ResolvedExpr> left_expr,
 }
 
 namespace {
+
+// Represents the input argument type to CONCAT.
+enum class ConcatInputArgKind {
+  // The input argument type to CONCAT is invalid.
+  kInvalid,
+  // The input argument type to CONCAT is STRING.
+  kString,
+  // The input argument type to CONCAT is BYTES.
+  kBytes,
+};
+
+// Converts the given `type` to the corresponding `ConcatInputArgKind`.
+ConcatInputArgKind GetConcatInputArgKind(const Type* type) {
+  if (type->IsString()) {
+    return ConcatInputArgKind::kString;
+  }
+  if (type->IsBytes()) {
+    return ConcatInputArgKind::kBytes;
+  }
+  return ConcatInputArgKind::kInvalid;
+}
+
+// Validates the input arguments to CONCAT:
+// - The input `elements` is not empty.
+// - All input arguments have the same type, which is either STRING or BYTES.
+absl::Status ValidateConcatInputArgs(
+    const std::vector<std::unique_ptr<const ResolvedExpr>>& elements) {
+  ZETASQL_RET_CHECK(!elements.empty());
+
+  const Type* type = elements[0]->type();
+  const ConcatInputArgKind input_kind = GetConcatInputArgKind(type);
+  ZETASQL_RET_CHECK(input_kind != ConcatInputArgKind::kInvalid)
+      << "Invalid element type: " << type->DebugString();
+
+  for (const auto& element : elements) {
+    ZETASQL_RET_CHECK(GetConcatInputArgKind(element->type()) == input_kind)
+        << "Input elements contain different types: "
+        << element->type()->DebugString() << " vs " << type->DebugString();
+  }
+  return absl::OkStatus();
+}
+
+// Returns the CONCAT signature that matches the given `input_kind`.
+// Returns an error if no such signature is found.
+absl::StatusOr<const FunctionSignature*> GetConcatFunctionSignature(
+    const Function* concat_fn, ConcatInputArgKind input_kind) {
+  FunctionSignatureId target_signature_id;
+  switch (input_kind) {
+    case ConcatInputArgKind::kString:
+      target_signature_id = FN_CONCAT_STRING;
+      break;
+    case ConcatInputArgKind::kBytes:
+      target_signature_id = FN_CONCAT_BYTES;
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Invalid input kind";
+  }
+
+  for (int i = 0; i < concat_fn->signatures().size(); ++i) {
+    const FunctionSignature* signature = concat_fn->GetSignature(i);
+    if (signature->context_id() == target_signature_id) {
+      return signature;
+    }
+  }
+  ZETASQL_RET_CHECK_FAIL() << "Cannot find CONCAT signature with input argument type "
+                   << (input_kind == ConcatInputArgKind::kString ? "STRING"
+                                                                 : "BYTES")
+                   << " in the catalog";
+}
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::Concat(
+    std::vector<std::unique_ptr<const ResolvedExpr>> elements) {
+  ZETASQL_RETURN_IF_ERROR(ValidateConcatInputArgs(elements));
+
+  const Type* type = elements[0]->type();
+  ConcatInputArgKind input_kind = GetConcatInputArgKind(type);
+
+  const Function* concat_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("concat", &concat_fn));
+  ZETASQL_RET_CHECK_EQ(concat_fn->signatures().size(), 2);
+
+  ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* catalog_signature,
+                   GetConcatFunctionSignature(concat_fn, input_kind));
+  ZETASQL_RET_CHECK(catalog_signature != nullptr);
+
+  ZETASQL_RET_CHECK_EQ(catalog_signature->arguments().size(), 2);
+  FunctionArgumentType result_type(catalog_signature->result_type().type(),
+                                   catalog_signature->result_type().options(),
+                                   /*num_occurrences=*/1);
+  FunctionArgumentType first_arg(catalog_signature->argument(0).type(),
+                                 catalog_signature->argument(0).options(),
+                                 /*num_occurrences=*/1);
+  // The 2nd arg is a repeated arg.
+  FunctionArgumentType remaining_args(
+      catalog_signature->argument(1).type(),
+      catalog_signature->argument(1).options(),
+      /*num_occurrences=*/static_cast<int>(elements.size()) - 1);
+
+  FunctionSignature concat_signature(result_type, {first_arg, remaining_args},
+                                     catalog_signature->context_id(),
+                                     catalog_signature->options());
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_function,
+      ResolvedFunctionCallBuilder()
+          .set_type(catalog_signature->result_type().type())
+          .set_function(concat_fn)
+          .set_signature(concat_signature)
+          .set_argument_list(std::move(elements))
+          .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+          .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+          .Build());
+  return resolved_function;
+}
+
+namespace {
 absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
     const Function* function, const Type* left_expr_type,
     const Type* right_expr_type) {
@@ -1176,6 +1299,42 @@ FunctionCallBuilder::ArrayLength(
       .set_function(array_length_fn)
       .set_signature(concrete_signature)
       .set_argument_list(std::move(args))
+      .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+      .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+      .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::ArrayIsDistinct(
+    std::unique_ptr<const ResolvedExpr> array_expr) {
+  ZETASQL_RET_CHECK_NE(array_expr.get(), nullptr);
+  ZETASQL_RET_CHECK(array_expr->type()->IsArray());
+  const Function* array_is_distinct_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("array_is_distinct",
+                                                &array_is_distinct_fn));
+
+  ZETASQL_RET_CHECK_EQ(array_is_distinct_fn->signatures().size(), 1);
+  const FunctionSignature* catalog_signature =
+      array_is_distinct_fn->GetSignature(0);
+  ZETASQL_RET_CHECK(catalog_signature != nullptr);
+  ZETASQL_RET_CHECK_EQ(catalog_signature->arguments().size(), 1);
+
+  FunctionArgumentType result_type(types::BoolType(),
+                                   catalog_signature->result_type().options(),
+                                   /*num_occurrences=*/1);
+  FunctionArgumentType arg_type(array_expr->type(),
+                                catalog_signature->argument(0).options(),
+                                /*num_occurrences=*/1);
+
+  FunctionSignature concrete_signature(result_type, {arg_type},
+                                       catalog_signature->context_id(),
+                                       catalog_signature->options());
+
+  return ResolvedFunctionCallBuilder()
+      .set_type(types::BoolType())
+      .set_function(array_is_distinct_fn)
+      .set_signature(concrete_signature)
+      .add_argument_list(std::move(array_expr))
       .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
       .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
       .Build();

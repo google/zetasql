@@ -3109,7 +3109,7 @@ FROM (select as struct
 ) t
 GROUP BY x.b
 --
-ERROR: An expression references column x which is neither grouped nor aggregated [at 3:20]
+ERROR: SELECT expression references column x which is neither grouped nor aggregated [at 3:20]
   SELECT as struct x, y FROM (select 1) GROUP BY t.x
                    ^
 ==

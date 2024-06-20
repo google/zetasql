@@ -22,7 +22,6 @@ _do not allow_ users to specify the precision for the estimation with
 sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
-+  [KLL functions][kll-functions] to estimate quantile values.
 
 ### Function list
 

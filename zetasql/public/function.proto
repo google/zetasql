@@ -167,7 +167,7 @@ enum SignatureArgumentKind {
   // must be of the same concrete type.
   // e.g.:
   //   RANGE(<date>, <date>) -> <date>
-  ARG_RANGE_TYPE_ANY = 18;
+  ARG_RANGE_TYPE_ANY_1 = 18;
 
   // Sequence type.
   ARG_TYPE_SEQUENCE = 22;

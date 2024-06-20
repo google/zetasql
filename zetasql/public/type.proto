@@ -25,7 +25,7 @@ option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLType";
 
-// NEXT_ID: 33
+// NEXT_ID: 34
 enum TypeKind {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.

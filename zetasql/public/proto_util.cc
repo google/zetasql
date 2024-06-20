@@ -1237,8 +1237,8 @@ absl::Status ParseProtoMap(const Value& array_of_map_entry,
                            const Type* key_type, const Type* value_type,
                            std::vector<std::pair<Value, Value>>& output) {
   // `value_type` can be null pointer in cases such as when we are implementing
-  // `CONTAINS_KEY`. In that case, we don't need the value type and plumbing
-  // it properly in the reference implementation is also non-trivail.
+  // `PROTO_MAP_CONTAINS_KEY`. In that case, we don't need the value type and
+  // plumbing it properly in the reference implementation is also non-trivail.
   ZETASQL_RET_CHECK(key_type != nullptr);
   if (!IsProtoMap(array_of_map_entry.type())) {
     return absl::InvalidArgumentError(

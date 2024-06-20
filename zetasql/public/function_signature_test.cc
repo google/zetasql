@@ -1883,7 +1883,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_CONNECTION);
   templated_kinds.insert(ARG_TYPE_DESCRIPTOR);
   templated_kinds.insert(ARG_TYPE_LAMBDA);
-  templated_kinds.insert(ARG_RANGE_TYPE_ANY);
+  templated_kinds.insert(ARG_RANGE_TYPE_ANY_1);
   templated_kinds.insert(ARG_TYPE_SEQUENCE);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
@@ -2369,9 +2369,9 @@ INSTANTIATE_TEST_SUITE_P(
         {.result_type = {ARG_TYPE_ANY_2}, .arguments = {ARG_ARRAY_TYPE_ANY_1}},
         // Templated range type should fail if corresponding ANY type is not
         // present.
-        {.result_type = {ARG_RANGE_TYPE_ANY}, .arguments = {}},
-        {.result_type = {ARG_RANGE_TYPE_ANY}, .arguments = {ARG_TYPE_ANY_2}},
-        {.result_type = {ARG_TYPE_ANY_2}, .arguments = {ARG_RANGE_TYPE_ANY}},
+        {.result_type = {ARG_RANGE_TYPE_ANY_1}, .arguments = {}},
+        {.result_type = {ARG_RANGE_TYPE_ANY_1}, .arguments = {ARG_TYPE_ANY_2}},
+        {.result_type = {ARG_TYPE_ANY_2}, .arguments = {ARG_RANGE_TYPE_ANY_1}},
         // Templated map result type should fail if key and value are not both
         // present.
         {.result_type = {ARG_MAP_TYPE_ANY_1_2}, .arguments = {}},

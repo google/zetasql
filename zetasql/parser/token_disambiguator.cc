@@ -88,6 +88,7 @@ using Token = TokenKinds;
 using TokenKind = int;
 using Location = ParseLocationRange;
 using TokenWithLocation = macros::TokenWithLocation;
+using DiagnosticOptions = macros::DiagnosticOptions;
 using FlexTokenProvider = macros::FlexTokenProvider;
 using MacroCatalog = macros::MacroCatalog;
 using MacroExpander = macros::MacroExpander;
@@ -472,14 +473,6 @@ TokenKind DisambiguatorLexer::ApplyTokenDisambiguation(
   }
 
   switch (Lookback1()) {
-    case Token::KW_WITH_IN_SELECT_WITH_OPTIONS: {
-      if (token == Token::IDENTIFIER && Lookahead1() == Token::KW_OPTIONS &&
-          Lookahead2() == '(') {
-        lookahead_1_->token.kind = Token::KW_OPTIONS_IN_SELECT_WITH_OPTIONS;
-        return token;
-      }
-      break;
-    }
     case Token::LB_DOT_IN_PATH_EXPRESSION:
     case '@':
     case Token::KW_DOUBLE_AT:
@@ -491,6 +484,12 @@ TokenKind DisambiguatorLexer::ApplyTokenDisambiguation(
   }
 
   switch (token) {
+    case Token::KW_OPTIONS:
+      if (Lookback2() == Token::LB_WITH_IN_SELECT_WITH_OPTIONS &&
+          Lookahead1() == '(') {
+        return Token::KW_OPTIONS_IN_SELECT_WITH_OPTIONS;
+      }
+      break;
     case Token::KW_UPDATE:
     case Token::KW_REPLACE:
       if (Lookback1() == Token::KW_INSERT) {
@@ -984,7 +983,7 @@ absl::StatusOr<std::unique_ptr<DisambiguatorLexer>> DisambiguatorLexer::Create(
     macro_expander = std::make_unique<MacroExpander>(
         std::move(token_provider), language_options, *macro_catalog, arena,
         // TODO: pass the real ErrorMessageOptions.
-        ErrorMessageOptions{}, /*parent_location=*/nullptr);
+        DiagnosticOptions{}, /*parent_location=*/nullptr);
   } else {
     ZETASQL_RET_CHECK(macro_catalog == nullptr);
     macro_expander = std::make_unique<NoOpExpander>(std::move(token_provider));

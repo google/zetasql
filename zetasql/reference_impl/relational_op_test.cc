@@ -4767,5 +4767,138 @@ TEST(TimeoutTest, LongTimeout) {
   ZETASQL_EXPECT_OK(ReadFromTupleIterator(iter.get()).status());
 }
 
+TEST(BarrierScanTest, Basic) {
+  VariableId x("x");
+  std::vector<TupleData> input_tuples = {
+      CreateTestTupleData({Int64(1)}),
+      CreateTestTupleData({Int64(2)}),
+  };
+  std::unique_ptr<RelationalOp> input_op = std::make_unique<TestRelationalOp>(
+      std::vector<VariableId>{x}, input_tuples, /*preserves_order=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<BarrierScanOp> barrier_scan_op,
+                       BarrierScanOp::Create(std::move(input_op)));
+
+  EXPECT_EQ(barrier_scan_op->IteratorDebugString(),
+            "BarrierScanTupleIterator(TestTupleIterator)");
+  EXPECT_EQ(barrier_scan_op->DebugString(),
+            "BarrierScanOp(\n"
+            "+-input: TestRelationalOp)");
+  std::unique_ptr<TupleSchema> output_schema =
+      barrier_scan_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(x));
+
+  // `scramble_undefined_orderings` should have no effect because `input_op`
+  // preserves order and barrier op propagates the order.
+  EvaluationContext context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       barrier_scan_op->CreateIterator(
+                           EmptyParams(), /*num_extra_slots=*/0, &context));
+  EXPECT_EQ(iter->DebugString(), "BarrierScanTupleIterator(TestTupleIterator)");
+  EXPECT_TRUE(iter->PreservesOrder());
+  EXPECT_THAT(ReadFromTupleIterator(iter.get()),
+              IsOkAndHolds(ElementsAre(input_tuples[0], input_tuples[1])));
+}
+
+TEST(BarrierScanTest, InputScanIsUnordered) {
+  VariableId x("x");
+  std::vector<TupleData> input_tuples = {
+      CreateTestTupleData({Int64(1)}),
+      CreateTestTupleData({Int64(2)}),
+  };
+  std::unique_ptr<RelationalOp> input_op = std::make_unique<TestRelationalOp>(
+      std::vector<VariableId>{x}, input_tuples, /*preserves_order=*/false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<BarrierScanOp> barrier_scan_op,
+                       BarrierScanOp::Create(std::move(input_op)));
+
+  EvaluationContext context(GetScramblingEvaluationOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
+                       barrier_scan_op->CreateIterator(
+                           EmptyParams(), /*num_extra_slots=*/0, &context));
+  // Because `scramble_undefined_orderings` is true and the input scan is
+  // unordered, the output row order is scrambled.
+  EXPECT_FALSE(iter->PreservesOrder());
+  EXPECT_THAT(ReadFromTupleIterator(iter.get()),
+              IsOkAndHolds(ElementsAre(input_tuples[1], input_tuples[0])));
+}
+
+// BarrierScanOp as an input_scan for a ComputeOp.
+TEST(BarrierScanTest, WrappedBarrierScanOp) {
+  // Creates a BarrierScanOp with two columns a and b.
+  VariableId a("a");
+  VariableId b("b");
+  std::vector<TupleData> test_values =
+      CreateTestTupleDatas({{Int64(1), Int64(10)}, {Int64(2), Int64(20)}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<BarrierScanOp> barrier_scan_op,
+                       BarrierScanOp::Create(std::make_unique<TestRelationalOp>(
+                           std::vector<VariableId>{a, b}, test_values,
+                           /*preserves_order=*/true)));
+
+  // Creates a ComputeOp with "a + b" and a param wrapping the BarrierScanOp.
+  VariableId plus("plus");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
+  std::vector<std::unique_ptr<ValueExpr>> plus_args;
+  plus_args.push_back(std::move(deref_a));
+  plus_args.push_back(std::move(deref_b));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto plus_expr,
+                       ScalarFunctionCallExpr::Create(
+                           CreateFunction(FunctionKind::kAdd, Int64Type()),
+                           std::move(plus_args), DEFAULT_ERROR_MODE));
+
+  VariableId param("param");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param,
+                       DerefExpr::Create(param, StringType()));
+
+  std::vector<std::unique_ptr<ExprArg>> args;
+  args.push_back(std::make_unique<ExprArg>(plus, std::move(plus_expr)));
+  args.push_back(std::make_unique<ExprArg>(param, std::move(deref_param)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto compute_op,
+      ComputeOp::Create(std::move(args), std::move(barrier_scan_op)));
+
+  // Some basic checks for the ComputeOp.
+  EXPECT_EQ(
+      compute_op->IteratorDebugString(),
+      "ComputeTupleIterator(BarrierScanTupleIterator(TestTupleIterator))");
+  EXPECT_EQ(compute_op->DebugString(),
+            "ComputeOp(\n"
+            "+-map: {\n"
+            "| +-$plus := Add($a, $b),\n"
+            "| +-$param := $param},\n"
+            "+-input: BarrierScanOp(\n"
+            "  +-input: TestRelationalOp))");
+  std::unique_ptr<TupleSchema> output_schema = compute_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(a, b, plus, param));
+
+  // Evaluate the ComputeOp.
+  TupleSchema params_schema({param});
+  TupleData params_data = CreateTestTupleData({String("string")});
+  ZETASQL_ASSERT_OK(compute_op->SetSchemasForEvaluation({&params_schema}));
+
+  EvaluationOptions options;
+  EvaluationContext context(options);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      compute_op->CreateIterator({&params_data},
+                                 /*num_extra_slots=*/1, &context));
+  EXPECT_TRUE(iter->PreservesOrder());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+  ASSERT_EQ(data.size(), 2);
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()),
+                          IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(11), IsNull()),
+                          IsTupleSlotWith(String("string"), IsNull()), _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()),
+                          IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(22), IsNull()),
+                          IsTupleSlotWith(String("string"), IsNull()), _));
+}
+
 }  // namespace
 }  // namespace zetasql

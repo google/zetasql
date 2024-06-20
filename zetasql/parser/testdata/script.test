@@ -466,3 +466,180 @@ ERROR: Syntax error: Unexpected keyword IF [at 1:8]
 ERROR: Syntax error: Expected end of input but got keyword END [at 1:10]
 @1 BEGIN END;
          ^
+==
+
+[language_features=V_1_4_SQL_MACROS]
+# Cannot create macros except at the top level
+IF true THEN
+  {{SELECT 1;|}}
+  {{/*comment*/|}} DEFINE MACRO m 1;
+END IF;
+--
+ALTERNATION GROUP: SELECT 1;,/*comment*/
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:15]
+  /*comment*/ DEFINE MACRO m 1;
+              ^
+--
+ALTERNATION GROUP: SELECT 1;,
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:4]
+   DEFINE MACRO m 1;
+   ^
+--
+ALTERNATION GROUP: /*comment*/
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:22]
+  /*comment*/ DEFINE MACRO m 1;
+                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:11]
+   DEFINE MACRO m 1;
+          ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_FOR_IN]
+# Cannot create macros except at the top level
+FOR x IN (SELECT 0) DO
+  {{SELECT 1;|}}
+  {{/*comment*/|}} DEFINE MACRO m 1;
+END FOR
+--
+ALTERNATION GROUP: SELECT 1;,/*comment*/
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:15]
+  /*comment*/ DEFINE MACRO m 1;
+              ^
+--
+ALTERNATION GROUP: SELECT 1;,
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:4]
+   DEFINE MACRO m 1;
+   ^
+--
+ALTERNATION GROUP: /*comment*/
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:22]
+  /*comment*/ DEFINE MACRO m 1;
+                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:11]
+   DEFINE MACRO m 1;
+          ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Cannot create macros except at the top level
+REPEAT
+  {{SELECT 1;|}}
+  {{/*comment*/|}} DEFINE MACRO m 1;
+UNTIL TRUE
+END REPEAT;
+--
+ALTERNATION GROUP: SELECT 1;,/*comment*/
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:15]
+  /*comment*/ DEFINE MACRO m 1;
+              ^
+--
+ALTERNATION GROUP: SELECT 1;,
+--
+ERROR: DEFINE MACRO statements cannot be nested under other statements or blocks. [at 4:4]
+   DEFINE MACRO m 1;
+   ^
+--
+ALTERNATION GROUP: /*comment*/
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:22]
+  /*comment*/ DEFINE MACRO m 1;
+                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: DEFINE MACRO statements cannot be composed from other expansions [at 4:11]
+   DEFINE MACRO m 1;
+          ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions
+DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
+IF true THEN
+  SELECT 1;
+  $defm();
+END IF;
+--
+ERROR: Syntax error: Unexpected "$defm" [at 5:3]
+  $defm();
+  ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions
+DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
+FOR x IN (SELECT 0) DO
+  SELECT 1;
+  $defm();
+END FOR
+--
+ERROR: Syntax error: Unexpected "$defm" [at 5:3]
+  $defm();
+  ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions
+DEFINE MACRO defm /*comment*/ DEFINE MACRO m 1;
+REPEAT
+  SELECT 1;
+  defm();
+UNTIL TRUE
+END REPEAT;
+--
+ERROR: Syntax error: Unexpected identifier "defm" [at 5:3]
+  defm();
+  ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions, with hints
+DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
+IF true THEN
+  SELECT 1;
+  $defm();
+END IF;
+--
+ERROR: Syntax error: Unexpected "$defm" [at 5:3]
+  $defm();
+  ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions, with hints
+DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
+FOR x IN (SELECT 0) DO
+  SELECT 1;
+  $defm();
+END FOR
+--
+ERROR: Syntax error: Unexpected "$defm" [at 5:3]
+  $defm();
+  ^
+==
+
+[language_features=V_1_4_SQL_MACROS,V_1_3_REPEAT]
+# Macro definitions cannot be composed from other expansions, with hints
+DEFINE MACRO defm @{hint=1} /*comment*/ DEFINE MACRO m 1;
+REPEAT
+  SELECT 1;
+  defm();
+UNTIL TRUE
+END REPEAT;
+--
+ERROR: Syntax error: Unexpected identifier "defm" [at 5:3]
+  defm();
+  ^

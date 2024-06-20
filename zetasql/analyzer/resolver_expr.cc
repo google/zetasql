@@ -1836,8 +1836,10 @@ absl::Status Resolver::ResolveParameterExpr(
            << "Query parameters cannot be used inside generated columns";
   }
   if (analyzing_check_constraint_expression_) {
-    return MakeSqlErrorAt(param_expr) << "Query parameters cannot be used "
-                                         "inside ABSL_CHECK constraint expression";
+    return MakeSqlErrorAt(param_expr)
+           << "Query parameters cannot be used inside "
+           << "CHECK constraint "
+           << "expression";
   }
   if (default_expr_access_error_name_scope_.has_value()) {
     return MakeSqlErrorAt(param_expr) << "Query parameters cannot be used "
@@ -3347,13 +3349,22 @@ absl::Status Resolver::ResolveInSubquery(
       in_subquery, subquery_scope.get(), kExprSubqueryId,
       /*is_outer_query=*/false, &resolved_in_subquery, &resolved_name_list,
       /*inferred_type_for_query=*/resolved_in_expr->type()));
+
+  // Order preservation is not relevant for IN subqueries.
+  const_cast<ResolvedScan*>(resolved_in_subquery.get())->set_is_ordered(false);
+
   if (resolved_name_list->num_columns() > 1) {
     return MakeSqlErrorAt(in_subquery)
            << "Subquery of type IN must have only one output column";
   }
 
-  // Order preservation is not relevant for IN subqueries.
-  const_cast<ResolvedScan*>(resolved_in_subquery.get())->set_is_ordered(false);
+  // If the subquery output included pseudo-columns, prune them, because
+  // the Resolved AST requires the query to produce exactly one column.
+  ZETASQL_RETURN_IF_ERROR(MaybeAddProjectForColumnPruning(*resolved_name_list,
+                                                  &resolved_in_subquery));
+  ZETASQL_RET_CHECK_EQ(resolved_in_subquery->column_list().size(), 1);
+  // Don't let the subquery output column get pruned.
+  RecordColumnAccess(resolved_in_subquery->column_list());
 
   const Type* in_expr_type = resolved_in_expr->type();
   const Type* in_subquery_type = resolved_name_list->column(0).column().type();
@@ -3658,6 +3669,11 @@ absl::Status Resolver::ResolveLikeExprSubquery(
     return MakeSqlErrorAt(like_subquery)
            << "Subquery of a LIKE expression must have only one output column";
   }
+  // This passes because ResolveQuery above ends up resolving the query as
+  // a scalar subquery, which handles the column_list pruning.
+  // TODO This needs to be fixed to generate LIKE_ANY/LIKE_ALL
+  // subqueries instead when completing the feature.
+  ZETASQL_RET_CHECK_EQ(resolved_like_subquery->column_list().size(), 1);
   // Order preservation is not relevant for LIKE subqueries.
   const_cast<ResolvedScan*>(resolved_like_subquery.get())
       ->set_is_ordered(false);
@@ -3790,7 +3806,8 @@ absl::Status Resolver::ResolveExprSubquery(
   }
   if (analyzing_check_constraint_expression_) {
     return MakeSqlErrorAt(expr_subquery)
-           << "CHECK constraint expression must not include a subquery";
+           << "CHECK constraint "
+              "expression must not include a subquery";
   }
   if (default_expr_access_error_name_scope_.has_value()) {
     return MakeSqlErrorAt(expr_subquery)
@@ -3854,6 +3871,14 @@ absl::Status Resolver::ResolveExprSubquery(
     output_type = type_factory_->get_bool();
   } else if (resolved_name_list->num_columns() == 1) {
     output_type = resolved_name_list->column(0).column().type();
+
+    // If the subquery output included pseudo-columns, prune them, because
+    // the Resolved AST requires the query to produce exactly one column.
+    ZETASQL_RETURN_IF_ERROR(
+        MaybeAddProjectForColumnPruning(*resolved_name_list, &resolved_query));
+    ZETASQL_RET_CHECK_EQ(resolved_query->column_list().size(), 1);
+    // Don't let the subquery output column get pruned.
+    RecordColumnAccess(resolved_query->column_list());
   } else {
     // The subquery has more than one column, which is not allowed without
     // SELECT AS STRUCT.
@@ -8321,11 +8346,9 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
           ast_location, resolved_function_call->release_argument_list(),
           resolved_expr_out));
     } else if (IsFlatten(function)) {
-      if (!language().LanguageFeatureEnabled(
-              FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
-        return MakeSqlErrorAt(ast_location)
-               << "The FLATTEN function is not supported";
-      }
+      ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(
+          FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS))
+          << "The FLATTEN function is not supported";
       ZETASQL_RET_CHECK_EQ(1, resolved_function_call->argument_list_size());
       *resolved_expr_out =
           std::move(resolved_function_call->release_argument_list()[0]);
@@ -8340,8 +8363,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const auto* call = (*resolved_expr_out)->GetAs<ResolvedFunctionCallBase>();
     if (call->function()->IsZetaSQLBuiltin()) {
       switch (call->signature().context_id()) {
-        case FN_CONTAINS_KEY:
-        case FN_MODIFY_MAP:
+        case FN_PROTO_MAP_CONTAINS_KEY:
+        case FN_PROTO_MODIFY_MAP:
           analyzer_output_properties_.MarkRelevant(REWRITE_PROTO_MAP_FNS);
           break;
         case FN_STRING_ARRAY_LIKE_ANY:

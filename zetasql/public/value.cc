@@ -49,6 +49,7 @@
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
@@ -654,13 +655,12 @@ static bool TypesDiffer(const Value& x, const Value& y, std::string* reason) {
   return false;
 }
 
-/* static */
-// Method needs metadata, a field of Value, so it can't be moved to Type or
-// a package that does not depend on Value
 void Value::FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec) {
   if (v.is_null()) {
     return;
   }
+
+  // TODO: b/343504941 - Move type-specific logic into respective type classes.
   switch (v.type_kind()) {
     case TYPE_ARRAY:
       if (v.order_kind() == kIgnoresOrder) {
@@ -682,6 +682,26 @@ void Value::FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec) {
         Value::FillDeepOrderKindSpec(v.field(i), &spec->children[i]);
       }
       break;
+    case TYPE_MAP: {
+      // Note: MAP always keeps spec.ignores_order as default, since this
+      // property only refers to array ordering.
+      if (spec->children.empty()) {
+        spec->children.resize(2);
+      }
+
+      ABSL_DCHECK_EQ(spec->children.size(), 2)
+          << "Malformed deep_order_spec. MAP spec should always have exactly 2 "
+             "direct children representing key and value.";
+
+      auto& map_key_spec = spec->children[0];
+      auto& map_value_spec = spec->children[1];
+
+      for (auto& [key, value] : v.map_entries()) {
+        Value::FillDeepOrderKindSpec(key, &map_key_spec);
+        Value::FillDeepOrderKindSpec(value, &map_value_spec);
+      }
+      break;
+    }
     default:
       return;
   }
@@ -1588,32 +1608,7 @@ absl::Status Value::Serialize(ValueProto* value_proto) const {
   if (is_null()) {
     return absl::OkStatus();
   }
-
-  switch (type_kind()) {
-    case TYPE_ARRAY: {
-      // Create array_value so the result array is not NULL even when there
-      // are no elements.
-      auto* array_proto = value_proto->mutable_array_value();
-      for (const Value& element : elements()) {
-        ZETASQL_RETURN_IF_ERROR(element.Serialize(array_proto->add_element()));
-      }
-      break;
-    }
-    case TYPE_STRUCT: {
-      // Create struct_value so the result struct is not NULL even when there
-      // are no fields in it.
-      auto* struct_proto = value_proto->mutable_struct_value();
-      for (const Value& field : fields()) {
-        ZETASQL_RETURN_IF_ERROR(field.Serialize(struct_proto->add_field()));
-      }
-      break;
-    }
-    default: {
-      ZETASQL_RETURN_IF_ERROR(type()->SerializeValueContent(GetContent(), value_proto));
-      break;
-    }
-  }
-  return absl::OkStatus();
+  return type()->SerializeValueContent(GetContent(), value_proto);
 }
 
 absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
@@ -1763,6 +1758,125 @@ Value::Metadata::Metadata(const Type* type, bool is_null,
 }
 
 Value::TypedList::~TypedList() {
+}
+
+Value::TypedMap::TypedMap(std::vector<std::pair<Value, Value>>& values)
+    : map_(values.begin(), values.end()) {}
+
+const ValueMap& Value::TypedMap::entries() const { return map_; }
+
+uint64_t Value::TypedMap::physical_byte_size() const {
+  uint64_t size = sizeof(TypedMap);
+  for (const auto& entry : map_) {
+    size +=
+        (entry.first.physical_byte_size() + entry.second.physical_byte_size());
+  }
+  return size;
+}
+
+int64_t Value::TypedMap::num_elements() const { return map_.size(); }
+std::vector<
+    std::pair<internal::NullableValueContent, internal::NullableValueContent>>
+Value::TypedMap::value_content_entries() const {
+  std::vector<
+      std::pair<internal::NullableValueContent, internal::NullableValueContent>>
+      elements;
+  elements.reserve(map_.size());
+  for (const auto& [key, value] : map_) {
+    elements.push_back(std::make_pair(
+        key.is_null() ? internal::NullableValueContent()
+                      : internal::NullableValueContent(key.GetContent()),
+        value.is_null() ? internal::NullableValueContent()
+                        : internal::NullableValueContent(value.GetContent())));
+  }
+  return elements;
+}
+
+std::optional<internal::NullableValueContent>
+Value::TypedMap::GetContentMapValueByKey(
+    const internal::NullableValueContent& search_key, const Type* key_type,
+    const ValueEqualityCheckOptions& options) const {
+  // TODO: b/343467677 - Improve efficiency by using find() when possible.
+  // `absl::c_find_if` is an O(n) lookup, but this could be improved to
+  // O(log(n)) in many cases using the more efficient `btree_map::find()`, if
+  // we can ensure that the btree_map's comparator will match the result of a
+  // ValueEqualityCheckOptions-aware comparison. This is generally true, with
+  // special considerations for certain cases:
+  // - If any INTERVAL type is nested in the MAP key,
+  //   options.interval_compare_mode must be kAllPartsEqual.
+  // - If any floating point type is nested in the MAP key,
+  //   options.float_margin must result in an exact equality comparison.
+  // - If any ARRAY type is nested in the MAP key, comparison must not include
+  //   any unordered array bags: options.deep_order_spec must be nullptr, or
+  //   all nodes in the spec must have ignores_order=false.
+  // - If any STRING with collation is present in key or value (note:
+  //   collation is currently not allowed in MAP. b/323931806)
+  // - options.reason must be nullptr.
+  auto it = absl::c_find_if(map_, [&](const auto& kv) {
+    if (kv.first.is_null() != search_key.is_null()) {
+      return false;
+    }
+    if (kv.first.is_null() && search_key.is_null()) {
+      return true;
+    }
+
+    return key_type->ValueContentEquals(kv.first.GetContent(),
+                                        search_key.value_content(), options);
+  });
+
+  if (it == map_.end()) {
+    return std::nullopt;
+  }
+
+  const Value& val = it->second;
+  return val.is_null() ? internal::NullableValueContent()
+                       : internal::NullableValueContent(val.GetContent());
+}
+
+// An iterator-like class implementing a forward iterator-like interface for
+// traversing a TypedMap and returning pairs of NullableValueContent
+// representing the key and value of the map. This cannot conform exactly to a
+// standard C++ iterator interface due to ValueContent indirection.
+class Value::TypedMap::Iterator : public IteratorImpl {
+  friend class Value::TypedMap;
+
+ public:
+  ElementType& Deref() override {
+    auto& [key, value] = *iter_;
+    pair_ = ElementType{
+        key.is_null() ? internal::NullableValueContent()
+                      : internal::NullableValueContent(key.GetContent()),
+        value.is_null() ? internal::NullableValueContent()
+                        : internal::NullableValueContent(value.GetContent())};
+    return pair_;
+  }
+
+  std::unique_ptr<IteratorImpl> Copy() override {
+    return absl::WrapUnique(new Iterator(iter_));
+  }
+
+ private:
+  explicit Iterator(ValueMap::const_iterator iter) : iter_(iter) {}
+
+  void Increment() override { iter_++; }
+
+  bool Equals(
+      const internal::ValueContentMap::IteratorImpl& other) const override {
+    const Iterator& other_ref = static_cast<const Iterator&>(other);
+    return this->iter_ == other_ref.iter_;
+  }
+
+  ValueMap::const_iterator iter_;
+  ElementType pair_;
+};
+
+std::unique_ptr<internal::ValueContentMap::IteratorImpl>
+Value::TypedMap::begin_internal() const {
+  return absl::WrapUnique(new Iterator(map_.begin()));
+}
+std::unique_ptr<internal::ValueContentMap::IteratorImpl>
+Value::TypedMap::end_internal() const {
+  return absl::WrapUnique(new Iterator(map_.end()));
 }
 
 Value::TypedMap::~TypedMap() {

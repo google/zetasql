@@ -580,8 +580,10 @@ FunctionMap::FunctionMap() {
                      "ProtoMapAtKey");
     RegisterFunction(FunctionKind::kSafeProtoMapAtKey, "$safe_proto_map_at_key",
                      "SafeProtoMapAtKey");
-    RegisterFunction(FunctionKind::kModifyMap, "modify_map", "ModifyMap");
-    RegisterFunction(FunctionKind::kContainsKey, "contains_key", "ContainsKey");
+    RegisterFunction(FunctionKind::kProtoModifyMap, "proto_modify_map",
+                     "ProtoModifyMap");
+    RegisterFunction(FunctionKind::kProtoMapContainsKey,
+                     "proto_map_contains_key", "ProtoMapContainsKey");
     RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
     RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
                      "JsonExtractScalar");
@@ -1445,12 +1447,13 @@ class ProtoMapFunction : public BuiltinScalarFunction {
         key_type = args[1].type();
         value_type = output_type();
         break;
-      case FunctionKind::kContainsKey:
+      case FunctionKind::kProtoMapContainsKey:
         key_type = args[1].type();
         value_type = nullptr;
         break;
-      case FunctionKind::kModifyMap:
-        ZETASQL_RET_CHECK_GE(args.size(), 3) << "MODIFY_MAP must have at least 3 args.";
+      case FunctionKind::kProtoModifyMap:
+        ZETASQL_RET_CHECK_GE(args.size(), 3)
+            << "PROTO_MODIFY_MAP must have at least 3 args.";
         key_type = args[1].type();
         value_type = args[2].type();
         break;
@@ -1470,7 +1473,7 @@ class ProtoMapFunction : public BuiltinScalarFunction {
     ZETASQL_RETURN_IF_ERROR(ParseProtoMap(args[0], key_type, value_type, map));
 
     // TODO: Collation should be propagated from the second arg
-    //     of `CONTAINS_KEY` and `$proto_map_at_key`.
+    //     of `PROTO_MAP_CONTAINS_KEY` and `$proto_map_at_key`.
     bool equal_values_are_distinguishable =
         value_type != nullptr &&
         IsTypeWithDistinguishableTies(value_type, /*collator_list=*/{});
@@ -1529,7 +1532,7 @@ class ProtoMapFunction : public BuiltinScalarFunction {
         ZETASQL_RET_CHECK(found_value.type()->Equals(output_type()));
         return found_value;
       }
-      case FunctionKind::kContainsKey: {
+      case FunctionKind::kProtoMapContainsKey: {
         if (args[1].is_null()) {
           return Value::Bool(false);
         }
@@ -1542,7 +1545,7 @@ class ProtoMapFunction : public BuiltinScalarFunction {
         };
         return Value::Bool(find_with_key(args[1]) != map.end());
       }
-      case FunctionKind::kModifyMap: {
+      case FunctionKind::kProtoModifyMap: {
         return ModifyMap(std::move(map), args, context);
       }
       default:
@@ -1557,9 +1560,9 @@ class ProtoMapFunction : public BuiltinScalarFunction {
                                   EvaluationContext* context) const {
     const int num_mods = (args.size() - 1) / 2;
     ZETASQL_RET_CHECK(args.size() % 2)
-        << "MODIFY_MAP: should have an odd number of args";
+        << "PROTO_MODIFY_MAP: should have an odd number of args";
     ZETASQL_RET_CHECK_LE(3, args.size())
-        << "MODIFY_MAP: should have at least three args";
+        << "PROTO_MODIFY_MAP: should have at least three args";
 
     absl::flat_hash_set<Value> seen_keys;
 
@@ -1571,15 +1574,15 @@ class ProtoMapFunction : public BuiltinScalarFunction {
       const bool already_seen = !seen_keys.insert(mod_key).second;
       if (already_seen) {
         return absl::OutOfRangeError(
-            absl::StrCat("MODIFY_MAP: Only one instance of each key is "
+            absl::StrCat("PROTO_MODIFY_MAP: Only one instance of each key is "
                          "allowed. Found multiple instances of key: ",
                          mod_key.GetSQLLiteral(product_mode_)));
       }
       if (mod_key.is_null()) {
-        return absl::OutOfRangeError(
-            absl::StrCat("MODIFY_MAP: All key arguments must be non-NULL, "
-                         "but found NULL at argument ",
-                         key_arg_index));
+        return absl::OutOfRangeError(absl::StrCat(
+            "PROTO_MODIFY_MAP: All key arguments must be non-NULL, "
+            "but found NULL at argument ",
+            key_arg_index));
       }
 
       // Erase any entries from map that have the same key as the
@@ -1621,8 +1624,8 @@ class ProtoMapFunction : public BuiltinScalarFunction {
     }
 
     // Even though the above algorithm is stable and maintins the order of the
-    // input array elements, the MODIFY_MAP function does not define where in
-    // the artbitrary element order the new key-value pair goes.
+    // input array elements, the PROTO_MODIFY_MAP function does not define where
+    // in the artbitrary element order the new key-value pair goes.
     InternalValue::OrderPreservationKind output_orderedness =
         InternalValue::kIgnoresOrder;
     return InternalValue::ArrayChecked(
@@ -2219,8 +2222,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ArrayElementFunction(0, true /* safe */, output_type);
     case FunctionKind::kSafeProtoMapAtKey:
     case FunctionKind::kProtoMapAtKey:
-    case FunctionKind::kContainsKey:
-    case FunctionKind::kModifyMap:
+    case FunctionKind::kProtoMapContainsKey:
+    case FunctionKind::kProtoModifyMap:
       return new ProtoMapFunction(kind, output_type,
                                   language_options.product_mode());
     case FunctionKind::kAbs:

@@ -27,6 +27,7 @@
 
 #include "zetasql/base/init_google.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/base/fileutils.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_driver.pb.h"
@@ -46,7 +47,7 @@ bool AbslParseFlag(absl::string_view text, QueryParameterFlagValue* flag,
 
   auto catalog = std::make_unique<SimpleCatalog>("test");
   catalog->AddBuiltinFunctions(
-      ZetaSQLBuiltinFunctionOptions(analyzer_options.language()));
+      BuiltinFunctionOptions(analyzer_options.language()));
 
   return internal::ParseQueryParameterFlag(
       text, analyzer_options, catalog.get(), &flag->parameters, err);

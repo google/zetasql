@@ -104,6 +104,7 @@ const char* const kDisallowDuplicateOptions = "disallow_duplicate_options";
 const char* const kRewriteOptions = "rewrite_options";
 const char* const kShowReferencedPropertyGraphs =
     "show_referenced_property_graphs";
+const char* const kPruneUnusedColumns = "prune_unused_columns";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -171,6 +172,9 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kDisallowDuplicateOptions, false);
   test_case_options->RegisterString(kRewriteOptions, rewrite_options_string);
   test_case_options->RegisterBool(kShowReferencedPropertyGraphs, false);
+  // Prune unused columns by default.  We intend to make this the default
+  // once all engines are updated.
+  test_case_options->RegisterBool(kPruneUnusedColumns, true);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

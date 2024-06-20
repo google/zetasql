@@ -922,14 +922,14 @@ class SimpleModel : public Model {
   // Make a model with input and output columns with the given names and types.
   // Crashes if there are duplicate column names.
   typedef std::pair<std::string, const Type*> NameAndType;
-  SimpleModel(const std::string& name, absl::Span<const NameAndType> inputs,
+  SimpleModel(std::string name, absl::Span<const NameAndType> inputs,
               absl::Span<const NameAndType> outputs, int64_t id = 0);
 
   // Make a model with the given inputs and outputs.
   // Crashes if there are duplicate column names.
   // Takes ownership of elements of <inputs> and <outputs> if <take_ownership>
   // is true.
-  SimpleModel(const std::string& name, const std::vector<const Column*>& inputs,
+  SimpleModel(std::string name, const std::vector<const Column*>& inputs,
               const std::vector<const Column*>& outputs,
               bool take_ownership = false, int64_t id = 0);
 

@@ -527,13 +527,13 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
     ArgNameToScanMap table_args = ArgNameToScanMap{};
     for (int i = 0; i < scan->argument_list_size(); ++i) {
       const ResolvedFunctionArgument* arg = scan->argument_list(i);
-      std::string arg_name = argument_names[i];
+      const std::string& arg_name = argument_names[i];
       if (scan->argument_list(i)->scan() != nullptr) {
         ZETASQL_ASSIGN_OR_RETURN(auto arg_scan, ProcessNode<ResolvedScan>(arg->scan()));
         ZETASQL_RET_CHECK_GE(scan->argument_list_size(), 1);
         ZETASQL_RETURN_IF_ERROR(
             ErrorIfArgumentIsCorrelated(*arg_scan, i + 1, arg_name));
-        std::string arg_cte_name = argument_names[i];
+        const std::string& arg_cte_name = argument_names[i];
         with_entry_list.emplace_back(
             MakeResolvedWithEntry(arg_cte_name, std::move(arg_scan)));
         table_args[argument_names[i]] =

@@ -23,6 +23,20 @@ SELECT
 )
 ==
 
+(select 1) AS alias
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:12]
+(select 1) AS alias
+           ^
+==
+
+(select 1) alias
+--
+ERROR: Syntax error: Expected end of input but got identifier "alias" [at 1:12]
+(select 1) alias
+           ^
+==
+
 ((((select 1))))
 --
 QueryStatement [0-16] [((((select 1))))]

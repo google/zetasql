@@ -372,13 +372,21 @@ ExprResolutionInfo::ExprResolutionInfo(
     QueryResolutionInfo* query_resolution_info_in,
     const ASTExpression* top_level_ast_expr_in, IdString column_alias_in,
     const char* clause_name_in)
-    : ExprResolutionInfo(query_resolution_info_in, name_scope_in,
-                         {.allows_aggregation = (clause_name_in == nullptr),
-                          .allows_analytic = true,
-                          .use_post_grouping_columns = false,
-                          .clause_name = clause_name_in,
-                          .top_level_ast_expr = top_level_ast_expr_in,
-                          .column_alias = column_alias_in}) {
+    : ExprResolutionInfo(
+          query_resolution_info_in, name_scope_in,
+          ExprResolutionInfoOptions{
+              .allows_aggregation =
+                  (clause_name_in == nullptr &&
+                   query_resolution_info_in->SelectFormAllowsAggregation()),
+              .allows_analytic =
+                  query_resolution_info_in->SelectFormAllowsAnalytic(),
+              .use_post_grouping_columns = false,
+              .clause_name =
+                  (clause_name_in == nullptr
+                       ? query_resolution_info_in->SelectFormClauseName()
+                       : clause_name_in),
+              .top_level_ast_expr = top_level_ast_expr_in,
+              .column_alias = column_alias_in}) {
   ABSL_DCHECK(clause_name != nullptr);
 }
 

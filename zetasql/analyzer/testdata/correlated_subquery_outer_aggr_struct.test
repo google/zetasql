@@ -194,7 +194,7 @@ ALTERNATION GROUPS:
     ct.,TestStruct.d
     ct.,ROLLUP(TestStruct.d)
 --
-ERROR: An expression references ct.TestStruct.c which is neither grouped nor aggregated [at 1:16]
+ERROR: SELECT without FROM clause expression references ct.TestStruct.c which is neither grouped nor aggregated [at 1:16]
 SELECT (SELECT ct.TestStruct.c)
                ^
 --
@@ -202,7 +202,7 @@ ALTERNATION GROUPS:
     TestStruct.d
     ROLLUP(TestStruct.d)
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 1:16]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 1:16]
 SELECT (SELECT TestStruct.c)
                ^
 ==
@@ -692,7 +692,7 @@ FROM ComplexTypes ct
 GROUP BY {{ct.|}}TestStruct.d
 HAVING (SELECT TestStruct.c) > 1
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 4:16]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 4:16]
 HAVING (SELECT TestStruct.c) > 1
                ^
 ==
@@ -1056,13 +1056,13 @@ ORDER BY {{(SELECT TestStruct.c)|(SELECT TestStruct).c}}
 --
 ALTERNATION GROUP: (SELECT TestStruct.c)
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 4:18]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 4:18]
 ORDER BY (SELECT TestStruct.c)
                  ^
 --
 ALTERNATION GROUP: (SELECT TestStruct).c
 --
-ERROR: An expression references column TestStruct which is neither grouped nor aggregated [at 4:18]
+ERROR: SELECT without FROM clause expression references column TestStruct which is neither grouped nor aggregated [at 4:18]
 ORDER BY (SELECT TestStruct).c
                  ^
 ==
@@ -1147,7 +1147,7 @@ SELECT (SELECT as struct TestStruct.d.a, (SELECT TestStruct.c))
 FROM ComplexTypes
 GROUP BY TestStruct.d
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 1:50]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 1:50]
 SELECT (SELECT as struct TestStruct.d.a, (SELECT TestStruct.c))
                                                  ^
 ==
@@ -1770,7 +1770,7 @@ FROM ComplexTypes
 GROUP BY TestStruct.d
 ORDER BY (SELECT (SELECT TestStruct.d.a + TestStruct.c))
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 4:43]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 4:43]
 ORDER BY (SELECT (SELECT TestStruct.d.a + TestStruct.c))
                                           ^
 ==
@@ -1867,7 +1867,7 @@ SELECT TestStruct,
 FROM ComplexTypes
 GROUP BY TestStruct
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 2:41]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 2:41]
        (SELECT (TestStruct.d.a, (SELECT TestStruct.c))
                                         ^
 ==
@@ -2165,7 +2165,7 @@ HAVING (SELECT TestStruct.d.a
         GROUP BY TestStruct
         HAVING (SELECT TestStruct.c = ct.TestStruct.c)) = 1;
 --
-ERROR: An expression references ct.TestStruct.c which is neither grouped nor aggregated [at 7:39]
+ERROR: SELECT without FROM clause expression references ct.TestStruct.c which is neither grouped nor aggregated [at 7:39]
         HAVING (SELECT TestStruct.c = ct.TestStruct.c)) = 1;
                                       ^
 ==
@@ -2463,7 +2463,7 @@ SELECT TestStruct.d.a IN (SELECT TestStruct.c)
 FROM ComplexTypes ct
 GROUP BY TestStruct.d
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 1:34]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 1:34]
 SELECT TestStruct.d.a IN (SELECT TestStruct.c)
                                  ^
 ==
@@ -2727,7 +2727,7 @@ FROM ComplexTypes
 GROUP BY TestStruct.d
 HAVING TestStruct.d.a IN (SELECT TestStruct.c)
 --
-ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 4:34]
+ERROR: SELECT without FROM clause expression references TestStruct.c which is neither grouped nor aggregated [at 4:34]
 HAVING TestStruct.d.a IN (SELECT TestStruct.c)
                                  ^
 ==
@@ -2875,7 +2875,7 @@ SELECT TestStruct.d.a, (SELECT MAX(ct.TestStruct.c) FROM ComplexTypes)
 FROM ComplexTypes ct
 GROUP BY TestStruct.d;
 --
-ERROR: An expression references ct.TestStruct.c which is neither grouped nor aggregated [at 1:36]
+ERROR: SELECT expression references ct.TestStruct.c which is neither grouped nor aggregated [at 1:36]
 SELECT TestStruct.d.a, (SELECT MAX(ct.TestStruct.c) FROM ComplexTypes)
                                    ^
 ==
@@ -3067,7 +3067,7 @@ FROM ComplexTypes ct
 GROUP BY TestStruct.d
 HAVING (SELECT MAX(ct.TestStruct.c) FROM ComplexTypes) > 1;
 --
-ERROR: An expression references ct.TestStruct.c which is neither grouped nor aggregated [at 4:20]
+ERROR: SELECT expression references ct.TestStruct.c which is neither grouped nor aggregated [at 4:20]
 HAVING (SELECT MAX(ct.TestStruct.c) FROM ComplexTypes) > 1;
                    ^
 ==
@@ -3159,7 +3159,7 @@ FROM ComplexTypes ct
 GROUP BY TestStruct.d
 ORDER BY (SELECT SUM(ct.TestStruct.c) FROM ComplexTypes)
 --
-ERROR: An expression references ct.TestStruct.c which is neither grouped nor aggregated [at 4:22]
+ERROR: SELECT expression references ct.TestStruct.c which is neither grouped nor aggregated [at 4:22]
 ORDER BY (SELECT SUM(ct.TestStruct.c) FROM ComplexTypes)
                      ^
 ==
@@ -3237,7 +3237,7 @@ ALTERNATION GROUPS:
     ct2.,ct1.
     ct2.,
 --
-ERROR: An expression references ct2.TestStruct.d.a which is neither grouped nor aggregated [at 1:34]
+ERROR: SELECT without FROM clause expression references ct2.TestStruct.d.a which is neither grouped nor aggregated [at 1:34]
 SELECT ct1.TestStruct.d, (SELECT ct2.TestStruct.d.a = 5)
                                  ^
 ==
@@ -3559,7 +3559,7 @@ SELECT (SELECT as struct st.key, st.TestStruct)
 FROM SimpleTypesWithStruct st
 GROUP BY st
 --
-ERROR: An expression references st.key which is neither grouped nor aggregated [at 1:26]
+ERROR: SELECT without FROM clause expression references st.key which is neither grouped nor aggregated [at 1:26]
 SELECT (SELECT as struct st.key, st.TestStruct)
                          ^
 ==
@@ -3660,7 +3660,7 @@ FROM SimpleTypesWithStruct st
 GROUP BY st
 HAVING (SELECT st.TestStruct.c) = 1
 --
-ERROR: An expression references st.TestStruct.c which is neither grouped nor aggregated [at 4:16]
+ERROR: SELECT without FROM clause expression references st.TestStruct.c which is neither grouped nor aggregated [at 4:16]
 HAVING (SELECT st.TestStruct.c) = 1
                ^
 ==
@@ -3684,6 +3684,6 @@ FROM SimpleTypesWithStruct st
 GROUP BY st
 ORDER BY (SELECT st.TestStruct.c)
 --
-ERROR: An expression references st.TestStruct.c which is neither grouped nor aggregated [at 4:18]
+ERROR: SELECT without FROM clause expression references st.TestStruct.c which is neither grouped nor aggregated [at 4:18]
 ORDER BY (SELECT st.TestStruct.c)
                  ^

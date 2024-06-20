@@ -295,9 +295,9 @@ select afn_agg() over (rows afn_agg(key) over () preceding) from keyvalue
 # SELECT without FROM cannot have analytic functions.
 select afn_agg() over ()
 --
-ERROR: SELECT without FROM clause cannot use analytic functions [at 1:1]
+ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:8]
 select afn_agg() over ()
-^
+       ^
 ==
 
 # Since we need to resolve the function name first to know whether the OVER
@@ -883,9 +883,9 @@ QueryStmt
 select (select afn_agg() over (rows outer_key preceding))
 from (select key as outer_key from keyvalue)
 --
-ERROR: Window framing expression must be a literal or parameter [at 1:37]
+ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:16]
 select (select afn_agg() over (rows outer_key preceding))
-                                    ^
+               ^
 ==
 
 # Analytic function in table subquery.
@@ -2161,11 +2161,11 @@ select afn_agg(key respect nulls) over ()
 
 ==
 
-# Invalid function name errors should be reported before analyzer argument errors.
+# The error on OVER is reported before resolving the function name.
 [language_features=ANALYTIC_FUNCTIONS]
 select garbage(*) over ()
 --
-ERROR: Function not found: garbage [at 1:8]
+ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:8]
 select garbage(*) over ()
        ^
 ==

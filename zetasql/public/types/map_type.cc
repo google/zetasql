@@ -17,8 +17,11 @@
 #include "zetasql/public/types/map_type.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 
 #include "zetasql/base/logging.h"
@@ -42,6 +45,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -187,18 +191,193 @@ absl::HashState MapType::HashTypeParameter(absl::HashState state) const {
   return value_type()->Hash(key_type()->Hash(std::move(state)));
 }
 
+struct MapType::ValueContentMapElementHasher {
+  explicit ValueContentMapElementHasher(const Type* key_type,
+                                        const Type* value_type)
+      : key_type(key_type), value_type(value_type) {}
+
+  size_t operator()(const internal::NullableValueContent& key,
+                    const internal::NullableValueContent& value) const {
+    // Since mapping a->b is not the same as mapping b->a, this hash must be
+    // ordered.
+    return absl::HashOf(absl::Hash<HashableNullableValueContent>()(
+                            HashableNullableValueContent{key, key_type}),
+                        absl::Hash<HashableNullableValueContent>()(
+                            HashableNullableValueContent{value, value_type}));
+  }
+
+ private:
+  const Type* key_type;
+  const Type* value_type;
+};
+
 absl::HashState MapType::HashValueContent(const ValueContent& value,
                                           absl::HashState state) const {
-  // TODO: Implement HashValueContent.
-  ABSL_LOG(FATAL) << "HashValueContent is not yet "  // Crash OK
-                "supported on MapType.";
+  const internal::ValueContentMap* value_content_map =
+      value.GetAs<internal::ValueContentMapRef*>()->value();
+  std::vector<size_t> hashes;
+  hashes.reserve(value_content_map->num_elements());
+  ValueContentMapElementHasher hasher(key_type_, value_type_);
+  for (const auto& [key, value] : *value_content_map) {
+    hashes.push_back(hasher(key, value));
+  }
+
+  return absl::HashState::combine_unordered(absl::HashState::Create(&state),
+                                            hashes.begin(), hashes.end());
+}
+
+bool MapType::LookupMapEntryEqualsExpected(
+    const internal::ValueContentMap* lookup_map,
+    const internal::NullableValueContent& lookup_key,
+    const internal::NullableValueContent& expected_value,
+    const NullableValueContentEq& value_eq,
+    const ValueContent& formattable_lookup_content,
+    const ValueContent& formattable_expected_content,
+    const ValueEqualityCheckOptions& options,
+    const ValueEqualityCheckOptions& key_equality_options) const {
+  auto lookup_value_or_missing = lookup_map->GetContentMapValueByKey(
+      lookup_key, key_type_, key_equality_options);
+
+  if (!lookup_value_or_missing.has_value()) {
+    if (options.reason) {
+      const auto& format_options = DebugFormatValueContentOptions();
+      absl::StrAppend(
+          options.reason,
+          absl::Substitute(
+              "Key {$0} did not exist in both maps. Present in "
+              "{$1} but not present in {$2}.\n",
+              FormatNullableValueContent(lookup_key, key_type_, format_options),
+              FormatValueContent(formattable_expected_content, format_options),
+              FormatValueContent(formattable_lookup_content, format_options)));
+    }
+    return false;
+  }
+  if (!value_eq(expected_value, lookup_value_or_missing.value())) {
+    if (options.reason) {
+      const auto& format_options = DebugFormatValueContentOptions();
+      absl::StrAppend(
+          options.reason,
+          absl::Substitute(
+              "The value for key {$0} did not match. Value was {$1} and {$2} "
+              "in respective maps {$3} and {$4}.\n",
+              FormatNullableValueContent(lookup_key, key_type_, format_options),
+              FormatNullableValueContent(expected_value, value_type_,
+                                         format_options),
+              FormatNullableValueContent(lookup_value_or_missing.value(),
+                                         value_type_, format_options),
+              FormatValueContent(formattable_expected_content, format_options),
+              FormatValueContent(formattable_lookup_content, format_options)));
+    }
+    return false;
+  }
+  return true;
 }
 
 bool MapType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  // Map does not currently support equality. (broken link).
-  return false;
+  const internal::ValueContentMap* x_map =
+      x.GetAs<internal::ValueContentMapRef*>()->value();
+  const internal::ValueContentMap* y_map =
+      y.GetAs<internal::ValueContentMapRef*>()->value();
+
+  if (x_map == y_map) {
+    return true;
+  }
+
+  if (x_map->num_elements() != y_map->num_elements()) {
+    if (options.reason) {
+      const auto& format_options = DebugFormatValueContentOptions();
+      absl::StrAppend(
+          options.reason,
+          absl::Substitute("Number of map entries was not equal: {$0} and {$1} "
+                           "in respective maps {$2} and {$3}\n",
+                           x_map->num_elements(), y_map->num_elements(),
+                           FormatValueContent(x, format_options),
+                           FormatValueContent(y, format_options)));
+    }
+    return false;
+  }
+
+  auto key_options_ptr = std::make_unique<ValueEqualityCheckOptions>(options);
+  auto value_options_ptr = std::make_unique<ValueEqualityCheckOptions>(options);
+  ValueEqualityCheckOptions& key_options = *key_options_ptr;
+  ValueEqualityCheckOptions& value_options = *value_options_ptr;
+
+  // Additional comparisons are done (ex: checking key equality when doing key
+  // lookups) so reason should not be propagated in order to avoid unrelated
+  // messages.
+  key_options.reason = nullptr;
+  value_options.reason = nullptr;
+
+  // If "allow_bags" is true, create a copy of options with populated
+  // deep_order_spec
+  if (options.deep_order_spec != nullptr) {
+    ABSL_DCHECK_EQ(options.deep_order_spec->children.size(), 2)
+        << "Malformed deep_order_spec. MAP spec should always have exactly 2 "
+           "direct children representing key and value.";
+
+    constexpr int kSpecMapKeyIndex = 0;
+    constexpr int kSpecMapValueIndex = 1;
+
+    key_options.deep_order_spec =
+        &options.deep_order_spec->children[kSpecMapKeyIndex];
+    value_options.deep_order_spec =
+        &options.deep_order_spec->children[kSpecMapValueIndex];
+  }
+
+  NullableValueContentEq key_eq =
+      NullableValueContentEq(key_options, key_type_);
+  NullableValueContentEq value_eq =
+      NullableValueContentEq(value_options, value_type_);
+
+  auto x_it = x_map->begin();
+  auto y_it = y_map->begin();
+
+  // First, try a fast path for equality. For equal maps without types
+  // affected by equality options, this will only require O(num_entries())
+  // comparisons
+  for (; x_it != x_map->end() && y_it != y_map->end(); ++x_it, ++y_it) {
+    auto& [x_key, x_value] = *x_it;
+    auto& [y_key, y_value] = *y_it;
+    if ((!key_eq(x_key, y_key) || !value_eq(x_value, y_value))) {
+      // If this fails, fall back to a more extensive equality check.
+      break;
+    }
+  }
+
+  // If the first loop fails to match all elements, we must compare remaining
+  // entries by looking up each map's remaining keys in the opposite map and
+  // comparing values.
+  for (; x_it != x_map->end(); ++x_it) {
+    auto& [x_key, x_value] = *x_it;
+    if (!LookupMapEntryEqualsExpected(
+            /*lookup_map=*/y_map,
+            /*lookup_key=*/x_key,
+            /*expected_value=*/x_value,
+            /*value_eq=*/value_eq,
+            /*formattable_lookup_content=*/y,
+            /*formattable_expected_content=*/x,
+            /*options=*/options,
+            /*key_equality_options=*/key_options)) {
+      return false;
+    }
+  }
+  for (; y_it != y_map->end(); ++y_it) {
+    auto& [y_key, y_value] = *y_it;
+    if (!LookupMapEntryEqualsExpected(
+            /*lookup_map=*/x_map,
+            /*lookup_key=*/y_key,
+            /*expected_value=*/y_value,
+            /*value_eq=*/value_eq,
+            /*formattable_lookup_content=*/x,
+            /*formattable_expected_content=*/y,
+            /*options=*/options,
+            /*key_equality_options=*/key_options)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 absl::Status MapType::SerializeValueContent(const ValueContent& value,
@@ -237,11 +416,10 @@ std::string MapType::FormatValueContent(
   std::string result = "{";
   internal::ValueContentMap* value_content_map =
       value.GetAs<internal::ValueContentMapRef*>()->value();
-  auto map_entries = value_content_map->value_content_entries();
 
   absl::StrAppend(
       &result, absl::StrJoin(
-                   map_entries, ", ",
+                   *value_content_map, ", ",
                    [options, this](std::string* out, const auto& map_entry) {
                      auto& [key, value] = map_entry;
                      std::string key_str = FormatNullableValueContent(

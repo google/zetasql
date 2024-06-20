@@ -54,6 +54,7 @@
 namespace zetasql {
 namespace {
 
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::SizeIs;
@@ -89,6 +90,58 @@ TEST(RewriteUtilsTest, CopyAndReplaceColumns) {
     // 2 columns for setup and first loop plus 1 for each iteration of this loop
     EXPECT_EQ(output->column_list(0).column_id(), i + 2);
     EXPECT_EQ(map.size(), i);
+    input = std::move(output);
+  }
+}
+
+TEST(RewriteUtilsTest, ShallowCopyAndReplaceAllColumns) {
+  zetasql_base::SequenceNumber sequence;
+  ColumnFactory factory(0, &sequence);
+  SimpleTable table("tab", {{"col", types::Int64Type()}});
+  std::unique_ptr<const ResolvedTableScan> input = MakeResolvedTableScan(
+      {factory.MakeCol("t", "c", types::Int64Type())}, &table, nullptr);
+  EXPECT_EQ(input->column_list(0).column_id(), 1);
+
+  // Shallow copy `input` several times, feeding the output of each iteration
+  // into the input of the next. In this case we should get a new column each
+  // iteration with a incremented column_id.
+  ColumnReplacementMap map;
+  for (int i = 1; i < 5; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(input,
+                         RemapAllColumns(std::move(input), factory, map));
+
+    EXPECT_EQ(input->column_list(0).column_id(), i + 1);
+    EXPECT_EQ(map.size(), i);
+  }
+}
+
+TEST(RewriteUtilsTest, ShallowCopyAndReplaceSpecifiedColumns) {
+  zetasql_base::SequenceNumber sequence;
+  ColumnFactory factory(0, &sequence);
+  SimpleTable table("tab", {{"col", types::Int64Type()}});
+  std::unique_ptr<const ResolvedTableScan> input =
+      MakeResolvedTableScan({factory.MakeCol("t", "c1", types::Int64Type()),
+                             factory.MakeCol("t", "c2", types::StringType())},
+                            &table, nullptr);
+  EXPECT_EQ(input->column_list(0).column_id(), 1);
+
+  // Rewrite `input` several times. When the map is empty, it should be a no-op.
+  ColumnReplacementMap map;
+  for (int i = 0; i < 5; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(input, RemapSpecifiedColumns(std::move(input), map));
+    EXPECT_EQ(input->column_list(0).column_id(), 1);
+    EXPECT_EQ(map.size(), 0);
+  }
+
+  map[input->column_list(0)] = factory.MakeCol("t", "c3", types::Int64Type());
+  // Repeat the experiment with a non-empty map. Only the first iteration
+  // should be a no-op.
+  for (int i = 1; i < 5; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedTableScan> output,
+                         RemapSpecifiedColumns(std::move(input), map));
+    // The first column should be replaced with a new column once.
+    EXPECT_EQ(output->column_list(0).column_id(), 3);
+    EXPECT_EQ(map.size(), 1);
     input = std::move(output);
   }
 }
@@ -1381,6 +1434,80 @@ AggregateFunctionCall(ZetaSQL:count(DOUBLE) -> INT64)
 +-ColumnRef(type=DOUBLE, column=.#-1)
 +-distinct=TRUE
 )"));
+}
+
+TEST_F(FunctionCallBuilderTest, ConcatString) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::String("a")));
+  args.push_back(MakeResolvedLiteral(Value::String("b")));
+  args.push_back(MakeResolvedLiteral(Value::String("c")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.Concat(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
++-Literal(type=STRING, value="a")
++-Literal(type=STRING, value="b")
++-Literal(type=STRING, value="c")
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ConcatStringWithCollation) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::vector<std::unique_ptr<const ResolvedExpr>> args,
+      testing::BuildResolvedLiteralsWithCollationForTest(
+          {{"foo", "und:ci"}, {"bar", "und:ci"}, {"bar", "und:ci"}},
+          analyzer_options_, catalog_, type_factory_));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.Concat(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+| +-type_annotation_map={Collation:"und:ci"}
+| +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
++-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  +-type_annotation_map={Collation:"und:ci"}
+  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
+  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ConcatBytes) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::Bytes("a")));
+  args.push_back(MakeResolvedLiteral(Value::Bytes("b")));
+  args.push_back(MakeResolvedLiteral(Value::Bytes("c")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.Concat(std::move(args)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:concat(BYTES, repeated(2) BYTES) -> BYTES)
++-Literal(type=BYTES, value=b"a")
++-Literal(type=BYTES, value=b"b")
++-Literal(type=BYTES, value=b"c")
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ConcatInvalidInputType) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::Numeric(NumericValue(1))));
+  args.push_back(MakeResolvedLiteral(Value::Numeric(NumericValue(2))));
+  EXPECT_THAT(fn_builder_.Concat(std::move(args)),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Invalid element type: NUMERIC")));
+}
+
+TEST_F(FunctionCallBuilderTest, ConcatEmptyArgList) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  EXPECT_THAT(
+      fn_builder_.Concat(std::move(args)),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("!elements.empty() ")));
 }
 
 class LikeAnyAllSubqueryScanBuilderTest

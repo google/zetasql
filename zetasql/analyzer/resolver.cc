@@ -79,6 +79,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
@@ -150,10 +151,13 @@ void Resolver::Reset(absl::string_view sql) {
   side_effect_scope_depth_ = 0;
 
   if (analyzer_options_.column_id_sequence_number() != nullptr) {
-    next_column_id_sequence_ = analyzer_options_.column_id_sequence_number();
+    column_factory_ = std::make_unique<ColumnFactory>(
+        /*max_col_id=*/0, *id_string_pool_,
+        *analyzer_options_.column_id_sequence_number());
   } else {
-    owned_column_id_sequence_ = std::make_unique<zetasql_base::SequenceNumber>();
-    next_column_id_sequence_ = owned_column_id_sequence_.get();
+    column_factory_ = std::make_unique<ColumnFactory>(
+        /*max_col_id=*/0, *id_string_pool_,
+        std::make_unique<zetasql_base::SequenceNumber>());
   }
 }
 
@@ -169,18 +173,7 @@ ResolvedColumn Resolver::MakeGroupingOutputColumn(
   return grouping_argument_column;
 }
 
-int Resolver::AllocateColumnId() {
-  int64_t id = next_column_id_sequence_->GetNext();
-  if (id == 0) {  // Avoid using column_id 0.
-    id = next_column_id_sequence_->GetNext();
-    ABSL_DCHECK_NE(id, 0);
-  }
-  // Should be impossible for this to happen unless sharing across huge
-  // numbers of queries.  If it does, column_ids will wrap around as int32s.
-  ABSL_DCHECK_LE(id, std::numeric_limits<int32_t>::max());
-  max_column_id_ = static_cast<int>(id);
-  return max_column_id_;
-}
+int Resolver::AllocateColumnId() { return column_factory_->AllocateColumnId(); }
 
 IdString Resolver::AllocateSubqueryName() {
   return MakeIdString(absl::StrCat("$subquery", next_subquery_id_++));

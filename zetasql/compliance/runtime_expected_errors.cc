@@ -155,10 +155,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Key not found in map"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
-      "MODIFY_MAP: All key arguments must be non-NULL"));
+      "PROTO_MODIFY_MAP: All key arguments must be non-NULL"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
-      "MODIFY_MAP: Only one instance of each key is allowed"));
+      "PROTO_MODIFY_MAP: Only one instance of each key is allowed"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to PARSE_NUMERIC"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(

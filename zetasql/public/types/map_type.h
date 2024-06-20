@@ -24,6 +24,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/value_representations.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -131,6 +132,23 @@ class MapType : public ContainerType {
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
 
+  // Helper method to compare the value of `lookup_key` in the given
+  // `lookup_map` with some `expected_value`. Key and value comparisons consider
+  // the provided equality options. If the equality check fails and
+  // `options.reason` is present, it will be populated with a message
+  // including the reason for mismatch and a stringified version of each map,
+  // given by `formattable_lookup_content` and `formattable_expected_content`.
+  bool LookupMapEntryEqualsExpected(
+      const internal::ValueContentMap* lookup_map,
+      const internal::NullableValueContent& lookup_key,
+      const internal::NullableValueContent& expected_value,
+      const NullableValueContentEq& value_eq,
+      const ValueContent& formattable_lookup_content,
+      const ValueContent& formattable_expected_content,
+      const ValueEqualityCheckOptions& options,
+      const ValueEqualityCheckOptions& key_equality_options) const;
+
+  struct ValueContentMapElementHasher;
   const Type* const key_type_;
   const Type* const value_type_;
 

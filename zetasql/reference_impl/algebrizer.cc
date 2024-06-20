@@ -5494,6 +5494,8 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScanImpl(
       return AlgebrizeGroupRowsScan(scan->GetAs<ResolvedGroupRowsScan>());
     case RESOLVED_TVFSCAN:
       return AlgebrizeTvfScan(scan->GetAs<ResolvedTVFScan>());
+    case RESOLVED_BARRIER_SCAN:
+      return AlgebrizeBarrierScan(scan->GetAs<ResolvedBarrierScan>());
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unhandled node type algebrizing a scan: "
@@ -6844,6 +6846,13 @@ Algebrizer::AlgebrizeNonRedundantConjuncts(
     }
   }
   return algebrized_conjuncts;
+}
+
+absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeBarrierScan(
+    const ResolvedBarrierScan* resolved_barrier_scan) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
+                   AlgebrizeScan(resolved_barrier_scan->input_scan()));
+  return BarrierScanOp::Create(std::move(input));
 }
 
 }  // namespace zetasql

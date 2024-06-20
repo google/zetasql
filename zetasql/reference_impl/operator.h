@@ -2392,6 +2392,98 @@ class EnumerateOp final : public RelationalOp {
   ValueExpr* mutable_row_count();
 };
 
+// Relation that evaluates a `condition` against the input rows from `input`. If
+// the evaluation is true for all input rows, all input rows pass through.
+// Otherwise, the query fails with an error with the error message evaluated
+// from `message`.
+class AssertOp final : public RelationalOp {
+ public:
+  AssertOp(const AssertOp&) = delete;
+  AssertOp& operator=(const AssertOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iterator_debug_string);
+
+  static absl::StatusOr<std::unique_ptr<AssertOp>> Create(
+      std::unique_ptr<RelationalOp> input, std::unique_ptr<ValueExpr> condition,
+      std::unique_ptr<ValueExpr> message);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind {
+    kInput,
+    kCondition,
+    kMessage,
+  };
+
+  explicit AssertOp(std::unique_ptr<RelationalOp> input,
+                    std::unique_ptr<ValueExpr> condition,
+                    std::unique_ptr<ValueExpr> message);
+
+  const RelationalOp* input() const;
+
+  RelationalOp* mutable_input();
+
+  const ValueExpr* condition() const;
+
+  ValueExpr* mutable_condition();
+
+  const ValueExpr* message() const;
+
+  ValueExpr* mutable_message();
+};
+
+// BarrierScanOp is a no-op operator that acts as an optimization barrier.
+class BarrierScanOp final : public RelationalOp {
+ public:
+  BarrierScanOp(const BarrierScanOp&) = delete;
+  BarrierScanOp& operator=(const BarrierScanOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iterator_debug_string);
+
+  static absl::StatusOr<std::unique_ptr<BarrierScanOp>> Create(
+      std::unique_ptr<RelationalOp> input);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind {
+    kInput,
+  };
+
+  explicit BarrierScanOp(std::unique_ptr<RelationalOp> input);
+
+  const RelationalOp* input() const;
+
+  RelationalOp* mutable_input();
+};
+
 // -------------------------------------------------------
 // Value expressions
 // -------------------------------------------------------

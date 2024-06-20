@@ -561,7 +561,7 @@ class TreeGenerator(object):
   def AddNode(
       self,
       name,
-      tag_id,  # Next tag_id: 261
+      tag_id,  # Next tag_id: 263
       parent,
       fields,
       is_abstract=False,
@@ -9364,6 +9364,30 @@ ResolvedArgumentRef(y)
           Field('max_value', SCALAR_VALUE, tag_id=4),
           Field('min_value', SCALAR_VALUE, tag_id=5),
           Field('cycling_enabled', SCALAR_BOOL, tag_id=6),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedBarrierScan',
+      tag_id=261,
+      parent='ResolvedScan',
+      comment="""
+      ResolvedBarrierScan marks an optimization barrier during query planning.
+      It wraps an `input_scan` and ensures `input_scan` is evaluated as if
+      `input_scan` stands alone; plan transformations that may cause
+      different observable side effects may not cross the optimization barrier.
+
+      The output rows of a ResolvedBarrierScan are the same as those of the
+      `input_scan`, propagating the `is_ordered` property of `input_scan`.
+
+      The following optimizations are allowed:
+      * Prune an unused column of a ResolvedBarrierScan.
+      * Prune the whole ResolvedBarrierScan.
+
+      This node does not have a corresponding syntax.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
       ],
   )
 

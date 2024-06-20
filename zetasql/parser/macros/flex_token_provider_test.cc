@@ -31,13 +31,10 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
-using ::testing::_;
 using ::testing::Eq;
 using ::testing::ExplainMatchResult;
 using ::testing::FieldsAre;
-using ::testing::HasSubstr;
 using ::zetasql_base::testing::IsOk;
-using ::zetasql_base::testing::StatusIs;
 
 // Template specialization to print tokens in failed test messages.
 static void PrintTo(const TokenWithLocation& token, std::ostream* os) {

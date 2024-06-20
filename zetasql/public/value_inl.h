@@ -105,43 +105,29 @@ using ValueMap = absl::btree_map<Value, Value, ValueComparator>;
 
 class Value::TypedMap : public internal::ValueContentMap {
  public:
-  explicit TypedMap(std::vector<std::pair<Value, Value>>& values)
-      : map_(values.begin(), values.end()) {}
+  explicit TypedMap(std::vector<std::pair<Value, Value>>& values);
   TypedMap(const TypedMap&) = delete;
   TypedMap& operator=(const TypedMap&) = delete;
   ~TypedMap() override;
 
-  const ValueMap& entries() const { return map_; }
-
-  uint64_t physical_byte_size() const override {
-    uint64_t size = sizeof(TypedMap);
-    for (const auto& entry : map_) {
-      size += (entry.first.physical_byte_size() +
-               entry.second.physical_byte_size());
-    }
-    return size;
-  }
-
-  int64_t num_elements() const override { return map_.size(); }
+  const ValueMap& entries() const;
+  uint64_t physical_byte_size() const override;
+  int64_t num_elements() const override;
   std::vector<
       std::pair<internal::NullableValueContent, internal::NullableValueContent>>
-  value_content_entries() const override {
-    std::vector<std::pair<internal::NullableValueContent,
-                          internal::NullableValueContent>>
-        elements;
-    elements.reserve(map_.size());
-    for (const auto& [key, value] : map_) {
-      elements.push_back(std::make_pair(
-          key.is_null() ? internal::NullableValueContent()
-                        : internal::NullableValueContent(key.GetContent()),
-          value.is_null()
-              ? internal::NullableValueContent()
-              : internal::NullableValueContent(value.GetContent())));
-    }
-    return elements;
-  }
+  value_content_entries() const override;
+  std::optional<internal::NullableValueContent> GetContentMapValueByKey(
+      const internal::NullableValueContent& search_key, const Type* key_type,
+      const ValueEqualityCheckOptions& options) const override;
 
  private:
+  class Iterator;
+
+  std::unique_ptr<internal::ValueContentMap::IteratorImpl> begin_internal()
+      const override;
+  std::unique_ptr<internal::ValueContentMap::IteratorImpl> end_internal()
+      const override;
+
   ValueMap map_;
 };
 

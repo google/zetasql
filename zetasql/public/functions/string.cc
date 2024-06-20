@@ -24,12 +24,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <ostream>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,12 +38,13 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"
+#include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
-#include "absl/status/statusor.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -57,18 +55,19 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
+#include "unicode/bytestream.h"
+#include "unicode/casemap.h"
 #include "unicode/errorcode.h"
 #include "unicode/normalizer2.h"
-#include "unicode/ucasemap.h"
 #include "unicode/uchar.h"
 #include "unicode/uniset.h"
 #include "unicode/unistr.h"
+#include "unicode/uset.h"
 #include "unicode/utf8.h"
 #include "unicode/utypes.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
-#include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
@@ -80,17 +79,17 @@ constexpr absl::string_view kBadUtf8 = "A string is not valid UTF-8.";
 constexpr absl::string_view kUtf8ReplacementChar = "\uFFFD";
 constexpr UChar32 kUChar32ReplacementChar = 0xfffd;
 
-const size_t kMaxOutputSize = (1 << 20);  // 1MB
+constexpr size_t kMaxOutputSize = (1 << 20);  // 1MB
 // Based on https://tools.ietf.org/html/rfc2045#section-6.8
-const size_t kMaxLineLengthBase64M = 76;
+constexpr size_t kMaxLineLengthBase64M = 76;
 
-const char kExceededPadOutputSize[] =
+constexpr absl::string_view kExceededPadOutputSize =
     "Output of LPAD/RPAD exceeds max allowed output size of 1MB";
-const char kExceededRepeatOutputSize[] =
+constexpr absl::string_view kExceededRepeatOutputSize =
     "Output of REPEAT exceeds max allowed output size of 1MB";
-const char kExceededReplaceOutputSize[] =
+constexpr absl::string_view kExceededReplaceOutputSize =
     "Output of REPLACE exceeds max allowed output size of 1MB";
-const char kExceededTranslateOutputSize[] =
+constexpr absl::string_view kExceededTranslateOutputSize =
     "Output of TRANSLATE exceeds max allowed output size of 1MB";
 
 constexpr absl::string_view kBadOccurrenceStringPos =
@@ -130,7 +129,7 @@ static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
     if (s.length() > kMaxOutputSize) {
       return internal::UpdateError(error, kExceededReplaceOutputSize);
     }
-    res->append(s.data(), s.length());  // If empty, append the given string.
+    res->append(s);  // If empty, append the given string.
     return true;
   }
 
@@ -144,8 +143,7 @@ static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
     if (res->size() + total_append_size > kMaxOutputSize) {
       return internal::UpdateError(error, kExceededReplaceOutputSize);
     }
-    res->append(s.data() + start_pos, pos - start_pos);
-    res->append(newsub.data(), newsub.length());
+    absl::StrAppend(res, s.substr(start_pos, pos - start_pos), newsub);
     // Start searching again after the "old".
     start_pos = pos + oldsub.length();
   }
@@ -153,7 +151,7 @@ static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
   if (res->size() + append_size > kMaxOutputSize) {
     return internal::UpdateError(error, kExceededReplaceOutputSize);
   }
-  res->append(s.data() + start_pos, append_size);
+  res->append(s, start_pos, append_size);
   return true;
 }
 
@@ -1032,18 +1030,16 @@ bool LowerUtf8(absl::string_view str, std::string* out, absl::Status* error) {
 }
 
 bool UpperBytes(absl::string_view str, std::string* out, absl::Status* error) {
-  out->resize(str.size());
-  for (int i = 0; i < str.size(); ++i) {
-    (*out)[i] = absl::ascii_toupper(str[i]);
-  }
+  zetasql_base::STLStringResizeUninitialized(out, str.size());
+  absl::c_transform(str, out->begin(),
+                    [](char c) { return absl::ascii_toupper(c); });
   return true;
 }
 
 bool LowerBytes(absl::string_view str, std::string* out, absl::Status* error) {
-  out->resize(str.size());
-  for (int i = 0; i < str.size(); ++i) {
-    (*out)[i] = absl::ascii_tolower(str[i]);
-  }
+  zetasql_base::STLStringResizeUninitialized(out, str.size());
+  absl::c_transform(str, out->begin(),
+                    [](char c) { return absl::ascii_tolower(c); });
   return true;
 }
 
@@ -1186,14 +1182,14 @@ bool SafeConvertBytes(absl::string_view str, std::string* out,
         out->append(str_data + prev, start - prev);
       }
       for (size_t j = start; j < i; ++j) {
-        out->append(kUtf8ReplacementChar.data(), kUtf8ReplacementChar.size());
+        out->append(kUtf8ReplacementChar);
       }
       prev = i;
     }
   }
   if (prev == 0) {
-    // str was actually just fine, use more efficient 'assign' call.
-    out->assign(str.data(), str.size());
+    // str was actually just fine.
+    *out = str;
   } else if (prev < length) {
     // Append any remaining well formed span.
     out->append(str_data + prev, length - prev);
@@ -1465,7 +1461,7 @@ bool PadBytes(absl::string_view input_str, int64_t output_size_bytes,
     return false;
   }
   if (output_size_bytes <= static_cast<int64_t>(input_str.length())) {
-    out->assign(input_str.data(), output_size_bytes);
+    out->assign(input_str, 0, output_size_bytes);
     return true;
   }
 
@@ -1518,7 +1514,7 @@ bool PadUtf8(absl::string_view input_str, int64_t output_size_chars,
     if (input_str_prefix.length() > kMaxOutputSize) {
       return internal::UpdateError(error, kExceededPadOutputSize);
     }
-    out->assign(input_str_prefix.data(), input_str_prefix.length());
+    *out = input_str_prefix;
     return true;
   }
 
@@ -1638,8 +1634,8 @@ bool Repeat(absl::string_view input_str, int64_t repeat_count, std::string* out,
     size_t rep_mem_bytes = 0;
     if (input_str.length() > kMaxOutputSize || repeat_count > kMaxOutputSize ||
         (rep_mem_bytes = repeat_count * input_str.length()) > kMaxOutputSize) {
-      // repeat_count * input_str.length() should not overflow as it needs
-      // atmost 60 bits.
+      // repeat_count * input_str.length() should not overflow as it needs at
+      // most 60 bits.
       return internal::UpdateError(error, kExceededRepeatOutputSize);
     }
     out->reserve(rep_mem_bytes);
@@ -1966,7 +1962,7 @@ bool Utf8Translator::Translate(absl::string_view str, std::string* out,
       if (out->size() + target_string_view->length() > kMaxOutputSize) {
         return internal::UpdateError(error, kExceededTranslateOutputSize);
       }
-      out->append(target_string_view->data(), target_string_view->length());
+      out->append(*target_string_view);
     }
   }
 
@@ -2080,7 +2076,7 @@ void ThreeBytesToEightBase8Digits(const unsigned char* in_bytes,
 // and 6, so M would be 1 and 2 respectively. When N is 7, assuming the escaped
 // bytes has omitted 1 leading '0', M would be 3 to generate these 8 escaped
 // bytes.
-const int kBase8NumUnescapedBytes[] = {0, 1, 1, 1, 2, 2, 2, 3};
+constexpr int kBase8NumUnescapedBytes[] = {0, 1, 1, 1, 2, 2, 2, 3};
 
 void EightBase8DigitsToThreeBytes(const char* in, unsigned char* bytes_out) {
   // It's easier to just hard code this.
@@ -2271,7 +2267,7 @@ bool ASCIICheckAndCopy(absl::string_view str, std::string* out,
                                    "Failed to decode invalid ASCII string");
     }
   }
-  *out = std::string(str);
+  *out = str;
   return true;
 }
 
@@ -2283,7 +2279,7 @@ bool UTF8CheckAndCopy(absl::string_view str, std::string* out,
     return internal::UpdateError(error, kBadUtf8);
   }
 
-  *out = std::string(str);
+  *out = str;
   return true;
 }
 

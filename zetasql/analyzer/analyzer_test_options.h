@@ -229,6 +229,7 @@ extern const char* const kIdStringAllowUnicodeCharacters;
 extern const char* const kDisallowDuplicateOptions;
 extern const char* const kRewriteOptions;
 extern const char* const kShowReferencedPropertyGraphs;
+extern const char* const kPruneUnusedColumns;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

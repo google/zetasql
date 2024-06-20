@@ -37,13 +37,6 @@ class ListBackedType : public ContainerType {
   ListBackedType(const TypeFactory* factory, TypeKind kind)
       : ContainerType(factory, kind) {}
 
-  FormatValueContentOptions DebugFormatValueContentOptions() const {
-    Type::FormatValueContentOptions format_options;
-    format_options.product_mode = ProductMode::PRODUCT_INTERNAL;
-    format_options.mode = Type::FormatValueContentOptions::Mode::kDebug;
-    return format_options;
-  }
-
   // FormatValueContent is defined for ContainerType.
   // Instead of providing implementation of FormatValueContent method, child
   // classes need to provide implementations of formatting methods defined

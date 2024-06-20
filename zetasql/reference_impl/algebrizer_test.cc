@@ -2069,4 +2069,320 @@ TEST_F(StatementAlgebrizerTest, TVF) {
             "| +-$o2})");
 }
 
+class BarrierScanAlgebrizerTest : public StatementAlgebrizerTest {
+ protected:
+  void ConfigureAlgebrizer(const AlgebrizerOptions& algebrizer_options) {
+    algebrizer_ = absl::WrapUnique(
+        new Algebrizer(LanguageOptions(), algebrizer_options, &type_factory_,
+                       &parameters_, &column_map_, &system_variables_map_));
+  }
+
+  // Allows tests to access the private method Algebrizer::AlgebrizeScan().
+  absl::StatusOr<std::unique_ptr<const RelationalOp>> AlgebrizeScan(
+      const Algebrizer* algebrizer, const ResolvedScan& scan) {
+    return algebrizer_->AlgebrizeScan(&scan);
+  }
+
+  // Creates a sample table scan for "table" containing two columns col1 and
+  // col2.
+  std::unique_ptr<ResolvedTableScan> CreateSampleTableScan() {
+    ResolvedColumnList column_list = {col1_, col2_};
+    std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+        column_list, &sample_table_, /*for_system_time_expr=*/nullptr);
+    table_scan->set_column_index_list({0, 1});
+    return table_scan;
+  }
+
+  // Creates a sample table scan for "table2" containing two columns col3 and
+  // col4.
+  std::unique_ptr<ResolvedTableScan> CreateSampleTableScan2() {
+    ResolvedColumnList column_list = {col3_, col4_};
+    std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+        column_list, &sample_table_2_, /*for_system_time_expr=*/nullptr);
+    table_scan->set_column_index_list({0, 1});
+    return table_scan;
+  }
+
+  // Returns a ResolvedFunctionCall of function "$equal" corresponding to the
+  // SQL expression <column = `target_value`>.
+  std::unique_ptr<ResolvedFunctionCall> EqualFunctionCall(
+      const ResolvedColumn& column, int64_t target_value) {
+    std::vector<std::unique_ptr<const ResolvedExpr>> arguments;
+    arguments.push_back(
+        MakeResolvedColumnRef(column.type(), column, kNonCorrelated));
+    arguments.push_back(MakeResolvedLiteral(Value::Int64(target_value)));
+    return MakeResolvedFunctionCall(BoolType(), equal_function_.get(),
+                                    equal_function_signature_,
+                                    std::move(arguments), DEFAULT_ERROR_MODE);
+  }
+
+  // Adds a "WHERE `filter_expr`" filter to the given `input_scan`.
+  std::unique_ptr<ResolvedFilterScan> CreateSampleFilterScan(
+      std::unique_ptr<ResolvedScan> input_scan,
+      std::unique_ptr<ResolvedFunctionCall> filter_expr) {
+    ResolvedColumnList column_list = input_scan->column_list();
+    return MakeResolvedFilterScan(column_list, std::move(input_scan),
+                                  std::move(filter_expr));
+  }
+
+  const ResolvedColumn col1_ = {
+      1,
+      IdString::MakeGlobal("table"),
+      IdString::MakeGlobal("col1"),
+      types::Int64Type(),
+  };
+
+  const ResolvedColumn col2_ = {
+      2,
+      IdString::MakeGlobal("table"),
+      IdString::MakeGlobal("col2"),
+      types::Int64Type(),
+  };
+
+  const ResolvedColumn col3_ = {
+      3,
+      IdString::MakeGlobal("table2"),
+      IdString::MakeGlobal("col3"),
+      types::Int64Type(),
+  };
+
+  const ResolvedColumn col4_ = {
+      4,
+      IdString::MakeGlobal("table2"),
+      IdString::MakeGlobal("col4"),
+      types::Int64Type(),
+  };
+
+  const SimpleTable sample_table_ = {
+      /*name=*/"table",
+      /*columns=*/{{"col1", Int64Type()}, {"col2", Int64Type()}}};
+
+  const SimpleTable sample_table_2_ = {
+      /*name=*/"table2",
+      /*columns=*/{{"col3", Int64Type()}, {"col4", Int64Type()}}};
+
+  std::unique_ptr<const Function> equal_function_ =
+      std::make_unique<const Function>(
+          "$equal", Function::kZetaSQLFunctionGroupName, Function::SCALAR);
+
+  FunctionSignature equal_function_signature_ = {BoolType(),
+                                                 {Int64Type(), Int64Type()},
+                                                 /*context_id=*/-1};
+};
+
+TEST_F(BarrierScanAlgebrizerTest, BasicBarrierScanTest) {
+  ResolvedColumnList column_list = {col1_, col2_};
+  std::unique_ptr<ResolvedBarrierScan> barrier_scan = MakeResolvedBarrierScan(
+      column_list, MakeResolvedSingleRowScan(column_list));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const AlgebraNode> algebrized_scan,
+                       AlgebrizeScan(algebrizer_.get(), *barrier_scan));
+  EXPECT_EQ(algebrized_scan->DebugString(/*verbose=*/true),
+            "BarrierScanOp(\n"
+            "+-input: EnumerateOp(ConstExpr(Int64(1))))");
+}
+
+TEST_F(BarrierScanAlgebrizerTest, NoFilterPushdownForFilterScans) {
+  // Constructs a resolved AST for the following SQL query:
+  //
+  // SELECT *
+  // FROM table
+  // WHERE col1 = 1
+  //
+  // When filter pushdown is enabled, the filter is pushed down into the table
+  // scan.
+  std::unique_ptr<ResolvedTableScan> table_scan = CreateSampleTableScan();
+  std::unique_ptr<ResolvedFilterScan> filter_scan = CreateSampleFilterScan(
+      std::move(table_scan),
+      /*filter_expr=*/EqualFunctionCall(col1_, /*target_value=*/1));
+
+  // Configure the algebrizer to allow pushing down filters.
+  AlgebrizerOptions algebrizer_options = {.push_down_filters = true};
+  ConfigureAlgebrizer(algebrizer_options);
+
+  // Without a barrier scan, the filter is pushed down (notice the
+  // `InListColumnFilterArg` field).
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const AlgebraNode> algebrized_filter_scan,
+      AlgebrizeScan(algebrizer_.get(), *filter_scan));
+  EXPECT_EQ(algebrized_filter_scan->DebugString(/*verbose=*/true),
+            "FilterOp(\n"
+            "+-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
+            "+-input: EvaluatorTableScanOp(\n"
+            "  +-col1#0\n"
+            "  +-col2#1\n"
+            "  +-InListColumnFilterArg($col1, column_idx: 0, elements: "
+            "(ConstExpr(Int64(1))))\n"
+            "  +-table: table))");
+
+  // With a barrier scan, the filter is not pushed down. Syntax-wise the SQL
+  // can be viewed as:
+  //
+  // SELECT * FROM table
+  // |> Barrier
+  // WHERE col1 = 1
+  table_scan = CreateSampleTableScan();
+  ResolvedColumnList column_list = table_scan->column_list();
+  std::unique_ptr<ResolvedBarrierScan> barrier_scan =
+      MakeResolvedBarrierScan(column_list, std::move(table_scan));
+  std::unique_ptr<ResolvedFilterScan> filter_scan_with_barrier =
+      CreateSampleFilterScan(
+          std::move(barrier_scan),
+          /*filter_expr=*/EqualFunctionCall(col1_, /*target_value=*/1));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const AlgebraNode> algebrized_filter_scan_with_barrier,
+      AlgebrizeScan(algebrizer_.get(), *filter_scan_with_barrier));
+  EXPECT_EQ(algebrized_filter_scan_with_barrier->DebugString(/*verbose=*/true),
+            "FilterOp(\n"
+            "+-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
+            "+-input: BarrierScanOp(\n"
+            "  +-input: EvaluatorTableScanOp(\n"
+            "    +-col1#0\n"
+            "    +-col2#1\n"
+            "    +-table: table)))");
+}
+
+TEST_F(BarrierScanAlgebrizerTest, FilterPushdownAllowedInsideBarrierScan) {
+  // Constructs a resolved AST for the following SQL query:
+  //
+  // SELECT * FROM table
+  // WHERE col1 = 1
+  // |> Barrier
+  // WHERE col1 = 2
+  //
+  // The first filter col1 = 1 is still allowed to be pushed down.
+  std::unique_ptr<ResolvedTableScan> table_scan = CreateSampleTableScan();
+  std::unique_ptr<ResolvedFilterScan> filter_scan_inside_barrier =
+      CreateSampleFilterScan(
+          std::move(table_scan),
+          /*filter_expr=*/EqualFunctionCall(col1_, /*target_value=*/1));
+  ResolvedColumnList column_list = filter_scan_inside_barrier->column_list();
+  std::unique_ptr<ResolvedBarrierScan> barrier_scan = MakeResolvedBarrierScan(
+      column_list, std::move(filter_scan_inside_barrier));
+  std::unique_ptr<ResolvedFilterScan> filter_scan = CreateSampleFilterScan(
+      std::move(barrier_scan),
+      /*filter_expr=*/EqualFunctionCall(col1_, /*target_value=*/2));
+
+  // Configure the algebrizer to allow pushing down filters.
+  AlgebrizerOptions algebrizer_options = {.push_down_filters = true};
+  ConfigureAlgebrizer(algebrizer_options);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const AlgebraNode> algebrized_filter_scan,
+      AlgebrizeScan(algebrizer_.get(), *filter_scan));
+  EXPECT_EQ(algebrized_filter_scan->DebugString(/*verbose=*/true),
+            "FilterOp(\n"
+            "+-condition: Equal(DerefExpr(col1), ConstExpr(Int64(2))),\n"
+            "+-input: BarrierScanOp(\n"
+            "  +-input: FilterOp(\n"
+            "    +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
+            "    +-input: EvaluatorTableScanOp(\n"
+            "      +-col1#0\n"
+            "      +-col2#1\n"
+            "      +-InListColumnFilterArg($col1, column_idx: 0, elements: "
+            "(ConstExpr(Int64(1))))\n"
+            "      +-table: table))))");
+}
+
+TEST_F(BarrierScanAlgebrizerTest, FilterPushdownNotAllowedJoinScan) {
+  // Constructs a resolved AST for the following SQL query:
+  //
+  // SELECT *
+  // FROM table1 INNER JOIN table2 ON table1.col1 = 1
+  // WHERE table2.col3 = 2
+  //
+  // Both the filter `table1.col1 = 1` and `table2.col3 = 2` are allowed to be
+  // pushed down.
+  std::unique_ptr<ResolvedJoinScan> join_scan = MakeResolvedJoinScan(
+      {col1_, col2_, col3_, col4_}, ResolvedJoinScan::INNER,
+      /*left_scan=*/CreateSampleTableScan(),
+      /*right_scan=*/CreateSampleTableScan2(),
+      /*join_expr=*/EqualFunctionCall(col1_, /*target_value=*/1));
+  ResolvedColumnList column_list = join_scan->column_list();
+  std::unique_ptr<ResolvedFilterScan> filter_scan = MakeResolvedFilterScan(
+      column_list, std::move(join_scan),
+      /*filter_expr=*/EqualFunctionCall(col3_, /*target_value=*/2));
+
+  // Configure the algebrizer to allow pushing down filters.
+  AlgebrizerOptions algebrizer_options = {.push_down_filters = true};
+  ConfigureAlgebrizer(algebrizer_options);
+
+  // The filter "table1.col1 = 1" is pushed down into the table1 scan,
+  // and the filter "table2.col3 = 2" is pushed down into the table2 scan.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const AlgebraNode> algebrized_filter_scan,
+      AlgebrizeScan(algebrizer_.get(), *filter_scan));
+  EXPECT_EQ(algebrized_filter_scan->DebugString(/*verbose=*/true),
+            "JoinOp(INNER\n"
+            "+-hash_join_equality_left_exprs: {},\n"
+            "+-hash_join_equality_right_exprs: {},\n"
+            "+-remaining_condition: ConstExpr(Bool(true)),\n"
+            "+-left_input: FilterOp(\n"
+            "| +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
+            "| +-input: EvaluatorTableScanOp(\n"
+            "|   +-col1#0\n"
+            "|   +-col2#1\n"
+            "|   +-InListColumnFilterArg($col1, column_idx: 0, elements: "
+            "(ConstExpr(Int64(1))))\n"
+            "|   +-table: table)),\n"
+            "+-right_input: FilterOp(\n"
+            "  +-condition: Equal(DerefExpr(col3), ConstExpr(Int64(2))),\n"
+            "  +-input: EvaluatorTableScanOp(\n"
+            "    +-col3#0\n"
+            "    +-col4#1\n"
+            "    +-InListColumnFilterArg($col3, column_idx: 0, elements: "
+            "(ConstExpr(Int64(2))))\n"
+            "    +-table: table2)))");
+
+  // With a barrier scan on each side of the join, the filters are not pushed
+  // down. Syntax-wise the SQL can be viewed as:
+  //
+  // SELECT *
+  // FROM (
+  //   table1
+  //   |> Barrier
+  // ) INNER JOIN (
+  //   table2
+  //   |> Barrier
+  // ) ON table1.col1 = 1
+  // WHERE table2.col3 = 2
+  std::unique_ptr<ResolvedBarrierScan> left_barrier_scan =
+      MakeResolvedBarrierScan({col1_, col2_}, CreateSampleTableScan());
+  std::unique_ptr<ResolvedBarrierScan> right_barrier_scan =
+      MakeResolvedBarrierScan({col3_, col4_}, CreateSampleTableScan2());
+  join_scan = MakeResolvedJoinScan(
+      {col1_, col2_, col3_, col4_}, ResolvedJoinScan::INNER,
+      /*left_scan=*/std::move(left_barrier_scan),
+      /*right_scan=*/std::move(right_barrier_scan),
+      /*join_expr=*/EqualFunctionCall(col1_, /*target_value=*/1));
+  column_list = join_scan->column_list();
+  filter_scan = MakeResolvedFilterScan(
+      column_list, std::move(join_scan),
+      /*filter_expr=*/EqualFunctionCall(col3_, /*target_value=*/2));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(algebrized_filter_scan,
+                       AlgebrizeScan(algebrizer_.get(), *filter_scan));
+
+  // The filters are pushed down to the left_input and right_input, but not
+  // further down inside the barrier scans.
+  EXPECT_EQ(algebrized_filter_scan->DebugString(/*verbose=*/true),
+            "JoinOp(INNER\n"
+            "+-hash_join_equality_left_exprs: {},\n"
+            "+-hash_join_equality_right_exprs: {},\n"
+            "+-remaining_condition: ConstExpr(Bool(true)),\n"
+            "+-left_input: FilterOp(\n"
+            "| +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
+            "| +-input: BarrierScanOp(\n"
+            "|   +-input: EvaluatorTableScanOp(\n"
+            "|     +-col1#0\n"
+            "|     +-col2#1\n"
+            "|     +-table: table))),\n"
+            "+-right_input: FilterOp(\n"
+            "  +-condition: Equal(DerefExpr(col3), ConstExpr(Int64(2))),\n"
+            "  +-input: BarrierScanOp(\n"
+            "    +-input: EvaluatorTableScanOp(\n"
+            "      +-col3#0\n"
+            "      +-col4#1\n"
+            "      +-table: table2))))");
+}
+
 }  // namespace zetasql

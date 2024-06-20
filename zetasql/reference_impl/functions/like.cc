@@ -187,7 +187,7 @@ absl::StatusOr<Value> EvaluateQuantifiedLike(
     case QuantifiedLikeEvaluationParams::kLikeAll:
       return LogicalAnd(result_values);
     default:
-      return absl::InvalidArgumentError("Unknown operation type");
+      return absl::OutOfRangeError("Unknown operation type");
   }
 }
 

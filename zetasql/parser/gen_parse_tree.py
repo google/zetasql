@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 474
+NEXT_NODE_TAG_ID = 477
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -811,7 +811,8 @@ def main(argv):
               tag_id=2,
               comment="""
       If present, the WITH clause wrapping this query.
-            """),
+            """,
+          ),
           Field(
               'query_expr',
               'ASTQueryExpression',
@@ -820,14 +821,16 @@ def main(argv):
               comment="""
       The query_expr can be a single Select, or a more complex structure
       composed out of nodes like SetOperation and Query.
-            """),
+            """,
+          ),
           Field(
               'order_by',
               'ASTOrderBy',
               tag_id=4,
               comment="""
       If present, applies to the result of <query_expr_> as appropriate.
-            """),
+            """,
+          ),
           Field(
               'limit_offset',
               'ASTLimitOffset',
@@ -835,7 +838,8 @@ def main(argv):
               comment="""
       If present, this applies after the result of <query_expr_> and
       <order_by_>.
-            """),
+            """,
+          ),
           Field('is_nested', SCALAR_BOOL, tag_id=6),
           Field(
               'is_pivot_input',
@@ -843,9 +847,11 @@ def main(argv):
               tag_id=7,
               comment="""
                 True if this query represents the input to a pivot clause.
-                """),
+                """,
+          ),
       ],
-      use_custom_debug_string=True)
+      use_custom_debug_string=True,
+  )
 
   gen.AddNode(
       name='ASTSelect',

@@ -377,7 +377,7 @@ SignatureArgumentKind ArrayRelatedTemplatedKind(SignatureArgumentKind kind) {
       return ARG_ARRAY_TYPE_ANY_5;
     case ARG_ARRAY_TYPE_ANY_5:
       return ARG_TYPE_ANY_5;
-    case ARG_RANGE_TYPE_ANY:
+    case ARG_RANGE_TYPE_ANY_1:
       // TODO: Remove range handling from this function in a
       // follow-up.
       return ARG_TYPE_ANY_1;
@@ -947,7 +947,7 @@ FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
        zetasql_base::ContainsKey(*templated_argument_map, ARG_PROTO_MAP_VALUE_ANY))) {
     (*templated_argument_map)[result_kind];
   }
-  if (result_kind == ARG_RANGE_TYPE_ANY &&
+  if (result_kind == ARG_RANGE_TYPE_ANY_1 &&
       zetasql_base::ContainsKey(*templated_argument_map, ARG_TYPE_ANY_1)) {
     (*templated_argument_map)[result_kind];
   }
@@ -1108,10 +1108,10 @@ bool FunctionSignatureMatcher::
       // signature's template types.
       (*templated_argument_map)[ARG_PROTO_MAP_ANY];
     }
-    if (kind == ARG_RANGE_TYPE_ANY) {
+    if (kind == ARG_RANGE_TYPE_ANY_1) {
       // Initializes to UNTYPED_NULL if not already set.
       // TODO: Investigate if this is necessary/correct.
-      (*templated_argument_map)[ARG_RANGE_TYPE_ANY];
+      (*templated_argument_map)[ARG_RANGE_TYPE_ANY_1];
     }
     // ARG_MAP_TYPE_ANY_1_2 is intentionally not handled here, because we return
     // an error when the key or value type can't be inferred.
@@ -1140,7 +1140,7 @@ bool FunctionSignatureMatcher::
 
     // If it is templated RANGE type, but the input argument type is not
     // RANGE, then they do not match.
-    if (signature_argument_kind == ARG_RANGE_TYPE_ANY &&
+    if (signature_argument_kind == ARG_RANGE_TYPE_ANY_1 &&
         !input_argument.type()->IsRangeType()) {
       SET_MISMATCH_ERROR_WITH_INDEX(
           absl::StrFormat("expected range type but found %s",
@@ -1189,7 +1189,7 @@ bool FunctionSignatureMatcher::
       (*templated_argument_map)[related_kind].InsertTypedArgument(new_argument);
     }
 
-    if (signature_argument_kind == ARG_RANGE_TYPE_ANY) {
+    if (signature_argument_kind == ARG_RANGE_TYPE_ANY_1) {
       // Get T from RANGE<T> and put it as template_arg_map[ARG_ANY_1] = T
       // This is used to resolve function signature with RANGE<T> -> T
       InputArgumentType arg_type = MakeConcreteArgument(
@@ -1413,7 +1413,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         }
       }
       (*resolved_templated_arguments)[kind] = dominant_type->type();
-    } else if (kind == ARG_RANGE_TYPE_ANY) {
+    } else if (kind == ARG_RANGE_TYPE_ANY_1) {
       const Type** element_type =
           zetasql_base::FindOrNull(*resolved_templated_arguments, ARG_TYPE_ANY_1);
 
@@ -1436,7 +1436,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
         if (type_set.kind() == SignatureArgumentKindTypeSet::UNTYPED_NULL) {
           return false;
         }
-        // Resolve ARG_RANGE_TYPE_ANY to TYPE_RANGE
+        // Resolve ARG_RANGE_TYPE_ANY_1 to TYPE_RANGE
         zetasql_base::InsertOrDie(
             resolved_templated_arguments, kind,
             type_set.typed_arguments().dominant_argument()->type());

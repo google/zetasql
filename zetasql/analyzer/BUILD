@@ -188,6 +188,7 @@ cc_library(
         ":lambda_util",
         ":name_scope",
         ":path_expression_span",
+        ":set_operation_resolver_base",
         "//zetasql/base",
         "//zetasql/base:check",
         "//zetasql/base:general_trie",
@@ -249,6 +250,7 @@ cc_library(
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:column_factory",
         "//zetasql/resolved_ast:comparator",
         "//zetasql/resolved_ast:make_node_vector",
         "//zetasql/resolved_ast:node_sources",
@@ -282,6 +284,31 @@ cc_library(
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
         "@com_google_protobuf//:protobuf_lite",
+    ],
+)
+
+cc_library(
+    name = "set_operation_resolver_base",
+    srcs = [
+        "set_operation_resolver_base.cc",
+    ],
+    hdrs = [
+        "set_operation_resolver_base.h",
+    ],
+    deps = [
+        ":input_argument_type_resolver_helper",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/parser:parse_tree",
+        "//zetasql/public:coercer",
+        "//zetasql/public:function_headers",
+        "//zetasql/public:id_string",
+        "//zetasql/public:language_options",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:column_factory",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -448,7 +475,6 @@ cc_test(
     name = "analyzer_test",
     size = "small",
     srcs = ["analyzer_test.cc"],
-    args = ["--zetasql_remove_degenerate_projectscans"],
     data = [
         "//zetasql/testdata:external_extension.proto",
         "//zetasql/testdata:test_schema_proto",
@@ -854,5 +880,4 @@ cc_test(
 bzl_library(
     name = "builddefs_bzl",
     srcs = ["builddefs.bzl"],
-    deps = ["//third_party/bazel_rules/rules_java/java:core_rules"],
 )

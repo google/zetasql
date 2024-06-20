@@ -39,6 +39,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 namespace {
@@ -927,7 +928,7 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
       return values::BoolArray(output);
     }
     default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+      return ::zetasql_base::OutOfRangeErrorBuilder() << "Unsupported function";
   }
 }
 
@@ -1034,7 +1035,7 @@ absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
       return CreateArrayValueFromOptional(*result, types::StringArrayType());
     }
     default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+      return ::zetasql_base::OutOfRangeErrorBuilder() << "Unsupported function";
   }
 }
 
@@ -1172,7 +1173,7 @@ absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
     EvaluationContext* context) const {
   if (kind() != FunctionKind::kJsonArrayInsert &&
       kind() != FunctionKind::kJsonArrayAppend) {
-    return zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+    return zetasql_base::OutOfRangeErrorBuilder() << "Unsupported function";
   }
 
   ZETASQL_RET_CHECK_GE(args.size(), 4);
@@ -1180,7 +1181,7 @@ absl::StatusOr<Value> JsonArrayInsertAppendFunction::Eval(
   // TODO: ZETASQL_RET_CHECK for incorrect args size instead of error.
   // ZETASQL_RET_CHECK((args.size() - 4) % 2 == 0);
   if ((args.size() - 4) % 2 == 1) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
+    return zetasql_base::OutOfRangeErrorBuilder()
            << "Incorrect number of args for "
            << (kind() == FunctionKind::kJsonArrayInsert ? "JSON_ARRAY_INSERT"
                                                         : "JSON_ARRAY_APPEND")

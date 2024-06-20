@@ -85,7 +85,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_STRUCT_ANY:
     case ARG_ENUM_ANY:
     case ARG_TYPE_ARBITRARY:
-    case ARG_RANGE_TYPE_ANY:
+    case ARG_RANGE_TYPE_ANY_1:
     case ARG_MAP_TYPE_ANY_1_2:
       return true;
     case ARG_TYPE_RELATION:
@@ -601,7 +601,7 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<void>";
     case ARG_TYPE_LAMBDA:
       return "<function<T->T>>";
-    case ARG_RANGE_TYPE_ANY:
+    case ARG_RANGE_TYPE_ANY_1:
       return "<range<T>>";
     case ARG_TYPE_SEQUENCE:
       return "ANY SEQUENCE";
@@ -729,7 +729,7 @@ bool FunctionArgumentType::IsScalar() const {
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
          kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
-         kind_ == ARG_RANGE_TYPE_ANY || kind_ == ARG_MAP_TYPE_ANY_1_2;
+         kind_ == ARG_RANGE_TYPE_ANY_1 || kind_ == ARG_MAP_TYPE_ANY_1_2;
 }
 
 // Intentionally restrictive for known functional programming functions. If this
@@ -914,7 +914,7 @@ std::string FunctionArgumentType::UserFacingName(
         return "VOID";
       case ARG_TYPE_LAMBDA:
         return "FUNCTION";
-      case ARG_RANGE_TYPE_ANY:
+      case ARG_RANGE_TYPE_ANY_1:
         return "RANGE";
       case ARG_TYPE_SEQUENCE:
         return "SEQUENCE";
@@ -1396,7 +1396,7 @@ static inline bool TemplatedKindRelatedProtoMapType(
 // Returns true if `kind_1` is a RANGE templated type of `kind_2`
 static inline bool TemplatedKindRelatedRangeType(
     const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
-  return (kind_1 == ARG_RANGE_TYPE_ANY && kind_2 == ARG_TYPE_ANY_1);
+  return (kind_1 == ARG_RANGE_TYPE_ANY_1 && kind_2 == ARG_TYPE_ANY_1);
 }
 
 // Returns true if `kind_1` is a MAP templated type of `kind_2`

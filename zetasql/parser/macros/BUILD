@@ -228,7 +228,6 @@ cc_library(
         ":flex_token_provider",
         ":macro_catalog",
         ":macro_expander",
-        "//zetasql/public:error_helpers",
         "//zetasql/public:language_options",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

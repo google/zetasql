@@ -895,6 +895,9 @@ class Value {
   // by test code; public arrays are always ordered.
   bool order_kind() const;
 
+  // Fills the DeepOrderKindSpec `spec` for a given Value `v`. `spec` is a
+  // recursive tree structure which represents the array orderedness of
+  // positions within `v`, for use in value comparisons.
   static void FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec);
 
   static bool EqualsInternal(const Value& x, const Value& y, bool allow_bags,

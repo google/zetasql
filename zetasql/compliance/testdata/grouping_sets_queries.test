@@ -69,6 +69,23 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
+[default required_features=V_1_4_GROUPING_SETS]
+[name=grouping_sets_single_column_grouping_set_count_distinct]
+SELECT a, b, COUNT(DISTINCT c)
+FROM simple_table
+GROUP BY GROUPING SETS(a, b)
+ORDER BY a, b
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, "bar", 1},
+  {NULL, "foo", 2},
+  {10, NULL, 1},
+  {123, NULL, 2}
+]
+==
+
 [name=grouping_sets_multi_column_grouping_set]
 SELECT a, b, c, d, COUNT(*)
 FROM simple_table
@@ -240,6 +257,32 @@ ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
 ]
 ==
 
+[name=grouping_sets_duplicate_grouping_sets_count_distinct]
+SELECT a, b, COUNT(distinct c)
+FROM simple_table
+GROUP BY GROUPING SETS((a, b), (a, b), a, a)
+ORDER BY a, b, COUNT(distinct c)
+--
+ARRAY<STRUCT<a INT64, b STRING, INT64>>[known order:
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {10, NULL, 1},
+  {10, NULL, 1},
+  {10, "bar", 0},
+  {10, "bar", 0},
+  {10, "foo", 1},
+  {10, "foo", 1},
+  {123, NULL, 2},
+  {123, NULL, 2},
+  {123, "bar", 1},
+  {123, "bar", 1},
+  {123, "foo", 1},
+  {123, "foo", 1}
+]
+==
+
 [name=grouping_sets_with_alias]
 SELECT a+d AS x, b AS y, c AS z, COUNT(*)
 FROM simple_table
@@ -361,12 +404,12 @@ ARRAY<STRUCT<col1 STRING, col_2 STRING, col_3 INT64, count INT64>>[known order:
 [name=grouping_sets_with_aggregate_functions]
 SELECT a, b, ANY_VALUE(a), ARRAY_AGG(c),
 FROM simple_table
+WHERE c IS NOT NULL
 GROUP BY GROUPING SETS((a, b), a, ())
 HAVING b IS NOT NULL
 ORDER BY a, b
 --
 ARRAY<STRUCT<a INT64, b STRING, INT64, ARRAY<>>>[known order:
-  {10, "bar", 10, ARRAY<BOOL>[NULL]},
   {10, "foo", 10, ARRAY<BOOL>[true]},
   {123, "bar", 123, ARRAY<BOOL>[true]},
   {123, "foo", 123, ARRAY<BOOL>[false]}

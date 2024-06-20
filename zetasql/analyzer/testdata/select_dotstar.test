@@ -3383,3 +3383,11 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
             +-Literal(type=INT64, value=1)
+==
+
+# Dot-star does not accept star modifiers.
+select TestStruct.* EXCEPT(a) from ComplexTypes;
+--
+ERROR: SELECT * EXCEPT is not supported [at 1:8]
+select TestStruct.* EXCEPT(a) from ComplexTypes;
+       ^

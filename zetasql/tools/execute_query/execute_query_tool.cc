@@ -167,7 +167,8 @@ namespace zetasql {
 namespace {
 using ToolMode = ExecuteQueryConfig::ToolMode;
 using SqlMode = ExecuteQueryConfig::SqlMode;
-using ExpansionOutput = parser::macros::ExpansionOutput;
+using parser::macros::DiagnosticOptions;
+using parser::macros::ExpansionOutput;
 }  // namespace
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
@@ -505,11 +506,14 @@ static absl::StatusOr<bool> RegisterMacro(absl::string_view sql,
 static absl::StatusOr<std::string> ExpandMacros(
     absl::string_view sql, const ExecuteQueryConfig& config,
     ExecuteQueryWriter& writer) {
-  ZETASQL_ASSIGN_OR_RETURN(ExpansionOutput expansion_output,
-                   parser::macros::ExpandMacros(
-                       "<filename>", sql, config.macro_catalog(),
-                       config.analyzer_options().language(),
-                       config.analyzer_options().error_message_options()));
+  ZETASQL_ASSIGN_OR_RETURN(
+      ExpansionOutput expansion_output,
+      parser::macros::ExpandMacros(
+          "<filename>", sql, config.macro_catalog(),
+          config.analyzer_options().language(),
+          DiagnosticOptions{
+              .error_message_options =
+                  config.analyzer_options().error_message_options()}));
   std::string expanded_sql =
       parser::macros::TokensToString(expansion_output.expanded_tokens);
   for (const absl::Status& warning : expansion_output.warnings) {

@@ -15,7 +15,7 @@
 #
 """ Rule for junit suite generation """
 
-load("//third_party/bazel_rules/rules_java/java:java_test.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_test")
 
 def _package_from_path(package_path):
     package = "com.google.zetasql"

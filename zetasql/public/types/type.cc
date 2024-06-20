@@ -88,7 +88,7 @@ struct TypeKindInfo {
   bool simple = false;
 };
 
-using TypeKindInfoList = std::array<TypeKindInfo, TYPE_UUID + 1>;
+using TypeKindInfoList = std::array<TypeKindInfo, TypeKind_ARRAYSIZE>;
 constexpr TypeKindInfoList MakeTypeKindInfoList() {
   TypeKindInfoList kinds = {};
 

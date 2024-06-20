@@ -1854,28 +1854,27 @@ absl::StatusOr<std::unique_ptr<SimpleConstant>> SimpleConstant::Deserialize(
       new SimpleConstant(std::move(name_path), std::move(value)));
 }
 
-SimpleModel::SimpleModel(const std::string& name,
-                         absl::Span<const NameAndType> inputs,
+SimpleModel::SimpleModel(std::string name, absl::Span<const NameAndType> inputs,
                          absl::Span<const NameAndType> outputs,
                          const int64_t id)
-    : name_(name), id_(id) {
+    : name_(std::move(name)), id_(id) {
   for (const NameAndType& name_and_type : inputs) {
     std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name, name_and_type.first, name_and_type.second));
+        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
     ZETASQL_CHECK_OK(AddInput(column.release(), true /* is_owned */));
   }
   for (const NameAndType& name_and_type : outputs) {
     std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name, name_and_type.first, name_and_type.second));
+        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
     ZETASQL_CHECK_OK(AddOutput(column.release(), true /* is_owned */));
   }
 }
 
-SimpleModel::SimpleModel(const std::string& name,
+SimpleModel::SimpleModel(std::string name,
                          const std::vector<const Column*>& inputs,
                          const std::vector<const Column*>& outputs,
                          bool take_ownership, const int64_t id)
-    : name_(name), id_(id) {
+    : name_(std::move(name)), id_(id) {
   for (const Column* column : inputs) {
     ZETASQL_CHECK_OK(AddInput(column, take_ownership));
   }

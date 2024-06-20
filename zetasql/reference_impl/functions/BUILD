@@ -58,6 +58,7 @@ cc_library(
     hdrs = ["json.h"],
     deps = [
         "//zetasql/base:ret_check",
+        "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/public:json_value",
         "//zetasql/public:language_options",

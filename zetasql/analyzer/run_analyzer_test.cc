@@ -557,12 +557,15 @@ class AnalyzerTestRunner {
       options.mutable_language()->SetSupportedStatementKinds(
           supported_statement_kinds);
     }
-    // Prune unused columns by default.  We intend to make this the default
-    // once all engines are updated.
-    options.set_prune_unused_columns(true);
+    options.set_prune_unused_columns(
+        test_case_options_.GetBool(kPruneUnusedColumns));
     // SQLBuilder test benchmarks in sql_builder.test reflect INTERNAL
     // product mode.
     options.mutable_language()->set_product_mode(PRODUCT_INTERNAL);
+
+    // False by default. Enabled by test case option
+    // also_show_signature_mismatch_details.
+    options.set_show_function_signature_mismatch_details(false);
 
     // Set rewriter options
     const std::string& rewrite_options_str =

@@ -882,10 +882,10 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Function::Mode SCALAR = Function::SCALAR;
 
   // Is a particular key present in a proto map?
-  InsertSimpleFunction(functions, options, "contains_key", SCALAR,
+  InsertSimpleFunction(functions, options, "proto_map_contains_key", SCALAR,
                        {{type_factory->get_bool(),
                          {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
-                         FN_CONTAINS_KEY}},
+                         FN_PROTO_MAP_CONTAINS_KEY}},
                        FunctionOptions().AddRequiredLanguageFeature(
                            LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
@@ -897,8 +897,8 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   };
 
   InsertSimpleFunction(
-      functions, options, "modify_map", SCALAR,
-      {{ARG_PROTO_MAP_ANY, modify_map_args, FN_MODIFY_MAP}},
+      functions, options, "proto_modify_map", SCALAR,
+      {{ARG_PROTO_MAP_ANY, modify_map_args, FN_PROTO_MODIFY_MAP}},
       FunctionOptions()
           .AddRequiredLanguageFeature(LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)
           .set_pre_resolution_argument_constraint(
@@ -906,7 +906,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  const LanguageOptions& opts) -> absl::Status {
                 if (args.size() < 3 || args.size() % 2 == 0) {
                   return MakeSqlError()
-                         << "MODIFY_MAP must take a protocol buffer map "
+                         << "PROTO_MODIFY_MAP must take a protocol buffer map "
                             "as the first argument then one or more key-value "
                             "pairs as the subsequent arguments.";
                 }

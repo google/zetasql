@@ -17,6 +17,8 @@
 #ifndef ZETASQL_RESOLVED_AST_COLUMN_FACTORY_H_
 #define ZETASQL_RESOLVED_AST_COLUMN_FACTORY_H_
 
+#include <memory>
+
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/id_string.h"
@@ -34,6 +36,33 @@ namespace zetasql {
 // Not thread safe.
 class ColumnFactory {
  public:
+  // Manages allocation of column ids and column names and helps construct
+  // ResolvedColumns.
+  //
+  // `max_seen_col_id`: All generated column ids will be strictly greater than
+  //     `max_seen_col_id`.
+  //
+  // `id_string_pool`: Used to allocate column names. The lifetime of
+  //     `id_string_pool` must exceed that of the constructed `ColumnFactory`.
+  //
+  // `sequence`: Used to allocate column ids. The lifetime of `sequence`
+  //      must exceed that of the constructed `ColumnFactory`.
+  ColumnFactory(int max_seen_col_id, IdStringPool& id_string_pool,
+                zetasql_base::SequenceNumber& sequence);
+
+  // Manages allocation of column ids and column names and helps construct
+  // ResolvedColumns.
+  //
+  // `max_seen_col_id`: All generated column ids will be strictly greater than
+  //     `max_seen_col_id`.
+  //
+  // `id_string_pool`: Used to allocate column names. The lifetime of
+  //     `id_string_pool` must exceed that of the constructed `ColumnFactory`.
+  //
+  // `sequence`: Used to allocate column ids.
+  ColumnFactory(int max_seen_col_id, IdStringPool& id_string_pool,
+                std::unique_ptr<zetasql_base::SequenceNumber> sequence);
+
   // Creates columns using column ids starting above the max seen column id.
   //
   // IdString's for column names are allocated from the IdStringPool provided,
@@ -41,19 +70,11 @@ class ColumnFactory {
   //
   // If 'sequence' is provided, it's used to do the allocations. IDs from the
   // sequence that are not above 'max_col_id' are discarded.
+  ABSL_DEPRECATED(
+      "This constructor does not prevent passing in nullptr. Use overload that "
+      "consumes a reference to IdStringPool instead")
   ColumnFactory(int max_col_id, IdStringPool* id_string_pool,
-                zetasql_base::SequenceNumber* sequence = nullptr)
-      : max_col_id_(max_col_id),
-        id_string_pool_(id_string_pool),
-        sequence_(sequence) {
-    // The implementation assumes that a nullptr <id_string_pool_> indicates
-    // that the ColumnFactory was created with the legacy constructor that uses
-    // the global string pool.
-    //
-    // This check ensures that it is safe to remove this assumption, once the
-    // legacy constructor is removed and all callers have been migrated.
-    ABSL_CHECK(id_string_pool != nullptr);
-  }
+                zetasql_base::SequenceNumber* sequence = nullptr);
 
   // Similar to the above constructor, except allocates column ids on the global
   // string pool.
@@ -65,16 +86,13 @@ class ColumnFactory {
       "This constructor will result in a ColumnFactory that leaks "
       "memory. Use overload that consumes an IdStringPool instead")
   explicit ColumnFactory(int max_col_id,
-                         zetasql_base::SequenceNumber* sequence = nullptr)
-      : max_col_id_(max_col_id),
-        id_string_pool_(nullptr),
-        sequence_(sequence) {}
+                         zetasql_base::SequenceNumber* sequence = nullptr);
 
   ColumnFactory(const ColumnFactory&) = delete;
   ColumnFactory& operator=(const ColumnFactory&) = delete;
 
   // Returns the maximum column id that has been allocated.
-  int max_column_id() const { return max_col_id_; }
+  int max_column_id() const { return max_seen_col_id_; }
 
   // Creates a new column, incrementing the counter for next use.
   ResolvedColumn MakeCol(absl::string_view table_name,
@@ -85,12 +103,14 @@ class ColumnFactory {
   ResolvedColumn MakeCol(absl::string_view table_name,
                          absl::string_view col_name, AnnotatedType type);
 
+  // Allocates a new column id from the sequence higher than `max_seen_col_id_`.
+  int AllocateColumnId();
+
  private:
-  int max_col_id_;
+  int max_seen_col_id_;
   IdStringPool* id_string_pool_;
   zetasql_base::SequenceNumber* sequence_;
-
-  void UpdateMaxColId();
+  std::unique_ptr<zetasql_base::SequenceNumber> owned_column_id_sequence_;
 };
 
 }  // namespace zetasql

@@ -112,20 +112,20 @@ void GetArrayMiscFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "array_length", SCALAR,
                        {{int64_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_LENGTH}});
 
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
-    // This function is only used during internal resolution and will never
-    // appear in a resolved AST. Instead a ResolvedFlatten node will be
-    // generated.
-    // TODO: Flatten function disallows collations on input arrays.
-    // This constraint is temporary and we will supported collated arrays for
-    // Flatten later.
-    InsertFunction(functions, options, "flatten", SCALAR,
-                   {{ARG_ARRAY_TYPE_ANY_1,
-                     {ARG_ARRAY_TYPE_ANY_1},
-                     FN_FLATTEN,
-                     FunctionSignatureOptions().set_rejects_collation(true)}});
-  }
+  // This function is only used during internal resolution and will never
+  // appear in a resolved AST. Instead a ResolvedFlatten node will be
+  // generated.
+  // TODO: Flatten function disallows collations on input arrays.
+  // This constraint is temporary and we will supported collated arrays for
+  // Flatten later.
+  InsertFunction(functions, options, "flatten", SCALAR,
+                 {{ARG_ARRAY_TYPE_ANY_1,
+                   {ARG_ARRAY_TYPE_ANY_1},
+                   FN_FLATTEN,
+                   FunctionSignatureOptions()
+                       .set_rejects_collation(true)
+                       .AddRequiredLanguageFeature(
+                           FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)}});
 
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].

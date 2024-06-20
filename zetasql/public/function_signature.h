@@ -67,6 +67,9 @@ constexpr static auto kPositionalOnly = FunctionEnums::POSITIONAL_ONLY;
 constexpr static auto kPositionalOrNamed = FunctionEnums::POSITIONAL_OR_NAMED;
 constexpr static auto kNamedOnly = FunctionEnums::NAMED_ONLY;
 
+ABSL_DEPRECATED("Inline me!")
+constexpr SignatureArgumentKind ARG_RANGE_TYPE_ANY = ARG_RANGE_TYPE_ANY_1;
+
 // This class specifies options on a function argument, including
 // argument cardinality.  This includes some options that are used to specify
 // argument values that are illegal and should cause an analysis error.

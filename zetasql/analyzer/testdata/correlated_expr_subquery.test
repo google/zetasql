@@ -1806,7 +1806,7 @@ select 3 as a, (select b)
 from (select 4 as b)
 group by a
 --
-ERROR: An expression references column b which is neither grouped nor aggregated [at 1:24]
+ERROR: SELECT without FROM clause expression references column b which is neither grouped nor aggregated [at 1:24]
 select 3 as a, (select b)
                        ^
 ==

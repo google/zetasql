@@ -10,6 +10,247 @@ domains. For
 information on data type literals and constructors, see
 [Lexical Structure and Syntax][lexical-literals].
 
+## Data type list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#array_type">Array type</a>
+
+</td>
+  <td>
+    An ordered list of zero or more elements of non-array values.<br/>
+    SQL type name: <code>ARRAY</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#boolean_type">Boolean type</a>
+
+</td>
+  <td>
+    A value that can be either <code>TRUE</code> or <code>FALSE</code>.<br/>
+    SQL type name: <code>BOOL</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#bytes_type">Bytes type</a>
+
+</td>
+  <td>
+    Variable-length binary data.<br/>
+    SQL type name: <code>BYTES</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#date_type">Date type</a>
+
+</td>
+  <td>
+    A Gregorian calendar date, independent of time zone.<br/>
+    SQL type name: <code>DATE</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#datetime_type">Datetime type</a>
+
+</td>
+  <td>
+    A Gregorian date and a time, as they might be displayed on a watch,
+    independent of time zone.<br/>
+    SQL type name: <code>DATETIME</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#enum_type">Enum type</a>
+
+</td>
+  <td>
+    Named type that enumerates a list of possible values.<br/>
+    SQL type name: <code>ENUM</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#geography_type">Geography type</a>
+
+</td>
+  <td>
+    A collection of points, linestrings, and polygons, which is represented as a
+    point set, or a subset of the surface of the Earth.<br/>
+    SQL type name: <code>GEOGRAPHY</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#interval_type">Interval type</a>
+
+</td>
+  <td>
+    A duration of time, without referring to any specific point in time.<br/>
+    SQL type name: <code>INTERVAL</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_type">JSON type</a>
+
+</td>
+  <td>
+    Represents JSON, a lightweight data-interchange format.<br/>
+    SQL type name: <code>JSON</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#numeric_types">Numeric types</a>
+
+</td>
+  <td>
+    <p>
+      A numeric value. Several types are supported.
+    </p>
+    
+    <p>
+      A 32-bit integer.<br/>
+      SQL type name: <code>INT32</code>
+    </p>
+    
+    
+    <p>
+      An unsigned 32-bit integer.<br/>
+      SQL type name: <code>UINT32</code>
+    </p>
+    
+    
+    <p>
+      A 64-bit integer.<br/>
+      SQL type name: <code>INT64</code>
+      
+    </p>
+    
+    
+    <p>
+      An unsigned 64-bit integer.<br/>
+      SQL type name: <code>UINT64</code>
+    </p>
+    
+    
+    <p>
+      A decimal value with precision of 38 digits.<br/>
+      SQL type name: <code>NUMERIC</code>
+      <br/>
+      SQL aliases: <code>DECIMAL</code>
+      
+    </p>
+    
+    
+    <p>
+      A decimal value with precision of 76.76 digits.<br/>
+      SQL type name: <code>BIGNUMERIC</code>
+      <br/>
+      SQL aliases: <code>BIGDECIMAL</code>
+      
+    </p>
+    
+    
+    <p>
+      An approximate single precision numeric value.<br/>
+      SQL type name: <code>FLOAT</code>
+      <br/>
+      SQL aliases: <code>FLOAT32</code>
+      
+    </p>
+    
+    
+    <p>
+      An approximate double precision numeric value.<br/>
+      SQL type name: <code>DOUBLE</code>
+      <br/>
+      SQL aliases: <code>FLOAT64</code>
+      
+    </p>
+    
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#protocol_buffer_type">Protocol buffer type</a>
+
+</td>
+  <td>
+    A protocol buffer.<br/>
+    SQL type name: <code>PROTO</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#range_type">Range type</a>
+
+</td>
+  <td>
+    Contiguous range between two dates, datetimes, or timestamps.<br/>
+    SQL type name: <code>RANGE</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#string_type">String type</a>
+
+</td>
+  <td>
+    Variable-length character data.<br/>
+    SQL type name: <code>STRING</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#struct_type">Struct type</a>
+
+</td>
+  <td>
+    Container of ordered fields.<br/>
+    SQL type name: <code>STRUCT</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#time_type">Time type</a>
+
+</td>
+  <td>
+    A time of day, as might be displayed on a clock, independent of a specific
+    date and time zone.<br/>
+    SQL type name: <code>TIME</code>
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#timestamp_type">Timestamp type</a>
+
+</td>
+  <td>
+    A timestamp value represents an absolute point in time,
+    independent of any time zone or convention such as
+    daylight saving time (DST).<br/>
+    SQL type name: <code>TIMESTAMP</code>
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
 ## Data type properties
 
 When storing and querying data, it is helpful to keep the following data type
@@ -185,10 +426,8 @@ compare strings. These data types support collation:
 + String fields in a struct
 + String elements in an array
 
-The maximum size of a  column value is 10MiB, which applies to
-scalar and array types.
-
-## Array type
+## Array type 
+<a id="array_type"></a>
 
 <table>
 <thead>
@@ -398,7 +637,16 @@ SELECT
  *--------------------------------------------------------------------------*/
 ```
 
-## Boolean type
+[array-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#array_literals
+
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#constructing_arrays
+
+[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
+
+[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
+
+## Boolean type 
+<a id="boolean_type"></a>
 
 <table>
 <thead>
@@ -422,7 +670,8 @@ Boolean values are sorted in this order, from least to greatest:
   1. `FALSE`
   1. `TRUE`
 
-## Bytes type
+## Bytes type 
+<a id="bytes_type"></a>
 
 <table>
 <thead>
@@ -447,7 +696,10 @@ bytes enforce that the bytes are encoded using UTF-8.
 To learn more about the literal representation of a bytes type,
 see [Bytes literals][bytes-literals].
 
-## Date type
+[bytes-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+## Date type 
+<a id="date_type"></a>
 
 <table>
 <thead>
@@ -486,7 +738,12 @@ YYYY-[M]M-[D]D
 To learn more about the literal representation of a date type,
 see [Date literals][date-literals].
 
-## Datetime type
+[timestamp-type]: #timestamp_type
+
+[date-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#date_literals
+
+## Datetime type 
+<a id="datetime_type"></a>
 
 <table>
 <thead>
@@ -544,7 +801,12 @@ time_part:
 To learn more about the literal representation of a datetime type,
 see [Datetime literals][datetime-literals].
 
-## Enum type
+[timestamp-type]: #timestamp_type
+
+[datetime-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#datetime_literals
+
+## Enum type 
+<a id="enum_type"></a>
 
 <table>
 <thead>
@@ -581,7 +843,10 @@ You cannot create new enum types using ZetaSQL.
 To learn more about the literal representation of an enum type,
 see [Enum literals][enum-literals].
 
-## Geography type
+[enum-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#enum_literals
+
+## Geography type 
+<a id="geography_type"></a>
 
 <table>
 <thead>
@@ -819,7 +1084,14 @@ SELECT
 A geography is the result of, or an argument to, a
 [Geography Function][geography-functions].
 
-## Interval type
+[ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
+
+[WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
+
+## Interval type 
+<a id="interval_type"></a>
 
 <table>
 <thead>
@@ -1044,7 +1316,20 @@ You can use the following time parts to construct an interval:
 + `MICROSECOND`: Number of microseconds.
 + `NANOSECOND`: Number of nanoseconds.
 
-## JSON type
+[interval-datetime-parts]: #interval_datetime_parts
+
+[single-datetime-part-interval]: #single_datetime_part_interval
+
+[range-datetime-part-interval]: #range_datetime_part_interval
+
+[interval-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literals
+
+[interval-literal-single]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literal_single
+
+[interval-literal-range]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literal_range
+
+## JSON type 
+<a id="json_type"></a>
 
 <table>
 <thead>
@@ -1079,7 +1364,10 @@ Expect these canonicalization behaviors when creating a value of JSON type:
 To learn more about the literal representation of a JSON type,
 see [JSON literals][json-literals].
 
-## Numeric types
+[json-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#json_literals
+
+## Numeric types 
+<a id="numeric_types"></a>
 
 Numeric types include the following types:
 
@@ -1378,7 +1666,24 @@ For more information on how these values are ordered and grouped so they
 can be compared,
 see [Ordering floating point values][orderable-floating-points].
 
-## Protocol buffer type
+[floating-point-accuracy]: https://en.wikipedia.org/wiki/Floating-point_arithmetic#Accuracy_problems
+
+[decimal-types]: #decimal_types
+
+[orderable-floating-points]: #orderable_floating_points
+
+[integer-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#integer_literals
+
+[floating-point-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#floating_point_literals
+
+[mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+
+[numeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#numeric_literals
+
+[bignumeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#bignumeric_literals
+
+## Protocol buffer type 
+<a id="protocol_buffer_type"></a>
 
 <table>
 <thead>
@@ -1736,7 +2041,24 @@ alternative solutions:
 + To get a simple approximation comparison, cast protocol buffer to
   string. This applies lexicographical ordering for numeric fields.
 
-## Range type
+[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
+
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+
+[new-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#new_operator
+
+[select-as-typename]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_typename
+
+[new-keyword]: #using_new
+
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#explicit_alias_syntax
+
+[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases
+
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
+
+## Range type 
+<a id="range_type"></a>
 
 <table>
   <thead>
@@ -1825,7 +2147,22 @@ see [Range literals][range-literals].
 
 The range type does not support arithmetic operators.
 
-## String type
+[range-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#range_literals
+
+[range-with-constructor]: #range_with_constructor
+
+[range-constructor]: https://github.com/google/zetasql/blob/master/docs/range-functions.md#range
+
+[range-with-literal]: #range_with_literal
+
+[date-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#date_literals
+
+[datetime-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#datetime_literals
+
+[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+## String type 
+<a id="string_type"></a>
 
 <table>
 <thead>
@@ -1865,7 +2202,10 @@ bytes are not valid UTF-8.
 To learn more about the literal representation of a string type,
 see [String literals][string-literals].
 
-## Struct type
+[string-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+## Struct type 
+<a id="struct_type"></a>
 
 <table>
 <thead>
@@ -2087,7 +2427,10 @@ the struct pairwise in ordinal order ignoring any field names. If instead you
 want to compare identically named fields of a struct, you can compare the
 individual fields directly.
 
-## Time type
+[struct-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#struct_literals
+
+## Time type 
+<a id="time_type"></a>
 
 <table>
 <thead>
@@ -2133,7 +2476,12 @@ an absolute point in time, use a [timestamp][timestamp-type].
 To learn more about the literal representation of a time type,
 see [Time literals][time-literals].
 
-## Timestamp type
+[timestamp-type]: #timestamp_type
+
+[time-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#time_literals
+
+## Timestamp type 
+<a id="timestamp_type"></a>
 
 <table>
 <thead>
@@ -2340,117 +2688,25 @@ seconds are only observable through functions that measure real-world time. In
 these functions, it is possible for a timestamp second to be skipped or repeated
 when there is a leap second.
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[floating-point-accuracy]: https://en.wikipedia.org/wiki/Floating-point_arithmetic#Accuracy_problems
-
-[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
-
 [tz-database]: http://www.iana.org/time-zones
 
 [tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
-[ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
-
-[WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
-
-[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
-
-[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
-
-[decimal-types]: #decimal_types
-
-[timestamp-type]: #timestamp_type
+[time-type]: #time_type
 
 [date-type]: #date_type
 
 [datetime-type]: #datetime_type
 
-[time-type]: #time_type
-
-[interval-type]: #interval_type
+[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
 
 [floating-point-types]: #floating_point_types
 
-[orderable-floating-points]: #orderable_floating_points
-
-[orderable-nulls]: #orderable_nulls
-
 [lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#literals
-
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#constructing_arrays
 
 [join-types]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
 
 [order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
 
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
-
-[new-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#new_operator
-
-[select-as-typename]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_typename
-
-[new-keyword]: #using_new
-
-[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#explicit_alias_syntax
-
-[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases
-
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
-
-[geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
-
-[mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
-
 [st-equals]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_equals
-
-[string-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
-
-[bytes-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
-
-[array-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#array_literals
-
-[struct-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#struct_literals
-
-[integer-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#integer_literals
-
-[floating-point-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#floating_point_literals
-
-[numeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#numeric_literals
-
-[bignumeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#bignumeric_literals
-
-[date-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#date_literals
-
-[time-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#time_literals
-
-[datetime-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#datetime_literals
-
-[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
-
-[interval-datetime-parts]: #interval_datetime_parts
-
-[single-datetime-part-interval]: #single_datetime_part_interval
-
-[range-datetime-part-interval]: #range_datetime_part_interval
-
-[interval-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literals
-
-[interval-literal-single]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literal_single
-
-[interval-literal-range]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literal_range
-
-[enum-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#enum_literals
-
-[json-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#json_literals
-
-[range-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#range_literals
-
-[range-with-constructor]: #range_with_constructor
-
-[range-constructor]: https://github.com/google/zetasql/blob/master/docs/range-functions.md#range
-
-[range-with-literal]: #range_with_literal
-
-<!-- mdlint on -->
 

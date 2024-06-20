@@ -5279,4 +5279,96 @@ RelationalOp* RootOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
 }
 
+namespace {
+
+// Iterates over the input from `input_iterator`.
+class BarrierScanTupleIterator : public TupleIterator {
+ public:
+  explicit BarrierScanTupleIterator(
+      std::unique_ptr<TupleIterator> input_iterator)
+      : input_iterator_(std::move(input_iterator)) {}
+
+  BarrierScanTupleIterator(const BarrierScanTupleIterator&) = delete;
+  BarrierScanTupleIterator& operator=(const BarrierScanTupleIterator&) = delete;
+
+  const TupleSchema& Schema() const override {
+    return input_iterator_->Schema();
+  }
+
+  TupleData* Next() override {
+    TupleData* current = input_iterator_->Next();
+    status_ = input_iterator_->Status();
+    return current;
+  }
+
+  bool PreservesOrder() const override {
+    return input_iterator_->PreservesOrder();
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return BarrierScanOp::GetIteratorDebugString(
+        input_iterator_->DebugString());
+  }
+
+ private:
+  std::unique_ptr<TupleIterator> input_iterator_;
+  absl::Status status_;
+};
+
+}  // namespace
+
+std::string BarrierScanOp::GetIteratorDebugString(
+    absl::string_view input_iterator_debug_string) {
+  return absl::StrCat("BarrierScanTupleIterator(", input_iterator_debug_string,
+                      ")");
+}
+
+absl::StatusOr<std::unique_ptr<BarrierScanOp>> BarrierScanOp::Create(
+    std::unique_ptr<RelationalOp> input) {
+  return absl::WrapUnique(new BarrierScanOp(std::move(input)));
+}
+
+absl::Status BarrierScanOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> BarrierScanOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
+                   input()->CreateIterator(params, num_extra_slots, context));
+  return std::make_unique<BarrierScanTupleIterator>(std::move(iter));
+}
+
+std::unique_ptr<TupleSchema> BarrierScanOp::CreateOutputSchema() const {
+  // The output schema of a BarrierScanOp is the same as the input schema.
+  return input()->CreateOutputSchema();
+}
+
+std::string BarrierScanOp::DebugInternal(const std::string& indent,
+                                         bool verbose) const {
+  return absl::StrCat("BarrierScanOp(",
+                      ArgDebugString({"input"}, {k1}, indent, verbose), ")");
+}
+
+BarrierScanOp::BarrierScanOp(std::unique_ptr<RelationalOp> input) {
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+}
+
+std::string BarrierScanOp::IteratorDebugString() const {
+  return BarrierScanOp::GetIteratorDebugString(input()->IteratorDebugString());
+}
+
+const RelationalOp* BarrierScanOp::input() const {
+  return GetArg(kInput)->node()->AsRelationalOp();
+}
+
+RelationalOp* BarrierScanOp::mutable_input() {
+  return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
+}
+
 }  // namespace zetasql

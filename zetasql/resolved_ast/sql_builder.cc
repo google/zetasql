@@ -81,8 +81,6 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/flags/flag.h"
-#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -97,9 +95,6 @@
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-
-ABSL_FLAG(bool, zetasql_remove_degenerate_projectscans, false,
-          "Remove subqueries generated from ProjectScans that are not needed");
 
 namespace zetasql {
 
@@ -145,7 +140,7 @@ std::string SQLBuilder::UpdateColumnAlias(const ResolvedColumn& column) {
 SQLBuilder::SQLBuilder(const SQLBuilderOptions& options) : options_(options) {}
 
 namespace {
-constexpr absl::string_view kint64max_str = "9223372036854775807";
+constexpr absl::string_view khalf_of_int64max_str = "4611686018427387903";
 
 // In some cases ZetaSQL name resolution rules cause table names to be
 // resolved as column names. See the test in sql_builder.test that is tagged
@@ -2391,10 +2386,8 @@ absl::Status SQLBuilder::VisitResolvedUnpivotScan(
   return absl::OkStatus();
 }
 
-// A ProjectScan is degenerate if it does not add any new information over its
-// input scan.
-static bool IsDegenerateProjectScan(const ResolvedProjectScan* node,
-                                    const QueryExpression* query_expression) {
+bool SQLBuilder::IsDegenerateProjectScan(
+    const ResolvedProjectScan* node, const QueryExpression* query_expression) {
   return node->expr_list_size() == 0     // no computed columns
          && node->hint_list_size() == 0  // no hints
          // same column list as the input scan
@@ -2416,8 +2409,7 @@ absl::Status SQLBuilder::VisitResolvedProjectScan(
     query_expression = std::move(result->query_expression);
   }
 
-  if (absl::GetFlag(FLAGS_zetasql_remove_degenerate_projectscans) &&
-      IsDegenerateProjectScan(node, query_expression.get()) &&
+  if (IsDegenerateProjectScan(node, query_expression.get()) &&
       query_expression->CanFormSQLQuery()) {
     // NOTE: any future fields added to ProjectScan that are not IGNORABLE will
     // fail at CheckFieldsAccessed() when this condition is met.
@@ -8121,6 +8113,13 @@ absl::Status SQLBuilder::VisitResolvedAuxLoadDataStmt(
   }
   PushQueryFragment(node, sql);
   return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedBarrierScan(
+    const ResolvedBarrierScan* node) {
+  // No SQL syntax corresponding to BarrierScan, so we simply generate SQL for
+  // the input scan. Note that this will lose the BarrierScan semantics.
+  return node->input_scan()->Accept(this);
 }
 
 }  // namespace zetasql

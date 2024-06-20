@@ -176,6 +176,7 @@ class Algebrizer {
   friend class AlgebrizerTestFunctions;
   friend class AlgebrizerTestFilters;
   friend class AlgebrizerTestGroupingAggregation;
+  friend class BarrierScanAlgebrizerTest;
   FRIEND_TEST(ExpressionAlgebrizerTest, Parameters);
   FRIEND_TEST(ExpressionAlgebrizerTest, PositionalParametersInExpressions);
   FRIEND_TEST(StatementAlgebrizerTest, SingleRowScan);
@@ -823,6 +824,13 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<RelationalOp>> ApplyAlgebrizedFilterConjuncts(
       std::unique_ptr<RelationalOp> input,
       std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts);
+
+  // Returns a `RelationalOp` corresponding to `resolved_barrier_scan`.
+  //
+  // This function does not accept FilterConjunctInfo to prevent query
+  // optimizations like filter pushdown.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeBarrierScan(
+      const ResolvedBarrierScan* resolved_barrier_scan);
 
   // Represents a named or positional parameter.
   class Parameter {

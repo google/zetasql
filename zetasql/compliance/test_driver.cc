@@ -23,9 +23,13 @@
 
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 

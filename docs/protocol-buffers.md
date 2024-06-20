@@ -70,11 +70,11 @@ You can add, remove, and retrieve values from protocol buffer map fields.
 
 You can add a value to a protocol buffer map field in the following ways.
 
-#### Use the `MODIFY MAP` function 
+#### Use the `PROTO_MODIFY_MAP` function 
 <a id="proto_maps_add_modify_map"></a>
 
-You can use the [`MODIFY_MAP` function][modify-map] to add values
-to a protocol buffer map field.
+You can use the [`PROTO_MODIFY_MAP` function][proto-modify-map] to add values to a
+protocol buffer map field.
 
 The following query adds a new key-value pair, `A, 11`, to a
 map field called `purchased` in a protocol buffer called `Item`.
@@ -87,7 +87,7 @@ message Item {
 
 ```sql
 SELECT
-  MODIFY_MAP(m.purchased, 'B', 11) AS result_map
+  PROTO_MODIFY_MAP(m.purchased, 'B', 11) AS result_map
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
@@ -131,8 +131,8 @@ SELECT NEW Item([('A', 32), ('B', 9)] AS purchased)
 ### Change values in map fields 
 <a id="change_proto_maps"></a>
 
-You can use the [`MODIFY_MAP` function][modify-map] to change values
-in a protocol buffer map field.
+You can use the [`PROTO_MODIFY_MAP` function][proto-modify-map] to change values in a
+protocol buffer map field.
 
 The following query changes a value from `22` to `6` in a map field called
 `purchased` in a protocol buffer called `Item`.
@@ -145,7 +145,7 @@ message Item {
 
 ```sql
 SELECT
-  MODIFY_MAP(m.purchased, 'A', 6) AS result_map
+  PROTO_MODIFY_MAP(m.purchased, 'A', 6) AS result_map
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
@@ -159,8 +159,8 @@ FROM
 ### Remove values from map fields 
 <a id="remove_from_proto_maps"></a>
 
-You can use the [`MODIFY_MAP` function][modify-map] to remove values
-from a protocol buffer map field.
+You can use the [`PROTO_MODIFY_MAP` function][proto-modify-map] to remove values from
+a protocol buffer map field.
 
 The following query removes a key-value pair, `A, 11`, from a
 map field called `purchased` in a protocol buffer called `Item`.
@@ -173,7 +173,7 @@ message Item {
 
 ```sql
 SELECT
-  MODIFY_MAP(m.purchased, 'A', NULL) AS result_map
+  PROTO_MODIFY_MAP(m.purchased, 'A', NULL) AS result_map
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 } purchased { key: 'B' value: 11 }" AS Item)) AS m;
 
@@ -188,7 +188,7 @@ FROM
 <a id="proto_maps_check_key"></a>
 
 You can check to see if a protocol buffer map field contains a key with the
-[`CONTAINS_KEY` function][contains-key].
+[`PROTO_MAP_CONTAINS_KEY` function][proto-map-contains-key].
 
 In the following example, the key `B` is not present in a
 map field called `purchased` in a protocol buffer called `Item`.
@@ -201,7 +201,7 @@ message Item {
 
 ```sql
 SELECT
-  CONTAINS_KEY(m.map, 'B') AS key_is_present
+  PROTO_MAP_CONTAINS_KEY(m.map, 'B') AS key_is_present
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
@@ -1068,9 +1068,9 @@ Protocol buffers can be coerced into other data types. For more information, see
 
 [proto-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#proto_subscript_operator
 
-[contains-key]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#contains_key
+[proto-map-contains-key]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_map_contains_key
 
-[modify-map]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#modify_map
+[proto-modify-map]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_modify_map
 
 [typeless-structs]: https://github.com/google/zetasql/blob/master/docs/data-types.md#typeless_struct_syntax
 

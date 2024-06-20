@@ -17,6 +17,7 @@
 #ifndef ZETASQL_REFERENCE_IMPL_REFERENCE_DRIVER_H_
 #define ZETASQL_REFERENCE_IMPL_REFERENCE_DRIVER_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -24,10 +25,10 @@
 #include <string>
 #include <vector>
 
-#include "google/protobuf/compiler/importer.h"
 #include "zetasql/compliance/test_database_catalog.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -36,6 +37,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/rewrite_flags.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "absl/container/btree_set.h"
@@ -45,8 +47,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
@@ -85,6 +85,25 @@ class ReferenceDriver : public TestDriver {
   static bool UsesUnsupportedType(const LanguageOptions& options,
                                   const ResolvedNode* root,
                                   const Type** example = nullptr);
+
+  absl::StatusOr<bool> SkipTestsWithPrimaryKeyMode(
+      PrimaryKeyMode primary_key_mode) override {
+    // This function will be called when the reference driver is being used as
+    // an engine being tested, but not when it is being used as a reference.
+    //
+    // When functioning as a reference, the reference implementation can handle
+    // all primary keys modes. When running as an engine being tested, the
+    // ExecuteStatement API is invoked which does not include the primary key
+    // mode.
+    //
+    // TODO: b/228246501 - Get reference implementation tests running against
+    //   all primary key modes so that DML features are propperly reported in
+    //   (broken link). To do this, we need to add to the TestDriver
+    //   API a way to signal that the engine can take different
+    //   language features or different primary key modes as well as APIs to
+    //   set and reset those fields.
+    return primary_key_mode != PrimaryKeyMode::DEFAULT;
+  }
 
   LanguageOptions GetSupportedLanguageOptions() override {
     return language_options_;
@@ -141,7 +160,7 @@ class ReferenceDriver : public TestDriver {
   absl::Status AddSqlUdfs(absl::Span<const std::string> create_function_stmts,
                           FunctionOptions function_options);
 
-  // Adds some viewss to the catalog owned by this test driver. The argument
+  // Adds some views to the catalog owned by this test driver. The argument
   // is a collection of "CREATE TEMP VIEW" statements.
   absl::Status AddViews(
       absl::Span<const std::string> create_view_stmts) override;
@@ -151,16 +170,10 @@ class ReferenceDriver : public TestDriver {
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) override;
 
-  // Implements TestDriver::ExecuteScript(), which documents that this method
-  // is not supposed be called because IsReferenceImplementation() returns true.
+  // Implements TestDriver::ExecuteScript().
   absl::StatusOr<ScriptResult> ExecuteScript(
       const std::string& sql, const std::map<std::string, Value>& parameters,
-      TypeFactory* type_factory) override {
-    return zetasql_base::InternalErrorBuilder()
-           << "ExecuteScript() is not supported for the reference "
-           << "implementation; call  "
-           << "ReferenceDriver::ExecuteScriptForReferenceDriver() instead";
-  }
+      TypeFactory* type_factory) override;
 
   struct ExecuteStatementAuxOutput {
     // If this has a value, it indicates whether the reference evaluation
@@ -201,7 +214,7 @@ class ReferenceDriver : public TestDriver {
 
   bool IsReferenceImplementation() const override { return true; }
 
-  // Sets a new query evalution duration that is less than
+  // Sets a new query evaluation duration that is less than
   // --reference_driver_query_eval_timeout_sec or returns an error.
   absl::Status SetStatementEvaluationTimeout(absl::Duration timeout) override;
 

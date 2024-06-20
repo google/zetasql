@@ -119,7 +119,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
 
   InsertFunction(functions, options, "range", Function::SCALAR,
                  {{
-                     ARG_RANGE_TYPE_ANY,
+                     ARG_RANGE_TYPE_ANY_1,
                      {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
                      FN_RANGE,
                  }},
@@ -129,7 +129,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
                  Function::SCALAR,
                  {{
                      bool_type,
-                     {ARG_RANGE_TYPE_ANY},
+                     {ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_IS_START_UNBOUNDED,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
@@ -137,7 +137,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "range_is_end_unbounded", Function::SCALAR,
                  {{
                      bool_type,
-                     {ARG_RANGE_TYPE_ANY},
+                     {ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_IS_END_UNBOUNDED,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
@@ -145,7 +145,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "range_start", Function::SCALAR,
                  {{
                      ARG_TYPE_ANY_1,
-                     {ARG_RANGE_TYPE_ANY},
+                     {ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_START,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
@@ -153,7 +153,7 @@ void GetRangeFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "range_end", Function::SCALAR,
                  {{
                      ARG_TYPE_ANY_1,
-                     {ARG_RANGE_TYPE_ANY},
+                     {ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_END,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
@@ -161,15 +161,15 @@ void GetRangeFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "range_overlaps", Function::SCALAR,
                  {{
                      bool_type,
-                     {ARG_RANGE_TYPE_ANY, ARG_RANGE_TYPE_ANY},
+                     {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_OVERLAPS,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &PreResolutionArgConstraintForUntypedNullTwoRangeInputs));
   InsertFunction(functions, options, "range_intersect", Function::SCALAR,
                  {{
-                     ARG_RANGE_TYPE_ANY,
-                     {ARG_RANGE_TYPE_ANY, ARG_RANGE_TYPE_ANY},
+                     ARG_RANGE_TYPE_ANY_1,
+                     {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
                      FN_RANGE_INTERSECT,
                  }},
                  FunctionOptions().set_pre_resolution_argument_constraint(
@@ -215,12 +215,12 @@ void GetRangeFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "range_contains", Function::SCALAR,
                  {{
                       bool_type,
-                      {ARG_RANGE_TYPE_ANY, ARG_RANGE_TYPE_ANY},
+                      {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
                       FN_RANGE_CONTAINS_RANGE,
                   },
                   {
                       bool_type,
-                      {ARG_RANGE_TYPE_ANY, ARG_TYPE_ANY_1},
+                      {ARG_RANGE_TYPE_ANY_1, ARG_TYPE_ANY_1},
                       FN_RANGE_CONTAINS_ELEMENT,
                   }},
                  FunctionOptions().set_pre_resolution_argument_constraint(

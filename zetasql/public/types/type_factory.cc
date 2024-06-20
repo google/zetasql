@@ -30,7 +30,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/array_find_mode.pb.h"
@@ -69,13 +68,14 @@
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -212,7 +212,7 @@ static const auto* StaticTypeSet() {
   return kStaticTypeSet;
 }
 
-// Staticly initialize a few commonly used types.
+// Statically initialize a few commonly used types.
 static TypeFactory* s_type_factory() {
   static TypeFactory* s_type_factory = new TypeFactory();
   return s_type_factory;

@@ -2063,16 +2063,16 @@ select count(distinct) from KeyValue
 
 select count(*)
 --
-ERROR: SELECT without FROM clause cannot use aggregation [at 1:1]
+ERROR: Aggregate function COUNT(*) not allowed in SELECT without FROM clause [at 1:8]
 select count(*)
-^
+       ^
 ==
 
 select sum(5)
 --
-ERROR: SELECT without FROM clause cannot use aggregation [at 1:1]
+ERROR: Aggregate function SUM not allowed in SELECT without FROM clause [at 1:8]
 select sum(5)
-^
+       ^
 ==
 
 select count(*) from (select 1)
@@ -2588,9 +2588,9 @@ QueryStmt
 
 select (select count(*) c, 1 a) from KeyValue
 --
-ERROR: SELECT without FROM clause cannot use aggregation [at 1:9]
+ERROR: Aggregate function COUNT(*) not allowed in SELECT without FROM clause [at 1:16]
 select (select count(*) c, 1 a) from KeyValue
-        ^
+               ^
 ==
 
 # Grouping by all the supported types.

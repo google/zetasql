@@ -1001,17 +1001,17 @@ select MessageWithMapField.int32_int32_map[SAFE_KEY(key + 1)]
 ==
 
 [language_features=V_1_3_PROTO_MAPS]
-select MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
+select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
 from MapFieldTable
 --
-ERROR: No matching signature for function MODIFY_MAP(ARRAY<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>, INT64, INT64); some key or value did not match the map's key or value type. Supported signature: MODIFY_MAP(PROTO_MAP, [PROTO_MAP_KEY, ...], [PROTO_MAP_VALUE, ...]) [at 1:8]
-select MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
+ERROR: No matching signature for function PROTO_MODIFY_MAP(ARRAY<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>, INT64, INT64); some key or value did not match the map's key or value type. Supported signature: PROTO_MODIFY_MAP(PROTO_MAP, [PROTO_MAP_KEY, ...], [PROTO_MAP_VALUE, ...]) [at 1:8]
+select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
        ^
 ==
 
 [enabled_ast_rewrites=NONE]
 [language_features=V_1_3_PROTO_MAPS]
-select MODIFY_MAP(MessageWithMapField.int32_int32_map, CAST(key + 1 AS INT32), CAST(key + 2 AS INT32))
+select PROTO_MODIFY_MAP(MessageWithMapField.int32_int32_map, CAST(key + 1 AS INT32), CAST(key + 2 AS INT32))
 from MapFieldTable
 --
 QueryStmt
@@ -1022,7 +1022,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:modify_map(ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>, repeated(1) INT32, repeated(1) INT32) -> ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>)
+    |   +-FunctionCall(ZetaSQL:proto_modify_map(ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>, repeated(1) INT32, repeated(1) INT32) -> ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>)
     |     +-GetProtoField
     |     | +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>
     |     | +-expr=

@@ -54,9 +54,9 @@ select 1 where true;
 
 SELECT SUM(1);
 --
-ERROR: SELECT without FROM clause cannot use aggregation [at 1:1]
+ERROR: Aggregate function SUM not allowed in SELECT without FROM clause [at 1:8]
 SELECT SUM(1);
-^
+       ^
 ==
 
 [language_features={{|ANALYTIC_FUNCTIONS}}]
@@ -70,9 +70,9 @@ SELECT sum(1) OVER ();
 --
 ALTERNATION GROUP: ANALYTIC_FUNCTIONS
 --
-ERROR: SELECT without FROM clause cannot use analytic functions [at 1:1]
+ERROR: Analytic function not allowed in SELECT without FROM clause [at 1:8]
 SELECT sum(1) OVER ();
-^
+       ^
 ==
 
 select 1 group by abc;

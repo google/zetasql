@@ -35,6 +35,7 @@
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
@@ -516,9 +517,20 @@ bool ArrayType::ValueContentLess(const ValueContent& x, const ValueContent& y,
 
 absl::Status ArrayType::SerializeValueContent(const ValueContent& value,
                                               ValueProto* value_proto) const {
-  return absl::FailedPreconditionError(
-      "SerializeValueContent should never be called for ArrayType, since its "
-      "value content is maintained in the Value class");
+  const internal::ValueContentOrderedList* array_content =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  auto* array_value_proto = value_proto->mutable_array_value();
+
+  for (int i = 0; i < array_content->num_elements(); ++i) {
+    auto* element_value_proto = array_value_proto->add_element();
+    const internal::NullableValueContent& element_value_content =
+        array_content->element(i);
+    if (!element_value_content.is_null()) {
+      ZETASQL_RETURN_IF_ERROR(element_type()->SerializeValueContent(
+          element_value_content.value_content(), element_value_proto));
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status ArrayType::DeserializeValueContent(const ValueProto& value_proto,

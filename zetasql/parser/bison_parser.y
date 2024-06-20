@@ -646,6 +646,9 @@ using namespace zetasql::parser_internal;
 // Two tokens that help the disambiguator locate type templates.
 %token LB_OPEN_TYPE_TEMPLATE
 %token LB_CLOSE_TYPE_TEMPLATE
+// Used as a lookback override in SELECT WITH <identifier> OPTIONS. See below
+// for more details.
+%token LB_WITH_IN_SELECT_WITH_OPTIONS
 %token SENTINEL_LB_TOKEN_END
 
 // The tokens in this section are reserved in the sense they cannot be used as
@@ -665,40 +668,40 @@ using namespace zetasql::parser_internal;
 // precedence than NOT BETWEEN/IN/LIKE.
 %token KW_NOT_SPECIAL "NOT_SPECIAL"
 
-// Two tokens that are used in the SELECT WITH <identifier> OPTIONS construct.
+// This token is used alongside LB_WITH_IN_SELECT_WITH_OPTIONS in The
+// SELECT WITH <identifier> OPTIONS construct.
 // There is a true ambiguity in the query prefix when using SELECT WITH OPTIONS.
 // For example,
 //   SELECT {opt_hint} WITH modification_kind OPTIONS(a = 1) alias, * FROM ...
 // has two valid parses.
-// 1. `OPTIONS(a = 1)` is an optinos list associated with WITH modification_kind
-//    and `alias` is the first colun in the select list
+// 1. `OPTIONS(a = 1)` is an options list associated with WITH modification_kind
+//    and `alias` is the first column in the select list
 // 2. `OPTIONS(a = 1)` is a function call, `a = 1` is an expression computing
 //    the argument, and `alias` is the column alias.
 // This is a true ambiguity. Both parses are valid and no ammount of lookahead
-// will eliminates the ambiguity. Our intention has been to force parse #1.
+// will eliminate the ambiguity. Our intention has been to force parse #1.
 //
 // A solution based on LALR(1) parser's "prefer shift" rule that chooses to
-// shift options rather than reduce colum name is not ideal because it causes
-// collateral damange. Consider:
+// shift options rather than reduce column name is not ideal because it causes
+// collateral damage. Consider:
 // * SELECT WITH mod options, more_columns...
 //
-// In this case, options cannot be an option list because its not followed by
+// In this case, options cannot be an option list because it's not followed by
 // `(`. LALR(1) shift/reduce resolution can't see that `(` because it takes two
-// loohaheads. Instead, we use the disambiguation layer to solve this using
-// two lookeahds.
+// lookaheads. Instead, we use the disambiguation layer to solve this using
+// two lookaheads.
 //
-// `KW_WITH_IN_SELECT_WITH_OPTIONS` is used exclusively as a lookback override.
+// `LB_WITH_IN_SELECT_WITH_OPTIONS` is used exclusively as a lookback override.
 // The override is triggered by the parser before consuming the `WITH` token
 // in the context of SELECT WITH. Then token disambiguation layer looks for this
 // window:
-//   lookback1 : KW_WITH_IN_SELECT_WITH_OPTIONS
+//   lookback1 : LB_WITH_IN_SELECT_WITH_OPTIONS
 //   token     : IDENTIFER
 //   lookahead1: KW_OPTIONS
 //   lookahead2: '('
 // When it sees this window it changes lookahead1 to
 // `KW_OPTIONS_IN_SELECT_WITH_OPTIONS` so that there is no ambiguity in the
 // parser.
-%token KW_WITH_IN_SELECT_WITH_OPTIONS
 %token KW_OPTIONS_IN_SELECT_WITH_OPTIONS
 
 // A special token to indicate that an integer or floating point literal is
@@ -1080,6 +1083,7 @@ using namespace zetasql::parser_internal;
 %type <node> grouping_set
 %type <node> grouping_set_list
 %type <node> hint
+%type <node> statement_level_hint
 %type <node> hint_entry
 %type <node> hint_with_body
 %type <node> hint_with_body_prefix
@@ -1354,6 +1358,9 @@ using namespace zetasql::parser_internal;
 %type <node> select
 %type <node> select_clause
 %type <node> select_column
+%type <node> select_column_expr
+%type <node> select_column_dot_star
+%type <node> select_column_star
 %type <node> select_list
 %type <node> select_list_prefix
 %type <node> with_expression_variable
@@ -1376,6 +1383,7 @@ using namespace zetasql::parser_internal;
 %type <statement_list> statement_list
 %type <node> script
 %type <statement_list> unterminated_non_empty_statement_list
+%type <statement_list> unterminated_non_empty_top_level_statement_list
 %type <string_literal> string_literal
 %type <expression> string_literal_or_parameter
 %type <expression> struct_constructor
@@ -1426,9 +1434,9 @@ using namespace zetasql::parser_internal;
 %type <node> unnest_expression
 %type <node> unnest_expression_with_opt_alias_and_offset
 %type <node> unterminated_statement
-%type <node> unterminated_sql_statement
-%type <node> unterminated_script_statement
-%type <node> unterminated_unlabeled_script_statement
+             unterminated_sql_statement
+             unterminated_script_statement
+             unterminated_unlabeled_script_statement
 %type <node> update_item
 %type <node> update_item_list
 %type <node> update_set_value
@@ -1650,13 +1658,48 @@ unterminated_statement:
     }
   ;
 
+statement_level_hint:
+  hint
+    {
+      OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT);
+      $$ = $hint;
+    }
+  ;
+
 unterminated_sql_statement:
     sql_statement_body
-    | hint
-      { OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT); }
-      sql_statement_body
+    | statement_level_hint[hint] sql_statement_body
       {
         $$ = MAKE_NODE(ASTHintedStatement, @$, {$hint, $sql_statement_body});
+      }
+    | "DEFINE" "MACRO"[kw_macro]
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_SQL_MACROS)) {
+          YYERROR_AND_ABORT_AT(@kw_macro, "Macros are not supported");
+        }
+        // Rule to capture wrong usage, where DEFINE MACRO is resulting from
+        // expanding other macros, instead of being original user input.
+        YYERROR_AND_ABORT_AT(
+          @kw_macro,
+          "Syntax error: DEFINE MACRO statements cannot be composed from other "
+          "expansions");
+      }
+    | statement_level_hint[hint] "DEFINE"[kw_define] "MACRO"
+      {
+        YYERROR_AND_ABORT_AT(
+          @hint, "Hints are not allowed on DEFINE MACRO statements.");
+      }
+    | statement_level_hint[hint] KW_DEFINE_FOR_MACROS "MACRO"
+      {
+        // This is here for extra future-proofing. We should never hit this
+        // codepath, because the expander should only generate
+        // KW_DEFINE_FOR_MACROS when it's the first token in the statement,
+        // ignoring comments.
+        ABSL_DLOG(FATAL) << "KW_DEFINE_FOR_MACROS should only appear as the "
+                       "first token in a statement.";
+        YYERROR_AND_ABORT_AT(
+          @hint, "Hints are not allowed on DEFINE MACRO statements");
       }
     ;
 
@@ -1759,7 +1802,8 @@ sql_statement_body:
 
 define_macro_statement:
     // Use a special version of KW_DEFINE which indicates that this macro
-    // definition was "original", not expanded from other macros.
+    // definition was "original" (i.e., not expanded from other macros), and
+    // is top-level (i.e., not nested under other statements or blocks like IF).
     "DEFINE for macros" "MACRO"
       {
         if (!parser->language_options().LanguageFeatureEnabled(
@@ -1787,18 +1831,6 @@ define_macro_statement:
         $$ = MAKE_NODE(ASTDefineMacroStatement,
                        @$,
                        {parser->MakeIdentifier(@name, name), $body});
-      }
-    | "DEFINE" "MACRO"[kw_macro]
-      {
-        if (!parser->language_options().LanguageFeatureEnabled(
-              zetasql::FEATURE_V_1_4_SQL_MACROS)) {
-          YYERROR_AND_ABORT_AT(@2, "Macros are not supported");
-        }
-        // Rule to capture wrong usage, where DEFINE MACRO is resulting from
-        // expanding other macros, instead of being original user input.
-        YYERROR_AND_ABORT_AT(@kw_macro,
-                             "Syntax error: DEFINE MACRO statements cannot be "
-                             "composed from other expansions.");
       }
     ;
 
@@ -4922,10 +4954,16 @@ query_set_operation:
 
 query_primary:
     select
-    | parenthesized_query[query]
+    | parenthesized_query[query] opt_as_alias_with_required_as[alias]
      {
-       $query->set_parenthesized(true);
-       $$ = $query;
+        if ($alias != nullptr) {
+            YYERROR_AND_ABORT_AT(
+                @alias, "Syntax error: Alias not allowed on parenthesized "
+                        "outer query");
+       } else {
+         $query->set_parenthesized(true);
+         $$ = $query;
+       }
      }
     ;
 
@@ -4962,7 +5000,7 @@ select:
 
 pre_select_with:
   %empty
-  { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_WITH, KW_WITH_IN_SELECT_WITH_OPTIONS); }
+  { OVERRIDE_NEXT_TOKEN_LOOKBACK(KW_WITH, LB_WITH_IN_SELECT_WITH_OPTIONS); }
 
 opt_select_with:
     pre_select_with "WITH"[with] identifier
@@ -5158,6 +5196,13 @@ star_modifiers:
     ;
 
 select_column:
+    select_column_expr
+    | select_column_dot_star
+    | select_column_star
+    ;
+
+// These are the ASTSelectColumn cases for `expression [[AS] alias]`.
+select_column_expr:
     expression
       {
         $$ = MAKE_NODE(ASTSelectColumn, @$, {$1});
@@ -5172,10 +5217,15 @@ select_column:
         auto* alias = MAKE_NODE(ASTAlias, @2, {$2});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {$1, alias});
       }
+    ;
+
+// These are the ASTSelectColumn cases for `expression.*`, plus optional
+// EXCEPT/REPLACE modifiers.
+select_column_dot_star:
     // Bison uses the precedence of the last terminal in the rule, but this is a
     // post-fix expression, and it really should have the precedence of ".", not
     // "*".
-    | expression_higher_prec_than_and[expr] "." "*" %prec "."
+    expression_higher_prec_than_and[expr] "." "*" %prec "."
       {
         auto* dot_star = MAKE_NODE(ASTDotStar, @$, {$expr});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star});
@@ -5189,7 +5239,12 @@ select_column:
             MAKE_NODE(ASTDotStarWithModifiers, @$, {$1, $modifiers});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star_with_modifiers});
       }
-    | "*"
+    ;
+
+// These are the ASTSelectColumn cases for `*`, plus optional
+// EXCEPT/REPLACE modifiers.
+select_column_star:
+    "*"
       {
         auto* star = MAKE_NODE(ASTStar, @$);
         star->set_image("*");
@@ -8820,7 +8875,7 @@ expression_subquery_with_keyword:
       }
     | "EXISTS" opt_hint parenthesized_query[query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$2, $query});
+        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$opt_hint, $query});
         subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
         $$ = subquery;
       }
@@ -10057,12 +10112,38 @@ opt_index_type:
 unterminated_non_empty_statement_list:
     unterminated_statement[stmt]
       {
+        if ($stmt->Is<zetasql::ASTDefineMacroStatement>()) {
+          YYERROR_AND_ABORT_AT(
+            @stmt,
+            "DEFINE MACRO statements cannot be nested under other statements "
+            "or blocks.");
+        }
         $$ = MAKE_NODE(ASTStatementList, @$, {$stmt});
       }
-    | unterminated_non_empty_statement_list ';' unterminated_statement[new_stmt]
+    | unterminated_non_empty_statement_list[old_list] ';'
+      unterminated_statement[new_stmt]
       {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$new_stmt}), @$);
-      };
+        if ($new_stmt->Is<zetasql::ASTDefineMacroStatement>()) {
+          YYERROR_AND_ABORT_AT(
+            @new_stmt,
+            "DEFINE MACRO statements cannot be nested under other statements "
+            "or blocks.");
+        }
+        $$ = parser->WithEndLocation(WithExtraChildren($old_list, {$new_stmt}), @$);
+      }
+    ;
+
+unterminated_non_empty_top_level_statement_list:
+    unterminated_statement[stmt]
+      {
+        $$ = MAKE_NODE(ASTStatementList, @$, {$stmt});
+      }
+    | unterminated_non_empty_top_level_statement_list[old_list] ';'
+      unterminated_statement[new_stmt]
+      {
+        $$ = parser->WithEndLocation(WithExtraChildren($old_list, {$new_stmt}), @$);
+      }
+    ;
 
 opt_execute_into_clause:
   KW_INTO identifier_list
@@ -10120,12 +10201,12 @@ execute_immediate:
   ;
 
 script:
-  unterminated_non_empty_statement_list
+  unterminated_non_empty_top_level_statement_list
   {
     $1->set_variable_declarations_allowed(true);
     $$ = MAKE_NODE(ASTScript, @$, {$1});
   }
-  | unterminated_non_empty_statement_list ';'
+  | unterminated_non_empty_top_level_statement_list ';'
   {
     $1->set_variable_declarations_allowed(true);
     $$ = MAKE_NODE(ASTScript, @$, {parser->WithEndLocation($1, @$)});
@@ -10441,6 +10522,10 @@ next_statement_kind:
     | hint { OVERRIDE_CURRENT_TOKEN_LOOKBACK(@hint, LB_END_OF_STATEMENT_LEVEL_HINT); }
       next_statement_kind_without_hint[kind]
       {
+        if ($kind == zetasql::ASTDefineMacroStatement::kConcreteNodeKind) {
+          YYERROR_AND_ABORT_AT(
+            @hint, "Hints are not allowed on DEFINE MACRO statements.");
+        }
         *ast_node_result = $hint;
         // The parser will complain about the remainder of the input if we let
         // the tokenizer continue to produce tokens, because we don't have any

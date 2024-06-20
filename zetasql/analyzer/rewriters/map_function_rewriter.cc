@@ -61,9 +61,9 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
       case FN_SAFE_PROTO_MAP_AT_KEY: {
         return GenerateMapAtSql(node);
       }
-      case FN_CONTAINS_KEY:
+      case FN_PROTO_MAP_CONTAINS_KEY:
         return GenerateContainsKeySql(node);
-      case FN_MODIFY_MAP:
+      case FN_PROTO_MODIFY_MAP:
         return GenerateModifyMapSql(node);
       default:
         return CopyVisitResolvedFunctionCall(node);
@@ -157,8 +157,8 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
                     agg_mods.key,
                     ERROR(
                       FORMAT(
-                        'MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument %d',
-                        -- Note that the MODIFY_MAP arg index is not the same
+                        'PROTO_MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument %d',
+                        -- Note that the PROTO_MODIFY_MAP arg index is not the same
                         -- as the offset in the modifications array.
                         agg_mods.offset * 2 + 1))) AS key,
                   IF(
@@ -168,7 +168,7 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
                     agg_mods.values[OFFSET(0)],
                     ERROR(
                       FORMAT(
-                        'MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: %T',
+                        'PROTO_MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: %T',
                         key))) AS value,
                   -- We use an offset that starts past the end of the original
                   -- map to ensure a deterministic output order when adding new
@@ -199,9 +199,9 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     )sql";
 
     ZETASQL_RET_CHECK_LE(3, node->argument_list_size())
-        << "MODIFY_MAP should have at least three arguments";
+        << "PROTO_MODIFY_MAP should have at least three arguments";
     ZETASQL_RET_CHECK(node->argument_list_size() % 2 == 1)
-        << "MODIFY_MAP should have an odd number of arguments.";
+        << "PROTO_MODIFY_MAP should have an odd number of arguments.";
 
     ZETASQL_RET_CHECK(IsProtoMap(node->type())) << node->type()->DebugString();
     const absl::string_view output_type_name = node->type()

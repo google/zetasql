@@ -54,7 +54,7 @@ enum FunctionSignatureId {
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric, more math & distances (NextId: 2388)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2658)
+  // 2600-2699 More misc functions.           (NextId: 2661)
   // 2700-2799 Aggregate functions II         (NextId: 2773)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2921)
@@ -1227,29 +1227,30 @@ enum FunctionSignatureId {
   FN_ARRAY_IS_DISTINCT = 2501;      // array_is_distinct(array) -> bool
   FN_PROTO_MAP_AT_KEY = 2502;       // $proto_map_at_key
   FN_SAFE_PROTO_MAP_AT_KEY = 2503;  // $safe_proto_map_at_key
-  FN_MODIFY_MAP = 2510;             // modify_map(map [, key, value]+) -> map
+  FN_PROTO_MODIFY_MAP = 2510;       // PROTO_MODIFY_MAP(map [, key, value]+)
+                                    // -> map
 
   FN_ARRAY_FILTER = 2504;             // ARRAY_FILTER(array, lambda) -> array
   FN_ARRAY_FILTER_WITH_INDEX = 2505;  // ARRAY_FILTER(array, lambda) -> array
   FN_ARRAY_TRANSFORM = 2506;          // ARRAY_TRANSFORM(array, lambda) -> array
   FN_ARRAY_TRANSFORM_WITH_INDEX =
-      2507;                         // ARRAY_TRANSFORM(array, lambda) -> array
-  FN_CONTAINS_KEY = 2508;           // contains_key(map, key) -> bool
-  FN_ARRAY_INCLUDES = 2511;         // ARRAY_INCLUDES(array, element) -> bool
-  FN_ARRAY_INCLUDES_LAMBDA = 2512;  // ARRAY_INCLUDES(array, lambda) -> bool
-  FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES_ANY(array, array) -> bool
-  FN_ARRAY_INCLUDES_ALL = 2514;     // ARRAY_INCLUDES_ALL(array, array) -> bool
-  FN_ARRAY_FIRST = 2515;            // ARRAY_FIRST(array<T>) -> T
-  FN_ARRAY_LAST = 2516;             // ARRAY_LAST(array<T>) -> T
-  FN_ARRAY_SLICE = 2517;            // ARRAY_SLICE(array<T>, INT64, INT64)
-                                    // -> array<T>
-  FN_ARRAY_SUM_INT32 = 2518;        // ARRAY_SUM(array<INT32>) -> INT64
-  FN_ARRAY_SUM_INT64 = 2519;        // ARRAY_SUM(array<INT64>) -> INT64
-  FN_ARRAY_SUM_UINT32 = 2520;       // ARRAY_SUM(array<UINT32>) -> UINT64
-  FN_ARRAY_SUM_UINT64 = 2521;       // ARRAY_SUM(array<UINT64>) -> UINT64
-  FN_ARRAY_SUM_FLOAT = 2522;        // ARRAY_SUM(array<FLOAT>) -> DOUBLE
-  FN_ARRAY_SUM_DOUBLE = 2523;       // ARRAY_SUM(array<DOUBLE>) -> DOUBLE
-  FN_ARRAY_SUM_NUMERIC = 2524;      // ARRAY_SUM(array<NUMERIC>) -> NUMERIC
+      2507;                          // ARRAY_TRANSFORM(array, lambda) -> array
+  FN_PROTO_MAP_CONTAINS_KEY = 2508;  // PROTO_MAP_CONTAINS_KEY(map, key) -> bool
+  FN_ARRAY_INCLUDES = 2511;          // ARRAY_INCLUDES(array, element) -> bool
+  FN_ARRAY_INCLUDES_LAMBDA = 2512;   // ARRAY_INCLUDES(array, lambda) -> bool
+  FN_ARRAY_INCLUDES_ANY = 2513;      // ARRAY_INCLUDES_ANY(array, array) -> bool
+  FN_ARRAY_INCLUDES_ALL = 2514;      // ARRAY_INCLUDES_ALL(array, array) -> bool
+  FN_ARRAY_FIRST = 2515;             // ARRAY_FIRST(array<T>) -> T
+  FN_ARRAY_LAST = 2516;              // ARRAY_LAST(array<T>) -> T
+  FN_ARRAY_SLICE = 2517;             // ARRAY_SLICE(array<T>, INT64, INT64)
+                                     // -> array<T>
+  FN_ARRAY_SUM_INT32 = 2518;         // ARRAY_SUM(array<INT32>) -> INT64
+  FN_ARRAY_SUM_INT64 = 2519;         // ARRAY_SUM(array<INT64>) -> INT64
+  FN_ARRAY_SUM_UINT32 = 2520;        // ARRAY_SUM(array<UINT32>) -> UINT64
+  FN_ARRAY_SUM_UINT64 = 2521;        // ARRAY_SUM(array<UINT64>) -> UINT64
+  FN_ARRAY_SUM_FLOAT = 2522;         // ARRAY_SUM(array<FLOAT>) -> DOUBLE
+  FN_ARRAY_SUM_DOUBLE = 2523;        // ARRAY_SUM(array<DOUBLE>) -> DOUBLE
+  FN_ARRAY_SUM_NUMERIC = 2524;       // ARRAY_SUM(array<NUMERIC>) -> NUMERIC
   FN_ARRAY_SUM_BIGNUMERIC = 2525;  // ARRAY_SUM(array<BIGNUMERIC>) -> BIGNUMERIC
   FN_ARRAY_SUM_INTERVAL = 2526;    // ARRAY_SUM(array<INTERVAL>) -> INTERVAL
   FN_ARRAY_AVG_INT32 = 2527;       // ARRAY_AVG(array<INT32>) -> DOUBLE

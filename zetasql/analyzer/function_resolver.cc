@@ -1892,7 +1892,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   // If we found a matching signature, go back and resolve any null typed,
   // non-lambda arguments as additional argument overrides.
   for (int i = 0; i < input_argument_types.size(); ++i) {
-    InputArgumentType input_arg_type = input_argument_types[i];
+    const InputArgumentType& input_arg_type = input_argument_types[i];
     if (input_arg_type.type() == nullptr && !input_arg_type.is_lambda()) {
       if (input_arg_type.is_sequence()) {
         const ASTSequenceArg* sequence_arg =

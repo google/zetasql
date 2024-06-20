@@ -180,13 +180,14 @@ static Location MakeLocation(int start_offset, int end_offset) {
 static absl::StatusOr<ExpansionOutput> ExpandMacros(
     const absl::string_view text, const MacroCatalog& macro_catalog,
     const LanguageOptions& language_options,
-    ErrorMessageOptions error_message_options = {
-        .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}) {
+    DiagnosticOptions diagnostic_options = {
+        .error_message_options = {
+            .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}) {
   return MacroExpander::ExpandMacros(
       std::make_unique<FlexTokenProvider>(
           kTopFileName, text, /*preserve_comments=*/false, /*start_offset=*/0,
           /*end_offset=*/std::nullopt),
-      language_options, macro_catalog, error_message_options);
+      language_options, macro_catalog, diagnostic_options);
 }
 
 // This function needs to return void due to the assertions.
@@ -263,7 +264,7 @@ TEST(MacroExpanderTest, ErrorsCanPrintLocation_EmptyFileNames) {
                       /*preserve_comments=*/false,
                       /*start_offset=*/0, /*end_offset=*/std::nullopt),
                   options, macro_catalog,
-                  {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}),
+                  {{.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}),
               StatusIs(_, Eq("Macro 'unknown' not found. [at 1:16]; "
                              "Expanded from macro:m [at 1:17]; "
                              "Expanded from macro:m2 [at 1:1]")));
@@ -281,7 +282,7 @@ TEST(MacroExpanderTest, ErrorsOrWarningsDoNotTruncateCaretContext) {
   EXPECT_THAT(
       ExpandMacros(
           "$outer()", macro_catalog, GetLanguageOptions(/*is_strict=*/false),
-          {.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}),
+          {{.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}}),
       IsOkAndHolds(HasWarnings(ElementsAre(
           StatusIs(_,
                    Eq("Invocation of macro 'one' missing argument list. [at "
@@ -303,7 +304,7 @@ TEST(MacroExpanderTest, ErrorsOrWarningsDoNotTruncateCaretContext) {
   EXPECT_THAT(
       ExpandMacros(
           "$outer()", macro_catalog, GetLanguageOptions(/*is_strict=*/true),
-          {.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}),
+          {{.mode = ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET}}),
       StatusIs(_, Eq("Invocation of macro 'one' missing argument list. [at "
                      "defs.sql:4:29]\n"
                      "DEFINE MACRO outer $add($one, $two);  # Extra comment\n"
@@ -324,7 +325,7 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
       /*start_offset=*/0, /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   MacroExpander expander(std::move(token_provider), options, macro_catalog,
-                         arena.get(), ErrorMessageOptions{},
+                         arena.get(), DiagnosticOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
@@ -345,7 +346,7 @@ TEST(MacroExpanderTest,
       /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   MacroExpander expander(std::move(token_provider), options, macro_catalog,
-                         arena.get(), ErrorMessageOptions{},
+                         arena.get(), DiagnosticOptions{},
                          /*parent_location=*/nullptr);
 
   ASSERT_THAT(expander.GetNextToken(),
@@ -532,6 +533,16 @@ TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Lenient) {
               {YYEOF, MakeLocation(5, 5), "", ""}}),
           HasWarnings(ElementsAre(StatusIs(
               _, Eq("Splicing tokens (a) and (b) [at top_file.sql:1:5]")))))));
+}
+
+TEST(MacroExpanderTest, CanSuppressWarningOnIdentifierSplicing) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m  a  ", macro_catalog);
+
+  EXPECT_THAT(ExpandMacros("$m()b", macro_catalog,
+                           GetLanguageOptions(/*is_strict=*/false),
+                           {.warn_on_identifier_splicing = false}),
+              IsOkAndHolds(HasWarnings(IsEmpty())));
 }
 
 TEST(MacroExpanderTest, SpliceMacroInvocationWithIdentifier_Strict) {
@@ -769,6 +780,9 @@ TEST(MacroExpanderTest, ArgsNotAllowedInsideLiterals) {
           StatusIs(_, Eq("Argument lists are not allowed inside "
                          "literals [at top_file.sql:1:4]")),
           StatusIs(_,
+                   Eq("Macro expansion in literals is deprecated. Strict mode "
+                      "does not expand literals [at top_file.sql:1:2]")),
+          StatusIs(_,
                    HasSubstr("Macro 'a' not found. [at top_file.sql:1:2]"))))));
 
   EXPECT_THAT(ExpandMacros("'$a('", macro_catalog,
@@ -899,7 +913,10 @@ TEST(MacroExpanderTest, UnknownArgsAreLeftUntouched) {
       ExpandMacros(
           "  a$empty()$1$unknown_not_in_a_literal  '$unknown_not_in_a_literal' "
           "$unknown_inside_literal\t$1\n'$2'",
-          macro_catalog, GetLanguageOptions(/*is_strict=*/false)),
+          macro_catalog, GetLanguageOptions(/*is_strict=*/false),
+          {.error_message_options =
+               {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE},
+           .max_warning_count = 10}),
       IsOkAndHolds(AllOf(
           TokensEq(std::vector<TokenWithLocation>{
               {IDENTIFIER, MakeLocation(2, 3), "a", "  "},
@@ -916,21 +933,34 @@ TEST(MacroExpanderTest, UnknownArgsAreLeftUntouched) {
               StatusIs(_, Eq("Invocation of macro 'unknown_not_in_a_literal' "
                              "missing argument list. [at top_file.sql:1:39]")),
               StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
-                             "provided only 1 arguments. [at defs.sql:3:2]; "
+                             "provided only 0 arguments. [at defs.sql:3:2]; "
                              "Expanded from macro:unknown_not_in_a_literal [at "
                              "top_file.sql:1:14]")),
+              StatusIs(
+                  _,
+                  Eq("Macro expansion in literals is deprecated. Strict mode "
+                     "does not expand literals [at top_file.sql:1:42]")),
               StatusIs(_, Eq("Invocation of macro 'unknown_not_in_a_literal' "
                              "missing argument list. [at top_file.sql:1:67]")),
               StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
-                             "provided only 1 arguments. [at defs.sql:3:2]; "
+                             "provided only 0 arguments. [at defs.sql:3:2]; "
                              "Expanded from macro:unknown_not_in_a_literal [at "
                              "top_file.sql:1:42]")),
               StatusIs(_, Eq("Invocation of macro 'unknown_inside_literal' "
                              "missing argument list. [at top_file.sql:1:92]")),
+              StatusIs(_,
+                       Eq("Macro expansion in literals is deprecated. Strict "
+                          "mode does not expand literals [at defs.sql:5:42]; "
+                          "Expanded from macro:unknown_inside_literal [at "
+                          "top_file.sql:1:69]")),
               StatusIs(_, Eq("Argument index $3 out of range. Invocation was "
-                             "provided only 1 arguments. [at defs.sql:5:42]; "
+                             "provided only 0 arguments. [at defs.sql:5:42]; "
                              "Expanded from macro:unknown_inside_literal [at "
-                             "top_file.sql:1:69]")))))));
+                             "top_file.sql:1:69]")),
+              StatusIs(
+                  _,
+                  Eq("Macro expansion in literals is deprecated. Strict mode "
+                     "does not expand literals [at top_file.sql:2:2]")))))));
 
   EXPECT_THAT(
       ExpandMacros("unknown_inside_literal() $unknown_not_in_a_literal()",
@@ -1780,6 +1810,60 @@ TEST_P(MacroExpanderParameterizedTest, GeneratesCorrectLocationMap_Multiple) {
                   Pair(46, FieldsAre("macrowithmacro", "$macrowithmacro()",
                                      "owner.xyz")),
                   Pair(70, FieldsAre("limit", "$limit()", "10"))));
+}
+
+TEST_P(MacroExpanderParameterizedTest,
+       EmptyArgumentAcceptedWhenMacroAcceptsZeroOrSingleArgument) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO no_args 'nullary';\n"
+      "DEFINE MACRO single_arg $1;\n",
+      macro_catalog);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("$no_args( /*comment1*/   /*comment2*/)\n"
+                   "$single_arg(  /*comment3*/  /*comment4*/)",
+                   macro_catalog,
+                   GetLanguageOptions(/*is_strict=*/GetParam())));
+  EXPECT_THAT(output, TokensEq(std::vector<TokenWithLocation>{
+                          {STRING_LITERAL, MakeLocation(kDefsFileName, 21, 30),
+                           "'nullary'", "", MakeLocation(0, 38)},
+                          {YYEOF, MakeLocation(80, 80), "", "\n"},
+                      }));
+  EXPECT_EQ(TokensToString(output.expanded_tokens), "'nullary'\n");
+}
+
+TEST_P(
+    MacroExpanderParameterizedTest,
+    CorrectErrorWhenSingleArgumentPassedToNullaryMacroEvenWhenExpandsToEmpty) {
+  MacroCatalog macro_catalog;
+  RegisterMacros(
+      "DEFINE MACRO empty;\n"
+      "DEFINE MACRO no_args 'nullary';\n",
+      macro_catalog);
+
+  bool is_strict = GetParam();
+  absl::StatusOr<ExpansionOutput> output =
+      ExpandMacros("$no_args( /*comment1*/ $empty()   /*comment2*/)\n",
+                   macro_catalog, GetLanguageOptions(is_strict));
+
+  absl::string_view expected_diagnostic =
+      "Macro invocation has too many arguments (1) while the definition only "
+      "references up to 0 arguments [at top_file.sql:1:1]";
+
+  if (is_strict) {
+    EXPECT_THAT(output, StatusIs(_, HasSubstr(expected_diagnostic)));
+  } else {
+    EXPECT_THAT(output,
+                IsOkAndHolds(AllOf(
+                    TokensEq(std::vector<TokenWithLocation>{
+                        {STRING_LITERAL, MakeLocation(kDefsFileName, 41, 50),
+                         "'nullary'", "", MakeLocation(0, 47)},
+                        {YYEOF, MakeLocation(48, 48), "", "\n"},
+                    }),
+                    HasWarnings(ElementsAre(
+                        StatusIs(_, HasSubstr(expected_diagnostic)))))));
+  }
 }
 
 TEST_P(MacroExpanderParameterizedTest,

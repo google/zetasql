@@ -42,13 +42,10 @@
 #include "zetasql/resolved_ast/target_syntax.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/flags/declare.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-
-ABSL_DECLARE_FLAG(bool, zetasql_remove_degenerate_projectscans);
 
 namespace zetasql {
 
@@ -409,6 +406,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedUnpivotScan* node) override;
   absl::Status VisitResolvedGroupRowsScan(
       const ResolvedGroupRowsScan* node) override;
+  absl::Status VisitResolvedBarrierScan(
+      const ResolvedBarrierScan* node) override;
 
   // Visit methods for analytic functions related nodes.
   absl::Status VisitResolvedAnalyticFunctionGroup(
@@ -784,6 +783,11 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::StatusOr<std::string> ProcessPrimaryKey(
       const ResolvedPrimaryKey* primary_key);
   std::string ComputedColumnAliasDebugString() const;
+
+  // A ProjectScan is degenerate if it does not add any new information over its
+  // input scan.
+  virtual bool IsDegenerateProjectScan(const ResolvedProjectScan* node,
+                                       const QueryExpression* query_expression);
 
   // If we have a recursive view, sets up internal data structures in
   // preparation for generating SQL text for a recursive view, so that the

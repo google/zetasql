@@ -296,6 +296,7 @@ cc_library(
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -349,7 +350,6 @@ cc_library(
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -725,6 +725,7 @@ cc_library(
     hdrs = ["column_factory.h"],
     deps = [
         ":resolved_ast",
+        "//zetasql/base:check",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:id_string",
         "//zetasql/public/types",

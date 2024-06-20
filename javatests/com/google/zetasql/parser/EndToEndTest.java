@@ -448,7 +448,8 @@ public class EndToEndTest {
             + "    |   +-limit=\n"
             + "    |     +-IntLiteral(parenthesized=false, image=100)\n"
             + "    +-is_nested=false\n"
-            + "    +-is_pivot_input=false\n";
+            + "    +-is_pivot_input=false\n"
+        ;
     assertThat(statement.toString()).isEqualTo(expectedToString);
   }
 

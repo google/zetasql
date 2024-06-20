@@ -1943,6 +1943,70 @@ TEST(ValidateTest, MultilevelAggregationNotYetSupported) {
   }
 }
 
+TEST(ValidateTest, ResolvedBarrierScanBasic) {
+  IdStringPool pool;
+  ResolvedColumn col1(1, pool.Make("table"), pool.Make("col1'"),
+                      types::Int64Type());
+  ResolvedColumn col2(2, pool.Make("table"), pool.Make("col2"),
+                      types::Int64Type());
+
+  ResolvedColumnList column_list = {col1, col2};
+
+  std::unique_ptr<ResolvedBarrierScan> barrier_scan = MakeResolvedBarrierScan(
+      column_list,
+      MakeResolvedProjectScan(
+          column_list,
+          MakeNodeVector(MakeResolvedComputedColumn(
+                             col1, MakeResolvedLiteral(Value::Int64(1))),
+                         MakeResolvedComputedColumn(
+                             col2, MakeResolvedLiteral(Value::Int64(2)))),
+          MakeResolvedSingleRowScan()));
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  output_column_list.push_back(MakeResolvedOutputColumn("col1", col1));
+  output_column_list.push_back(MakeResolvedOutputColumn("col2", col2));
+
+  std::unique_ptr<ResolvedQueryStmt> query_stmt =
+      MakeResolvedQueryStmt(std::move(output_column_list),
+                            /*is_value_table=*/false, std::move(barrier_scan));
+
+  LanguageOptions language_options;
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
+}
+
+TEST(ValidateTest, ResolvedBarrierScanReferencesWrongColumn) {
+  IdStringPool pool;
+  ResolvedColumn col1(1, pool.Make("table"), pool.Make("col1'"),
+                      types::Int64Type());
+  ResolvedColumn col2(2, pool.Make("table"), pool.Make("col2"),
+                      types::DoubleType());
+
+  std::unique_ptr<ResolvedBarrierScan> barrier_scan = MakeResolvedBarrierScan(
+      /*column_list=*/{col1, col2},
+      MakeResolvedProjectScan(
+          /*column_list=*/{col1},
+          MakeNodeVector(MakeResolvedComputedColumn(
+              col1, MakeResolvedLiteral(Value::Int64(1)))),
+          MakeResolvedSingleRowScan()));
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  output_column_list.push_back(MakeResolvedOutputColumn("col1", col1));
+  output_column_list.push_back(MakeResolvedOutputColumn("col2", col2));
+
+  std::unique_ptr<ResolvedQueryStmt> query_stmt =
+      MakeResolvedQueryStmt(std::move(output_column_list),
+                            /*is_value_table=*/false, std::move(barrier_scan));
+
+  // Validation fails because `col2` is not a column in the input scan.
+  LanguageOptions language_options;
+  Validator validator(language_options);
+  EXPECT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Column list contains column table.col2#2 not "
+                                 "visible in scan node")));
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace zetasql

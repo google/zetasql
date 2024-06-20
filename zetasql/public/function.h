@@ -408,15 +408,6 @@ struct FunctionOptions {
   // Add a LanguageFeature that must be enabled for this function to be enabled.
   // This is used only on built-in functions, and determines whether they will
   // be loaded in GetBuiltinFunctionsAndTypes.
-  ABSL_DEPRECATED("Inline me!")
-  inline FunctionOptions& add_required_language_feature(
-      LanguageFeature feature) {
-    return AddRequiredLanguageFeature(feature);
-  }
-
-  // Add a LanguageFeature that must be enabled for this function to be enabled.
-  // This is used only on built-in functions, and determines whether they will
-  // be loaded in GetBuiltinFunctionsAndTypes.
   FunctionOptions& AddRequiredLanguageFeature(LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&required_language_features, feature);
     return *this;

@@ -69,7 +69,6 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/time_proto_util.h"
 

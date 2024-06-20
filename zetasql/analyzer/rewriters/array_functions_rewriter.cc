@@ -202,7 +202,7 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
       lambdas.insert({"lambda", processed_lambda.get()});
     }
 
-    absl::string_view chosen_temlpate = unsafe_template;
+    absl::string_view chosen_template = unsafe_template;
 
     // Holds the value for chosen_template. Only computed if actually needed.
     std::string safe_template;
@@ -210,13 +210,13 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
       ZETASQL_RETURN_IF_ERROR(CheckCatalogSupportsSafeMode(
           node->function()->SQLName(), analyzer_options_, *catalog_));
       safe_template = absl::StrCat("NULLIFERROR(", unsafe_template, ")");
-      chosen_temlpate = safe_template;
+      chosen_template = safe_template;
     }
 
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedExpr> res,
         AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                          chosen_temlpate, variables, lambdas));
+                          chosen_template, variables, lambdas));
     PushNodeToStack(std::move(res));
 
     return absl::OkStatus();

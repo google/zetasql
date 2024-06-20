@@ -125,6 +125,7 @@ class TypeDeserializer {
   }
 
  private:
+
   // Not owned.
   TypeFactory* type_factory_;
   // Not owned.

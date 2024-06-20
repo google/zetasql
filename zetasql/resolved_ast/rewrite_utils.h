@@ -116,22 +116,46 @@ CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
                                    ColumnFactory& column_factory,
                                    ColumnReplacementMap& column_map);
 
-// Like the above, but rewrites in place, instead of copying.
+// Performs a shallow copy of `input_tree` replacing all of the ResolvedColumns
+// in that tree either with ResolvedColumns as specified by `column_map` or by
+// new columns allocated from `column_factory` for any column not found in
+// `column_map`.
+//
+// `column_map` is both an input and output parameter. As an input parameter,
+//     it allows invoking code to specify explicit replacements for certain
+//     columns in `input_tree`. As an output parameter, it returns to invoking
+//     code all the columns allocated from `column_factory` during the copy.
 template <class T>
-absl::StatusOr<std::unique_ptr<const T>> RemapColumns(
+absl::StatusOr<std::unique_ptr<const T>> RemapAllColumns(
     std::unique_ptr<const T> input_tree, ColumnFactory& column_factory,
     ColumnReplacementMap& column_map) {
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<const ResolvedNode> ret,
-      RemapColumnsImpl(std::move(input_tree), column_factory, column_map));
+      RemapColumnsImpl(std::move(input_tree), &column_factory, column_map));
   ZETASQL_RET_CHECK(ret->Is<T>());
   return absl::WrapUnique(ret.release()->GetAs<T>());
 }
 
-// Implementation of the above template.
+// Performs a shallow copy of `input_tree` replacing all of the ResolvedColumns
+// in `input_tree` with ResolvedColumns as specified by `column_map`. For
+// columns not found in `column_map`, they remain the same.
+//
+// `column_map` allows invoking code to specify explicit replacements for
+//     certain columns in `input_tree`.
+template <class T>
+absl::StatusOr<std::unique_ptr<const T>> RemapSpecifiedColumns(
+    std::unique_ptr<const T> input_tree, ColumnReplacementMap& column_map) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> ret,
+                   RemapColumnsImpl(std::move(input_tree),
+                                    /*column_factory=*/nullptr, column_map));
+  ZETASQL_RET_CHECK(ret->Is<T>());
+  return absl::WrapUnique(ret.release()->GetAs<T>());
+}
+
+// Implementation of in-place column remapping.
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RemapColumnsImpl(
     std::unique_ptr<const ResolvedNode> input_tree,
-    ColumnFactory& column_factory, ColumnReplacementMap& column_map);
+    ColumnFactory* column_factory, ColumnReplacementMap& column_map);
 
 // Helper function used when deep copying a plan. Takes a 'scan' and
 // replaces all of its ResolvedColumns, including in child scans recursively.
@@ -487,6 +511,9 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayLength(
       std::unique_ptr<const ResolvedExpr> array_expr);
 
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayIsDistinct(
+      std::unique_ptr<const ResolvedExpr> array_expr);
+
   // Constructs a ResolvedFunctionCall for ARRAY[OFFSET(offset_expr)].
   //
   // Requires:
@@ -538,6 +565,17 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> AnyValue(
       std::unique_ptr<const ResolvedExpr> input_expr,
       std::unique_ptr<const ResolvedExpr> having_min_expr);
+
+  // Constructs a ResolvedFunctionCall for `CONCAT(input_expr[, input_expr,
+  // ...])`.
+  //
+  // `elements` must have at least one element, and all elements must have the
+  // same SQL type STRING OR BYTES.
+  //
+  // The signature for the built-in function "CONCAT" must be available in
+  // `catalog_` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Concat(
+      std::vector<std::unique_ptr<const ResolvedExpr>> elements);
 
  private:
   static AnnotationPropagator BuildAnnotationPropagator(

@@ -40,6 +40,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -325,7 +326,8 @@ struct SelectColumnState {
       bool is_explicit_in, bool has_aggregation_in, bool has_analytic_in,
       bool has_volatile_in,
       std::unique_ptr<const ResolvedExpr> resolved_expr_in)
-      : ast_expr(ast_select_column->expression()),
+      : ast_select_column(ast_select_column),
+        ast_expr(ast_select_column->expression()),
         alias(alias_in),
         is_explicit(is_explicit_in),
         select_list_position(-1),
@@ -349,6 +351,9 @@ struct SelectColumnState {
 
   // Returns a multi-line debug string, where each line is prefixed by <indent>.
   std::string DebugString(absl::string_view indent = "") const;
+
+  // The `ASTSelectColumn` for with this `SelectColumnState`.
+  const ASTSelectColumn* ast_select_column;
 
   // The expression for this selected column.
   // Points at the * if this came from SELECT *.
@@ -405,6 +410,12 @@ struct SelectColumnState {
   // If true, this expression is used as a GROUP BY key.
   bool is_group_by_column = false;
 
+  // If true, this expression uses a function with GROUP ROWS or GROUP BY
+  // modifiers and that function is not in an expression subquery. This
+  // expression is resolved in `ResolveDeferredFirstPassSelectListExprs` after
+  // the GROUP BY clause is resolved.
+  bool contains_outer_group_rows_or_group_by_modifiers = false;
+
   // The output column of this select list item.  It is projected by a scan
   // that computes the related expression.  After the SELECT list has
   // been fully resolved, <resolved_select_column> will be initialized.
@@ -443,6 +454,11 @@ class SelectColumnStateList {
   // mapping from the alias to this SelectColumnState. The mapping is later used
   // for validations performed by FindAndValidateSelectColumnStateByAlias().
   void AddSelectColumn(std::unique_ptr<SelectColumnState> select_column_state);
+
+  // Replace the existing `SelectColumnState` at `index` in
+  // `select_column_state_list_` with `new_select_column_state`.
+  absl::Status ReplaceSelectColumn(
+      int index, std::unique_ptr<SelectColumnState> new_select_column_state);
 
   // Finds a SELECT-list column by alias. Returns an error if the
   // name is ambiguous or the referenced column contains an aggregate or
@@ -975,6 +991,24 @@ class UntypedLiteralMap {
   std::unique_ptr<absl::flat_hash_map<int, const ResolvedExpr*>>
       column_id_to_untyped_literal_map_;
 };
+
+// Contains information about an unresolved `ASTSelectColumn`. This information
+// is used to determine whether the `ASTSelectColumn` should have it's
+// first pass resolution deferred until after the GROUP BY clause is resolved.
+// See `ResolveDeferredFirstPassSelectListExprs` for details.
+struct DeferredResolutionSelectColumnInfo {
+  // If true, the `ASTSelectColumn` contains a function with a GROUP ROWS
+  // expression or GROUP BY modifiers, and the function does not lie within an
+  // expression subquery.
+  bool has_outer_group_rows_or_group_by_modifiers = false;
+  // If true, the `ASTSelectColumn` contains an analytic function (i.e. a
+  // function with an OVER clause), and the function does not lie within an
+  // expression subquery.
+  bool has_outer_analytic_function = false;
+};
+
+absl::StatusOr<DeferredResolutionSelectColumnInfo>
+GetDeferredResolutionSelectColumnInfo(const ASTSelectColumn* select_column);
 
 }  // namespace zetasql
 

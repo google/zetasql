@@ -1239,8 +1239,7 @@ TEST_F(ResolverTest, TestDoesNotHaveAggregationThreshold) {
 TEST_F(ResolverTest, FlattenInCatalogButFeatureOff) {
   analyzer_options_.mutable_language()->DisableAllLanguageFeatures();
   ResetResolver(sample_catalog_->catalog());
-  ResolveFunctionFails("FLATTEN([0, 1, 2])",
-                       "The FLATTEN function is not supported");
+  ResolveFunctionFails("FLATTEN([0, 1, 2])", "Function not found: FLATTEN");
 }
 
 TEST_F(ResolverTest, TestHasFlatten) {

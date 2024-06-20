@@ -21,6 +21,7 @@
 #ifndef ZETASQL_COMPLIANCE_TEST_DRIVER_H_
 #define ZETASQL_COMPLIANCE_TEST_DRIVER_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <set>
@@ -30,7 +31,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
-#include "google/protobuf/compiler/importer.h"
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/functions/date_time_util.h"  
 #include "zetasql/public/language_options.h"
@@ -38,18 +38,18 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
-#include "absl/strings/string_view.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "absl/flags/declare.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/file_util.h"
-#include "zetasql/base/source_location.h"
+#include "google/protobuf/compiler/importer.h"
+#include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -320,11 +320,6 @@ class TestDriver {
   //   tests with PrimaryKeyMode::NO_PRIMARY_KEY.
   virtual absl::StatusOr<bool> SkipTestsWithPrimaryKeyMode(
       PrimaryKeyMode primary_key_mode) {
-    if (IsReferenceImplementation()) {
-      ZETASQL_RET_CHECK_FAIL()
-          << "We must never call SkipTestsWithPrimaryKeyMode() for the "
-          << "reference implementation";
-    }
     return false;
   }
 

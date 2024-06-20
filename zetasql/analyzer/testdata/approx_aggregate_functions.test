@@ -1898,6 +1898,7 @@ QueryStmt
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.init_int64(@test_param_int64) from SimpleTypes
 --
 QueryStmt
@@ -1917,7 +1918,35 @@ QueryStmt
               +-Parameter(type=INT64, name="test_param_int64")
 ==
 
+[product_mode={{|internal|external}}]
+[language_features=NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS]
+select kll_quantiles.init_int64(@test_param_int64, 10, weight => NULL ) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_int64(INT64, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=10)
+              +-Literal(type=INT64, value=NULL)
+==
+
+[product_mode={{|internal|external}}]
 select kll_quantiles.init_uint64(@test_param_uint64) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -1934,9 +1963,20 @@ QueryStmt
           +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.init_uint64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64) from SimpleTypes
+       ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.init_double(@test_param_double) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -1953,6 +1993,12 @@ QueryStmt
           +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(0) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.init_double [at 1:8]
+select kll_quantiles.init_double(@test_param_double) from SimpleTypes
+       ^
 ==
 
 select kll_quantiles.init_int64(@test_param_int64, 100) from SimpleTypes
@@ -2080,7 +2126,12 @@ QueryStmt
 ==
 
 # UINT32 widens to UINT64
+[product_mode={{|internal|external}}]
 select kll_quantiles.init_uint64(@test_param_uint32) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2098,6 +2149,12 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Cast(UINT32 -> UINT64)
                 +-Parameter(type=UINT32, name="test_param_uint32")
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.init_uint64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint32) from SimpleTypes
+       ^
 ==
 
 # BYTES cannot be cast to INT64
@@ -2135,6 +2192,7 @@ QueryStmt
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_int64(@test_param_bytes, 5) from SimpleTypes
 --
 QueryStmt
@@ -2155,7 +2213,12 @@ QueryStmt
               +-Literal(type=INT64, value=5)
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_uint64(@test_param_bytes, 2) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2173,9 +2236,20 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_uint64(BYTES, INT64) -> ARRAY<UINT64>)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.merge_uint64; Did you mean kll_quantiles.merge_int64? [at 1:8]
+select kll_quantiles.merge_uint64(@test_param_bytes, 2) from SimpleTypes
+       ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2193,6 +2267,12 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_double(BYTES, INT64) -> ARRAY<DOUBLE>)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=50)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.merge_double [at 1:8]
+select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
+       ^
 ==
 
 select kll_quantiles.merge_int64(@test_param_bytes) from SimpleTypes
@@ -2224,6 +2304,7 @@ select kll_quantiles.merge_int64(@test_param_bytes, 1) from SimpleTypes
                                                     ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_int64(@test_param_bytes, 10) from SimpleTypes
 --
 QueryStmt
@@ -2241,7 +2322,12 @@ QueryStmt
       +-TableScan(table=SimpleTypes)
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_uint64(@test_param_bytes, 20) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2256,9 +2342,20 @@ QueryStmt
     |     +-Literal(type=INT64, value=20)
     +-input_scan=
       +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.extract_uint64; Did you mean kll_quantiles.extract_int64? [at 1:8]
+select kll_quantiles.extract_uint64(@test_param_bytes, 20) from SimpleTypes
+       ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2273,6 +2370,12 @@ QueryStmt
     |     +-Literal(type=INT64, value=5)
     +-input_scan=
       +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.extract_double [at 1:8]
+select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
+       ^
 ==
 
 select kll_quantiles.extract_double(@test_param_bytes, key) from KeyValue
@@ -2308,6 +2411,7 @@ select kll_quantiles.extract_double(@test_param_bytes, NULL) from SimpleTypes
                                                        ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_point_int64(@test_param_bytes, 0.99)
 from SimpleTypes
 --
@@ -2329,8 +2433,13 @@ QueryStmt
               +-Literal(type=DOUBLE, value=0.99)
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5)
 from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2348,11 +2457,22 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_uint64(BYTES, DOUBLE) -> UINT64)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=0.5)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.merge_point_uint64; Did you mean kll_quantiles.merge_point_int64? [at 1:8]
+select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5)
+       ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
 --
 
+ALTERNATION GROUPS:
+    <empty>
+    internal
+--
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
@@ -2369,6 +2489,12 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_double(BYTES, DOUBLE) -> DOUBLE)
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=1)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.merge_point_double [at 1:8]
+select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
+       ^
 ==
 
 select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5+0.1) from SimpleTypes
@@ -2403,6 +2529,7 @@ select kll_quantiles.merge_point_uint64(@test_param_bytes, NULL)
                                                            ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_point_int64(@test_param_bytes, 0) from SimpleTypes
 --
 
@@ -2421,8 +2548,13 @@ QueryStmt
       +-TableScan(table=SimpleTypes)
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_point_uint64(@test_param_bytes, 0.75)
 from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2437,10 +2569,21 @@ QueryStmt
     |     +-Literal(type=DOUBLE, value=0.75)
     +-input_scan=
       +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.extract_point_uint64; Did you mean kll_quantiles.extract_point_int64? [at 1:8]
+select kll_quantiles.extract_point_uint64(@test_param_bytes, 0.75)
+       ^
 ==
 
+[product_mode={{|internal|external}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
 from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    internal
 --
 QueryStmt
 +-output_column_list=
@@ -2455,6 +2598,12 @@ QueryStmt
     |     +-Literal(type=DOUBLE, value=0.995)
     +-input_scan=
       +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: external
+--
+ERROR: Function not found: kll_quantiles.extract_point_double; Did you mean kll_quantiles.extract_point_int64? [at 1:8]
+select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
+       ^
 ==
 
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.5+0.1) from SimpleTypes
@@ -2556,12 +2705,15 @@ QueryStmt
 ==
 
 [language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
+[product_mode={{|internal|external}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100)
 from SimpleTypes;
 --
 ALTERNATION GROUPS:
     <empty>
-    NAMED_ARGUMENTS
+    internal
+    NAMED_ARGUMENTS,
+    NAMED_ARGUMENTS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2580,7 +2732,18 @@ QueryStmt
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=100)
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
+ALTERNATION GROUPS:
+    external
+    NAMED_ARGUMENTS,external
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,external
+--
+ERROR: Function not found: kll_quantiles.init_uint64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_uint64(@test_param_uint64, 100)
+       ^
+--
+ALTERNATION GROUPS:
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,internal
 --
 QueryStmt
 +-output_column_list=
@@ -2757,36 +2920,3 @@ ERROR: Named arguments are not supported [at 2:34]
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 ==
-
-# Test that the `must_be_constant` arguments work as expected for an AGGREGATE
-# function, as should be the case for the `frequencies` argument of
-# XCF_COUNT_FREQUENCY.MERGE_BY_* functions. This is tested by providing a
-# `RESOLVED_ARGUMENT_REF` to the `frequencies` argument (via
-# `CREATE AGGREGATE FUNCTION`), which is valid for `is_not_aggregate` arguments,
-# but is invalid for `must_be_constant` arguments.
-[language_features=CREATE_AGGREGATE_FUNCTION,NAMED_ARGUMENTS]
-CREATE TEMPORARY AGGREGATE FUNCTION TestAggFunc(
-  sketch BYTES,
-  frequencies ARRAY<INT64> NOT AGGREGATE)
-RETURNS ARRAY<INT64>
-AS (
-  XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ(sketch, frequencies => frequencies)
-);
---
-ERROR: Argument 'frequencies' to XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ must be a literal or query parameter [at 6:51]
-  XCF_COUNT_FREQUENCY.MERGE_BY_EXACT_FREQ(sketch, frequencies => frequencies)
-                                                  ^
-==
-
-[language_features=CREATE_AGGREGATE_FUNCTION,NAMED_ARGUMENTS]
-CREATE TEMPORARY AGGREGATE FUNCTION TestAggFunc(
-  sketch BYTES,
-  frequencies ARRAY<INT64> NOT AGGREGATE)
-RETURNS ARRAY<INT64>
-AS (
-  XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ(sketch, frequencies => frequencies)
-);
---
-ERROR: Argument 'frequencies' to XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ must be a literal or query parameter [at 6:49]
-  XCF_COUNT_FREQUENCY.MERGE_BY_MIN_FREQ(sketch, frequencies => frequencies)
-                                                ^

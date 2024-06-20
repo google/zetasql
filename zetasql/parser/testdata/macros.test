@@ -235,3 +235,11 @@ DEFINE MACRO
 ERROR: Syntax error: Expected macro name but got end of statement [at 1:13]
 DEFINE MACRO
             ^
+==
+
+# No hints on DEFINE MACRO statements
+@{key=1} DEFINE MACRO m 1;
+--
+ERROR: Hints are not allowed on DEFINE MACRO statements. [at 1:1]
+@{key=1} DEFINE MACRO m 1;
+^

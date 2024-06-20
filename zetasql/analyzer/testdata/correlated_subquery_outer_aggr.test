@@ -204,7 +204,7 @@ SELECT key, (select value)
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 1:21]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 1:21]
 SELECT key, (select value)
                     ^
 ==
@@ -213,7 +213,7 @@ SELECT key, (select kv.value)
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references kv.value which is neither grouped nor aggregated [at 1:21]
+ERROR: SELECT without FROM clause expression references kv.value which is neither grouped nor aggregated [at 1:21]
 SELECT key, (select kv.value)
                     ^
 ==
@@ -223,7 +223,7 @@ SELECT key, (select kv)
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references table alias kv which is neither grouped nor aggregated [at 1:21]
+ERROR: SELECT without FROM clause expression references table alias kv which is neither grouped nor aggregated [at 1:21]
 SELECT key, (select kv)
                     ^
 ==
@@ -275,7 +275,7 @@ select 1 + (select key)
 from KeyValue
 group by value
 --
-ERROR: An expression references column key which is neither grouped nor aggregated [at 1:20]
+ERROR: SELECT without FROM clause expression references column key which is neither grouped nor aggregated [at 1:20]
 select 1 + (select key)
                    ^
 ==
@@ -330,7 +330,7 @@ select (select char_length(value)) + (select key) + 5
 from KeyValue
 group by key
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 1:28]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 1:28]
 select (select char_length(value)) + (select key) + 5
                            ^
 ==
@@ -340,7 +340,7 @@ select (select char_length(value)) + (select key) + 5
 from KeyValue
 group by value
 --
-ERROR: An expression references column key which is neither grouped nor aggregated [at 1:46]
+ERROR: SELECT without FROM clause expression references column key which is neither grouped nor aggregated [at 1:46]
 select (select char_length(value)) + (select key) + 5
                                              ^
 ==
@@ -832,7 +832,7 @@ FROM KeyValue kv
 GROUP BY key
 HAVING (select value) = 'a'
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 4:16]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 4:16]
 HAVING (select value) = 'a'
                ^
 ==
@@ -848,7 +848,7 @@ SELECT (SELECT key
         HAVING (select value) = 'a')
 FROM KeyValue kv_outer
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 4:24]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 4:24]
         HAVING (select value) = 'a')
                        ^
 ==
@@ -1170,7 +1170,7 @@ FROM KeyValue kv
 GROUP BY key
 ORDER BY (select value)
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 4:18]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 4:18]
 ORDER BY (select value)
                  ^
 ==
@@ -1181,7 +1181,7 @@ FROM KeyValue kv
 GROUP BY key
 ORDER BY (select kv.value)
 --
-ERROR: An expression references kv.value which is neither grouped nor aggregated [at 4:18]
+ERROR: SELECT without FROM clause expression references kv.value which is neither grouped nor aggregated [at 4:18]
 ORDER BY (select kv.value)
                  ^
 ==
@@ -1307,7 +1307,7 @@ SELECT key, (select (select value))
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 1:29]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 1:29]
 SELECT key, (select (select value))
                             ^
 ==
@@ -1317,7 +1317,7 @@ SELECT key, (select (select kv.value))
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references kv.value which is neither grouped nor aggregated [at 1:29]
+ERROR: SELECT without FROM clause expression references kv.value which is neither grouped nor aggregated [at 1:29]
 SELECT key, (select (select kv.value))
                             ^
 ==
@@ -1375,7 +1375,7 @@ SELECT key, (select (select kv))
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references table alias kv which is neither grouped nor aggregated [at 1:29]
+ERROR: SELECT without FROM clause expression references table alias kv which is neither grouped nor aggregated [at 1:29]
 SELECT key, (select (select kv))
                             ^
 ==
@@ -1849,7 +1849,7 @@ FROM KeyValue kv
 GROUP BY key
 HAVING (select (select value)) = 'a'
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 4:24]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 4:24]
 HAVING (select (select value)) = 'a'
                        ^
 ==
@@ -1859,7 +1859,7 @@ FROM KeyValue kv
 GROUP BY key
 HAVING (select (select kv.value)) = 'a'
 --
-ERROR: An expression references kv.value which is neither grouped nor aggregated [at 4:24]
+ERROR: SELECT without FROM clause expression references kv.value which is neither grouped nor aggregated [at 4:24]
 HAVING (select (select kv.value)) = 'a'
                        ^
 ==
@@ -1994,7 +1994,7 @@ FROM KeyValue kv
 GROUP BY key
 ORDER BY (select (select value))
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 4:26]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 4:26]
 ORDER BY (select (select value))
                          ^
 ==
@@ -2004,7 +2004,7 @@ FROM KeyValue kv
 GROUP BY key
 ORDER BY (select (select kv.value))
 --
-ERROR: An expression references kv.value which is neither grouped nor aggregated [at 4:26]
+ERROR: SELECT without FROM clause expression references kv.value which is neither grouped nor aggregated [at 4:26]
 ORDER BY (select (select kv.value))
                          ^
 ==
@@ -2155,7 +2155,7 @@ SELECT key,
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references column key which is neither grouped nor aggregated [at 2:42]
+ERROR: SELECT without FROM clause expression references column key which is neither grouped nor aggregated [at 2:42]
        any_value((select (value, (select key))
                                          ^
 ==
@@ -2382,7 +2382,7 @@ having (select tt.TestEnum
         group by tt.TestEnum
         having (select TestEnum = cast(key as `zetasql_test__.TestEnum`))) = 1;
 --
-ERROR: An expression references column key which is neither grouped nor aggregated [at 7:40]
+ERROR: SELECT without FROM clause expression references column key which is neither grouped nor aggregated [at 7:40]
         having (select TestEnum = cast(key as `zetasql_test__.TestEnum`))) = 1;
                                        ^
 ==
@@ -2775,7 +2775,7 @@ SELECT key in (select char_length(value))
 FROM KeyValue kv
 GROUP BY key
 --
-ERROR: An expression references column value which is neither grouped nor aggregated [at 1:35]
+ERROR: SELECT without FROM clause expression references column value which is neither grouped nor aggregated [at 1:35]
 SELECT key in (select char_length(value))
                                   ^
 ==
@@ -4686,7 +4686,7 @@ QueryStmt
 --
 ALTERNATION GROUP: kv2.
 --
-ERROR: An expression references kv2.key which is neither grouped nor aggregated [at 1:25]
+ERROR: SELECT without FROM clause expression references kv2.key which is neither grouped nor aggregated [at 1:25]
 select kv1.key, (select kv2.key = 5)
                         ^
 ==
@@ -4744,7 +4744,7 @@ QueryStmt
 --
 ALTERNATION GROUP: kv2.
 --
-ERROR: An expression references kv2.key which is neither grouped nor aggregated [at 1:21]
+ERROR: SELECT without FROM clause expression references kv2.key which is neither grouped nor aggregated [at 1:21]
 select key, (select kv2.key = 5)
                     ^
 ==
@@ -4756,13 +4756,13 @@ GROUP BY kv1.key
 --
 ALTERNATION GROUP: kv1.
 --
-ERROR: An expression references kv1.value which is neither grouped nor aggregated [at 1:25]
+ERROR: SELECT without FROM clause expression references kv1.value which is neither grouped nor aggregated [at 1:25]
 select kv1.key, (select kv1.value = 'a')
                         ^
 --
 ALTERNATION GROUP: kv2.
 --
-ERROR: An expression references kv2.value which is neither grouped nor aggregated [at 1:25]
+ERROR: SELECT without FROM clause expression references kv2.value which is neither grouped nor aggregated [at 1:25]
 select kv1.key, (select kv2.value = 'a')
                         ^
 --
@@ -4781,13 +4781,13 @@ GROUP BY key
 --
 ALTERNATION GROUP: kv1
 --
-ERROR: An expression references table alias kv1 which is neither grouped nor aggregated [at 1:31]
+ERROR: SELECT without FROM clause expression references table alias kv1 which is neither grouped nor aggregated [at 1:31]
 select key, (select as struct kv1.*)
                               ^
 --
 ALTERNATION GROUP: kv2
 --
-ERROR: An expression references table alias kv2 which is neither grouped nor aggregated [at 1:31]
+ERROR: SELECT without FROM clause expression references table alias kv2 which is neither grouped nor aggregated [at 1:31]
 select key, (select as struct kv2.*)
                               ^
 ==
@@ -4812,7 +4812,7 @@ select int32_val as field,
 from KitchenSinkValueTable t0
 group by field
 --
-ERROR: An expression references t0.has_int32_val which is neither grouped nor aggregated [at 2:16]
+ERROR: SELECT without FROM clause expression references t0.has_int32_val which is neither grouped nor aggregated [at 2:16]
        (select t0.has_int32_val)
                ^
 ==
@@ -4957,7 +4957,7 @@ select DISTINCT int32_val
 from KitchenSinkValueTable t0
 order by (select t0.some_bogus_field_name)
 --
-ERROR: An expression references t0.some_bogus_field_name which is neither grouped nor aggregated [at 3:18]
+ERROR: SELECT without FROM clause expression references t0.some_bogus_field_name which is neither grouped nor aggregated [at 3:18]
 order by (select t0.some_bogus_field_name)
                  ^
 ==
@@ -4978,7 +4978,7 @@ select DISTINCT a
 from TestStructValueTable t0
 order by (select t0.some_bogus_field_name)
 --
-ERROR: An expression references t0.some_bogus_field_name which is neither grouped nor aggregated [at 3:18]
+ERROR: SELECT without FROM clause expression references t0.some_bogus_field_name which is neither grouped nor aggregated [at 3:18]
 order by (select t0.some_bogus_field_name)
                  ^
 ==

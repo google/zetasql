@@ -35,9 +35,10 @@ absl::Status MacroCatalog::RegisterMacro(MacroInfo macro_info) {
       options_.allow_overwrite
           ? macros_.insert_or_assign(macro_name, std::move(macro_info))
           : macros_.insert({macro_name, std::move(macro_info)});
-  return success ? absl::OkStatus()
-                 : absl::AlreadyExistsError(
-                       absl::StrCat("Macro ", macro_name, " already exists"));
+  return !success && !options_.allow_overwrite
+             ? absl::AlreadyExistsError(
+                   absl::StrCat("Macro ", macro_name, " already exists"))
+             : absl::OkStatus();
 }
 
 std::optional<MacroInfo> MacroCatalog::Find(

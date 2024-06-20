@@ -126,8 +126,8 @@ SELECT i.map[KEY(i.map[KEY("foo")])] FROM Input i;
 ARRAY<STRUCT<STRING>>[{"success"}]
 ==
 
-[name=modify_map]
-SELECT MODIFY_MAP(value.string_int32_map, "foo", 789) FROM Table0;
+[name=proto_modify_map]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {
@@ -145,16 +145,16 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_null_map]
-SELECT MODIFY_MAP(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+[name=proto_modify_map_null_map]
+SELECT PROTO_MODIFY_MAP(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>(NULL)}
 ]
 ==
 
-[name=modify_map_empty_map]
-SELECT MODIFY_MAP(CAST([] AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+[name=proto_modify_map_empty_map]
+SELECT PROTO_MODIFY_MAP(CAST([] AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
@@ -166,8 +166,8 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_multiple_keys]
-SELECT MODIFY_MAP(value.string_int32_map, "foo", 789, "quux", 1337) FROM Table0;
+[name=proto_modify_map_multiple_keys]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "foo", 789, "quux", 1337) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {
@@ -189,8 +189,8 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_using_expression]
-SELECT MODIFY_MAP(value.string_int32_map, "foo", CAST(value.string_int32_map[KEY("bar")] + 1 AS INT32)) FROM Table0;
+[name=proto_modify_map_using_expression]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "foo", CAST(value.string_int32_map[KEY("bar")] + 1 AS INT32)) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {
@@ -208,14 +208,14 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_duplicate_keys]
-SELECT MODIFY_MAP(value.string_int32_map, "foo", 789, "foo", 10) FROM Table0;
+[name=proto_modify_map_duplicate_keys]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "foo", 789, "foo", 10) FROM Table0;
 --
-ERROR: generic::out_of_range: MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: "foo"
+ERROR: generic::out_of_range: PROTO_MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: "foo"
 ==
 
-[name=modify_map_new_key]
-SELECT MODIFY_MAP(value.string_int32_map, "baz", 789) FROM Table0;
+[name=proto_modify_map_new_key]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "baz", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {
@@ -237,8 +237,8 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_delete_key]
-SELECT MODIFY_MAP(value.string_int32_map, "bar", NULL) FROM Table0;
+[name=proto_modify_map_delete_key]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "bar", NULL) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
@@ -250,8 +250,8 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_delete_duplicate_key]
-SELECT MODIFY_MAP((NEW zetasql_test__.MessageWithMapField(
+[name=proto_modify_map_delete_duplicate_key]
+SELECT PROTO_MODIFY_MAP((NEW zetasql_test__.MessageWithMapField(
     [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 2 AS value),
      NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 1 AS value)] AS string_int32_map)).string_int32_map, "foo", NULL);
 --
@@ -260,8 +260,8 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 
 ==
-[name=modify_map_delete_nonexistent_key]
-SELECT MODIFY_MAP(value.string_int32_map, "quux", NULL) FROM Table0;
+[name=proto_modify_map_delete_nonexistent_key]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, "quux", NULL) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {
@@ -279,19 +279,19 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[name=modify_map_null_key]
-SELECT MODIFY_MAP(value.string_int32_map, NULL, 789) FROM Table0;
+[name=proto_modify_map_null_key]
+SELECT PROTO_MODIFY_MAP(value.string_int32_map, NULL, 789) FROM Table0;
 --
-ERROR: generic::out_of_range: MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument 1
+ERROR: generic::out_of_range: PROTO_MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument 1
 ==
 
-[name=contains_key]
-SELECT CONTAINS_KEY(value.string_int32_map, "foo") has_foo,
-       CONTAINS_KEY(value.string_int32_map, "bar") has_bar,
-       CONTAINS_KEY(value.string_int32_map, CONCAT("ba", "r")) has_concat_making_bar,
-       CONTAINS_KEY(value.string_int32_map, "baz") has_baz,
-       CONTAINS_KEY(value.string_int32_map, NULL) has_null,
-       CONTAINS_KEY(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo") null_has_foo
+[name=proto_map_contains_key]
+SELECT PROTO_MAP_CONTAINS_KEY(value.string_int32_map, "foo") has_foo,
+       PROTO_MAP_CONTAINS_KEY(value.string_int32_map, "bar") has_bar,
+       PROTO_MAP_CONTAINS_KEY(value.string_int32_map, CONCAT("ba", "r")) has_concat_making_bar,
+       PROTO_MAP_CONTAINS_KEY(value.string_int32_map, "baz") has_baz,
+       PROTO_MAP_CONTAINS_KEY(value.string_int32_map, NULL) has_null,
+       PROTO_MAP_CONTAINS_KEY(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo") null_has_foo
 FROM Table0;
 --
 ARRAY<STRUCT<
@@ -304,10 +304,10 @@ ARRAY<STRUCT<
       >>[{true, true, true, false, false, NULL}]
 ==
 
-[name=modify_map_and_braced_constructors]
+[name=proto_modify_map_and_braced_constructors]
 [required_features=V_1_3_PROTO_MAPS,V_1_3_BRACED_PROTO_CONSTRUCTORS]
 SELECT NEW zetasql_test__.MessageWithMapField {
-  string_int32_map: MODIFY_MAP(input.string_int32_map, "to_be_replaced", 5)
+  string_int32_map: PROTO_MODIFY_MAP(input.string_int32_map, "to_be_replaced", 5)
 } AS result
 FROM (
   SELECT AS VALUE NEW zetasql_test__.MessageWithMapField {

@@ -72,7 +72,6 @@ cc_library(
 cc_test(
     name = "local_service_test",
     srcs = ["local_service_test.cc"],
-    args = ["--zetasql_remove_degenerate_projectscans"],
     data = [
         "//zetasql/testdata:test_schema_proto",
     ],

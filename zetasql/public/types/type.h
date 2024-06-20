@@ -865,6 +865,7 @@ class Type {
   friend class StructType;
   friend class RangeType;
   friend class MapType;
+  friend class NullableValueContentComparator;
 
   const internal::TypeStore* type_store_;  // Used for lifetime checking only.
   const TypeKind kind_;

@@ -114,8 +114,8 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     switch (node->signature().context_id()) {
       case FN_PROTO_MAP_AT_KEY:
       case FN_SAFE_PROTO_MAP_AT_KEY:
-      case FN_CONTAINS_KEY:
-      case FN_MODIFY_MAP:
+      case FN_PROTO_MAP_CONTAINS_KEY:
+      case FN_PROTO_MODIFY_MAP:
         applicable_rewrites_->insert(REWRITE_PROTO_MAP_FNS);
         break;
       case FN_ANON_COUNT:

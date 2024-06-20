@@ -2412,6 +2412,11 @@ void Unparser::visitASTBitwiseShiftExpression(
   PrintCloseParenIfNeeded(node);
 }
 
+struct Parens {
+  std::string left = "(";
+  std::string right = ")";
+};
+
 void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
   PrintOpenParenIfNeeded(node);
   node->lhs()->Accept(this, data);
@@ -2420,12 +2425,13 @@ void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
     node->hint()->Accept(this, data);
   }
   if (node->query() != nullptr) {
-    print("(");
+    Parens parens;
+    print(parens.left);
     {
       Formatter::Indenter indenter(&formatter_);
       node->query()->Accept(this, data);
     }
-    print(")");
+    print(parens.right);
   }
   if (node->in_list() != nullptr) {
     node->in_list()->Accept(this, data);
@@ -2576,12 +2582,13 @@ void Unparser::visitASTExpressionSubquery(const ASTExpressionSubquery* node,
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
-  print("(");
+  Parens parens;
+  print(parens.left);
   {
     Formatter::Indenter indenter(&formatter_);
     node->query()->Accept(this, data);
   }
-  print(")");
+  print(parens.right);
 }
 
 void Unparser::visitASTHint(const ASTHint* node, void* data) {
