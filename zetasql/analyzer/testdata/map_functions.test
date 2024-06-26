@@ -1381,3 +1381,286 @@ ALTERNATION GROUP: <empty>
 ERROR: MAP key type ARRAY is not groupable [at 2:21]
 SELECT CAST(NULL AS MAP<ARRAY<STRUCT<STRING>>, STRING>);
                     ^
+==
+
+SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED|VALUES_SORTED|VALUES_UNSORTED}}(
+  MAP_FROM_ARRAY([("k", "v")]));
+--
+ALTERNATION GROUP: KEYS_SORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_keys_sorted(MAP<STRING, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRING>>) -> MAP<STRING, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRING>>, value=[{"k", "v"}])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: KEYS_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_keys_unsorted(MAP<STRING, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRING>>) -> MAP<STRING, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRING>>, value=[{"k", "v"}])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: VALUES_SORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_sorted(MAP<STRING, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRING>>) -> MAP<STRING, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRING>>, value=[{"k", "v"}])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: VALUES_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_unsorted(MAP<STRING, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRING>>) -> MAP<STRING, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRING>>, value=[{"k", "v"}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+# MAP key is not orderable here
+SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED|VALUES_SORTED|VALUES_UNSORTED}}(
+  MAP_FROM_ARRAY([(STRUCT("a"), "")]));
+--
+ALTERNATION GROUP: KEYS_SORTED
+--
+ERROR: MAP_KEYS_SORTED: MAP element type STRUCT is not orderable [at 2:8]
+SELECT MAP_KEYS_SORTED(
+       ^
+--
+ALTERNATION GROUP: KEYS_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRUCT<STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_keys_unsorted(MAP<STRUCT<STRING>, STRING> input_map) -> ARRAY<STRUCT<STRING>>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRUCT<STRING>, STRING>>) -> MAP<STRUCT<STRING>, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRUCT<STRING>, STRING>>, value=[{{"a"}, ""}])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: VALUES_SORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_sorted(MAP<STRUCT<STRING>, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRUCT<STRING>, STRING>>) -> MAP<STRUCT<STRING>, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRUCT<STRING>, STRING>>, value=[{{"a"}, ""}])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: VALUES_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_unsorted(MAP<STRUCT<STRING>, STRING> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRUCT<STRING>, STRING>>) -> MAP<STRUCT<STRING>, STRING>)
+    |       +-Literal(type=ARRAY<STRUCT<STRUCT<STRING>, STRING>>, value=[{{"a"}, ""}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+
+# MAP value is not orderable here
+SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED|VALUES_SORTED|VALUES_UNSORTED}}(
+  MAP_FROM_ARRAY([("", NEW zetasql_test__.EmptyMessage())]));
+--
+ALTERNATION GROUP: KEYS_SORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_keys_sorted(MAP<STRING, PROTO<zetasql_test__.EmptyMessage>> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>) -> MAP<STRING, PROTO<zetasql_test__.EmptyMessage>>)
+    |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>) -> ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>)
+    |         +-MakeStruct
+    |           +-type=STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>
+    |           +-field_list=
+    |             +-Literal(type=STRING, value="")
+    |             +-MakeProto(type=PROTO<zetasql_test__.EmptyMessage>)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: KEYS_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_keys_unsorted(MAP<STRING, PROTO<zetasql_test__.EmptyMessage>> input_map) -> ARRAY<STRING>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>) -> MAP<STRING, PROTO<zetasql_test__.EmptyMessage>>)
+    |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>) -> ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>)
+    |         +-MakeStruct
+    |           +-type=STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>
+    |           +-field_list=
+    |             +-Literal(type=STRING, value="")
+    |             +-MakeProto(type=PROTO<zetasql_test__.EmptyMessage>)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: VALUES_SORTED
+--
+ERROR: MAP_VALUES_SORTED: MAP element type PROTO is not orderable [at 1:8]
+SELECT MAP_VALUES_SORTED(
+       ^
+--
+ALTERNATION GROUP: VALUES_UNSORTED
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<PROTO<zetasql_test__.EmptyMessage>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_unsorted(MAP<STRING, PROTO<zetasql_test__.EmptyMessage>> input_map) -> ARRAY<PROTO<zetasql_test__.EmptyMessage>>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>) -> MAP<STRING, PROTO<zetasql_test__.EmptyMessage>>)
+    |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>) -> ARRAY<STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>>)
+    |         +-MakeStruct
+    |           +-type=STRUCT<STRING, PROTO<zetasql_test__.EmptyMessage>>
+    |           +-field_list=
+    |             +-Literal(type=STRING, value="")
+    |             +-MakeProto(type=PROTO<zetasql_test__.EmptyMessage>)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_ARRAY_ORDERING]
+# Array of array is not supported
+SELECT MAP_{{VALUES_SORTED|VALUES_UNSORTED}}(
+  MAP_FROM_ARRAY([('key', [1, 2, 3])]));
+--
+ALTERNATION GROUP: VALUES_SORTED
+--
+ERROR: Array of array types are not supported [at 2:8]
+SELECT MAP_VALUES_SORTED(
+       ^
+--
+ALTERNATION GROUP: VALUES_UNSORTED
+--
+ERROR: Array of array types are not supported [at 2:8]
+SELECT MAP_VALUES_UNSORTED(
+       ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_ARRAY,V_1_3_ARRAY_ORDERING]
+# Array of array is not supported
+SELECT MAP_{{KEYS_SORTED|KEYS_UNSORTED}}(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
+--
+ALTERNATION GROUP: KEYS_SORTED
+--
+ERROR: Array of array types are not supported [at 2:8]
+SELECT MAP_KEYS_SORTED(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
+       ^
+--
+ALTERNATION GROUP: KEYS_UNSORTED
+--
+ERROR: Array of array types are not supported [at 2:8]
+SELECT MAP_KEYS_UNSORTED(MAP_FROM_ARRAY([([1, 2, 3], 'value')]));
+       ^
+==
+
+SELECT MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2)]));
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_sorted_by_key(MAP<STRING, INT64> input_map) -> ARRAY<INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"b", 1}, {"a", 2}])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_2_GROUP_BY_STRUCT]
+SELECT MAP_VALUES_SORTED_BY_KEY(
+  MAP_FROM_ARRAY([({{STRUCT('a'), 1|'a', STRUCT(1)}})]));
+--
+ALTERNATION GROUP: STRUCT('a'), 1
+--
+ERROR: MAP_VALUES_SORTED: MAP element type STRUCT is not orderable [at 1:8]
+SELECT MAP_VALUES_SORTED_BY_KEY(
+       ^
+--
+ALTERNATION GROUP: 'a', STRUCT(1)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRUCT<INT64>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:map_values_sorted_by_key(MAP<STRING, STRUCT<INT64>> input_map) -> ARRAY<STRUCT<INT64>>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, STRUCT<INT64>>>) -> MAP<STRING, STRUCT<INT64>>)
+    |       +-Literal(type=ARRAY<STRUCT<STRING, STRUCT<INT64>>>, value=[{"a", {1}}])
+    +-input_scan=
+      +-SingleRowScan
+==

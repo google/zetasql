@@ -1853,6 +1853,12 @@ class Resolver {
       const ASTWhereClause* where_clause, const NameScope* from_scan_scope,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
+  // Check the ExprResolutionInfo for an expression resolved in this query,
+  // checking for any features required or not allowed in this SelectForm.
+  absl::Status CheckExprResolutionInfoForQuery(
+      const ASTNode* ast_location, QueryResolutionInfo* query_resolution_info,
+      const ExprResolutionInfo& expr_resolution_info);
+
   // Performs first pass analysis on the SELECT list expressions against the
   // FROM clause. This pass includes star and dot-star expansion, but defers
   // resolution of expressions that use GROUP ROWS or GROUP BY modifiers (see

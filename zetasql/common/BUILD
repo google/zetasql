@@ -23,13 +23,11 @@ cc_library(
     srcs = ["status_payload_utils.cc"],
     hdrs = ["status_payload_utils.h"],
     deps = [
-        "//zetasql/base:logging",
         "//zetasql/base:status",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googleapis//google/rpc:status_cc_proto",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -725,7 +723,7 @@ cc_library(
         "warning_sink.h",
     ],
     deps = [
-        "//zetasql/common:status_payload_utils",
+        ":status_payload_utils",
         "//zetasql/public:deprecation_warning_cc_proto",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",

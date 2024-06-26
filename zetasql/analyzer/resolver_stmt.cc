@@ -26,7 +26,6 @@
 #include <set>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -50,7 +49,6 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
@@ -87,6 +85,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -4617,41 +4616,67 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
   const ASTIdentifier* language = ast_statement->language();
   const ASTStringLiteral* code = ast_statement->code();
   const ASTQuery* query = ast_statement->query();
-  if (language != nullptr && query != nullptr) {
-    return MakeSqlErrorAt(ast_statement)
-           << "Function cannot specify a LANGUAGE and include a SQL body";
-  }
-  if (language != nullptr &&
-      !zetasql_base::CaseEqual(language->GetAsStringView(), "REMOTE") &&
-      ast_statement->return_tvf_schema() == nullptr) {
-    return MakeSqlErrorAt(ast_statement) << absl::Substitute(
-               "TVF whose language is $0 must specify a return type, only "
-               "REMOTE TVF and SQL TVF can omit return type",
-               language->GetAsStringView());
-  }
-  if (language == nullptr && code != nullptr) {
-    return MakeSqlErrorAt(ast_statement) << "Function cannot specify a literal "
-                                            "string body without a LANGUAGE";
-  }
-
   std::string language_string = "UNDECLARED";
+
+  // Check invalid <language, code, query, return_tvf_schema> combinations.
+  // This table lists all valid combinations and some invalid ones. All other
+  // combinations are invalid. Row precedence is highest to lowest.
+  //     +----------+--------------+--------+----------------+----------+
+  //     | LANGUAGE | code literal | query  | RETURNS schema | validity |
+  //     +----------+--------------+--------+----------------+----------+
+  //     |   SQL    |     N/A      |  N/A   |      N/A       |  ERROR   |
+  //     |  REMOTE  |   optional   |   no   |    optional    |    OK    |
+  //     |   yes    |   optional   |   no   |      yes       |    OK    |
+  //     |    no    |      no      |optional|    optional    |    OK    |
+  //     +----------+--------------+--------+----------------+----------+
+  //
   if (language != nullptr) {
+    // LANGUAGE specified
     language_string = language->GetAsString();
     if (zetasql_base::CaseEqual(language_string, "SQL")) {
+      // SQL TVF
       return MakeSqlErrorAt(ast_statement->language())
              << "To write SQL table-valued functions, omit the LANGUAGE clause "
                 "and write the function body using 'AS SELECT ...'";
     }
-  }
-  if (query != nullptr) {
-    ZETASQL_RET_CHECK_EQ(language, nullptr);
-    language_string = "SQL";
+    if (query != nullptr) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Function cannot specify a LANGUAGE and include a SQL body";
+    }
+    if (!zetasql_base::CaseEqual(language_string, "REMOTE") &&
+        ast_statement->return_tvf_schema() == nullptr) {
+      // NOTE: Some engines may be able to determine the return schema for
+      // language REMOTE from remote server metadata.
+      return MakeSqlErrorAt(ast_statement) << absl::Substitute(
+                 "TVF whose language is $0 must specify a return type; only "
+                 "REMOTE TVF and SQL TVF can omit return type",
+                 language_string);
+    }
+  } else {
+    // LANGUAGE omitted
+    if (code != nullptr) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Function cannot specify a literal string body without a "
+                "LANGUAGE";
+    }
+    if (query != nullptr) {
+      // SQL implied by default
+      language_string = "SQL";
+    }
   }
 
   std::string code_string;
   if (code != nullptr) {
     code_string = code->string_value();
+  } else if (query != nullptr) {
+    const ParseLocationRange& range = query->GetParseLocationRange();
+    code_string = std::string(sql_.substr(
+        range.start().GetByteOffset(),
+        range.end().GetByteOffset() - range.start().GetByteOffset()));
   }
+
+  // At this point the statement is well formed, up to but not including
+  // body analysis.
 
   std::unique_ptr<const ResolvedScan> resolved_query;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>>
@@ -4673,7 +4698,6 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
             *param, "CREATE TABLE FUNCTION declarations with SQL bodies");
       }
     }
-    ZETASQL_RET_CHECK_EQ(language, nullptr);
     std::shared_ptr<const NameList> tvf_body_name_list;
     {
       // Set the argument info member variable in Resolver so that arguments are
@@ -4725,7 +4749,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
         for (const NamedColumn& tvf_body_name_list_column :
              tvf_body_name_list->columns()) {
           if (IsInternalAlias(tvf_body_name_list_column.name())) {
-            return MakeSqlErrorAt(ast_statement->query())
+            return MakeSqlErrorAt(query)
                    << "Table-valued function SQL body without a RETURNS TABLE "
                       "clause is missing one or more explicit output column "
                       "names";
@@ -4785,15 +4809,6 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
                                      /*allow_alter_array_operators=*/false,
                                      &resolved_options));
 
-  // If the function has a SQL statement body, copy the body SQL to the code
-  // field.
-  if (ast_statement->query() != nullptr) {
-    const ParseLocationRange& range =
-        ast_statement->query()->GetParseLocationRange();
-    code_string = std::string(sql_.substr(
-        range.start().GetByteOffset(),
-        range.end().GetByteOffset() - range.start().GetByteOffset()));
-  }
   *output = MakeResolvedCreateTableFunctionStmt(
       function_name, create_scope, create_mode, arg_info->ArgumentNames(),
       signature, has_explicit_return_schema, std::move(resolved_options),

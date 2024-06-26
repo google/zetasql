@@ -53,7 +53,6 @@ ZetaSqlFlexTokenizer::ZetaSqlFlexTokenizer(absl::string_view filename,
                                                int start_offset)
     : filename_(filename),
       start_offset_(start_offset),
-      input_size_(static_cast<int>(input.size())),
       input_stream_(std::make_unique<StringViewStream>(input)),
       preserve_comments_(preserve_comments) {
   // Seek the stringstream to the start_offset, and then instruct flex to read

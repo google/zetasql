@@ -275,20 +275,20 @@ see [Modules][modules].
 
 ### Call a JavaScript UDF
 
-You can call a JavaScript UDF in the same way that you call a built-in
+You can call a JavaScript UDF the same way that you call a built-in
 function. For details, see [Function calls][function-calls].
 
 ### SQL type encodings in JavaScript 
 <a id="javascript_udf_data_types"></a>
 
 [ZetaSQL data types][data-types] represent
-[JavaScript data types][javascript-types] in the following manner:
+[JavaScript data types][javascript-types] as follows:
 
 <table>
   <thead>
     <tr>
-    <th>ZetaSQL<br/> Data Type</th>
-    <th>JavaScript<br/> Data Type</th>
+    <th>ZetaSQL<br/> data type</th>
+    <th>JavaScript<br/> data type</th>
     <th>Notes</th>
     </tr>
   </thead>
@@ -381,12 +381,9 @@ function. For details, see [Function calls][function-calls].
     <tr>
       <td>INT64</td>
       <td>
-        N/A
+        String
       </td>
       <td>
-        INT64 is unsupported as an input type for JavaScript UDFs. Instead,
-        use DOUBLE to represent integer values as a
-        number, or STRING to represent integer values as a string.
       </td>
     </tr>
     

@@ -90,8 +90,12 @@ std::unique_ptr<AnalyzerOptions> AnalyzerOptionsForRewrite(
   options_for_rewrite->mutable_language()->set_name_resolution_mode(
       NameResolutionMode::NAME_RESOLUTION_STRICT);
 
-  // Turn on WITH expression feature for all rewriters by default. This does not
-  // impact language feature set when resolving user facing query.
+  // Turn on certain default features for all rewriters. This only affects the
+  // rewriter itself, and does not impact the language feature set used when
+  // resolving the user facing query. Only features which themselves can be
+  // rewritten into basic SQL should be enabled.
+  options_for_rewrite->mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
   options_for_rewrite->mutable_language()->EnableLanguageFeature(
       FEATURE_V_1_4_WITH_EXPRESSION);
 

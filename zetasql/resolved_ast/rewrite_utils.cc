@@ -1067,7 +1067,7 @@ absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
   // `right_expr_type` is present. If so, return the signature. Otherwise return
   // an error.
   for (const FunctionSignature& signature : function->signatures()) {
-    FunctionArgumentTypeList function_argument_type_list =
+    const FunctionArgumentTypeList& function_argument_type_list =
         signature.arguments();
     if (function_argument_type_list.size() != 2) {
       continue;

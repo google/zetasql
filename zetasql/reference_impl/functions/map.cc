@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/functions/map.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -31,6 +32,7 @@
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "absl/algorithm/container.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -245,6 +247,141 @@ class MapContainsKeyFunction : public SimpleBuiltinScalarFunction {
     return Value::Bool(map.map_entries().contains(key));
   }
 };
+
+// Defines which part of the map entry to return for functions returning a
+// list of map keys or values.
+enum class KeyOrValueSelector {
+  kUseKey,
+  kUseValue,
+};
+
+// Defines which part of the map entry to order by for functions returning a
+// list of map keys or values.
+enum class OrderBy {
+  kNone,
+  kByKey,
+  kByValue,
+};
+
+absl::StatusOr<Value> MapKeysOrValuesListFunctionImpl(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context, const Type* output_type, OrderBy order_by,
+    KeyOrValueSelector use_key_or_value) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  const Value& map = args[0];
+
+  if (map.is_null()) {
+    return Value::Null(output_type);
+  }
+
+  ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+  ZETASQL_RET_CHECK(output_type->IsArray()) << output_type->DebugString();
+
+  std::vector<Value> result;
+  result.reserve(map.num_elements());
+  if (use_key_or_value == KeyOrValueSelector::kUseKey) {
+    for (const auto& [key, unused] : map.map_entries()) {
+      result.push_back(key);
+    }
+  } else {
+    for (const auto& [unused, value] : map.map_entries()) {
+      result.push_back(value);
+    }
+  }
+
+  if (order_by != OrderBy::kNone) {
+    std::string no_ordering_type;
+    ZETASQL_RET_CHECK(output_type->AsArray()->element_type()->SupportsOrdering(
+        context->GetLanguageOptions(), &no_ordering_type))
+        << no_ordering_type;
+    // MAP is always ordered by key in the reference implementation, so an
+    // additional sort operation is only necessary when ordering by value.
+    if (order_by == OrderBy::kByValue) {
+      absl::c_sort(result, [](auto& a, auto& b) { return a.LessThan(b); });
+    }
+  }
+
+  // Output array has a known order if:
+  //  - the function is sorted, or
+  //  - the array's order is unambiguous because it has 0 or 1 elements.
+  InternalValue::OrderPreservationKind array_order_kind =
+      (map.num_elements() <= 1 || order_by != OrderBy::kNone)
+          ? InternalValue::kPreservesOrder
+          : InternalValue::kIgnoresOrder;
+  return InternalValue::MakeArray(output_type->AsArray(), array_order_kind,
+                                  std::move(result));
+}
+
+class MapKeysSortedFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapKeysSortedFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapKeysOrValuesListFunctionImpl(
+        params, args, context, output_type(),
+        /*order_by=*/OrderBy::kByKey,
+        /*use_key_or_value=*/KeyOrValueSelector::kUseKey);
+  }
+};
+
+class MapKeysUnsortedFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapKeysUnsortedFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapKeysOrValuesListFunctionImpl(
+        params, args, context, output_type(),
+        /*order_by=*/OrderBy::kNone,
+        /*use_key_or_value=*/KeyOrValueSelector::kUseKey);
+  }
+};
+
+class MapValuesSortedFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapValuesSortedFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapKeysOrValuesListFunctionImpl(
+        params, args, context, output_type(),
+        /*order_by=*/OrderBy::kByValue,
+        /*use_key_or_value=*/KeyOrValueSelector::kUseValue);
+  }
+};
+
+class MapValuesUnsortedFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapValuesUnsortedFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapKeysOrValuesListFunctionImpl(
+        params, args, context, output_type(),
+        /*order_by=*/OrderBy::kNone,
+        /*use_key_or_value=*/KeyOrValueSelector::kUseValue);
+  }
+};
+
+class MapValuesSortedByKeyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapValuesSortedByKeyFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapKeysOrValuesListFunctionImpl(
+        params, args, context, output_type(),
+        /*order_by=*/OrderBy::kByKey,
+        /*use_key_or_value=*/KeyOrValueSelector::kUseValue);
+  }
+};
+
 }  // namespace
 
 void RegisterBuiltinMapFunctions() {
@@ -276,6 +413,31 @@ void RegisterBuiltinMapFunctions() {
       {FunctionKind::kMapContainsKey},
       [](FunctionKind kind, const Type* output_type) {
         return new MapContainsKeyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapKeysSorted},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapKeysSortedFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapKeysUnsorted},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapKeysUnsortedFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapValuesSorted},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapValuesSortedFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapValuesUnsorted},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapValuesUnsortedFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapValuesSortedByKey},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapValuesSortedByKeyFunction(kind, output_type);
       });
 }
 }  // namespace zetasql

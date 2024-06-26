@@ -137,20 +137,24 @@ std::vector<std::string> ZetaSqlTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlRandomTestProtoNames() {
-  return {"zetasql_test__.KitchenSinkPB",
-          "google.protobuf.Timestamp",
-          "google.type.Date",
-          "google.type.TimeOfDay",
-          "google.type.LatLng",
-          "google.protobuf.DoubleValue",
-          "google.protobuf.FloatValue",
-          "google.protobuf.Int64Value",
-          "google.protobuf.UInt64Value",
-          "google.protobuf.Int32Value",
-          "google.protobuf.UInt32Value",
-          "google.protobuf.BoolValue",
-          "google.protobuf.StringValue",
-          "google.protobuf.BytesValue"};
+  return {
+      "zetasql_test__.KitchenSinkPB",  // Formatted one per line.
+      // TODO: b/281436434 - Add OneofProto back once the bug is fixed.
+      // "zetasql_test__.OneofProto",
+      "google.protobuf.Timestamp",
+      "google.type.Date",
+      "google.type.TimeOfDay",
+      "google.type.LatLng",
+      "google.protobuf.DoubleValue",
+      "google.protobuf.FloatValue",
+      "google.protobuf.Int64Value",
+      "google.protobuf.UInt64Value",
+      "google.protobuf.Int32Value",
+      "google.protobuf.UInt32Value",
+      "google.protobuf.BoolValue",
+      "google.protobuf.StringValue",
+      "google.protobuf.BytesValue",
+  };
 }
 
 std::vector<std::string> ZetaSqlTestEnumNames() {

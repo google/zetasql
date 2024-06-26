@@ -165,6 +165,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",

@@ -1103,6 +1103,16 @@ FunctionMap::FunctionMap() {
                      "map_subscript_with_key", "MapSubscriptWithKey");
     RegisterFunction(FunctionKind::kMapContainsKey, "map_contains_key",
                      "MapContainsKey");
+    RegisterFunction(FunctionKind::kMapKeysSorted, "map_keys_sorted",
+                     "MapKeysSorted");
+    RegisterFunction(FunctionKind::kMapKeysUnsorted, "map_keys_unsorted",
+                     "MapKeysUnsorted");
+    RegisterFunction(FunctionKind::kMapValuesSorted, "map_values_sorted",
+                     "MapValuesSorted");
+    RegisterFunction(FunctionKind::kMapValuesUnsorted, "map_values_unsorted",
+                     "MapValuesUnsorted");
+    RegisterFunction(FunctionKind::kMapValuesSortedByKey,
+                     "map_values_sorted_by_key", "MapValuesSortedByKey");
   }();
 }  // NOLINT(readability/fn_size)
 

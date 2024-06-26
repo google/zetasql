@@ -481,3 +481,87 @@ ARRAY<STRUCT<
 SELECT CAST(NULL AS MAP<STRING, MAP<STRING, STRING> >);
 --
 ARRAY<STRUCT<MAP<STRING, MAP<STRING, STRING>>>>[{NULL}]
+==
+
+[name=map_keys_values_sorted_unsorted_null]
+SELECT
+  MAP_KEYS_SORTED(CAST(NULL AS MAP<STRING, STRING>)) as keys_sorted,
+  MAP_KEYS_UNSORTED(CAST(NULL AS MAP<STRING, STRING>)) as keys_unsorted,
+  MAP_VALUES_SORTED(CAST(NULL AS MAP<STRING, STRING>)) as values_sorted,
+  MAP_VALUES_UNSORTED(CAST(NULL AS MAP<STRING, STRING>)) as values_unsorted;
+--
+ARRAY<STRUCT<
+        keys_sorted ARRAY<>,
+        keys_unsorted ARRAY<>,
+        values_sorted ARRAY<>,
+        values_unsorted ARRAY<>
+      >>
+[{ARRAY<STRING>(NULL),
+  ARRAY<STRING>(NULL),
+  ARRAY<STRING>(NULL),
+  ARRAY<STRING>(NULL)}]
+==
+
+[name=map_keys_values_sorted_unsorted]
+WITH t AS (
+  SELECT MAP_FROM_ARRAY([('d', 1), ('b', 2), ('c', 3), ('a', 4), ('e', 5)]) as m
+)
+SELECT
+  MAP_KEYS_SORTED(t.m) as keys_sorted,
+  MAP_KEYS_UNSORTED(t.m) as keys_unsorted,
+  MAP_VALUES_SORTED(t.m) as values_sorted,
+  MAP_VALUES_UNSORTED(t.m) as values_unsorted
+FROM t;
+--
+ARRAY<STRUCT<
+        keys_sorted ARRAY<>,
+        keys_unsorted ARRAY<>,
+        values_sorted ARRAY<>,
+        values_unsorted ARRAY<>
+      >>
+[{
+   ARRAY<STRING>[known order:"a", "b", "c", "d", "e"],
+   ARRAY<STRING>[unknown order:"a", "b", "c", "d", "e"],
+   ARRAY<INT64>[known order:1, 2, 3, 4, 5],
+   ARRAY<INT64>[unknown order:4, 2, 3, 1, 5]
+ }]
+==
+
+[name=map_keys_values_sorted_unsorted_single_element]
+WITH t AS (
+  SELECT MAP_FROM_ARRAY([('a', 1)]) as m
+)
+SELECT
+  MAP_KEYS_SORTED(t.m) as keys_sorted,
+  MAP_KEYS_UNSORTED(t.m) as keys_unsorted,
+  MAP_VALUES_SORTED(t.m) as values_sorted,
+  MAP_VALUES_UNSORTED(t.m) as values_unsorted
+FROM t;
+--
+ARRAY<STRUCT<
+        keys_sorted ARRAY<>,
+        keys_unsorted ARRAY<>,
+        values_sorted ARRAY<>,
+        values_unsorted ARRAY<>
+      >>[
+  {ARRAY<STRING>["a"], ARRAY<STRING>["a"], ARRAY<INT64>[1], ARRAY<INT64>[1]}
+]
+==
+
+[name=map_values_sorted_by_key]
+SELECT
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))) as null_map,
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>))) as empty_map,
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2)])) as opposite_map,
+  MAP_VALUES_SORTED_BY_KEY(MAP_FROM_ARRAY([('b', 1), ('a', 2), (NULL, 3)])) as map_null_key;
+--
+ARRAY<STRUCT<null_map ARRAY<>,
+             empty_map ARRAY<>,
+             opposite_map ARRAY<>,
+             map_null_key ARRAY<>>>
+[{
+   ARRAY<INT64>(NULL),
+   ARRAY<INT64>[],
+   ARRAY<INT64>[known order:2, 1],
+   ARRAY<INT64>[known order:3, 2, 1]
+ }]

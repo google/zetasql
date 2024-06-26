@@ -38,6 +38,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -155,6 +156,109 @@ static absl::StatusOr<const Type*> ComputeMapEntriesFunctionResultType(
   return array_type;
 }
 
+static inline absl::StatusOr<const MapType*> GetMapTypeFromInputArg(
+    const InputArgumentType& map_arg) {
+  ZETASQL_RET_CHECK(map_arg.type()->IsMap()) << "Input must be a map";
+  return map_arg.type()->AsMap();
+}
+
+static inline absl::Status MakeErrorIfMapElementTypeNotOrderable(
+    absl::string_view function_name, const Type* orderable_type,
+    const AnalyzerOptions& analyzer_options) {
+  std::string ordering_type_description;
+  if (!orderable_type->SupportsOrdering(analyzer_options.language(),
+                                        &ordering_type_description)) {
+    return MakeSqlError() << function_name << ": MAP element type "
+                          << ordering_type_description << " is not orderable";
+  }
+  return absl::OkStatus();
+}
+
+static absl::StatusOr<const Type*> ComputeMapKeysSortedFunctionResultType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(const MapType* map_type,
+                   GetMapTypeFromInputArg(arguments[0]));
+
+  ZETASQL_RETURN_IF_ERROR(MakeErrorIfMapElementTypeNotOrderable(
+      "MAP_KEYS_SORTED", map_type->key_type(), analyzer_options));
+
+  const Type* array_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(map_type->key_type(), &array_type));
+  return array_type;
+}
+
+static absl::StatusOr<const Type*> ComputeMapKeysUnsortedFunctionResultType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(const MapType* map_type,
+                   GetMapTypeFromInputArg(arguments[0]));
+
+  const Type* array_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(map_type->key_type(), &array_type));
+  return array_type;
+}
+
+static absl::StatusOr<const Type*> ComputeMapValuesSortedFunctionResultType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(const MapType* map_type,
+                   GetMapTypeFromInputArg(arguments[0]));
+
+  ZETASQL_RETURN_IF_ERROR(MakeErrorIfMapElementTypeNotOrderable(
+      "MAP_VALUES_SORTED", map_type->value_type(), analyzer_options));
+
+  const Type* array_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(map_type->value_type(), &array_type));
+  return array_type;
+}
+
+static absl::StatusOr<const Type*> ComputeMapValuesUnsortedFunctionResultType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(const MapType* map_type,
+                   GetMapTypeFromInputArg(arguments[0]));
+
+  const Type* array_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(map_type->value_type(), &array_type));
+  return array_type;
+}
+
+static absl::StatusOr<const Type*>
+ComputeMapValuesSortedByKeyFunctionResultType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(const MapType* map_type,
+                   GetMapTypeFromInputArg(arguments[0]));
+
+  ZETASQL_RETURN_IF_ERROR(MakeErrorIfMapElementTypeNotOrderable(
+      "MAP_VALUES_SORTED", map_type->key_type(), analyzer_options));
+
+  const Type* array_type;
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->MakeArrayType(map_type->value_type(), &array_type));
+  return array_type;
+}
+
 void GetMapCoreFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions) {
@@ -212,6 +316,107 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
            FN_MAP_CONTAINS_KEY},
       },
       FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  const FunctionArgumentType input_map_argument_type{
+      ARG_MAP_TYPE_ANY_1_2, FunctionArgumentTypeOptions().set_argument_name(
+                                "input_map", kPositionalOnly)};
+  constexpr absl::string_view kMapKeysSortedSql = R"sql(
+      (SELECT FLATTEN(MAP_ENTRIES_SORTED(input_map).key))
+    )sql";
+  InsertFunction(functions, options, "map_keys_sorted", Function::SCALAR,
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {input_map_argument_type},
+                      FN_MAP_KEYS_SORTED,
+                      FunctionSignatureOptions().set_rewrite_options(
+                          FunctionSignatureRewriteOptions()
+                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                              .set_sql(kMapKeysSortedSql))},
+                 },
+                 FunctionOptions()
+                     .set_compute_result_type_callback(
+                         &ComputeMapKeysSortedFunctionResultType)
+                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  constexpr absl::string_view kMapKeysUnsortedSql = R"sql(
+      (SELECT FLATTEN(MAP_ENTRIES_UNSORTED(input_map).key))
+    )sql";
+  InsertFunction(functions, options, "map_keys_unsorted", Function::SCALAR,
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {input_map_argument_type},
+                      FN_MAP_KEYS_UNSORTED,
+                      FunctionSignatureOptions().set_rewrite_options(
+                          FunctionSignatureRewriteOptions()
+                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                              .set_sql(kMapKeysUnsortedSql))},
+                 },
+                 FunctionOptions()
+                     .set_compute_result_type_callback(
+                         &ComputeMapKeysUnsortedFunctionResultType)
+                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  constexpr absl::string_view kMapValuesSortedSql = R"sql(
+      (
+        SELECT IF(
+          input_map IS NULL,
+          NULL,
+          ARRAY(SELECT entries.value
+                  FROM UNNEST(MAP_ENTRIES_UNSORTED(input_map)) AS entries
+                  ORDER BY entries.value))
+      )
+    )sql";
+  InsertFunction(functions, options, "map_values_sorted", Function::SCALAR,
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {input_map_argument_type},
+                      FN_MAP_VALUES_SORTED,
+                      FunctionSignatureOptions().set_rewrite_options(
+                          FunctionSignatureRewriteOptions()
+                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                              .set_sql(kMapValuesSortedSql))},
+                 },
+                 FunctionOptions()
+                     .set_compute_result_type_callback(
+                         &ComputeMapValuesSortedFunctionResultType)
+                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  constexpr absl::string_view kMapValuesUnsortedSql = R"sql(
+      (SELECT FLATTEN(MAP_ENTRIES_UNSORTED(input_map).value))
+    )sql";
+  InsertFunction(functions, options, "map_values_unsorted", Function::SCALAR,
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {input_map_argument_type},
+                      FN_MAP_VALUES_UNSORTED,
+                      FunctionSignatureOptions().set_rewrite_options(
+                          FunctionSignatureRewriteOptions()
+                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                              .set_sql(kMapValuesUnsortedSql))},
+                 },
+                 FunctionOptions()
+                     .set_compute_result_type_callback(
+                         &ComputeMapValuesUnsortedFunctionResultType)
+                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
+
+  constexpr absl::string_view kMapValuesSortedByKeySql = R"sql(
+      (SELECT FLATTEN(MAP_ENTRIES_SORTED(input_map).value))
+    )sql";
+  InsertFunction(functions, options, "map_values_sorted_by_key",
+                 Function::SCALAR,
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {input_map_argument_type},
+                      FN_MAP_VALUES_SORTED_BY_KEY,
+                      FunctionSignatureOptions().set_rewrite_options(
+                          FunctionSignatureRewriteOptions()
+                              .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                              .set_sql(kMapValuesSortedByKeySql))},
+                 },
+                 FunctionOptions()
+                     .set_compute_result_type_callback(
+                         &ComputeMapValuesSortedByKeyFunctionResultType)
+                     .AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
 }
 
 }  // namespace zetasql

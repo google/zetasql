@@ -1709,20 +1709,6 @@ TEST_P(MacroExpanderParameterizedTest,
                   HasWarnings(IsEmpty()))));
 }
 
-TEST_P(MacroExpanderParameterizedTest, HandlesInfiniteRecursion) {
-  MacroCatalog macro_catalog;
-  RegisterMacros(
-      "DEFINE MACRO a $b();\n"
-      "DEFINE MACRO b $a();\n",
-      macro_catalog);
-
-  EXPECT_THAT(
-      ExpandMacros("$a()", macro_catalog,
-                   GetLanguageOptions(/*is_strict=*/GetParam())),
-      StatusIs(absl::StatusCode::kResourceExhausted,
-               Eq("Out of stack space due to deeply nested macro calls.")));
-}
-
 static void PrintTo(const Expansion& expansion, std::ostream* os) {
   *os << absl::StrFormat("{macro_name: %s, invocation: %s, expansion: %s}",
                          expansion.macro_name, expansion.full_match,

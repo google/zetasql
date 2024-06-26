@@ -1324,10 +1324,12 @@ ValueExpr* AggregateArg::mutable_filter() { return filter_.get(); }
 // AggregateOp
 // -------------------------------------------------------
 
+absl::string_view kAggregateTupleIteratorDebugName = "AggregationTupleIterator";
+
 std::string AggregateOp::GetIteratorDebugString(
     absl::string_view input_iter_debug_string) {
-  return absl::StrCat("AggregationTupleIterator(", input_iter_debug_string,
-                      ")");
+  return absl::StrCat(kAggregateTupleIteratorDebugName, "(",
+                      input_iter_debug_string, ")");
 }
 
 absl::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
@@ -1404,8 +1406,8 @@ class AggregateTupleIterator : public TupleIterator {
   absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
-    return AggregateOp::GetIteratorDebugString(
-        input_iter_for_debug_string_->DebugString());
+    return absl::StrCat(kAggregateTupleIteratorDebugName, "(",
+                        input_iter_for_debug_string_->DebugString(), ")");
   }
 
  private:

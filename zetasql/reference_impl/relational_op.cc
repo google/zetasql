@@ -4205,7 +4205,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> ArrayScanOp::CreateIterator(
 
   std::unique_ptr<TupleIterator> iter = std::make_unique<
       ArrayScanTupleIterator>(
-      array_values, /*include_element=*/!elements().empty(),
+      std::move(array_values), /*include_element=*/!elements().empty(),
       /*include_position=*/position().is_valid(),
       /*max_num_elements=*/OutputArrayLength(mode, *min_length, *max_length),
       field_list(), CreateOutputSchema(), num_extra_slots, context);

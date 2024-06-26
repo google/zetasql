@@ -1881,14 +1881,14 @@ class ProtoEvalTest : public ::testing::Test {
 
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr. Crashes on error.
   Value GetProtoFieldOrDie(const google::protobuf::Message* msg,
-                           const std::string& field_name) {
+                           absl::string_view field_name) {
     return GetProtoField(msg, field_name).value();
   }
 
   // Reads 'field_name' of 'proto_value' using a GetProtoFieldExpr. Crashes on
   // error.
   Value GetProtoFieldOrDie(const Value& proto_value,
-                           const std::string& field_name) {
+                           absl::string_view field_name) {
     return GetProtoField(proto_value, field_name).value();
   }
 

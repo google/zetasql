@@ -249,6 +249,7 @@ behavior:
       <td><a id="accessors"></a>Accessors</td>
       <td>
         
+        
         <a href="#json_type"><code>JSON_TYPE</code></a><br>
         
       </td>
@@ -6711,7 +6712,7 @@ PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Converts a JSON-formatted `STRING` value to a `JSON` value.
+Converts a JSON-formatted `STRING` value to a [`JSON` value](https://www.json.org/json-en.html).
 
 Arguments:
 
@@ -6779,6 +6780,28 @@ SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'round') AS
  | json_data                    |
  +------------------------------+
  | {"id":9.223372036854776e+20} |
+ *------------------------------*/
+```
+
+You can also use valid JSON-formatted strings that don't represent name/value pairs. For example:
+
+```sql
+SELECT PARSE_JSON('6') AS json_data;
+
+/*------------------------------*
+ | json_data                    |
+ +------------------------------+
+ | 6                            |
+ *------------------------------*/
+```
+
+```sql
+SELECT PARSE_JSON('"red"') AS json_data;
+
+/*------------------------------*
+ | json_data                    |
+ +------------------------------+
+ | "red"                        |
  *------------------------------*/
 ```
 

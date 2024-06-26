@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry, zetasql_test__.OneofProto]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry, zetasql_test__.OneofProto, zetasql_test__.OneofProtoRecursive]
 
 [name=replace_fields_proto_top_level]
 [required_features=V_1_3_REPLACE_FIELDS]
@@ -349,30 +349,30 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 int32_one_of: 2"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     1 as int32_one_of, "oneof_field" as string_one_of, true as bool_one_of
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 int32_one_of: 2"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     "oneof_field" as string_one_of, true as bool_one_of, 1 as int32_one_of
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 int32_one_of: 2"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     "oneof_field" as string_one_of, true as bool_one_of,
-    CAST("" as zetasql_test__.OneofProto) as recursive_oneof
+    CAST("" as zetasql_test__.OneofProtoRecursive) as recursive_oneof
   ),
 --
 ARRAY<STRUCT<
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>
       >>
 [{{
     non_oneof: 1
@@ -427,45 +427,45 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     2 as recursive_oneof.non_oneof
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     2 as recursive_oneof.non_oneof, 'oneof_string' as string_one_of
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     2 as recursive_oneof.non_oneof, 1 as recursive_oneof.int32_one_of
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     2 as recursive_oneof.non_oneof, 1 as recursive_oneof.int32_one_of, 'oneof_string' as string_one_of
   ),
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
-    'oneof_string' as string_one_of, CAST('' as zetasql_test__.OneofProto) as recursive_oneof
+    'oneof_string' as string_one_of, CAST('' as zetasql_test__.OneofProtoRecursive) as recursive_oneof
   )
 --
 ARRAY<STRUCT<
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>,
-        PROTO<zetasql_test__.OneofProto>
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>,
+        PROTO<zetasql_test__.OneofProtoRecursive>
       >>
 [{{
     non_oneof: 1
@@ -503,7 +503,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     'oneof_string' as string_one_of, 2 as recursive_oneof.non_oneof
   )
@@ -519,12 +519,12 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     NULL as string_one_of, 2 as recursive_oneof.non_oneof
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
   {{
      non_oneof: 1
      recursive_oneof {
@@ -542,12 +542,12 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     NULL as string_one_of, 2 as recursive_oneof.non_oneof, 2 as int32_one_of
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
   {{
      non_oneof: 1
      int32_one_of: 2
@@ -563,7 +563,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "non_oneof: 1 recursive_oneof { non_oneof: 1 }"
-        as zetasql_test__.OneofProto
+        as zetasql_test__.OneofProtoRecursive
     ),
     2 as recursive_oneof.non_oneof, 1 as kitchen_sink_oneof.int64_key_1, 2 as kitchen_sink_oneof.int64_key_2
   )
@@ -575,11 +575,11 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 [required_features=V_1_3_REPLACE_FIELDS,V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF]
 SELECT
   REPLACE_FIELDS(
-    CAST(NULL as zetasql_test__.OneofProto),
+    CAST(NULL as zetasql_test__.OneofProtoRecursive),
     2 as recursive_oneof.non_oneof, 1 as kitchen_sink_oneof.int64_key_1, 2 as kitchen_sink_oneof.int64_key_2
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[{NULL}]
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[{NULL}]
 ==
 
 # Update the child of a GROUP-type message in a oneof.
@@ -615,17 +615,17 @@ SELECT
         CAST(
           CAST(
             'non_oneof: 1 recursive_oneof { non_oneof: 10 }'
-            AS zetasql_test__.OneofProto)
+            AS zetasql_test__.OneofProtoRecursive)
           AS BYTES),
         CAST(
           CAST(
             'non_oneof: 1 recursive_oneof { int64_repeated: 1 int64_repeated: 2 }'
-            AS zetasql_test__.OneofProto)
+            AS zetasql_test__.OneofProtoRecursive)
           AS BYTES))
-      AS zetasql_test__.OneofProto),
+      AS zetasql_test__.OneofProtoRecursive),
     [3, 4, 5] AS recursive_oneof.int64_repeated)
 --
-ARRAY<STRUCT<PROTO<zetasql_test__.OneofProto>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.OneofProtoRecursive>>>[
   {{
      non_oneof: 1
      recursive_oneof {

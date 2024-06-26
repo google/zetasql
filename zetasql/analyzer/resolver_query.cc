@@ -3372,6 +3372,13 @@ absl::Status Resolver::ResolveSelectDotStar(
                                           query_resolution_info);
   ZETASQL_RETURN_IF_ERROR(
       ResolveExpr(ast_expr, &expr_resolution_info, &resolved_dotstar_expr));
+
+  // Check for any features required or not allowed in this expression.
+  // This applies the checks from ResolveSelectColumnFirstPass here too
+  // since ResolveSelectDotStar is an early exit in that function.
+  ZETASQL_RETURN_IF_ERROR(CheckExprResolutionInfoForQuery(
+      ast_expr, query_resolution_info, expr_resolution_info));
+
   const Type* source_type = resolved_dotstar_expr->type();
 
   std::unique_ptr<const ResolvedColumnRef> src_column_ref;
@@ -3600,6 +3607,13 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::CheckExprResolutionInfoForQuery(
+    const ASTNode* ast_location, QueryResolutionInfo* query_resolution_info,
+    const ExprResolutionInfo& expr_resolution_info) {
+
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveSelectColumnFirstPass(
     const ASTSelectColumn* ast_select_column, const NameScope* from_scan_scope,
     const std::shared_ptr<const NameList>& from_clause_name_list,
@@ -3649,6 +3663,12 @@ absl::Status Resolver::ResolveSelectColumnFirstPass(
   std::unique_ptr<const ResolvedExpr> resolved_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_select_expr, expr_resolution_info.get(),
                               &resolved_expr, inferred_type));
+
+  // Check for any features required or not allowed in this expression.
+  // Note that this also needs to happen inside the ResolveSelectDotStar
+  // call above that exists early.
+  ZETASQL_RETURN_IF_ERROR(CheckExprResolutionInfoForQuery(
+      ast_select_expr, query_resolution_info, *expr_resolution_info));
 
   // We can set is_explicit=true unconditionally because this either came
   // from an AS alias or from a path in the query, or it's an internal name

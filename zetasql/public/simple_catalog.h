@@ -351,7 +351,7 @@ class SimpleCatalog : public EnumerableCatalog {
     return AddBuiltinFunctionsAndTypes(BuiltinFunctionOptions(options));
   }
 
-  // DEPRECATED: Use AddFunction or AddZetaSQLFunctions(options)
+  // DEPRECATED: Use AddFunction or AddBuiltinFunctionsAndTypes
   //
   // Add ZetaSQL built-in function definitions into this catalog.
   // This can add functions in both the global namespace and more specific
@@ -364,7 +364,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // Deprecated because the function is misnamed, misused, and explicitly
   // delegating function object ownership to the catalog is the preferred
   // memory ownership pattern now.
-  ABSL_DEPRECATED("Use AddFunction or AddZetaSQLFunctions")
+  ABSL_DEPRECATED("Use AddFunction or AddBuiltinFunctionsAndTypes")
   void AddZetaSQLFunctions(const std::vector<const Function*>& functions)
       ABSL_LOCKS_EXCLUDED(mutex_);
 

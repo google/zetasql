@@ -2315,8 +2315,10 @@ absl::Status SQLBuilder::VisitResolvedPivotScan(const ResolvedPivotScan* node) {
   // Remember the column aliases of the pivot scan's output columns for when
   // they are referenced later.
   for (const auto& col : node->pivot_column_list()) {
-    std::string pivot_expr_alias = pivot_expr_aliases[col->pivot_expr_index()];
-    std::string pivot_value_alias = in_expr_aliases[col->pivot_value_index()];
+    const std::string& pivot_expr_alias =
+        pivot_expr_aliases[col->pivot_expr_index()];
+    const std::string& pivot_value_alias =
+        in_expr_aliases[col->pivot_value_index()];
     computed_column_alias_[col->column().column_id()] =
         absl::StrCat(pivot_expr_alias, "_", pivot_value_alias);
   }

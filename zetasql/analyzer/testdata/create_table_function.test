@@ -18,11 +18,47 @@ create table function myfunc (  )
 CreateTableFunctionStmt(name_path=myfunc, signature=() -> TABLE<x STRING>, has_explicit_return_schema=TRUE, language="UNDECLARED")
 ==
 
+create table function myfunc (  )
+  returns table<x int64> as select 1 x;
+--
+CreateTableFunctionStmt
++-name_path=myfunc
++-signature=() -> TABLE<x INT64>
++-has_explicit_return_schema=TRUE
++-language="SQL"
++-code="select 1 x"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.x#1]
+|   +-expr_list=
+|   | +-x#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-output_column_list=
+  +-$query.x#1 AS x [INT64]
+==
+
+create table function myfunc (  )
+  returns table<x int64> as select 1 a;
+--
+ERROR: Required column name x not returned from SQL body of CREATE TABLE FUNCTION statement [at 1:1]
+create table function myfunc (  )
+^
+==
+
 # Simple function name with a language name.
 create table function myfunc (  )
   returns table<x string> language testlang ;
 --
 CreateTableFunctionStmt(name_path=myfunc, signature=() -> TABLE<x STRING>, has_explicit_return_schema=TRUE, language="testlang")
+==
+
+create table function myfunc (  )
+  returns table<x int64> language testlang as select 1 x ;
+--
+ERROR: Function cannot specify a LANGUAGE and include a SQL body [at 1:1]
+create table function myfunc (  )
+^
 ==
 
 # Qualified function name.
@@ -1448,6 +1484,32 @@ create table function myfunc()
 --
 ERROR: To write SQL table-valued functions, omit the LANGUAGE clause and write the function body using 'AS SELECT ...' [at 3:12]
   language SQL
+           ^
+==
+
+create table function myfunc()
+  language SQL
+  as select 1 x;
+--
+ERROR: To write SQL table-valued functions, omit the LANGUAGE clause and write the function body using 'AS SELECT ...' [at 2:12]
+  language SQL
+           ^
+==
+
+create table function myfunc()
+  returns table<x string>
+  language SQL ;
+--
+ERROR: To write SQL table-valued functions, omit the LANGUAGE clause and write the function body using 'AS SELECT ...' [at 3:12]
+  language SQL ;
+           ^
+==
+
+create table function myfunc()
+  language SQL ;
+--
+ERROR: To write SQL table-valued functions, omit the LANGUAGE clause and write the function body using 'AS SELECT ...' [at 2:12]
+  language SQL ;
            ^
 ==
 
@@ -3095,12 +3157,58 @@ ERROR: Table not found: x [at 3:19]
                   ^
 ==
 
+# The table function with language must include the output schema, with or
+# without the literal string body.
+create table function myfunc (  )
+  language testlang as 'blah blah blah' ;
+--
+ERROR: TVF whose language is testlang must specify a return type; only REMOTE TVF and SQL TVF can omit return type [at 1:1]
+create table function myfunc (  )
+^
+==
+
+create table function myfunc (  )
+  language testlang ;
+--
+ERROR: TVF whose language is testlang must specify a return type; only REMOTE TVF and SQL TVF can omit return type [at 1:1]
+create table function myfunc (  )
+^
+==
+
+# Remote TVF variants.
+create table function myfunc (  )
+  language REMOTE ;
+--
+CreateTableFunctionStmt(name_path=myfunc, signature=() -> ANY TABLE, language="REMOTE")
+==
+
+create table function myfunc (  )
+  returns table<x int64, y string>
+  language REMOTE ;
+--
+CreateTableFunctionStmt(name_path=myfunc, signature=() -> TABLE<x INT64, y STRING>, has_explicit_return_schema=TRUE, language="REMOTE")
+==
+
+create table function myfunc (  )
+  language REMOTE as select 1 x;
+--
+ERROR: Function cannot specify a LANGUAGE and include a SQL body [at 1:1]
+create table function myfunc (  )
+^
+==
+
+create table function myfunc (  )
+  language REMOTE as 'blah blah blah';
+--
+CreateTableFunctionStmt(name_path=myfunc, signature=() -> ANY TABLE, language="REMOTE", code="blah blah blah")
+==
+
 # The table function must include the output schema if it does not have a SQL
 # body.
 create table function myfunc (  )
   language testlang ;
 --
-ERROR: TVF whose language is testlang must specify a return type, only REMOTE TVF and SQL TVF can omit return type [at 1:1]
+ERROR: TVF whose language is testlang must specify a return type; only REMOTE TVF and SQL TVF can omit return type [at 1:1]
 create table function myfunc (  )
 ^
 ==
@@ -3649,3 +3757,81 @@ create table function fn(s string)
 ERROR: Duplicate option specified for 'a' [at 3:18]
   options ( a=b, a=c )
                  ^
+==
+
+# Same name as table
+create table function {{KeyValue|kEYvALUE}}() sql security invoker
+as select key as a, value as b from TwoIntegers
+--
+ALTERNATION GROUP: KeyValue
+--
+CreateTableFunctionStmt
++-name_path=KeyValue
++-signature=() -> TABLE<a INT64, b INT64>
++-language="SQL"
++-code="select key as a, value as b from TwoIntegers"
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-sql_security=SQL_SECURITY_INVOKER
+--
+ALTERNATION GROUP: kEYvALUE
+--
+CreateTableFunctionStmt
++-name_path=kEYvALUE
++-signature=() -> TABLE<a INT64, b INT64>
++-language="SQL"
++-code="select key as a, value as b from TwoIntegers"
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-sql_security=SQL_SECURITY_INVOKER
+==
+
+# Same name as view
+create table function {{ScanTableView|sCANtABLEvIEW}}() sql security invoker
+as select key as a, value as b from TwoIntegers
+--
+ALTERNATION GROUP: ScanTableView
+--
+CreateTableFunctionStmt
++-name_path=ScanTableView
++-signature=() -> TABLE<a INT64, b INT64>
++-language="SQL"
++-code="select key as a, value as b from TwoIntegers"
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-sql_security=SQL_SECURITY_INVOKER
+--
+ALTERNATION GROUP: sCANtABLEvIEW
+--
+CreateTableFunctionStmt
++-name_path=sCANtABLEvIEW
++-signature=() -> TABLE<a INT64, b INT64>
++-language="SQL"
++-code="select key as a, value as b from TwoIntegers"
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-sql_security=SQL_SECURITY_INVOKER

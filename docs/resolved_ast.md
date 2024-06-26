@@ -164,6 +164,7 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedDifferentialPrivacyAggregateScan">ResolvedDifferentialPrivacyAggregateScan</a>
     <a href="#ResolvedAnalyticScan">ResolvedAnalyticScan</a>
     <a href="#ResolvedArrayScan">ResolvedArrayScan</a>
+    <a href="#ResolvedBarrierScan">ResolvedBarrierScan</a>
     <a href="#ResolvedExecuteAsRoleScan">ResolvedExecuteAsRoleScan</a>
     <a href="#ResolvedFilterScan">ResolvedFilterScan</a>
     <a href="#ResolvedGroupRowsScan">ResolvedGroupRowsScan</a>
@@ -739,8 +740,28 @@ class ResolvedNonScalarFunctionCallBase : public <a href="#ResolvedFunctionCallB
 
 <p><pre><code class="lang-c++">
 <font color="brown">// An aggregate function call.  The signature always has mode AGGREGATE.
-// This node only ever shows up as the outer function call in a
-// ResolvedAggregateScan::aggregate_list.</font>
+//
+// FEATURE_V_1_4_MULTILEVEL_AGGREGATION enables multi-level aggregate
+// expressions (e.g. &#39;SUM(AVG(1 + X) GROUP BY key)&#39; ). The GROUP BY modifier
+// within an aggregate function body indicates the presence of a multi-level
+// aggregate expression.
+//
+// `group_by_aggregate_list` can only be present if `group_by_list` is
+// present. `group_by_list` and `group_by_aggregate_list` are mutually
+// exclusive with `having_modifier`.
+//
+// If `group_by_list` is empty, then standard column visibility rules apply
+// (i.e. columns supplied by input scan to the enclosing AggregateScan are
+// visible to argument expressions and aggregate function modifiers, as are
+// correlated columns).
+//
+// If `group_by_list` is non-empty, the initial aggregation is applied first,
+// computing the aggregate and grouping columns in `group_by_aggregate_list`
+// `group_by_list`.  Only these computed columns (plus correlated columns)
+// are visible to argument expressions and aggregate function modifiers
+// (e.g. DISTINCT, IGNORE / RESPECT NULLS, LIMIT, ORDER BY). These
+// modifiers are applied on the output rows from the initial aggregation,
+// as input to the final aggregation.</font>
 class ResolvedAggregateFunctionCall : public <a href="#ResolvedNonScalarFunctionCallBase">ResolvedNonScalarFunctionCallBase</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_AGGREGATE_FUNCTION_CALL;
 
@@ -768,6 +789,21 @@ class ResolvedAggregateFunctionCall : public <a href="#ResolvedNonScalarFunction
   // fully-resolved function body in context of the actual concrete
   // types of the arguments provided to the function call.</font>
   const std::shared_ptr&lt;<a href="#ResolvedFunctionCallInfo">ResolvedFunctionCallInfo</a>&gt;&amp; function_call_info() const;
+
+<font color="brown">  // Group the stream of input values by columns in this list, and
+  // compute the aggregates defined in `group_by_aggregate_list`.
+  // Used only for multi-level aggregation, when
+  // FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>&gt;&gt;&amp; group_by_list() const;
+  int group_by_list_size() const;
+  const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>* group_by_list(int i) const;
+
+<font color="brown">  // Aggregate columns to compute over the grouping keys defined in
+  // `group_by_list`. Used only for multi-level aggregation, when
+  // FEATURE_V_1_4_MULTILEVEL_AGGREGATION is enabled.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>&gt;&gt;&amp; group_by_aggregate_list() const;
+  int group_by_aggregate_list_size() const;
+  const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>* group_by_aggregate_list(int i) const;
 };
 </code></pre></p>
 
@@ -3167,7 +3203,7 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
 //   [OPTIONS (name=value, ...)]
 //
 //   CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
-//   [IF NOT EXISTS] &lt;name&gt; WITH CONNECTION &lt;connection&gt;
+//   [IF NOT EXISTS] &lt;name&gt; [WITH CONNECTION] &lt;connection&gt;
 //   OPTIONS (name=value, ...)
 //
 // &lt;option_list&gt; contains engine-specific options associated with the schema</font>
@@ -3209,7 +3245,7 @@ class ResolvedCreateSchemaStmt : public <a href="#ResolvedCreateSchemaStmtBase">
 <p><pre><code class="lang-c++">
 <font color="brown">// This statement:
 // CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] EXTERNAL SCHEMA
-// [IF NOT EXISTS] &lt;name&gt; WITH CONNECTION &lt;connection&gt;
+// [IF NOT EXISTS] &lt;name&gt; [WITH CONNECTION] &lt;connection&gt;
 // OPTIONS (name=value, ...)
 //
 // &lt;connection&gt; encapsulates engine-specific metadata used to connect
@@ -4457,9 +4493,9 @@ class ResolvedAnalyticFunctionGroup : public <a href="#ResolvedArgument">Resolve
 
   const <a href="#ResolvedWindowOrdering">ResolvedWindowOrdering</a>* order_by() const;
 
-  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; analytic_function_list() const;
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>&gt;&gt;&amp; analytic_function_list() const;
   int analytic_function_list_size() const;
-  const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* analytic_function_list(int i) const;
+  const <a href="#ResolvedComputedColumnBase">ResolvedComputedColumnBase</a>* analytic_function_list(int i) const;
 };
 </code></pre></p>
 
@@ -5230,7 +5266,7 @@ class ResolvedPrivilege : public <a href="#ResolvedArgument">ResolvedArgument</a
 <font color="brown">// Common superclass of GRANT/REVOKE statements.
 //
 // &lt;privilege_list&gt; is the list of privileges to be granted/revoked. ALL
-// PRIVILEGES should be granted/fromed if it is empty.
+// PRIVILEGES should be granted/revoked if it is empty.
 // &lt;object_type_list&gt; is an optional list of string identifiers, e.g., TABLE,
 // VIEW, MATERIALIZED VIEW.
 // &lt;name_path&gt; is a vector of segments of the object identifier&#39;s pathname.
@@ -7620,6 +7656,30 @@ class ResolvedIdentityColumnInfo : public <a href="#ResolvedArgument">ResolvedAr
   const Value&amp; min_value() const;
 
   bool cycling_enabled() const;
+};
+</code></pre></p>
+
+### ResolvedBarrierScan
+<a id="ResolvedBarrierScan"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// ResolvedBarrierScan marks an optimization barrier during query planning.
+// It wraps an `input_scan` and ensures `input_scan` is evaluated as if
+// `input_scan` stands alone; plan transformations that may cause
+// different observable side effects may not cross the optimization barrier.
+//
+// The output rows of a ResolvedBarrierScan are the same as those of the
+// `input_scan`, propagating the `is_ordered` property of `input_scan`.
+//
+// The following optimizations are allowed:
+// * Prune an unused column of a ResolvedBarrierScan.
+// * Prune the whole ResolvedBarrierScan.
+//
+// This node does not have a corresponding syntax.</font>
+class ResolvedBarrierScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_BARRIER_SCAN;
+
+  const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
 };
 </code></pre></p>
 

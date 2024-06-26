@@ -26,11 +26,14 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/macros/macro_catalog.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
+#include "absl/container/flat_hash_map.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
@@ -49,8 +52,9 @@ class ParseResumeLocation;
 // ParserOptions contains options that affect parser behavior.
 class ParserOptions {
  public:
-  ABSL_DEPRECATED("Use the overload that accepts LanguageOptions.")
+  ABSL_DEPRECATED("Use the constructor overload that accepts LanguageOptions.")
   ParserOptions();
+
   explicit ParserOptions(
       LanguageOptions language_options,
       const parser::macros::MacroCatalog* macro_catalog = nullptr);
@@ -60,8 +64,10 @@ class ParserOptions {
   ABSL_DEPRECATED("Inline me!")
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                const LanguageOptions* language_options,
-                const parser::macros::MacroCatalog* macro_catalog = nullptr);
+                const LanguageOptions* language_options)
+      : ParserOptions(
+            std::move(id_string_pool), std::move(arena),
+            language_options ? *language_options : LanguageOptions()) {}
 
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -138,7 +144,7 @@ class ParserOutput {
 
   // Getters for parse trees of different types corresponding to the different
   // parse statements.
-  const ASTStatement* statement() const { return GetNodeAs<ASTStatement>();}
+  const ASTStatement* statement() const { return GetNodeAs<ASTStatement>(); }
   const ASTScript* script() const { return GetNodeAs<ASTScript>(); }
   const ASTType* type() const { return GetNodeAs<ASTType>(); }
   const ASTExpression* expression() const { return GetNodeAs<ASTExpression>(); }
@@ -177,8 +183,8 @@ class ParserOutput {
   }
 
  private:
-  template<class T>
-      T* GetNodeAs() const {
+  template <class T>
+  T* GetNodeAs() const {
     return std::get<std::unique_ptr<T>>(node_).get();
   }
 
@@ -216,7 +222,7 @@ absl::Status ParseStatement(absl::string_view statement_string,
 // Parses <script_string> and returns the parser output in <output> upon
 // success.
 //
-// A terminating semi-colon is optional for the last statement in the script,
+// A terminating semicolon is optional for the last statement in the script,
 // and mandatory for all other statements.
 //
 // <error_message_mode> describes how errors should be represented in the

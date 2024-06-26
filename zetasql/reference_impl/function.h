@@ -519,6 +519,11 @@ enum class FunctionKind {
   kMapSubscript,
   kMapSubscriptWithKey,
   kMapContainsKey,
+  kMapKeysSorted,
+  kMapKeysUnsorted,
+  kMapValuesSorted,
+  kMapValuesUnsorted,
+  kMapValuesSortedByKey,
 };
 
 // Provides two utility methods to look up a built-in function name or function

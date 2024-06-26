@@ -66,8 +66,6 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // to determine the returned location for the first token.
   const int start_offset_ = 0;
 
-  // The length of the input string without the sentinel.
-  const int input_size_;
   // An input stream over the input string (of size input_size_) plus the
   // sentinel.
   std::unique_ptr<std::istream> input_stream_;

@@ -975,12 +975,26 @@ message IteratorProto {
 
 message OneofProto {
   optional int64 non_oneof = 1;
+  oneof one_of_field {
+    int32 int32_one_of = 3;
+    string string_one_of = 4;
+    bool bool_one_of = 5;
+    TestAbPB message_one_of = 6;
+    TestEnum enum_one_of = 7;
+    group NestedGroup = 8 {
+      optional int64 int64_field = 1;
+    }
+  }
+}
+
+message OneofProtoRecursive {
+  optional int64 non_oneof = 1;
   repeated int64 int64_repeated = 2;
   oneof one_of_field {
     int32 int32_one_of = 3;
     string string_one_of = 4;
     bool bool_one_of = 5;
-    OneofProto recursive_oneof = 6;
+    OneofProtoRecursive recursive_oneof = 6;
     KitchenSinkPB kitchen_sink_oneof = 7;
     group NestedGroup = 8 {
       optional int64 int64_field = 1;

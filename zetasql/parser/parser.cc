@@ -61,16 +61,6 @@ static ErrorMessageOptions GetDefaultErrorMessageOptions() {
 
 ParserOptions::ParserOptions() : ParserOptions(LanguageOptions{}) {}
 
-ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
-                             std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                             const LanguageOptions* language_options,
-                             const MacroCatalog* macro_catalog)
-    : arena_(std::move(arena)),
-      id_string_pool_(std::move(id_string_pool)),
-      language_options_(language_options ? *language_options
-                                         : LanguageOptions()),
-      macro_catalog_(macro_catalog) {}
-
 ParserOptions::ParserOptions(LanguageOptions language_options,
                              const MacroCatalog* macro_catalog)
     : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
@@ -384,7 +374,7 @@ absl::Status ParseNextStatementProperties(
   std::unique_ptr<ASTNode> output;
 
   // Unlike ParseStatementKind above, it is not safe to ignore the output
-  // status in this case. In this functionn we expect to be able to inspect the
+  // status in this case. In this function we expect to be able to inspect the
   // ASTNode instances to get at statement level hints, and if there is a
   // parser error those nodes might not be initialized.
   //

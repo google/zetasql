@@ -321,6 +321,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   enum FileWorkflow { CREATE_DATABASE, FIRST_STATEMENT, REST_STATEMENTS };
   FileWorkflow file_workflow() { return file_workflow_; }
   const TestDatabase& test_db() { return test_db_; }
+  TestDatabase& mutable_test_db() { return test_db_; }
 
   const std::unique_ptr<file_based_test_driver::TestCaseOptions>& options();
 

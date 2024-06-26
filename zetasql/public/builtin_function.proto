@@ -1524,4 +1524,11 @@ enum FunctionSignatureId {
   FN_MAP_SUBSCRIPT = 3004;           // map<K, V>[K] -> V
   FN_MAP_SUBSCRIPT_WITH_KEY = 3005;  // map<K, V>[{safe_}key(K)] -> V
   FN_MAP_CONTAINS_KEY = 3006;        // map_contains_key(map<K, V>, K) -> bool
+  FN_MAP_KEYS_SORTED = 3007;         // map_keys_sorted(map<K, V>) -> array<K>
+  FN_MAP_KEYS_UNSORTED = 3008;       // map_keys_unsorted(map<K, V>) -> array<K>
+  FN_MAP_VALUES_SORTED = 3009;       // map_values_sorted(map<K, V>) -> array<V>
+  FN_MAP_VALUES_UNSORTED = 3010;     // map_values_unsorted(map<K, V>)
+                                     // -> array<V>
+  // map_values_sorted_by_key(map<K, V>) -> array<V>
+  FN_MAP_VALUES_SORTED_BY_KEY = 3011;
 }

@@ -1799,3 +1799,85 @@ CreateViewStmt
 +-column_definition_list=
   +-ColumnDefinition(name="key", type=INT64, column=tt.key#3)
   +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)
+==
+
+# Same name as table
+create view {{KeyValue|kEYvALUE}} sql security invoker
+as select key as a, value as b from TwoIntegers
+--
+ALTERNATION GROUP: KeyValue
+--
+CreateViewStmt
++-name_path=KeyValue
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-sql="select key as a, value as b from TwoIntegers"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=KeyValue.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=KeyValue.b#4)
+--
+ALTERNATION GROUP: kEYvALUE
+--
+CreateViewStmt
++-name_path=kEYvALUE
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-sql="select key as a, value as b from TwoIntegers"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=kEYvALUE.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=kEYvALUE.b#4)
+==
+
+# Same name as view
+create view {{ScanTableView|sCANtABLEvIEW}} sql security invoker
+as select key as a, value as b from TwoIntegers
+--
+ALTERNATION GROUP: ScanTableView
+--
+CreateViewStmt
++-name_path=ScanTableView
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-sql="select key as a, value as b from TwoIntegers"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=ScanTableView.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=ScanTableView.b#4)
+--
+ALTERNATION GROUP: sCANtABLEvIEW
+--
+CreateViewStmt
++-name_path=sCANtABLEvIEW
++-output_column_list=
+| +-TwoIntegers.key#1 AS a [INT64]
+| +-TwoIntegers.value#2 AS b [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=TwoIntegers.[key#1, value#2]
+|   +-input_scan=
+|     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
++-sql="select key as a, value as b from TwoIntegers"
++-sql_security=SQL_SECURITY_INVOKER
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=sCANtABLEvIEW.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=sCANtABLEvIEW.b#4)
