@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
@@ -31,10 +32,12 @@
 #include "zetasql/public/strings.h"
 #include "absl/base/optimization.h"
 #include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 // Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
 // AST... class from the zetasql namespace. The "..." are the arguments to
@@ -76,6 +79,29 @@
                            parser->GetInputText(right), "\""));              \
   }
 
+// Define the handling of our custom ParseLocationRange.
+// If there are empty productions on the RHS, skip them when including the range
+// If all symbols on the RHS are empty, return the range of the first symbol.
+#define YYLLOC_DEFAULT(Cur, Rhs, N)                                          \
+  do {                                                                       \
+    if ((N) == 0) {                                                          \
+      (Cur).set_start(YYRHSLOC(Rhs, 0).end());                               \
+      (Cur).set_end(YYRHSLOC(Rhs, 0).end());                                 \
+    } else {                                                                 \
+      /* YYRHSLOC must be called with the range [1, N] */                    \
+      int i = 1;                                                             \
+      /* i < N so that we don't run off the end of stack. If all empty we */ \
+      /* grab the last symbol's location (index N) */                        \
+      while (i < (N) && YYRHSLOC(Rhs, i).IsEmpty()) {                        \
+        i++;                                                                 \
+      }                                                                      \
+      (Cur).set_start(YYRHSLOC(Rhs, i).start());                             \
+      /* If any of the RHS is empty, the end location is inherited from */   \
+      /* the top of the stack: they cling to the previous symbol. */         \
+      (Cur).set_end(YYRHSLOC(Rhs, (N)).end());                               \
+    }                                                                        \
+  } while (0)
+
 // Used like a ZETASQL_RET_CHECK inside the parser.
 #define ABORT_CHECK(location, condition, msg)                   \
   do {                                                          \
@@ -110,7 +136,7 @@
   ZETASQL_DCHECK_OK(s);
 
 // Overrides the lookback token kind to be `new_token_kind` for the most
-// recently returned token by the disambiguator. `location` is the error
+// recently returned token by the lookahead transformer. `location` is the error
 // location to report when the override fails.
 #define OVERRIDE_CURRENT_TOKEN_LOOKBACK(location, new_token_kind)          \
   ABORT_CHECK(location, PARSER_LA_IS_EMPTY(),                              \
@@ -126,22 +152,24 @@ namespace zetasql {
 // Forward declarations to avoid an interface and a v-table lookup on every
 // token.
 namespace parser {
-class DisambiguatorLexer;
+class LookaheadTransformer;
 }  // namespace parser
 
 namespace parser_internal {
 
 // Forward declarations of wrappers so that the generated parser can call the
-// disambiguator without an interface and a v-table lookup on every token.
+// lookahead transformer without an interface and a v-table lookup on every
+// token.
 using zetasql::parser::BisonParserMode;
-using zetasql::parser::DisambiguatorLexer;
+using zetasql::parser::LookaheadTransformer;
 
-void SetForceTerminate(DisambiguatorLexer*, int*);
-void PushBisonParserMode(DisambiguatorLexer*, BisonParserMode);
-void PopBisonParserMode(DisambiguatorLexer*);
-int GetNextToken(DisambiguatorLexer*, absl::string_view*, ParseLocationRange*);
-absl::Status OverrideNextTokenLookback(DisambiguatorLexer*, bool, int, int);
-absl::Status OverrideCurrentTokenLookback(DisambiguatorLexer*, int);
+void SetForceTerminate(LookaheadTransformer*, int*);
+void PushBisonParserMode(LookaheadTransformer*, BisonParserMode);
+void PopBisonParserMode(LookaheadTransformer*);
+int GetNextToken(LookaheadTransformer*, absl::string_view*,
+                 ParseLocationRange*);
+absl::Status OverrideNextTokenLookback(LookaheadTransformer*, bool, int, int);
+absl::Status OverrideCurrentTokenLookback(LookaheadTransformer*, int);
 
 enum class NotKeywordPresence { kPresent, kAbsent };
 
@@ -274,7 +302,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 template <typename SemanticType>
 inline int zetasql_bison_parserlex(SemanticType* yylval,
                                      ParseLocationRange* yylloc,
-                                     DisambiguatorLexer* tokenizer) {
+                                     LookaheadTransformer* tokenizer) {
   ABSL_DCHECK(tokenizer != nullptr);
   absl::string_view text;
   int token = GetNextToken(tokenizer, &text, yylloc);
@@ -353,9 +381,9 @@ inline absl::Status IsIdentifierOrKeyword(absl::string_view text) {
   ABSL_DCHECK(!text.empty());
   if (text.front() == '`') {
     // This is a quoted identifier. No other token coming from the lexer &
-    // disambiguator starts with a backtick, not even error recovery ones (i.e.
-    // tokens defined to capture some wrong pattern and provide a better context
-    // or error message).
+    // lookahead transformer starts with a backtick, not even error recovery
+    // ones (i.e. tokens defined to capture some wrong pattern and provide a
+    // better context or error message).
     std::string str;
     std::string error_string;
     int error_offset;
@@ -377,6 +405,24 @@ inline absl::Status IsIdentifierOrKeyword(absl::string_view text) {
     }
   }
   return absl::OkStatus();
+}
+
+template <typename Location>
+inline zetasql::ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
+    const zetasql::ASTRowPatternOperation::OperationType op,
+    zetasql::parser::BisonParser* parser, const Location& location,
+    zetasql::ASTRowPatternExpression* left,
+    zetasql::ASTRowPatternExpression* right) {
+  if (left->node_kind() == zetasql::AST_ROW_PATTERN_OPERATION &&
+      left->GetAsOrDie<zetasql::ASTRowPatternOperation>()->op_type() == op &&
+      !left->parenthesized()) {
+    // Embrace and extend left's ASTNode to flatten a series of `op`.
+    return parser->WithEndLocation(WithExtraChildren(left, {right}), location);
+  } else {
+    auto* new_root = MAKE_NODE(ASTRowPatternOperation, location, {left, right});
+    new_root->set_op_type(op);
+    return new_root;
+  }
 }
 
 using zetasql::ASTInsertStatement;

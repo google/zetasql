@@ -256,6 +256,13 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> IsNull(
       std::unique_ptr<const ResolvedExpr> arg);
 
+  // Construct ResolvedFunctionCall for <arg> IS NOT NULL
+  //
+  // The signature for the built-in functions "$is_null" and "$not"must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> IsNotNull(
+      std::unique_ptr<const ResolvedExpr> arg);
+
   // Construct a ResolvedFunctionCall for arg[0] IS NULL OR arg[1] IS NULL OR ..
   //
   // Like `IsNull`, a built-in function "$is_null" must be available.
@@ -294,15 +301,18 @@ class FunctionCallBuilder {
       const Type* target_type = nullptr);
 
   // Constructs a ResolvedFunctionCall for the $make_array function to create an
-  // array for a list of elements
+  // array for a list of elements. If `cast_elements_if_needed` is true, the
+  // elements will be coerced to the element type of the array.
   //
-  // Requires: Each element in elements must have the same type as element_type
+  // Requires: If `cast_elements_if_needed` is false, each element in `elements`
+  // must have the same type as `element_type`.
   //
   // The signature for the built-in function "$make_array" must be available in
   // <catalog> or an error status is returned
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> MakeArray(
       const Type* element_type,
-      std::vector<std::unique_ptr<const ResolvedExpr>> elements);
+      std::vector<std::unique_ptr<const ResolvedExpr>> elements,
+      bool cast_elements_if_needed = false);
 
   // Constructs a ResolvedFunctionCall for ARRAY_CONCAT(arrays...)
   //
@@ -491,15 +501,17 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Or(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
-  // Construct a ResolvedFunctionCall for
-  //  expressions[0] ADD expressions[1] ADD ... ADD expressions[N-1]
+  // Construct a ResolvedFunctionCall which is a nested series of binary
+  // addition:
+  //  ((expressions[0] ADD expressions[1]) ADD ... ADD expressions[N-1])
   // where N is the number of expressions.
   //
   // Requires: N >= 2 and all expressions return INT64.
   //
   // The signature for the built-in function "$add" must be available in
   // <catalog> or an error status is returned.
-  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Int64Add(
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+  NestedBinaryInt64Add(
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
 
   // Construct a ResolvedFunctionCall for ARRAY_LENGTH(array_expr).
@@ -525,6 +537,20 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayAtOffset(
       std::unique_ptr<const ResolvedExpr> array_expr,
       std::unique_ptr<const ResolvedExpr> offset_expr);
+
+  // Constructs a ResolvedFunctionCall for ARRAY_TO_STRING(array_expr,
+  // delimiter_expr).
+  //
+  // Requires:
+  // - `array_expr` is ARRAY of STRING or BYTES.
+  // - `delimiter_expr` is STRING or BYTES.
+  // - `array_expr`'s element type and `delimiter_expr` have the same SQL type.
+  //
+  // The signature for the built-in function "array_to_string" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> ArrayToString(
+      std::unique_ptr<const ResolvedExpr> array_expr,
+      std::unique_ptr<const ResolvedExpr> delimiter_expr);
 
   // Constructs a ResolvedFunctionCall for the MOD(dividend, divisor).
   //
@@ -566,6 +592,22 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> input_expr,
       std::unique_ptr<const ResolvedExpr> having_min_expr);
 
+  // Constructs a ResolvedAggregateFunctionCall for
+  // `ARRAY_AGG(input_expr [HAVING having_kind having_expr])`.
+  // If `having_expr` is nullptr, no HAVING clause is added.
+  //
+  // Requires:
+  // - `input_expr` has non-ARRAY type.
+  // - `having_expr` has type that supports ordering.
+  //
+  // The signature for the built-in function "array_agg" must be
+  // available in <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>> ArrayAgg(
+      std::unique_ptr<const ResolvedExpr> input_expr,
+      std::unique_ptr<const ResolvedExpr> having_expr,
+      ResolvedAggregateHavingModifier::HavingModifierKind having_kind =
+          ResolvedAggregateHavingModifier::INVALID);
+
   // Constructs a ResolvedFunctionCall for `CONCAT(input_expr[, input_expr,
   // ...])`.
   //
@@ -576,6 +618,22 @@ class FunctionCallBuilder {
   // `catalog_` or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Concat(
       std::vector<std::unique_ptr<const ResolvedExpr>> elements);
+
+  // Constructs an expression that generates null if an array is empty,
+  // otherwise returns the array.
+  //
+  // Generates:
+  //   WITH($result AS <array_expr>,
+  //       IF(ARRAY_LENGTH($result) >= 1, $result, NULL))
+  //
+  // Requires: `array_expr` is of ARRAY type.
+  //
+  // The signature for the built-in function "array_length", "not", and
+  // "$greater_or_equal" must be available in `catalog_` or an error status is
+  // returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeNullIfEmptyArray(
+      ColumnFactory& column_factory,
+      std::unique_ptr<const ResolvedExpr> array_expr);
 
  private:
   static AnnotationPropagator BuildAnnotationPropagator(
@@ -593,6 +651,21 @@ class FunctionCallBuilder {
   // The signature for the built-in function `op_catalog_name` must be available
   // in `catalog` or an error status is returned.
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NaryLogic(
+      absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
+      const Type* expr_type);
+
+  // Construct a ResolvedFunctionCall which is a nested series of binary
+  // operations:
+  //  ((expressions[0] OP expressions[1]) OP ... OP expressions[N-1])
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 AND all expressions return `expr_type` AND
+  //           the nary logic function returns `expr_type`.
+  //
+  // The signature for the built-in function `op_catalog_name` must be available
+  // in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NestedBinaryOp(
       absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
       std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
       const Type* expr_type);

@@ -1248,9 +1248,18 @@ TEST(SimpleFunctionTests, TestAllReleasedFunctions) {
   for (const auto& [name, function] : all_functions) {
     all_function_names.insert(name);
   }
+
+  // The primary function names are controlled by a language option, so we have
+  // to exclude them from the test.
+  constexpr auto kFunctionsToIgnore = zetasql_base::fixed_flat_set_of<absl::string_view>(
+      {"kll_quantiles.merge_point_double", "kll_quantiles.init_double",
+       "kll_quantiles.extract_point_double", "kll_quantiles.merge_double",
+       "kll_quantiles.extract_double"});
   absl::flat_hash_set<absl::string_view> min_function_names;
   for (const auto& [name, function] : min_functions) {
-    min_function_names.insert(name);
+    if (!kFunctionsToIgnore.contains(name)) {
+      min_function_names.insert(name);
+    }
   }
   EXPECT_THAT(all_function_names, IsSupersetOf(min_function_names));
   EXPECT_THAT(min_function_names, Not(IsSupersetOf(all_function_names)));

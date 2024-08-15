@@ -401,7 +401,7 @@ class SqlFunctionInliner : public Rewriter {
   std::string Name() const override { return "SqlFunctionInliner"; }
 };
 
-// A visitor that replaces calls to SQL TDFs with the resolved function body.
+// A visitor that replaces calls to SQL TVFs with the resolved function body.
 class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit SqlTableFunctionInlineVistor(ColumnFactory* column_factory)
@@ -1004,7 +1004,7 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
   ColumnFactory& column_factory_;
 };
 
-class SqlTvaInliner : public Rewriter {
+class SqlUdaInliner : public Rewriter {
  public:
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, std::unique_ptr<const ResolvedNode> input,
@@ -1017,7 +1017,7 @@ class SqlTvaInliner : public Rewriter {
     return rewriter.VisitAll(std::move(input));
   }
 
-  std::string Name() const override { return "SqlTvaInliner"; }
+  std::string Name() const override { return "SqlUdaInliner"; }
 };
 
 }  // namespace
@@ -1033,7 +1033,7 @@ const Rewriter* GetSqlTvfInliner() {
 }
 
 const Rewriter* GetSqlAggregateInliner() {
-  static const auto* const kRewriter = new SqlTvaInliner;
+  static const auto* const kRewriter = new SqlUdaInliner;
   return kRewriter;
 }
 

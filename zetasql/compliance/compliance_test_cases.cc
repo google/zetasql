@@ -202,22 +202,6 @@ static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
   return wrapped_tests;
 }
 
-static std::vector<FunctionTestCall> WrapFunctionTestWithFeatures(
-    absl::Span<const FunctionTestCall> tests,
-    std::vector<LanguageFeature>& features) {
-  std::vector<FunctionTestCall> wrapped_tests;
-  wrapped_tests.reserve(tests.size());
-  QueryParamsWithResult::FeatureSet feature_set;
-  for (const LanguageFeature& feature : features) {
-    feature_set.insert(feature);
-  }
-  for (FunctionTestCall call : tests) {
-    call.params = call.params.WrapWithFeatureSet(feature_set);
-    wrapped_tests.emplace_back(call);
-  }
-  return wrapped_tests;
-}
-
 std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
     absl::Span<const FunctionTestCall> tests) {
   return WrapFunctionTestWithFeature(tests,
@@ -463,7 +447,7 @@ ComplianceCodebasedTests::ComplianceCodebasedTests()
 ComplianceCodebasedTests::~ComplianceCodebasedTests() {}
 
 void ComplianceCodebasedTests::RunStatementTests(
-    const std::vector<QueryParamsWithResult>& statement_tests,
+    absl::Span<const QueryParamsWithResult> statement_tests,
     absl::string_view sql_string) {
   return RunStatementTestsCustom(
       statement_tests,
@@ -473,7 +457,7 @@ void ComplianceCodebasedTests::RunStatementTests(
 }
 
 void ComplianceCodebasedTests::RunFunctionTestsInfix(
-    const std::vector<QueryParamsWithResult>& function_tests,
+    absl::Span<const QueryParamsWithResult> function_tests,
     absl::string_view operator_name) {
   return RunStatementTestsCustom(
       function_tests, [operator_name = std::string(operator_name)](
@@ -484,7 +468,7 @@ void ComplianceCodebasedTests::RunFunctionTestsInfix(
 }
 
 void ComplianceCodebasedTests::RunFunctionTestsInOperator(
-    const std::vector<QueryParamsWithResult>& function_tests) {
+    absl::Span<const QueryParamsWithResult> function_tests) {
   return RunStatementTestsCustom(
       function_tests, [](const QueryParamsWithResult& p) {
         std::vector<std::string> arg_str;
@@ -993,25 +977,25 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayAvgFunctions, 1) {
                          "SAFE.ARRAY_AVG");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayOffsetFunctions, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayOffsetFunctions, 3) {
   SetNamePrefix("ArrayOffset");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffset(/*is_safe=*/false)),
                          "ARRAY_OFFSET");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayOffsetFunctions, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayOffsetFunctions, 3) {
   SetNamePrefix("SafeArrayOffset");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffset(/*is_safe=*/true)),
                          "SAFE.ARRAY_OFFSET");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFindFunctions, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFindFunctions, 3) {
   SetNamePrefix("ArrayFind");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFind(/*is_safe=*/false)),
                          "ARRAY_FIND");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFindFunctions, 2) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFindFunctions, 3) {
   SetNamePrefix("SafeArrayFind");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFind(/*is_safe=*/true)),
                          "SAFE.ARRAY_FIND");
@@ -2357,6 +2341,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringInitCapFunctions, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
   RunFunctionCalls(
       Shard(WrapFeatureAdditionalStringFunctions(GetFunctionTestsInitCap())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringSplitSubstrFunction, 1) {
+  // TODO: Add compliance tests for split_substr with collation.
+  RunFunctionCalls(Shard(GetFunctionTestsSplitSubstr(/*skip_collation=*/true)));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringParseNumericFunctions, 1) {

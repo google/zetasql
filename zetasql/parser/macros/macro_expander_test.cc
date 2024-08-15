@@ -37,7 +37,6 @@
 #include "zetasql/parser/macros/token_with_location.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -183,11 +182,11 @@ static absl::StatusOr<ExpansionOutput> ExpandMacros(
     DiagnosticOptions diagnostic_options = {
         .error_message_options = {
             .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}) {
-  return MacroExpander::ExpandMacros(
-      std::make_unique<FlexTokenProvider>(
-          kTopFileName, text, /*preserve_comments=*/false, /*start_offset=*/0,
-          /*end_offset=*/std::nullopt),
-      language_options, macro_catalog, diagnostic_options);
+  return MacroExpander::ExpandMacros(std::make_unique<FlexTokenProvider>(
+                                         kTopFileName, text, /*start_offset=*/0,
+                                         /*end_offset=*/std::nullopt),
+                                     language_options, macro_catalog,
+                                     diagnostic_options);
 }
 
 // This function needs to return void due to the assertions.
@@ -261,7 +260,6 @@ TEST(MacroExpanderTest, ErrorsCanPrintLocation_EmptyFileNames) {
   EXPECT_THAT(MacroExpander::ExpandMacros(
                   std::make_unique<FlexTokenProvider>(
                       "", "$m2()",
-                      /*preserve_comments=*/false,
                       /*start_offset=*/0, /*end_offset=*/std::nullopt),
                   options, macro_catalog,
                   {{.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}),
@@ -321,7 +319,7 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
   LanguageOptions options = GetLanguageOptions(/*is_strict=*/false);
 
   auto token_provider = std::make_unique<FlexTokenProvider>(
-      kTopFileName, "\t$empty\r\n$empty$empty", /*preserve_comments=*/false,
+      kTopFileName, "\t$empty\r\n$empty$empty",
       /*start_offset=*/0, /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   MacroExpander expander(std::move(token_provider), options, macro_catalog,
@@ -342,7 +340,7 @@ TEST(MacroExpanderTest,
   LanguageOptions options = GetLanguageOptions(/*is_strict=*/false);
 
   auto token_provider = std::make_unique<FlexTokenProvider>(
-      kTopFileName, "$m", /*preserve_comments=*/false, /*start_offset=*/0,
+      kTopFileName, "$m", /*start_offset=*/0,
       /*end_offset=*/std::nullopt);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   MacroExpander expander(std::move(token_provider), options, macro_catalog,
@@ -1877,6 +1875,49 @@ TEST_P(MacroExpanderParameterizedTest, RightShift) {
                           {YYEOF, MakeLocation(2, 2), "", ""},
                       }));
   EXPECT_EQ(TokensToString(output.expanded_tokens), ">>");
+}
+
+TEST_P(MacroExpanderParameterizedTest, TopLevelCommentsArePreserved) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m /* dropped_comment */ 1;", macro_catalog);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros("/* preserved_comment */ $m()", macro_catalog,
+                   GetLanguageOptions(GetParam())));
+  EXPECT_THAT(output,
+              TokensEq(std::vector<TokenWithLocation>{
+                  {COMMENT, MakeLocation(0, 23), "/* preserved_comment */", ""},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(kDefsFileName, 37, 38),
+                   "1", " ", MakeLocation(24, 28)},
+                  {YYEOF, MakeLocation(28, 28), "", ""},
+              }));
+}
+
+TEST_P(MacroExpanderParameterizedTest,
+       TopLevelCommentsArePreservedExpandingDefineMacroStatements) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m1 /*internal comment*/ 123;", macro_catalog);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      ExpansionOutput output,
+      ExpandMacros(
+          "select 1; /*comment 1*/ /*another comment*/ DEFINE MACRO m2 "
+          "/*comment 2*/ $m1",
+          macro_catalog, GetLanguageOptions(GetParam())));
+
+  EXPECT_THAT(output,
+              TokensEq(std::vector<TokenWithLocation>{
+                  {KW_SELECT, MakeLocation(0, 6), "select", ""},
+                  {DECIMAL_INTEGER_LITERAL, MakeLocation(7, 8), "1", " "},
+                  {';', MakeLocation(8, 9), ";", ""},
+                  {COMMENT, MakeLocation(10, 23), "/*comment 1*/", " "},
+                  {COMMENT, MakeLocation(24, 43), "/*another comment*/", " "},
+                  {KW_DEFINE_FOR_MACROS, MakeLocation(44, 50), "DEFINE", " "},
+                  {KW_MACRO, MakeLocation(51, 56), "MACRO", " "},
+                  {IDENTIFIER, MakeLocation(57, 59), "m2", " "},
+                  {COMMENT, MakeLocation(60, 73), "/*comment 2*/", " "},
+                  {MACRO_INVOCATION, MakeLocation(74, 77), "$m1", " "},
+                  {YYEOF, MakeLocation(77, 77), "", ""},
+              }));
 }
 
 INSTANTIATE_TEST_SUITE_P(MacroExpanderParameterizedTest,

@@ -1,0 +1,654 @@
+[default language_features=PIPES]
+select 1 x
+|> AGGREGATE count(*), sum(x) as xx
+--
+QueryStatement [0-46] [select 1 x...sum(x) as xx]
+  Query [0-46] [select 1 x...sum(x) as xx]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeAggregate [11-46] [|> AGGREGATE...sum(x) as xx]
+      Select [14-46] [AGGREGATE...sum(x) as xx]
+        SelectList [24-46] [count(*), sum(x) as xx]
+          SelectColumn [24-32] [count(*)]
+            FunctionCall [24-32] [count(*)]
+              PathExpression [24-29] [count]
+                Identifier(count) [24-29] [count]
+              Star(*) [30-31] [*]
+          SelectColumn [34-46] [sum(x) as xx]
+            FunctionCall [34-40] [sum(x)]
+              PathExpression [34-37] [sum]
+                Identifier(sum) [34-37] [sum]
+              PathExpression [38-39] [x]
+                Identifier(x) [38-39] [x]
+            Alias [41-46] [as xx]
+              Identifier(xx) [44-46] [xx]
+--
+SELECT
+  1 AS x
+|> AGGREGATE
+     count(*),
+     sum(x) AS xx
+==
+
+select 1
+|> AGGREGATE sum(z), 1+count(x+1) GROUP BY x, y+2, 3
+--
+QueryStatement [0-61] [select 1 |...x, y+2, 3]
+  Query [0-61] [select 1 |...x, y+2, 3]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-61] [|> AGGREGATE...x, y+2, 3]
+      Select [12-61] [AGGREGATE...x, y+2, 3]
+        SelectList [22-42] [sum(z), 1+count(x+1)]
+          SelectColumn [22-28] [sum(z)]
+            FunctionCall [22-28] [sum(z)]
+              PathExpression [22-25] [sum]
+                Identifier(sum) [22-25] [sum]
+              PathExpression [26-27] [z]
+                Identifier(z) [26-27] [z]
+          SelectColumn [30-42] [1+count(x+1)]
+            BinaryExpression(+) [30-42] [1+count(x+1)]
+              IntLiteral(1) [30-31] [1]
+              FunctionCall [32-42] [count(x+1)]
+                PathExpression [32-37] [count]
+                  Identifier(count) [32-37] [count]
+                BinaryExpression(+) [38-41] [x+1]
+                  PathExpression [38-39] [x]
+                    Identifier(x) [38-39] [x]
+                  IntLiteral(1) [40-41] [1]
+        GroupBy [43-61] [GROUP BY x, y+2, 3]
+          GroupingItem [52-53] [x]
+            PathExpression [52-53] [x]
+              Identifier(x) [52-53] [x]
+          GroupingItem [55-58] [y+2]
+            BinaryExpression(+) [55-58] [y+2]
+              PathExpression [55-56] [y]
+                Identifier(y) [55-56] [y]
+              IntLiteral(2) [57-58] [2]
+          GroupingItem [60-61] [3]
+            IntLiteral(3) [60-61] [3]
+--
+SELECT
+  1
+|> AGGREGATE
+     sum(z),
+     1 + count(x + 1)
+   GROUP BY x, y + 2, 3
+==
+
+# GROUP BY ALL is not allowed in pipe aggregate.
+select 1
+|> AGGREGATE COUNT(*) GROUP BY ALL
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 2:32]
+|> AGGREGATE COUNT(*) GROUP BY ALL
+                               ^
+==
+
+# Window function parses but should be rejected later.
+select 1
+|> AGGREGATE 1, x, sum(y) OVER ()
+--
+QueryStatement [0-42] [select 1 |...y) OVER ()]
+  Query [0-42] [select 1 |...y) OVER ()]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-42] [|> AGGREGATE...y) OVER ()]
+      Select [12-42] [AGGREGATE 1, x, sum(y) OVER ()]
+        SelectList [22-42] [1, x, sum(y) OVER ()]
+          SelectColumn [22-23] [1]
+            IntLiteral(1) [22-23] [1]
+          SelectColumn [25-26] [x]
+            PathExpression [25-26] [x]
+              Identifier(x) [25-26] [x]
+          SelectColumn [28-42] [sum(y) OVER ()]
+            AnalyticFunctionCall [28-42] [sum(y) OVER ()]
+              FunctionCall [28-34] [sum(y)]
+                PathExpression [28-31] [sum]
+                  Identifier(sum) [28-31] [sum]
+                PathExpression [32-33] [y]
+                  Identifier(y) [32-33] [y]
+              WindowSpecification [40-42] [()]
+--
+SELECT
+  1
+|> AGGREGATE
+     1,
+     x,
+     sum(y) OVER ()
+==
+
+select 1
+|> AGGREGATE y GROUP @{hint=1} BY x,2,3
+--
+QueryStatement [0-48] [select 1 |...} BY x,2,3]
+  Query [0-48] [select 1 |...} BY x,2,3]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-48] [|> AGGREGATE...} BY x,2,3]
+      Select [12-48] [AGGREGATE...} BY x,2,3]
+        SelectList [22-23] [y]
+          SelectColumn [22-23] [y]
+            PathExpression [22-23] [y]
+              Identifier(y) [22-23] [y]
+        GroupBy [24-48] [GROUP @{hint=1} BY x,2,3]
+          Hint [30-39] [@{hint=1}]
+            HintEntry [32-38] [hint=1]
+              Identifier(hint) [32-36] [hint]
+              IntLiteral(1) [37-38] [1]
+          GroupingItem [43-44] [x]
+            PathExpression [43-44] [x]
+              Identifier(x) [43-44] [x]
+          GroupingItem [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+          GroupingItem [47-48] [3]
+            IntLiteral(3) [47-48] [3]
+--
+SELECT
+  1
+|> AGGREGATE
+     y
+   GROUP @{ hint = 1 } BY x, 2, 3
+==
+
+# GROUP BY ()
+select 1
+|> AGGREGATE sum(y) GROUP BY ()
+|> AGGREGATE sum(y) GROUP BY y, (), x
+--
+QueryStatement [0-78] [select 1 |...BY y, (), x]
+  Query [0-78] [select 1 |...BY y, (), x]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-40] [|> AGGREGATE...GROUP BY ()]
+      Select [12-40] [AGGREGATE sum(y) GROUP BY ()]
+        SelectList [22-28] [sum(y)]
+          SelectColumn [22-28] [sum(y)]
+            FunctionCall [22-28] [sum(y)]
+              PathExpression [22-25] [sum]
+                Identifier(sum) [22-25] [sum]
+              PathExpression [26-27] [y]
+                Identifier(y) [26-27] [y]
+        GroupBy [29-40] [GROUP BY ()]
+          GroupingItem [38-40] [()]
+    PipeAggregate [41-78] [|> AGGREGATE...BY y, (), x]
+      Select [44-78] [AGGREGATE...BY y, (), x]
+        SelectList [54-60] [sum(y)]
+          SelectColumn [54-60] [sum(y)]
+            FunctionCall [54-60] [sum(y)]
+              PathExpression [54-57] [sum]
+                Identifier(sum) [54-57] [sum]
+              PathExpression [58-59] [y]
+                Identifier(y) [58-59] [y]
+        GroupBy [61-78] [GROUP BY y, (), x]
+          GroupingItem [70-71] [y]
+            PathExpression [70-71] [y]
+              Identifier(y) [70-71] [y]
+          GroupingItem [73-75] [()]
+          GroupingItem [77-78] [x]
+            PathExpression [77-78] [x]
+              Identifier(x) [77-78] [x]
+--
+SELECT
+  1
+|> AGGREGATE
+     sum(y)
+   GROUP BY ()
+|> AGGREGATE
+     sum(y)
+   GROUP BY y, (), x
+==
+
+# AGGREGATE with empty aggregate list
+select 1
+|> AGGREGATE
+|> AGGREGATE GROUP BY x
+--
+QueryStatement [0-45] [select 1 |...GROUP BY x]
+  Query [0-45] [select 1 |...GROUP BY x]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-21] [|> AGGREGATE]
+      Select [12-21] [AGGREGATE]
+        SelectList [21-21] []
+    PipeAggregate [22-45] [|> AGGREGATE GROUP BY x]
+      Select [25-45] [AGGREGATE GROUP BY x]
+        SelectList [34-34] []
+        GroupBy [35-45] [GROUP BY x]
+          GroupingItem [44-45] [x]
+            PathExpression [44-45] [x]
+              Identifier(x) [44-45] [x]
+--
+SELECT
+  1
+|> AGGREGATE
+|> AGGREGATE
+   GROUP BY x
+==
+
+select 1
+|> AGGREGATE count(*) GROUP BY ROLLUP(x,y)
+|> AGGREGATE GROUP BY GROUPING SETS ((x), (y,z))
+|> AGGREGATE xyz GROUP BY GROUPING SETS(CUBE(x,y), (z,z), ROLLUP(a,b));
+--
+QueryStatement [0-171] [select 1 |...ROLLUP(a,b))]
+  Query [0-171] [select 1 |...ROLLUP(a,b))]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-51] [|> AGGREGATE...ROLLUP(x,y)]
+      Select [12-51] [AGGREGATE...ROLLUP(x,y)]
+        SelectList [22-30] [count(*)]
+          SelectColumn [22-30] [count(*)]
+            FunctionCall [22-30] [count(*)]
+              PathExpression [22-27] [count]
+                Identifier(count) [22-27] [count]
+              Star(*) [28-29] [*]
+        GroupBy [31-51] [GROUP BY ROLLUP(x,y)]
+          GroupingItem [40-51] [ROLLUP(x,y)]
+            Rollup [40-51] [ROLLUP(x,y)]
+              PathExpression [47-48] [x]
+                Identifier(x) [47-48] [x]
+              PathExpression [49-50] [y]
+                Identifier(y) [49-50] [y]
+    PipeAggregate [52-100] [|> AGGREGATE...x), (y,z))]
+      Select [55-100] [AGGREGATE...x), (y,z))]
+        SelectList [64-64] []
+        GroupBy [65-100] [GROUP BY GROUPING...x), (y,z))]
+          GroupingItem [74-100] [GROUPING SETS ((x), (y,z))]
+            GroupingSetList [74-100] [GROUPING SETS ((x), (y,z))]
+              GroupingSet [89-92] [(x)]
+                PathExpression [90-92] [x)]
+                  Identifier(x) [90-91] [x]
+              GroupingSet [94-99] [(y,z)]
+                StructConstructorWithParens [94-99] [(y,z)]
+                  PathExpression [95-96] [y]
+                    Identifier(y) [95-96] [y]
+                  PathExpression [97-98] [z]
+                    Identifier(z) [97-98] [z]
+    PipeAggregate [101-171] [|> AGGREGATE...ROLLUP(a,b))]
+      Select [104-171] [AGGREGATE...ROLLUP(a,b))]
+        SelectList [114-117] [xyz]
+          SelectColumn [114-117] [xyz]
+            PathExpression [114-117] [xyz]
+              Identifier(xyz) [114-117] [xyz]
+        GroupBy [118-171] [GROUP BY GROUPING...LLUP(a,b))]
+          GroupingItem [127-171] [GROUPING SETS...ROLLUP(a,b))]
+            GroupingSetList [127-171] [GROUPING SETS...ROLLUP(a,b))]
+              GroupingSet [141-150] [CUBE(x,y)]
+                Cube [141-150] [CUBE(x,y)]
+                  PathExpression [146-147] [x]
+                    Identifier(x) [146-147] [x]
+                  PathExpression [148-149] [y]
+                    Identifier(y) [148-149] [y]
+              GroupingSet [152-157] [(z,z)]
+                StructConstructorWithParens [152-157] [(z,z)]
+                  PathExpression [153-154] [z]
+                    Identifier(z) [153-154] [z]
+                  PathExpression [155-156] [z]
+                    Identifier(z) [155-156] [z]
+              GroupingSet [159-170] [ROLLUP(a,b)]
+                Rollup [159-170] [ROLLUP(a,b)]
+                  PathExpression [166-167] [a]
+                    Identifier(a) [166-167] [a]
+                  PathExpression [168-169] [b]
+                    Identifier(b) [168-169] [b]
+--
+SELECT
+  1
+|> AGGREGATE
+     count(*)
+   GROUP BY ROLLUP(x, y)
+|> AGGREGATE
+   GROUP BY GROUPING SETS((x), (y, z))
+|> AGGREGATE
+     xyz
+   GROUP BY GROUPING SETS(CUBE(x, y), (z, z), ROLLUP(a, b))
+==
+
+# Aggregate list supports aliases with and without AS
+select 1
+|> AGGREGATE count(*) as x, count(*) z
+--
+QueryStatement [0-47] [select 1 |...count(*) z]
+  Query [0-47] [select 1 |...count(*) z]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-47] [|> AGGREGATE...count(*) z]
+      Select [12-47] [AGGREGATE...count(*) z]
+        SelectList [22-47] [count(*) as x, count(*) z]
+          SelectColumn [22-35] [count(*) as x]
+            FunctionCall [22-30] [count(*)]
+              PathExpression [22-27] [count]
+                Identifier(count) [22-27] [count]
+              Star(*) [28-29] [*]
+            Alias [31-35] [as x]
+              Identifier(x) [34-35] [x]
+          SelectColumn [37-47] [count(*) z]
+            FunctionCall [37-45] [count(*)]
+              PathExpression [37-42] [count]
+                Identifier(count) [37-42] [count]
+              Star(*) [43-44] [*]
+            Alias [46-47] [z]
+              Identifier(z) [46-47] [z]
+--
+SELECT
+  1
+|> AGGREGATE
+     count(*) AS x,
+     count(*) AS z
+==
+
+# Trailing commas are allowed in aggregate list.
+select 1
+|> AGGREGATE count(*),
+|> AGGREGATE count(*), GROUP BY x
+--
+QueryStatement [0-65] [select 1 |...GROUP BY x]
+  Query [0-65] [select 1 |...GROUP BY x]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-31] [|> AGGREGATE count(*),]
+      Select [12-31] [AGGREGATE count(*),]
+        SelectList [22-31] [count(*),]
+          SelectColumn [22-30] [count(*)]
+            FunctionCall [22-30] [count(*)]
+              PathExpression [22-27] [count]
+                Identifier(count) [22-27] [count]
+              Star(*) [28-29] [*]
+    PipeAggregate [32-65] [|> AGGREGATE...GROUP BY x]
+      Select [35-65] [AGGREGATE count(*), GROUP BY x]
+        SelectList [45-54] [count(*),]
+          SelectColumn [45-53] [count(*)]
+            FunctionCall [45-53] [count(*)]
+              PathExpression [45-50] [count]
+                Identifier(count) [45-50] [count]
+              Star(*) [51-52] [*]
+        GroupBy [55-65] [GROUP BY x]
+          GroupingItem [64-65] [x]
+            PathExpression [64-65] [x]
+              Identifier(x) [64-65] [x]
+--
+SELECT
+  1
+|> AGGREGATE
+     count(*)
+|> AGGREGATE
+     count(*)
+   GROUP BY x
+==
+
+# Trailing commas are allowed in the GROUP BY.
+select 1
+|> AGGREGATE GROUP BY x,
+|> AGGREGATE GROUP BY x, y,
+--
+QueryStatement [0-61] [select 1 |...GROUP BY x, y,]
+  Query [0-61] [select 1 |...GROUP BY x, y,]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-33] [|> AGGREGATE GROUP BY x,]
+      Select [12-33] [AGGREGATE GROUP BY x,]
+        SelectList [21-21] []
+        GroupBy [22-33] [GROUP BY x,]
+          GroupingItem [31-32] [x]
+            PathExpression [31-32] [x]
+              Identifier(x) [31-32] [x]
+    PipeAggregate [34-61] [|> AGGREGATE GROUP BY x, y,]
+      Select [37-61] [AGGREGATE GROUP BY x, y,]
+        SelectList [46-46] []
+        GroupBy [47-61] [GROUP BY x, y,]
+          GroupingItem [56-57] [x]
+            PathExpression [56-57] [x]
+              Identifier(x) [56-57] [x]
+          GroupingItem [59-60] [y]
+            PathExpression [59-60] [y]
+              Identifier(y) [59-60] [y]
+--
+SELECT
+  1
+|> AGGREGATE
+   GROUP BY x
+|> AGGREGATE
+   GROUP BY x, y
+==
+
+select 1
+|> AGGREGATE {{,|,,|sum(x),,}}
+--
+ALTERNATION GROUP: ,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:14]
+|> AGGREGATE ,
+             ^
+--
+ALTERNATION GROUP: ,,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:14]
+|> AGGREGATE ,,
+             ^
+--
+ALTERNATION GROUP: sum(x),,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:21]
+|> AGGREGATE sum(x),,
+                    ^
+==
+
+select 1
+|> AGGREGATE GROUP BY {{,|,,|x,,}}
+--
+ALTERNATION GROUP: ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:23]
+|> AGGREGATE GROUP BY ,
+                      ^
+--
+ALTERNATION GROUP: ,,
+--
+ERROR: Syntax error: Unexpected "," [at 2:23]
+|> AGGREGATE GROUP BY ,,
+                      ^
+--
+ALTERNATION GROUP: x,,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:25]
+|> AGGREGATE GROUP BY x,,
+                        ^
+==
+
+select 1
+|> AGGREGATE *
+--
+ERROR: Syntax error: Expected end of input but got "*" [at 2:14]
+|> AGGREGATE *
+             ^
+==
+
+select 1
+|> AGGREGATE x, s.*, f(y).*, (a+b).*
+--
+QueryStatement [0-45] [select 1 |...*, (a+b).*]
+  Query [0-45] [select 1 |...*, (a+b).*]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-45] [|> AGGREGATE...*, (a+b).*]
+      Select [12-45] [AGGREGATE...*, (a+b).*]
+        SelectList [22-45] [x, s.*, f(y).*, (a+b).*]
+          SelectColumn [22-23] [x]
+            PathExpression [22-23] [x]
+              Identifier(x) [22-23] [x]
+          SelectColumn [25-28] [s.*]
+            DotStar [25-28] [s.*]
+              PathExpression [25-26] [s]
+                Identifier(s) [25-26] [s]
+          SelectColumn [30-36] [f(y).*]
+            DotStar [30-36] [f(y).*]
+              FunctionCall [30-34] [f(y)]
+                PathExpression [30-31] [f]
+                  Identifier(f) [30-31] [f]
+                PathExpression [32-33] [y]
+                  Identifier(y) [32-33] [y]
+          SelectColumn [38-45] [(a+b).*]
+            DotStar [38-45] [(a+b).*]
+              BinaryExpression(+) [39-42] [a+b]
+                PathExpression [39-40] [a]
+                  Identifier(a) [39-40] [a]
+                PathExpression [41-42] [b]
+                  Identifier(b) [41-42] [b]
+--
+SELECT
+  1
+|> AGGREGATE
+     x,
+     s.*,
+     f(y).*,
+     (a + b).*
+==
+
+# Dot-star only works as the outermost suffix operator on an expression.
+select 1
+|> AGGREGATE {{f(s.*)|s.*+1|1+s.*|s.*.*}}
+--
+ALTERNATION GROUP: f(s.*)
+--
+ERROR: Syntax error: Unexpected "*" [at 2:18]
+|> AGGREGATE f(s.*)
+                 ^
+--
+ALTERNATION GROUP: s.*+1
+--
+ERROR: Syntax error: Expected end of input but got "+" [at 2:17]
+|> AGGREGATE s.*+1
+                ^
+--
+ALTERNATION GROUP: 1+s.*
+--
+ERROR: Syntax error: Unexpected "*" [at 2:18]
+|> AGGREGATE 1+s.*
+                 ^
+--
+ALTERNATION GROUP: s.*.*
+--
+ERROR: Syntax error: Expected end of input but got "." [at 2:17]
+|> AGGREGATE s.*.*
+                ^
+==
+
+# Dot-star is not allowed in the GROUP BY list.
+select 1
+|> AGGREGATE GROUP BY s.*
+--
+ERROR: Syntax error: Unexpected "*" [at 2:25]
+|> AGGREGATE GROUP BY s.*
+                        ^
+==
+
+# Star is not allowed in the GROUP BY list.
+SELECT 1
+|> AGGREGATE COUNT(*)
+   GROUP BY *
+--
+ERROR: Syntax error: Unexpected "*" [at 3:13]
+   GROUP BY *
+            ^
+==
+
+select 1
+|> AGGREGATE x.* except (a,b),
+             y.* replace (abc as def),
+             z.* except (a) replace (1+2 as ccc)
+--
+QueryStatement [0-127] [select 1 |...+2 as ccc)]
+  Query [0-127] [select 1 |...+2 as ccc)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-127] [|> AGGREGATE...+2 as ccc)]
+      Select [12-127] [AGGREGATE...+2 as ccc)]
+        SelectList [22-127] [x.* except...+2 as ccc)]
+          SelectColumn [22-38] [x.* except (a,b)]
+            DotStarWithModifiers [22-38] [x.* except (a,b)]
+              PathExpression [22-23] [x]
+                Identifier(x) [22-23] [x]
+              StarModifiers [26-38] [except (a,b)]
+                StarExceptList [26-38] [except (a,b)]
+                  Identifier(a) [34-35] [a]
+                  Identifier(b) [36-37] [b]
+          SelectColumn [53-77] [y.* replace (abc as def)]
+            DotStarWithModifiers [53-77] [y.* replace (abc as def)]
+              PathExpression [53-54] [y]
+                Identifier(y) [53-54] [y]
+              StarModifiers [57-77] [replace (abc as def)]
+                StarReplaceItem [66-76] [abc as def]
+                  PathExpression [66-69] [abc]
+                    Identifier(abc) [66-69] [abc]
+                  Identifier(def) [73-76] [def]
+          SelectColumn [92-127] [z.* except...+2 as ccc)]
+            DotStarWithModifiers [92-127] [z.* except...+2 as ccc)]
+              PathExpression [92-93] [z]
+                Identifier(z) [92-93] [z]
+              StarModifiers [96-127] [except (a)...+2 as ccc)]
+                StarExceptList [96-106] [except (a)]
+                  Identifier(a) [104-105] [a]
+                StarReplaceItem [116-126] [1+2 as ccc]
+                  BinaryExpression(+) [116-119] [1+2]
+                    IntLiteral(1) [116-117] [1]
+                    IntLiteral(2) [118-119] [2]
+                  Identifier(ccc) [123-126] [ccc]
+--
+SELECT
+  1
+|> AGGREGATE
+     x.* EXCEPT (a, b),
+     y.* REPLACE (abc AS def),
+     z.* EXCEPT (a) REPLACE (1 + 2 AS ccc)
+==
+
+select 1
+|> GROUP BY a, b
+--
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 2:4]
+|> GROUP BY a, b
+   ^
+==
+
+select 1
+|> group
+--
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 2:4]
+|> group
+   ^
+==
+
+select 1
+|> AGGREGATE COUNT(*)
+|> GROUP BY x
+--
+ERROR: Syntax error: GROUP BY should be part of a pipe AGGREGATE operator, without a leading pipe character [at 3:4]
+|> GROUP BY x
+   ^

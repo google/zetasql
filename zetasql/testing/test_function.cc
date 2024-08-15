@@ -41,7 +41,7 @@
 namespace zetasql {
 
 QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& arguments,
+    absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, absl::Status status)
     : params_(ValueConstructor::ToValues(arguments)),
       ordinal_param_size_(arguments.size()),
@@ -56,7 +56,7 @@ QueryParamsWithResult::QueryParamsWithResult(
       result_(result, status, float_margin_arg) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& arguments,
+    absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, absl::string_view error_substring)
     : params_(ValueConstructor::ToValues(arguments)),
       ordinal_param_size_(arguments.size()),
@@ -67,7 +67,7 @@ QueryParamsWithResult::QueryParamsWithResult(
 }
 
 QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& arguments,
+    absl::Span<const ValueConstructor> arguments,
     const ValueConstructor& result, absl::StatusCode code)
     : params_(ValueConstructor::ToValues(arguments)),
       ordinal_param_size_(arguments.size()),
@@ -202,10 +202,10 @@ std::vector<QueryParamsWithResult> InvertResults(
   return new_tests;
 }
 
-FunctionTestCall::FunctionTestCall(
-    absl::string_view function_name,
-    const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, FloatMargin float_margin)
+FunctionTestCall::FunctionTestCall(absl::string_view function_name,
+                                   absl::Span<const ValueConstructor> arguments,
+                                   const ValueConstructor& result,
+                                   FloatMargin float_margin)
     : function_name(function_name), params(arguments, result, float_margin) {}
 
 FunctionTestCall::FunctionTestCall(

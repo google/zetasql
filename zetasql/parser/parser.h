@@ -24,11 +24,13 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/base/attributes.h"
@@ -224,23 +226,36 @@ absl::Status ParseStatement(absl::string_view statement_string,
 //
 // A terminating semicolon is optional for the last statement in the script,
 // and mandatory for all other statements.
-//
-// <error_message_mode> describes how errors should be represented in the
-// returned Status - whether as a payload, or as part of the string.
 absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
-                         ErrorMessageMode error_message_mode,
-                         bool keep_error_location_payload,
+                         ErrorMessageOptions error_message_options,
                          std::unique_ptr<ParserOutput>* output);
 
 ABSL_DEPRECATED("Inline me!")
 inline absl::Status ParseScript(absl::string_view script_string,
                                 const ParserOptions& parser_options_in,
                                 ErrorMessageMode error_message_mode,
+                                bool keep_error_location_payload,
                                 std::unique_ptr<ParserOutput>* output) {
-  return ParseScript(script_string, parser_options_in, error_message_mode,
-                     /*keep_error_location_payload=*/
-                     error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD, output);
+  return ParseScript(
+      script_string, parser_options_in,
+      {.mode = error_message_mode,
+       .attach_error_location_payload = keep_error_location_payload,
+       .stability = GetDefaultErrorMessageStability()},
+      output);
+}
+
+ABSL_DEPRECATED("Inline me!")
+inline absl::Status ParseScript(absl::string_view script_string,
+                                const ParserOptions& parser_options_in,
+                                ErrorMessageMode error_message_mode,
+                                std::unique_ptr<ParserOutput>* output) {
+  return ParseScript(script_string, parser_options_in,
+                     {.mode = error_message_mode,
+                      .attach_error_location_payload =
+                          (error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD),
+                      .stability = GetDefaultErrorMessageStability()},
+                     output);
 }
 
 // Parses one statement from a string that may contain multiple statements.

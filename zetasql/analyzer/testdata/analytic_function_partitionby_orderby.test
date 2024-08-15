@@ -67,6 +67,7 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=59-523
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#27)
 ==
@@ -254,6 +255,7 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=59-570
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#27)
 ==
@@ -412,6 +414,7 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=39-91
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
 ==
@@ -530,5 +533,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=53-109
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)

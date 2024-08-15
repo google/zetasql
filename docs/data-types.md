@@ -157,7 +157,7 @@ information on data type literals and constructors, see
     
     
     <p>
-      A decimal value with precision of 76.76 digits.<br/>
+      A decimal value with precision of 76.76 digits (the 77th digit is partial).<br/>
       SQL type name: <code>BIGNUMERIC</code>
       <br/>
       SQL aliases: <code>BIGDECIMAL</code>
@@ -259,7 +259,8 @@ properties in mind:
 ### Nullable data types
 
 For nullable data types, `NULL` is a valid value. Currently, all existing
-data types are nullable.
+data types are nullable. Conditions apply for
+[arrays][array-nulls].
 
 ### Orderable data types
 
@@ -460,8 +461,58 @@ arrays][working-with-arrays].
 ### `NULL`s and the array type 
 <a id="array_nulls"></a>
 
-An empty array and a `NULL` array are two distinct values. Arrays can contain
-`NULL` elements.
+Currently, ZetaSQL has the following rules with respect to `NULL`s and
+arrays:
+
++ An array can be `NULL`.
+
+  For example:
+
+  ```sql
+  SELECT CAST(NULL AS ARRAY<INT64>) IS NULL AS array_is_null;
+
+  /*---------------*
+   | array_is_null |
+   +---------------+
+   | TRUE          |
+   *---------------*/
+  ```
++ ZetaSQL translates a `NULL` array into an empty array in the query
+  result, although inside the query, `NULL` and empty arrays are two distinct
+  values.
+
+  For example:
+
+  ```sql
+  WITH Items AS (
+    SELECT [] AS numbers, "Empty array in query" AS description UNION ALL
+    SELECT CAST(NULL AS ARRAY<INT64>), "NULL array in query")
+  SELECT numbers, description, numbers IS NULL AS numbers_null
+  FROM Items;
+
+  /*---------+----------------------+--------------*
+   | numbers | description          | numbers_null |
+   +---------+----------------------+--------------+
+   | []      | Empty array in query | false        |
+   | []      | NULL array in query  | true         |
+   *---------+----------------------+--------------*/
+  ```
+
+  When you write a `NULL` array to a table, it is converted to an
+  empty array. If you write `Items` to a table from the previous query,
+  then each array is written as an empty array:
+
+  ```sql
+  SELECT numbers, description, numbers IS NULL AS numbers_null
+  FROM Items;
+
+  /*---------+----------------------+--------------*
+   | numbers | description          | numbers_null |
+   +---------+----------------------+--------------+
+   | []      | Empty array in query | false        |
+   | []      | NULL array in query  | false        |
+   *---------+----------------------+--------------*/
+  ```
 
 ### Declaring an array type
 
@@ -1351,8 +1402,8 @@ Expect these canonicalization behaviors when creating a value of JSON type:
 +  Booleans, strings, and nulls are preserved exactly.
 +  Whitespace characters are not preserved.
 +  A JSON value can store integers in the range of
-   -9,223,372,036,854,775,808 (minimal signed 64-bit integer) to
-   18,446,744,073,709,551,615 (maximal unsigned 64-bit integer) and
+   -9,223,372,036,854,775,808 (minimum signed 64-bit integer) to
+   18,446,744,073,709,551,615 (maximum unsigned 64-bit integer) and
    floating point numbers within a domain of
    `DOUBLE`.
 +  The order of elements in an array is preserved exactly.
@@ -2699,6 +2750,8 @@ when there is a leap second.
 [datetime-type]: #datetime_type
 
 [timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+[array-nulls]: #array_nulls
 
 [floating-point-types]: #floating_point_types
 

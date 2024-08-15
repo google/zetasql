@@ -386,6 +386,13 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
       proto_base_enabled));
   EXPECT_TRUE(types::RangeSessionizeModeEnumType()->IsSupportedType(
       range_type_enabled));
+
+  EXPECT_TRUE(
+      types::UnsupportedFieldsEnumType()->IsSupportedType(product_external));
+  EXPECT_TRUE(
+      types::UnsupportedFieldsEnumType()->IsSupportedType(product_internal));
+  EXPECT_TRUE(
+      types::UnsupportedFieldsEnumType()->IsSupportedType(proto_base_enabled));
 }
 
 }  // namespace zetasql

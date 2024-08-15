@@ -43,6 +43,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/container/btree_map.h"
 #include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -187,10 +188,12 @@ absl::StatusOr<ExpansionOutput> MacroExpander::ExpandMacros(
   WarningCollector warning_collector(diagnostic_options.max_warning_count);
   ZETASQL_RETURN_IF_ERROR(ExpandMacrosInternal(
       std::move(token_provider), language_options, macro_catalog,
-      expansion_output.arena.get(), /*call_arguments=*/{}, diagnostic_options,
+      expansion_output.arena.get(),
+      /*call_arguments=*/{}, diagnostic_options,
       /*parent_location=*/nullptr, &expansion_output.location_map,
       expansion_output.expanded_tokens, warning_collector,
-      /*out_max_arg_ref_index=*/nullptr));
+      // Only the top-level comments should be preserved.
+      /*out_max_arg_ref_index=*/nullptr, /*drop_comments=*/false));
   expansion_output.warnings = warning_collector.ReleaseWarnings();
   return expansion_output;
 }
@@ -332,6 +335,16 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ConsumeInputToken() {
 absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
   ZETASQL_RET_CHECK(splicing_buffer_.empty());
   ZETASQL_RET_CHECK(output_token_buffer_.empty());
+
+  // Skip the leading comment tokens, if any.
+  while (true) {
+    ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, token_provider_->PeekNextToken());
+    if (token.kind != COMMENT) {
+      break;
+    }
+    ZETASQL_ASSIGN_OR_RETURN(token, token_provider_->ConsumeNextToken());
+    splicing_buffer_.push(token);
+  }
 
   // Special logic to find top-level DEFINE MACRO statement, which do not get
   // expanded.
@@ -757,7 +770,8 @@ absl::Status MacroExpander::ParseAndExpandArgs(
                                            arg_start_offset, arg_end_offset),
         language_options_, macro_catalog_, arena_, call_arguments_,
         diagnostic_options_, parent_location_, location_map_, expanded_arg,
-        warning_collector_, &max_arg_ref_index_in_current_arg));
+        warning_collector_, &max_arg_ref_index_in_current_arg,
+        /*drop_comments=*/true));
 
     max_arg_ref_index_ =
         std::max(max_arg_ref_index_, max_arg_ref_index_in_current_arg);
@@ -902,7 +916,8 @@ absl::Status MacroExpander::ExpandMacroInvocation(
       std::move(child_token_provider), language_options_, macro_catalog_,
       arena_, std::move(expanded_args), child_diagnsotic_options, &stack_frame,
       location_map_, expanded_tokens, warning_collector_,
-      &max_arg_ref_in_definition));
+      &max_arg_ref_in_definition,
+      /*drop_comments=*/true));
   if (has_explicit_unexpanded_arg &&
       num_explicit_args > max_arg_ref_in_definition) {
     ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
@@ -1062,7 +1077,7 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
         std::move(child_token_provider), language_options_, macro_catalog_,
         arena_, call_arguments_, diagnostic_options_, parent_location_,
         location_map_, expanded_tokens, warning_collector_,
-        /*out_max_arg_ref_index=*/nullptr));
+        /*out_max_arg_ref_index=*/nullptr, /*drop_comments=*/true));
 
     ZETASQL_RET_CHECK(!expanded_tokens.empty())
         << "A proper expansion should have at least the YYEOF token at "
@@ -1139,16 +1154,23 @@ absl::Status MacroExpander::ExpandMacrosInternal(
     DiagnosticOptions diagnostic_options, StackFrame* parent_location,
     absl::btree_map<size_t, Expansion>* location_map,
     std::vector<TokenWithLocation>& output_token_list,
-    WarningCollector& warning_collector, int* out_max_arg_ref_index) {
+    WarningCollector& warning_collector, int* out_max_arg_ref_index,
+    bool drop_comments) {
   auto expander = absl::WrapUnique(new MacroExpander(
       std::move(token_provider), language_options, macro_catalog, arena,
       call_arguments, diagnostic_options, &warning_collector, parent_location));
   expander->location_map_ = location_map;
-  do {
+  while (true) {
     ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, expander->GetNextToken());
+    if (drop_comments && token.kind == COMMENT) {
+      // We only preserve top level comments.
+      continue;
+    }
     output_token_list.push_back(std::move(token));
-  } while (output_token_list.back().kind != YYEOF);
-
+    if (output_token_list.back().kind == YYEOF) {
+      break;
+    }
+  }
   if (out_max_arg_ref_index != nullptr) {
     *out_max_arg_ref_index = expander->max_arg_ref_index_;
   }

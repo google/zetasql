@@ -1034,7 +1034,11 @@ void StmtLayout::PruneLineBreaks() {
       if (curr_line_level > prev_line_level &&
           // Next line should have smaller indent, otherwise we create indent
           // jump by 4.
-          curr_line_level >= next_line_level) {
+          (curr_line_level >= next_line_level ||
+           // We allow jump by 5 after the pipe operator, e.g.:
+           // |> WHERE
+           //      condition = FALSE
+           prev_chunk.FirstKeyword() == "|>")) {
         size_t prev_chunk_length = prev_chunk.PrintableLength(false);
         if (first_chunk.StartsWithSpace()) {
           ++prev_chunk_length;
@@ -1353,6 +1357,10 @@ int StmtLayout::BestBreakpoint(const Line& line) const {
             // having top level keywords. We prefer breaking on UNION ALL first
             // before deciding if we want to split the first SELECT statement
             // further.
+            best_chunk = position;
+            skip_until = best_chunk;
+          } else if (chunk->FirstKeyword() == "|>") {
+            // Prefer breaking query at pipe operators.
             best_chunk = position;
             skip_until = best_chunk;
           }

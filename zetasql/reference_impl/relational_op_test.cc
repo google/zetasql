@@ -4598,40 +4598,6 @@ TEST_F(CreateIteratorTest, EnumerateOp) {
   EXPECT_FALSE(iter->PreservesOrder());
 }
 
-TEST_F(CreateIteratorTest, RootOp) {
-  VariableId a("a");
-  std::vector<TupleData> test_values =
-      CreateTestTupleDatas({{Int64(1)}, {Int64(2)}});
-  auto input = absl::WrapUnique(
-      new TestRelationalOp({a}, test_values, /*preserves_order=*/true));
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto root_op,
-      RootOp::Create(std::move(input), std::make_unique<RootData>()));
-  EXPECT_EQ(root_op->IteratorDebugString(), "TestTupleIterator");
-  EXPECT_EQ(
-      "RootOp(\n"
-      "+-input: TestRelationalOp)",
-      root_op->DebugString());
-  std::unique_ptr<TupleSchema> output_schema = root_op->CreateOutputSchema();
-  EXPECT_THAT(output_schema->variables(), ElementsAre(a));
-
-  ZETASQL_ASSERT_OK(root_op->SetSchemasForEvaluation(/*params_schemas=*/{}));
-  EvaluationContext context((EvaluationOptions()));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<TupleIterator> iter,
-      root_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/1, &context));
-  EXPECT_EQ(iter->DebugString(), "TestTupleIterator");
-  EXPECT_TRUE(iter->PreservesOrder());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
-                       ReadFromTupleIterator(iter.get()));
-  ASSERT_EQ(data.size(), 2);
-  EXPECT_THAT(data[0].slots(),
-              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()), _));
-  EXPECT_THAT(data[1].slots(),
-              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()), _));
-}
-
 // Builds a join between two relations with 'tuple_count' tuples each with
 // matching values and a relation1_tuple < relation2_tuple join condition.
 absl::StatusOr<std::unique_ptr<JoinOp>> BuildTestJoin(int tuple_count = 1) {

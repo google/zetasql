@@ -22,6 +22,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/simple_catalog.h"

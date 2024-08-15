@@ -115,6 +115,8 @@ class Validator {
       const ResolvedCreatePrivilegeRestrictionStmt* stmt);
   absl::Status ValidateResolvedCreateRowAccessPolicyStmt(
       const ResolvedCreateRowAccessPolicyStmt* stmt);
+  absl::Status ValidateResolvedCreateConnectionStmt(
+      const ResolvedCreateConnectionStmt* stmt);
   absl::Status ValidateResolvedCreateConstantStmt(
       const ResolvedCreateConstantStmt* stmt);
   absl::Status ValidateResolvedCreateFunctionStmt(
@@ -347,6 +349,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedAnalyticFunctionCall* call);
+
+  absl::Status ValidateResolvedMakeStruct(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedMakeStruct* expr);
 
   absl::Status ValidateResolvedGetProtoFieldExpr(
       const std::set<ResolvedColumn>& visible_columns,
@@ -619,6 +626,14 @@ class Validator {
 
   absl::Status ValidateResolvedUnpivotScan(
       const ResolvedUnpivotScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedStaticDescribeScan(
+      const ResolvedStaticDescribeScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedAssertScan(
+      const ResolvedAssertScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedWithPartitionColumns(

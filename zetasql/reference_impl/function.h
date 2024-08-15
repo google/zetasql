@@ -20,6 +20,7 @@
 #define ZETASQL_REFERENCE_IMPL_FUNCTION_H_
 
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <utility>
@@ -356,6 +357,8 @@ enum class FunctionKind {
   kSafeConvertBytesToString,
   kSplit,
   kSplitWithCollation,
+  kSplitSubstr,
+  kSplitSubstrWithCollation,
   kStartsWith,
   kStartsWithWithCollation,
   kStrpos,
@@ -524,6 +527,9 @@ enum class FunctionKind {
   kMapValuesSorted,
   kMapValuesUnsorted,
   kMapValuesSortedByKey,
+  kMapEmpty,
+  kMapInsert,
+  kMapInsertOrReplace,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -672,8 +678,8 @@ class BuiltinAggregateFunction : public AggregateFunctionBody {
   std::string debug_name() const override;
 
   absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
-      absl::Span<const Value> args, CollatorList collator_list,
-      EvaluationContext* context) const override;
+      absl::Span<const Value> args, absl::Span<const TupleData* const> params,
+      CollatorList collator_list, EvaluationContext* context) const override;
 
  private:
   const FunctionKind kind_;
@@ -690,8 +696,20 @@ class BinaryStatFunction : public BuiltinAggregateFunction {
   BinaryStatFunction& operator=(const BinaryStatFunction&) = delete;
 
   absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
-      absl::Span<const Value> args, CollatorList collator_list,
-      EvaluationContext* context) const override;
+      absl::Span<const Value> args, absl::Span<const TupleData* const> params,
+      CollatorList collator_list, EvaluationContext* context) const override;
+};
+
+// Adds additional members to `AggregateFunctionEvaluator` that the reference
+// implementation needs in order to enable SQL evaluation during aggregation.
+class SqlDefinedAggregateFunctionEvaluator : public AggregateFunctionEvaluator {
+ public:
+  ~SqlDefinedAggregateFunctionEvaluator() override = default;
+
+  // Sets an evaluation context.
+  virtual void SetEvaluationContext(
+      EvaluationContext* context,
+      absl::Span<const TupleData* const> params) = 0;
 };
 
 using ContextAwareFunctionEvaluator = std::function<absl::StatusOr<Value>(

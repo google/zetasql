@@ -152,24 +152,6 @@ SELECT CURRENT_DATETIME() as now;
  *----------------------------*/
 ```
 
-When a column named `current_datetime` is present, the column name and the
-function call without parentheses are ambiguous. To ensure the function call,
-add parentheses; to ensure the column name, qualify it with its
-[range variable][datetime-range-variables]. For example, the
-following query will select the function in the `now` column and the table
-column in the `current_datetime` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_datetime`)
-SELECT current_datetime() as now, t.current_datetime FROM t;
-
-/*----------------------------+------------------*
- | now                        | current_datetime |
- +----------------------------+------------------+
- | 2016-05-19 10:38:47.046465 | column value     |
- *----------------------------+------------------*/
-```
-
 [datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -277,8 +259,9 @@ Gets the number of unit boundaries between two `DATETIME` values
 
 +   `start_datetime`: The starting `DATETIME` value.
 +   `end_datetime`: The ending `DATETIME` value.
-+   `granularity`: The datetime part that represents the granularity.
-    This can be:
++   `granularity`: The datetime part that represents the granularity. If
+    you have passed in `DATETIME` values for the first arguments, `granularity`
+    can be:
 
       
       + `NANOSECOND`
@@ -309,6 +292,10 @@ If `end_datetime` is earlier than `start_datetime`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `DATETIME` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `DATETIME_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -447,44 +434,63 @@ SELECT
 ### `DATETIME_TRUNC`
 
 ```sql
-DATETIME_TRUNC(datetime_expression, date_time_part)
+DATETIME_TRUNC(datetime_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `DATETIME` value to the granularity of `date_time_part`.
-The `DATETIME` value is always rounded to the beginning of `date_time_part`,
-which can be one of the following:
+Truncates a `DATETIME` value at a particular time granularity. The `DATETIME`
+value is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `DATETIME` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `DATETIME` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `DATETIME` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `DATETIME` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `DATETIME` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `DATETIME` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `datetime_expression`: The `DATETIME` value to truncate.
++ `granularity`: The datetime part that represents the granularity. If
+  you passed in a `DATETIME` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `DATETIME` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `DATETIME` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `DATETIME` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `DATETIME` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `DATETIME` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `DATETIME` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

@@ -29,6 +29,7 @@
 #include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/functions/to_json.h"
+#include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.pb.h"
@@ -617,16 +618,22 @@ absl::StatusOr<Value> JsonExtractArrayFunction::Eval(
 absl::StatusOr<Value> ToJsonFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  ZETASQL_RET_CHECK_GE(args.size(), 2);
+  ZETASQL_RET_CHECK_LE(args.size(), 3);
   if (args[1].is_null()) {
     return Value::Null(output_type());
   }
   const bool stringify_wide_numbers = args[1].bool_value();
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-  ZETASQL_ASSIGN_OR_RETURN(JSONValue outputJson,
-                   functions::ToJson(args[0], stringify_wide_numbers,
-                                     context->GetLanguageOptions(),
-                                     /*canonicalize_zero=*/true));
+  zetasql::functions::UnsupportedFields unsupported_fields =
+      args.size() == 3 ? static_cast<zetasql::functions::UnsupportedFields>(
+                             args[2].enum_value())
+                       : zetasql::functions::UnsupportedFields::FAIL;
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValue outputJson,
+      functions::ToJson(args[0], stringify_wide_numbers,
+                        context->GetLanguageOptions(),
+                        /*canonicalize_zero=*/true, unsupported_fields));
   MaybeSetNonDeterministicContext(args[0], context);
   return Value::Json(std::move(outputJson));
 }

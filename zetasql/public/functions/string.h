@@ -51,6 +51,7 @@
 
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -562,6 +563,20 @@ typedef absl::flat_hash_map<std::string,
     ConversionFuncMap;
 
 const ConversionFuncMap& GetConversionFuncMap();
+
+// Splits the `text` based on specified `delimiter` and returns the substring
+// from the `start_index` split to the end of the `text`.
+// (Proposal doc (broken link)).
+absl::Status SplitSubstr(absl::string_view text, absl::string_view delimiter,
+                         int64_t start_index, std::string* out);
+
+// Splits the `text` based on specified `delimiter` and returns the substring
+// from the `start_index` split, combining `count` number of splits.
+// (Proposal doc (broken link)).
+absl::Status SplitSubstrWithCount(absl::string_view text,
+                                  absl::string_view delimiter,
+                                  int64_t start_index, int64_t count,
+                                  std::string* out);
 
 }  // namespace functions
 }  // namespace zetasql

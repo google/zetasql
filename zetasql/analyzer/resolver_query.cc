@@ -52,6 +52,8 @@
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/analyzer/set_operation_resolver_base.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/internal_analyzer_output_properties.h"
+#include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/input_argument_type.h"
@@ -111,7 +113,6 @@
 #include "zetasql/base/case.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
-#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
@@ -283,6 +284,60 @@ absl::Status CreateUnsupportedGroupingSetsError(
   return MakeSqlErrorAt(grouping_item)
          << absl::StrFormat("GROUP BY %s is not supported in %s",
                             grouping_clause_name, clause_name);
+}
+
+// Check that expected scan nodes were added on top of a previous scan.
+// Starting from `outer_scan` and recursively traversing input scans, expect
+// to find `inner_scan`.  In between, expect to find a node of type
+// `expected_scan_kind` (unless `expected_scan_kind` is std::nullopt).
+// Other scan types in `allowed_extra_scan_types` are also allowed.
+// `node_context` is a name for the error message.
+//
+// Note: This only works for the node types listed in the switch.
+absl::Status CheckForExpectedScans(
+    const ResolvedScan* outer_scan, const ResolvedScan* inner_scan,
+    std::optional<ResolvedNodeKind> expected_scan_kind,
+    const char* node_context,
+    const std::set<ResolvedNodeKind>& allowed_extra_scan_types = {}) {
+  const ResolvedScan* next_scan = outer_scan;
+  bool found_expected = false;
+  while (next_scan != inner_scan) {
+    const ResolvedNodeKind kind = next_scan->node_kind();
+    if (!found_expected && expected_scan_kind.has_value() &&
+        kind == expected_scan_kind.value()) {
+      found_expected = true;
+    } else if (allowed_extra_scan_types.find(kind) ==
+               allowed_extra_scan_types.end()) {
+      ZETASQL_RET_CHECK_FAIL() << node_context << " produced unexpected scan of type "
+                       << ResolvedNodeKindToString(kind);
+    }
+
+    switch (kind) {
+      case RESOLVED_PROJECT_SCAN:
+        next_scan = next_scan->GetAs<ResolvedProjectScan>()->input_scan();
+        break;
+      case RESOLVED_AGGREGATE_SCAN:
+        next_scan = next_scan->GetAs<ResolvedAggregateScan>()->input_scan();
+        break;
+      case RESOLVED_ANALYTIC_SCAN:
+        next_scan = next_scan->GetAs<ResolvedAnalyticScan>()->input_scan();
+        break;
+      case RESOLVED_ORDER_BY_SCAN:
+        next_scan = next_scan->GetAs<ResolvedOrderByScan>()->input_scan();
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << node_context << " produced unhandled scan of type "
+                         << ResolvedNodeKindToString(kind);
+    }
+    ZETASQL_RET_CHECK(next_scan != nullptr);
+  }
+
+  if (expected_scan_kind.has_value() && !found_expected) {
+    ZETASQL_RET_CHECK_FAIL() << node_context
+                     << " failed to produce a scan with expected type "
+                     << ResolvedNodeKindToString(expected_scan_kind.value());
+  }
+  return absl::OkStatus();
 }
 
 // `PartitionedComputedColumns` represents a partitioning of computed columns
@@ -557,7 +612,12 @@ absl::Status Resolver::ResolveQuery(
     const Type* inferred_type_for_query) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  const Type* inferred_type_for_base_query = inferred_type_for_query;
+  // If we have pipe operators, the inferred type applies to the last pipe
+  // operator, not to the initial query.
+  const Type* inferred_type_for_base_query = nullptr;
+  if (query->pipe_operator_list().empty()) {
+    inferred_type_for_base_query = inferred_type_for_query;
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries,
@@ -566,8 +626,16 @@ absl::Status Resolver::ResolveQuery(
                                         inferred_type_for_base_query, output,
                                         output_name_list));
 
+  ZETASQL_RETURN_IF_ERROR(ResolvePipeOperatorList(
+      query, scope, output, output_name_list, inferred_type_for_query));
+
   // Add coercions to the final column output types if needed.
   if (is_outer_query && !analyzer_options().get_target_column_types().empty()) {
+    // TODO The function below assumes the outer scan is a
+    // ResolvedProjectScan, so it needs to be generalized for pipes.
+    ZETASQL_RET_CHECK(query->pipe_operator_list().empty())
+        << "Coercing statement to expected types not implemented yet "
+           "for pipe queries";
     ZETASQL_RETURN_IF_ERROR(CoerceQueryStatementResultToTypes(
         query, analyzer_options().get_target_column_types(), output,
         output_name_list));
@@ -649,6 +717,932 @@ static absl::Status UpdateNameListForTableAlias(
                        alias, ast_location, new_name_list));
 
   return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeOperatorList(
+    const ASTQuery* query, const NameScope* outer_scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list,
+    const Type* inferred_type_for_query) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  for (const ASTPipeOperator* pipe_operator : query->pipe_operator_list()) {
+    if (pipe_operator == query->pipe_operator_list().front() &&
+        !language().LanguageFeatureEnabled(FEATURE_PIPES)) {
+      return MakeSqlErrorAt(pipe_operator) << "Pipe query syntax not supported";
+    }
+
+    // We'll infer the type for the last pipe operator only.
+    // TODO: We could could push this to earlier pipe operators if later
+    // ones like WHERE don't change output.
+    const Type* inferred_type_for_pipe = nullptr;
+    if (pipe_operator == query->pipe_operator_list().back()) {
+      inferred_type_for_pipe = inferred_type_for_query;
+    }
+
+    NameScope current_scope(outer_scope, *current_name_list);
+
+    switch (pipe_operator->node_kind()) {
+      case AST_PIPE_WHERE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeWhere(pipe_operator->GetAs<ASTPipeWhere>(),
+                                         &current_scope, current_scan));
+        break;
+      case AST_PIPE_LIMIT_OFFSET:
+        ZETASQL_RETURN_IF_ERROR(
+            ResolvePipeLimitOffset(pipe_operator->GetAs<ASTPipeLimitOffset>(),
+                                   &current_scope, current_scan));
+        break;
+      case AST_PIPE_SELECT:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeSelect(
+            pipe_operator->GetAs<ASTPipeSelect>(), &current_scope, current_scan,
+            current_name_list, inferred_type_for_pipe));
+        break;
+      case AST_PIPE_EXTEND:
+        // There is currently no type inference for columns in PipeExtend.
+        // Supporting it would require matching newly added columns against
+        // some expected type.
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeExtend(pipe_operator->GetAs<ASTPipeExtend>(),
+                                          &current_scope, current_scan,
+                                          current_name_list));
+        break;
+      case AST_PIPE_AGGREGATE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeAggregate(
+            pipe_operator->GetAs<ASTPipeAggregate>(), &current_scope,
+            current_scan, current_name_list));
+        break;
+      case AST_PIPE_ORDER_BY:
+        ZETASQL_RETURN_IF_ERROR(
+            ResolvePipeOrderBy(pipe_operator->GetAs<ASTPipeOrderBy>(),
+                               &current_scope, current_scan));
+        break;
+      case AST_PIPE_CALL:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeCall(pipe_operator->GetAs<ASTPipeCall>(),
+                                        outer_scope, &current_scope,
+                                        current_scan, current_name_list));
+        break;
+      case AST_PIPE_WINDOW:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeWindow(pipe_operator->GetAs<ASTPipeWindow>(),
+                                          &current_scope, current_scan,
+                                          current_name_list));
+        break;
+      case AST_PIPE_JOIN:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeJoin(pipe_operator->GetAs<ASTPipeJoin>(),
+                                        outer_scope, &current_scope,
+                                        current_scan, current_name_list));
+        break;
+      case AST_PIPE_TABLESAMPLE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeTablesample(
+            pipe_operator->GetAs<ASTPipeTablesample>(), &current_scope,
+            current_scan, current_name_list));
+        break;
+      case AST_PIPE_SET_OPERATION:
+        return MakeSqlErrorAt(pipe_operator)
+               << "Pipe set operations not supported yet; Try using standard "
+                  "set operator syntax between parenthesized pipe queries";
+        break;
+      case AST_PIPE_DISTINCT:
+        return MakeSqlErrorAt(pipe_operator)
+               << "Pipe DISTINCT operator not supported yet; Try using "
+                  "|> AGGREGATE GROUP BY ... or |> SELECT DISTINCT ...";
+        break;
+      case AST_PIPE_AS:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeAs(pipe_operator->GetAs<ASTPipeAs>(),
+                                      &current_scope, current_scan,
+                                      current_name_list));
+        break;
+      case AST_PIPE_STATIC_DESCRIBE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeStaticDescribe(
+            pipe_operator->GetAs<ASTPipeStaticDescribe>(), &current_scope,
+            current_scan, current_name_list));
+        break;
+      case AST_PIPE_ASSERT:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeAssert(pipe_operator->GetAs<ASTPipeAssert>(),
+                                          &current_scope, current_scan));
+        break;
+      case AST_PIPE_DROP:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeDrop(pipe_operator->GetAs<ASTPipeDrop>(),
+                                        &current_scope, current_scan,
+                                        current_name_list));
+        break;
+      case AST_PIPE_RENAME:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeRename(pipe_operator->GetAs<ASTPipeRename>(),
+                                          &current_scope, current_scan,
+                                          current_name_list));
+        break;
+      case AST_PIPE_SET:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeSet(pipe_operator->GetAs<ASTPipeSet>(),
+                                       &current_scope, current_scan,
+                                       current_name_list));
+        break;
+      case AST_PIPE_PIVOT:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipePivot(pipe_operator->GetAs<ASTPipePivot>(),
+                                         &current_scope, current_scan,
+                                         current_name_list));
+        break;
+      case AST_PIPE_UNPIVOT:
+        ZETASQL_RETURN_IF_ERROR(ResolvePipeUnpivot(
+            pipe_operator->GetAs<ASTPipeUnpivot>(), &current_scope,
+            current_scan, current_name_list));
+        break;
+      default:
+        // When all operators are fully implemented, this can become
+        // a ZETASQL_RET_CHECK.
+        return MakeSqlErrorAt(pipe_operator)
+               << "Unsupported pipe operator: "
+               << pipe_operator->GetNodeKindString();
+    }
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeWhere(
+    const ASTPipeWhere* where, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan) {
+  std::unique_ptr<const ResolvedExpr> resolved_where;
+  // Some error cases require different leading capitals on these strings.
+  static constexpr char kPipeWhereClause[] = "pipe WHERE clause";
+  static constexpr char kWhereClause[] = "WHERE clause";
+  const ASTExpression* ast_expr = where->where()->expression();
+
+  QueryResolutionInfo query_resolution_info(this);
+  query_resolution_info.analytic_resolver()->DisableNamedWindowRefs(
+      kPipeWhereClause);
+  ExprResolutionInfo expr_resolution_info(scope, &query_resolution_info,
+                                          /*top_level_ast_expr_in=*/nullptr,
+                                          /*column_alias_in=*/IdString(),
+                                          kPipeWhereClause);
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveExpr(ast_expr, &expr_resolution_info, &resolved_where));
+
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(ast_expr, kWhereClause, &resolved_where));
+
+  ZETASQL_RET_CHECK(!query_resolution_info.HasAggregation());
+  ZETASQL_RETURN_IF_ERROR(query_resolution_info.CheckComputedColumnListsAreEmpty());
+  if (query_resolution_info.HasAnalytic()) {
+    // Add an AnalyticScan if any window functions were present.
+    // This also makes a ProjectScan if necessary before the AnalyticScan.
+    ZETASQL_RETURN_IF_ERROR(AddAnalyticScan(&query_resolution_info, current_scan));
+  }
+
+  const auto& tmp_column_list = (*current_scan)->column_list();
+  *current_scan = MakeResolvedFilterScan(
+      tmp_column_list, std::move(*current_scan), std::move(resolved_where));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeLimitOffset(
+    const ASTPipeLimitOffset* limit_offset, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan) {
+  return ResolveLimitOffsetScan(limit_offset->limit_offset(), scope,
+                                current_scan);
+}
+
+absl::Status Resolver::ResolvePipeTablesample(
+    const ASTPipeTablesample* tablesample, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  // This takes NameList rather than NameScope.  Mostly it does not resolve
+  // expressions, although PARTITION BY is an exception, and correlated
+  // references won't work.
+  // It may add a weight column into `current_name_list`.
+  return ResolveTablesampleClause(tablesample->sample(), current_name_list,
+                                  current_scan);
+}
+
+absl::Status Resolver::ResolvePipeSelect(
+    const ASTPipeSelect* pipe_select, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list,
+    const Type* inferred_type_for_pipe) {
+  const ASTSelect* select = pipe_select->select();
+
+  if (select->select_with() != nullptr) {
+    return MakeSqlErrorAt(select->select_with())
+           << "Pipe SELECT does not support SELECT WITH";
+  }
+  if (select->hint() != nullptr) {
+    // The reason hints aren't supported on pipe SELECT yet is because these
+    // hints would show up on ResolvedProjectScan, which in normal syntax,
+    // indicates a hint that applies to an entire query.  The semantics seem
+    // different for the hint here, but we haven't indicated how yet.
+    return MakeSqlErrorAt(select->hint())
+           << "Pipe SELECT does not support hints yet";
+  }
+
+  // By construction in the parser, the ASTSelect shouldn't have a FROM clause
+  // or any other clauses after the SELECT list.
+  // The is_distinct modifier is allowed, but doesn't have an AST node.
+  ZETASQL_RETURN_IF_ERROR(CheckForUnwantedSelectClauseChildNodes(
+      select, {select->select_list(), select->select_as(), select->hint()},
+      "Pipe SELECT"));
+  // Repeating this, to assert we are resolving this like a no-FROM-clause
+  // SELECT, which will block grouping and many other operations.
+  ZETASQL_RET_CHECK(select->from_clause() == nullptr);
+  ZETASQL_RET_CHECK(select->select_list() != nullptr);
+
+  const ResolvedScan* original_input_scan = current_scan->get();
+  const IdString query_alias = MakeIdString("$pipe_select");
+
+  std::shared_ptr<const NameList> new_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveSelectAfterFrom(
+      select, /*order_by=*/nullptr,
+      /*limit_offset=*/nullptr, scope, query_alias, SelectForm::kPipeSelect,
+      SelectWithMode::NONE,
+      /*force_new_columns_for_projected_outputs=*/false, inferred_type_for_pipe,
+      current_scan, *current_name_list, &new_name_list));
+
+  *current_name_list = std::move(new_name_list);
+
+  // Check that we added ResolvedProjectScans, a ResolvedAggregateScan if we
+  // had DISTINCT, possibly a ResolvedAnalyticScan, and no other scans.
+  ZETASQL_RETURN_IF_ERROR(CheckForExpectedScans(
+      current_scan->get(), original_input_scan,
+      select->distinct() ? RESOLVED_AGGREGATE_SCAN : RESOLVED_PROJECT_SCAN,
+      "Pipe SELECT",
+      /*allowed_extra_scan_types=*/
+      {RESOLVED_PROJECT_SCAN, RESOLVED_ANALYTIC_SCAN}));
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeExtend(
+    const ASTPipeExtend* extend, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  const ASTSelect* select = extend->select();
+
+  // By construction in the parser, the ASTSelect shouldn't have anything
+  // other than the SELECT list.
+  ZETASQL_RETURN_IF_ERROR(CheckForUnwantedSelectClauseChildNodes(
+      select, {select->select_list()}, "Pipe EXTEND"));
+  ZETASQL_RET_CHECK_NE(select->select_list(), nullptr);
+  ZETASQL_RET_CHECK(!select->distinct());
+
+  const ResolvedScan* original_input_scan = current_scan->get();
+  const IdString query_alias = MakeIdString("$pipe_extend");
+
+  std::shared_ptr<const NameList> new_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveSelectAfterFrom(select, /*order_by=*/nullptr,
+                             /*limit_offset=*/nullptr, scope, query_alias,
+                             SelectForm::kPipeExtend, SelectWithMode::NONE,
+                             /*force_new_columns_for_projected_outputs=*/false,
+                             /*inferred_type_for_query=*/nullptr, current_scan,
+                             *current_name_list, &new_name_list));
+
+  // We could get ProjectScans or AnalyticScans, but we're not required
+  // to get either of them.
+  ZETASQL_RETURN_IF_ERROR(
+      CheckForExpectedScans(current_scan->get(), original_input_scan,
+                            /*expected_scan_kind=*/std::nullopt, "Pipe EXTEND",
+                            /*allowed_extra_scan_types=*/
+                            {RESOLVED_ANALYTIC_SCAN, RESOLVED_PROJECT_SCAN}));
+
+  *current_name_list = std::move(new_name_list);
+  return absl::OkStatus();
+}
+
+// Give an error if both aggregate list and group by list are empty.
+static absl::Status CheckForEmptyPipeAggregate(const ASTSelect* select) {
+  if (select->select_list()->columns().empty()) {
+    bool group_by_is_empty = true;
+    if (select->group_by() != nullptr) {
+      for (const ASTGroupingItem* item : select->group_by()->grouping_items()) {
+        // To detect "()", we have to look for the absence of the other
+        // possible field types.
+        if (item->expression() != nullptr || item->rollup() != nullptr ||
+            item->cube() != nullptr || item->grouping_set_list() != nullptr) {
+          group_by_is_empty = false;
+          break;
+        }
+      }
+    }
+    if (group_by_is_empty) {
+      return MakeSqlErrorAt(select)
+             << "Pipe AGGREGATE cannot have both an empty aggregate list "
+                "and an empty GROUP BY";
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeAggregate(
+    const ASTPipeAggregate* aggregate, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  const ASTSelect* select = aggregate->select();
+
+  // By construction in the parser, this ASTSelect should only have a
+  // SELECT list and possibly a GROUP BY.
+  ZETASQL_RETURN_IF_ERROR(CheckForUnwantedSelectClauseChildNodes(
+      select, {select->select_list(), select->group_by()}, "Pipe AGGREGATE"));
+  ZETASQL_RET_CHECK_NE(select->select_list(), nullptr);
+
+  const ASTGroupBy* group_by = select->group_by();
+  if (group_by != nullptr && group_by->all()) {
+    // Currently unreachable because the parser doesn't let this through,
+    // but that was just an artifact of how some conflicts were resolved.
+    return MakeSqlErrorAt(select)
+           << "Pipe AGGREGATE does not support GROUP BY ALL";
+  }
+
+  // Give an error if both aggregate list and group by list are empty.
+  ZETASQL_RETURN_IF_ERROR(CheckForEmptyPipeAggregate(select));
+
+  const ResolvedScan* original_input_scan = current_scan->get();
+  const IdString query_alias = MakeIdString("$aggregate");
+
+  std::shared_ptr<const NameList> new_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveSelectAfterFrom(select, /*order_by=*/nullptr,
+                             /*limit_offset=*/nullptr, scope, query_alias,
+                             SelectForm::kPipeAggregate, SelectWithMode::NONE,
+                             /*force_new_columns_for_projected_outputs=*/false,
+                             /*inferred_type_for_query=*/nullptr, current_scan,
+                             *current_name_list, &new_name_list));
+
+  *current_name_list = std::move(new_name_list);
+
+  // Check that we added one AggregateScan, maybe some ProjectScans, maybe
+  // an OrderByScan, and nothing else.
+  ZETASQL_RETURN_IF_ERROR(
+      CheckForExpectedScans(current_scan->get(), original_input_scan,
+                            RESOLVED_AGGREGATE_SCAN, "Pipe AGGREGATE",
+                            /*allowed_extra_scan_types=*/
+                            {RESOLVED_PROJECT_SCAN, RESOLVED_ORDER_BY_SCAN}));
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeOrderBy(
+    const ASTPipeOrderBy* order_by, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan) {
+  return ResolveOrderBySimple(order_by->order_by(), scope,
+                              "pipe ORDER BY clause", OrderBySimpleMode::kPipes,
+                              current_scan);
+}
+
+// ResolvePipeCall takes `outer_scope` because TVF arguments cannot
+// reference columns from the input table, which are not constant over
+// the invocation of this TVF call.
+absl::Status Resolver::ResolvePipeCall(
+    const ASTPipeCall* call, const NameScope* outer_scope,
+    const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  const ASTTVF* tvf = call->tvf();
+
+  // The input scan becomes the first table-typed TVF argument.
+  ResolvedTVFArg table_arg;
+  table_arg.SetScan(std::move(*current_scan), *current_name_list,
+                    /*is_pipe_input_table=*/true);
+
+  std::shared_ptr<const NameList> new_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveTVF(tvf, outer_scope, scope, &table_arg, current_scan,
+                             &new_name_list));
+
+  *current_name_list = new_name_list;
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeWindow(
+    const ASTPipeWindow* window, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  const ASTSelect* select = window->select();
+
+  // By construction in the parser, the ASTSelect shouldn't have anything
+  // other than the SELECT list.
+  ZETASQL_RETURN_IF_ERROR(CheckForUnwantedSelectClauseChildNodes(
+      select, {select->select_list()}, "Pipe WINDOW"));
+  ZETASQL_RET_CHECK(select->select_list() != nullptr);
+  ZETASQL_RET_CHECK(!select->distinct());
+
+  const ResolvedScan* original_input_scan = current_scan->get();
+  const IdString query_alias = MakeIdString("$pipe_window");
+
+  std::shared_ptr<const NameList> new_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveSelectAfterFrom(select, /*order_by=*/nullptr,
+                             /*limit_offset=*/nullptr, scope, query_alias,
+                             SelectForm::kPipeWindow, SelectWithMode::NONE,
+                             /*force_new_columns_for_projected_outputs=*/false,
+                             /*inferred_type_for_query=*/nullptr, current_scan,
+                             *current_name_list, &new_name_list));
+
+  // Check that we added a ResolvedAnalyticScan, maybe some
+  // ResolvedProjectScans, and no other scan kinds.
+  ZETASQL_RETURN_IF_ERROR(CheckForExpectedScans(
+      current_scan->get(), original_input_scan, RESOLVED_ANALYTIC_SCAN,
+      "Pipe WINDOW",
+      /*allowed_extra_scan_types=*/{RESOLVED_PROJECT_SCAN}));
+
+  *current_name_list = std::move(new_name_list);
+
+  return absl::OkStatus();
+}
+
+// ResolvePipeJoin takes `outer_scope`, which most other pipe operators don't.
+// This is necessary because TVF input arguments and parenthesized joins on
+// the RHS of a JOIN cannot see items from the join LHS, and can only see
+// correlated references to outer queries.  The pipe input acts as the join LHS
+// here, so we don't want those cases to see names from the pipe input.
+absl::Status Resolver::ResolvePipeJoin(
+    const ASTPipeJoin* join, const NameScope* outer_scope,
+    const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  const ASTJoin* ast_join = join->join();
+  ZETASQL_RET_CHECK(ast_join->lhs() != nullptr);
+  ZETASQL_RET_CHECK_EQ(ast_join->lhs()->node_kind(), AST_PIPE_JOIN_LHS_PLACEHOLDER);
+
+  ZETASQL_RETURN_IF_ERROR(ResolveJoinRhs(ast_join, outer_scope, scope,
+                                 *current_name_list, std::move(*current_scan),
+                                 current_scan, current_name_list));
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeAs(
+    const ASTPipeAs* pipe_as, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  IdString alias = pipe_as->alias()->GetAsIdString();
+  auto output_name_list = std::make_shared<const NameList>();
+
+  ZETASQL_RETURN_IF_ERROR(UpdateNameListForTableAlias(
+      pipe_as, alias, *current_name_list, &output_name_list));
+  *current_name_list = output_name_list;
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeAssert(
+    const ASTPipeAssert* pipe_assert, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  if (!language().LanguageFeatureEnabled(FEATURE_PIPE_ASSERT)) {
+    return MakeSqlErrorAt(pipe_assert) << "Pipe ASSERT not supported";
+  }
+
+  std::unique_ptr<const ResolvedExpr> condition_expr;
+  static constexpr char kAssertClause[] = "ASSERT condition";
+  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(pipe_assert->condition(), scope,
+                                    kAssertClause, &condition_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(pipe_assert->condition(), kAssertClause,
+                                   &condition_expr));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> message_expr_list;
+  message_expr_list.reserve(pipe_assert->message_list().size());
+
+  for (const ASTExpression* ast_message : pipe_assert->message_list()) {
+    std::unique_ptr<const ResolvedExpr> expr;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveScalarExpr(ast_message, scope, kAssertClause, &expr));
+
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        ast_message, type_factory_->get_string(), kExplicitCoercion,
+        "ASSERT message value has type $1 which cannot be coerced to $0",
+        &expr));
+
+    ExprResolutionInfo expr_resolution_info(scope, "pipe ASSERT");
+
+    // Wrap the message in an IFNULL(<message>, "NULL") function call so that if
+    // a payload is NULL, it is printed as "NULL".
+    //
+    // We do not add the function call for non-NULL literals because it is
+    // unnecessary and non-null literals as payload can be common.
+    if (!expr->Is<ResolvedLiteral>() ||
+        expr->GetAs<ResolvedLiteral>()->value().is_null()) {
+      std::unique_ptr<const ResolvedExpr> ifnull_expr;
+      std::vector<std::unique_ptr<const ResolvedExpr>> ifnull_args;
+      ifnull_args.push_back(std::move(expr));
+      ifnull_args.push_back(MakeResolvedLiteral(/*ast_location=*/nullptr,
+                                                Value::StringValue("NULL")));
+      ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithResolvedArguments(
+          pipe_assert, /*arg_locations=*/{ast_message, pipe_assert},
+          /*function_name=*/"IFNULL", std::move(ifnull_args),
+          /*named_arguments=*/{}, &expr_resolution_info, &ifnull_expr));
+      expr = std::move(ifnull_expr);
+    }
+    message_expr_list.push_back(std::move(expr));
+  }
+
+  std::unique_ptr<const ResolvedExpr> final_message_expr;
+  if (message_expr_list.empty()) {
+    // If there's no payload, construct a literal string message using
+    // the query text of the condition expression.
+    const ParseLocationRange& parse_range =
+        pipe_assert->condition()->GetParseLocationRange();
+    const absl::string_view substr =
+        absl::ClippedSubstr(sql_, parse_range.start().GetByteOffset(),
+                            parse_range.end().GetByteOffset() -
+                                parse_range.start().GetByteOffset());
+
+    final_message_expr = MakeResolvedLiteral(
+        /*ast_location=*/nullptr, Value::StringValue(std::string(substr)));
+  } else if (message_expr_list.size() == 1) {
+    // The message is the single payload argument.
+    final_message_expr = std::move(message_expr_list[0]);
+  } else {
+    // Construct a CONCAT call to build the error message, with spaces.
+    std::vector<std::unique_ptr<const ResolvedExpr>> concat_args;
+    std::vector<const ASTNode*> arg_locations;
+
+    for (int i = 0; i < message_expr_list.size(); ++i) {
+      if (i > 0) {
+        concat_args.push_back(MakeResolvedLiteral(/*ast_location=*/nullptr,
+                                                  Value::StringValue(" ")));
+        arg_locations.push_back(pipe_assert);
+      }
+
+      concat_args.push_back(std::move(message_expr_list[i]));
+      arg_locations.push_back(pipe_assert->message_list(i));
+    }
+
+    ExprResolutionInfo expr_resolution_info(scope, "pipe ASSERT");
+
+    ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithResolvedArguments(
+        pipe_assert, arg_locations, "CONCAT", std::move(concat_args),
+        /*named_arguments=*/{}, &expr_resolution_info, &final_message_expr));
+  }
+
+  ZETASQL_RET_CHECK(final_message_expr != nullptr);
+  ZETASQL_RET_CHECK(final_message_expr->type()->IsString());
+
+  ResolvedColumnList column_list = (*current_scan)->column_list();
+  *current_scan = MakeResolvedAssertScan(column_list, std::move(*current_scan),
+                                         std::move(condition_expr),
+                                         std::move(final_message_expr));
+
+  analyzer_output_properties_.MarkRelevant(REWRITE_PIPE_ASSERT);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeStaticDescribe(
+    const ASTPipeStaticDescribe* pipe_static_describe, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  if (!language().LanguageFeatureEnabled(FEATURE_PIPE_STATIC_DESCRIBE)) {
+    return MakeSqlErrorAt(pipe_static_describe)
+           << "Pipe STATIC_DESCRIBE not supported";
+  }
+
+  const std::string output = (*current_name_list)->DebugString();
+
+  // Make the no-op scan that holds the STATIC_DESCRIBE output.
+  const ResolvedScan* input_scan = current_scan->get();
+  *current_scan = MakeResolvedStaticDescribeScan(
+      input_scan->column_list(), std::move(*current_scan), output);
+
+  return absl::OkStatus();
+}
+
+// This is used for more helpful errors for pipe SET and pipe DROP to describe
+// the NameTarget that doesn't work.
+static const char* GetTargetKindNameForPipeSetOrDropError(
+    const NameTarget& target) {
+  std::string target_kind;
+  switch (target.kind()) {
+    case NameTarget::RANGE_VARIABLE:
+      return "a table alias";
+    case NameTarget::FIELD_OF:
+      return "a field inside a value table";
+    case NameTarget::IMPLICIT_COLUMN:
+    case NameTarget::EXPLICIT_COLUMN:
+      // This includes at least pseudo-columns and correlated columns.
+      // We don't have an easy way to tell what kind of column it is.
+      return "present but is not a column on the pipe input table";
+    case NameTarget::AMBIGUOUS:
+      return "ambiguous";
+    default:
+      return "present but is not a column";
+  }
+}
+
+// Shared helper for pipe DROP, RENAME and SET that fills in the map of
+// columns to update, handling several error conditions.
+// `item_struct_map` is map from target column name to a struct with at least
+// these fields:
+//   struct ItemStruct {
+//     const ASTIdentifier* ast_identifier;  // Target column name
+//     bool found;  // false means not found yet. This will be updated.
+//   }
+template <class ItemStructMap>
+static absl::Status FillItemStructFromNameListColumns(
+    ItemStructMap* item_struct_map, const NameList& name_list,
+    const NameScope* scope, bool must_be_unambiguous_in_name_list,
+    bool must_be_unambiguous_in_scope, const std::string_view operator_name,
+    const std::string_view operator_verb) {
+  // For each NameList column, update `found` on items it matches.
+  for (const NamedColumn& named_column : name_list.columns()) {
+    auto* item_struct = zetasql_base::FindOrNull(*item_struct_map, named_column.name());
+    if (item_struct != nullptr) {
+      if (must_be_unambiguous_in_name_list && item_struct->found) {
+        return MakeSqlErrorAt(item_struct->ast_identifier)
+               << "Column name in pipe " << operator_name
+               << " exists more than once in input table: "
+               << ToIdentifierLiteral(named_column.name());
+      }
+      item_struct->found = true;
+    }
+  }
+
+  // Handle item names that weren't found in the NameList.
+  for (const auto& map_entry : *item_struct_map) {
+    const auto& item_struct = map_entry.second;
+
+    // Do a NameScope lookup if we might need it below.
+    NameTarget target;
+    bool found_in_scope = false;
+    if (!item_struct.found || must_be_unambiguous_in_scope) {
+      found_in_scope = scope->LookupName(map_entry.first, &target);
+    }
+
+    // Give an error if we didn't find a matching column in the NameList.
+    //
+    // If a name was in the NameScope (a non-column or non-local column or
+    // ambiguity), the error will say what was found instead of a column.
+    //
+    // The second condition is used in RENAME.  Since NameScope makes range
+    // variables always override columns, it never reports an ambiguity between
+    // columns and range variables.  We searched the NameList for columns,
+    // which won't find the range variable that's in the scope, which
+    // the name would resolve to in expressions.  To avoid confusion, we make it
+    // an error if a non-column was found in the NameScope lookup.
+    //
+    // This doesn't apply for SET and DROP, where it's allowed to drop/hide a
+    // range variable, as long as there was also a matching column in the
+    // NameList.
+    if (!item_struct.found ||
+        (must_be_unambiguous_in_scope && !target.IsColumn())) {
+      if (found_in_scope) {
+        return MakeSqlErrorAt(item_struct.ast_identifier)
+               << "Name in pipe " << operator_name << " is "
+               << GetTargetKindNameForPipeSetOrDropError(target) << "; "
+               << operator_name << " can only " << operator_verb
+               << " columns: " << ToIdentifierLiteral(map_entry.first);
+      } else {
+        return MakeSqlErrorAt(item_struct.ast_identifier)
+               << "Column name in pipe " << operator_name
+               << " not found in input table: "
+               << ToIdentifierLiteral(map_entry.first);
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeDrop(
+    const ASTPipeDrop* pipe_drop, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  // Set of names to drop, for MergeOptions.
+  IdStringSetCase column_names_to_drop;
+
+  // Map with additional info for the columns we intend to drop.
+  struct DropItem {
+    const ASTIdentifier* ast_identifier;
+    bool found;  // false means not found yet.
+  };
+  absl::flat_hash_map<IdString, DropItem, IdStringCaseHash,
+                      IdStringCaseEqualFunc>
+      columns_to_drop;
+
+  // Build the set and map, checking the names are valid to drop.
+  for (const ASTIdentifier* identifier :
+       pipe_drop->column_list()->identifier_list()) {
+    const IdString column_name = identifier->GetAsIdString();
+    if (IsInternalAlias(column_name)) {
+      return MakeSqlErrorAt(identifier)
+             << "Cannot use pipe DROP with internal alias "
+             << ToIdentifierLiteral(column_name);
+    }
+    if (!zetasql_base::InsertIfNotPresent(&columns_to_drop, column_name,
+                                 DropItem{identifier, /*found=*/false})) {
+      return MakeSqlErrorAt(identifier)
+             << "Duplicate column name in pipe DROP: "
+             << ToIdentifierLiteral(column_name);
+    }
+    column_names_to_drop.insert(column_name);
+  }
+  ZETASQL_RET_CHECK(!columns_to_drop.empty());
+
+  // Fill the map and check column names exist in the input table.
+  ZETASQL_RETURN_IF_ERROR(FillItemStructFromNameListColumns(
+      &columns_to_drop, **current_name_list, scope,
+      /*must_be_unambiguous_in_name_list=*/false,
+      /*must_be_unambiguous_in_scope=*/false, "DROP", "drop"));
+
+  // Make the new NameList, dropping unwanted columns.  Range variables and
+  // pseudo-columns in scope matching the name will also be dropped.
+  auto new_name_list = std::make_shared<NameList>();
+  ZETASQL_RETURN_IF_ERROR(new_name_list->MergeFrom(
+      **current_name_list, pipe_drop,
+      {.excluded_field_names = &column_names_to_drop}));
+
+  if (new_name_list->num_columns() == 0) {
+    return MakeSqlErrorAt(pipe_drop)
+           << "Pipe DROP dropped all columns in the input table";
+  }
+
+  // We don't add a ProjectScan with a reduced column_list since that isn't
+  // necessary.  Some columns may also still be referencable through the
+  // original range variables, even if they were dropped as top-level columns.
+
+  *current_name_list = std::move(new_name_list);
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeRename(
+    const ASTPipeRename* pipe_rename, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  NameList::MergeOptions::ColumnsToRenameMap columns_to_rename_map;
+
+  // Map with additional info for the columns we intend to rename.
+  struct RenameItem {
+    const ASTIdentifier* ast_identifier;
+    const ASTIdentifier* ast_new_identifier;
+    bool found;  // false means not found yet.
+  };
+  absl::flat_hash_map<IdString, RenameItem, IdStringCaseHash,
+                      IdStringCaseEqualFunc>
+      columns_to_rename;
+
+  // Build the set and map, checking the names are valid to drop.
+  for (const auto& rename_item : pipe_rename->rename_item_list()) {
+    const IdString old_name = rename_item->old_name()->GetAsIdString();
+    const IdString new_name = rename_item->new_name()->GetAsIdString();
+    if (IsInternalAlias(old_name)) {
+      return MakeSqlErrorAt(rename_item->old_name())
+             << "Cannot use pipe RENAME with internal alias "
+             << ToIdentifierLiteral(old_name);
+    }
+    if (IsInternalAlias(new_name)) {
+      return MakeSqlErrorAt(rename_item->new_name())
+             << "Cannot use pipe RENAME with internal alias "
+             << ToIdentifierLiteral(new_name);
+    }
+
+    if (!zetasql_base::InsertIfNotPresent(
+            &columns_to_rename, old_name,
+            RenameItem{rename_item->old_name(), rename_item->new_name(),
+                       /*found=*/false})) {
+      return MakeSqlErrorAt(rename_item->old_name())
+             << "Duplicate column name in pipe RENAME: "
+             << ToIdentifierLiteral(old_name);
+    }
+    ZETASQL_RET_CHECK(
+        zetasql_base::InsertIfNotPresent(&columns_to_rename_map, old_name, new_name));
+  }
+  ZETASQL_RET_CHECK(!columns_to_rename.empty());
+
+  // Fill the map and check column names exist in the input table.
+  ZETASQL_RETURN_IF_ERROR(FillItemStructFromNameListColumns(
+      &columns_to_rename, **current_name_list, scope,
+      /*must_be_unambiguous_in_name_list=*/true,
+      /*must_be_unambiguous_in_scope=*/true, "RENAME", "rename"));
+
+  // Make the new NameList, applying the renames.
+  auto new_name_list = std::make_shared<NameList>();
+  ZETASQL_RETURN_IF_ERROR(
+      new_name_list->MergeFrom(**current_name_list, pipe_rename,
+                               {.columns_to_rename = &columns_to_rename_map}));
+
+  // We don't add a ProjectScan with a reduced column_list since that isn't
+  // necessary.  Some columns may also still be referencable through the
+  // original range variables, even if they were dropped as top-level columns.
+
+  *current_name_list = std::move(new_name_list);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipeSet(
+    const ASTPipeSet* pipe_set, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  static constexpr char kSetClause[] = "pipe SET clause";
+
+  // Map of columns to replace in MergeFrom.
+  NameList::MergeOptions::ColumnsToReplaceMap columns_to_replace_map;
+
+  // Map with additional info for the columns we intend to replace.
+  struct ReplaceItem {
+    const ASTIdentifier* ast_identifier;
+    bool found;  // false means not found yet.
+    ResolvedColumn new_column;
+  };
+  absl::flat_hash_map<IdString, ReplaceItem, IdStringCaseHash,
+                      IdStringCaseEqualFunc>
+      columns_to_replace;
+
+  const IdString scan_alias = MakeIdString("$pipe_set");
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> computed_columns;
+
+  QueryResolutionInfo query_resolution_info(this);
+  query_resolution_info.analytic_resolver()->DisableNamedWindowRefs(kSetClause);
+
+  // Build the two maps, checking the names are valid to replace.
+  for (const ASTPipeSetItem* ast_set_item : pipe_set->set_item_list()) {
+    const ASTIdentifier* identifier = ast_set_item->column();
+    const IdString column_name = identifier->GetAsIdString();
+    if (IsInternalAlias(column_name)) {
+      return MakeSqlErrorAt(identifier)
+             << "Cannot use pipe SET with internal alias "
+             << ToIdentifierLiteral(column_name);
+    }
+
+    ExprResolutionInfo expr_resolution_info(
+        scope, &query_resolution_info,
+        /*top_level_ast_expr_in=*/ast_set_item->expression(),
+        /*column_alias_in=*/column_name, kSetClause);
+
+    std::unique_ptr<const ResolvedExpr> resolved_expr;
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_set_item->expression(),
+                                &expr_resolution_info, &resolved_expr));
+
+    ResolvedColumn column(AllocateColumnId(), scan_alias, column_name,
+                          resolved_expr->annotated_type());
+    computed_columns.push_back(
+        MakeResolvedComputedColumn(column, std::move(resolved_expr)));
+
+    // Don't let the new column be pruned, even if not accessed.
+    // The SQLBuilder ends up not accessing the value if the column is pruned,
+    // and other engines may have the same issue.
+    RecordColumnAccess(column);
+
+    if (!zetasql_base::InsertIfNotPresent(
+            &columns_to_replace, column_name,
+            ReplaceItem{identifier, /*found=*/false, column})) {
+      return MakeSqlErrorAt(identifier) << "Duplicate column name in pipe SET: "
+                                        << ToIdentifierLiteral(column_name);
+    }
+    ZETASQL_RET_CHECK(
+        zetasql_base::InsertIfNotPresent(&columns_to_replace_map, column_name, column));
+  }
+  ZETASQL_RET_CHECK(!columns_to_replace.empty());
+
+  ZETASQL_RET_CHECK(!query_resolution_info.HasAggregation());
+  ZETASQL_RETURN_IF_ERROR(query_resolution_info.CheckComputedColumnListsAreEmpty());
+  if (query_resolution_info.HasAnalytic()) {
+    // Add an AnalyticScan if any window functions were present.
+    // This also makes a ProjectScan if necessary before the AnalyticScan.
+    ZETASQL_RETURN_IF_ERROR(AddAnalyticScan(&query_resolution_info, current_scan));
+  }
+
+  // Add the ProjectScan to compute the replacement columns.  We don't prune
+  // the column_list here because it's not necessary, and because some
+  // some columns may also still be referencable through the original range
+  // variables, even if they were replaced as top-level columns.
+  ZETASQL_RETURN_IF_ERROR(MaybeAddProjectForComputedColumns(std::move(computed_columns),
+                                                    current_scan));
+
+  // Fill the map and check column names exist in the input table.
+  ZETASQL_RETURN_IF_ERROR(FillItemStructFromNameListColumns(
+      &columns_to_replace, **current_name_list, scope,
+      /*must_be_unambiguous_in_name_list=*/true,
+      /*must_be_unambiguous_in_scope=*/false, "SET", "update"));
+
+  // Make the new NameList, applying the updates.  Range variables and
+  // pseudo-columns in scope matching the updated names will also be dropped.
+  auto new_name_list = std::make_shared<NameList>();
+  ZETASQL_RETURN_IF_ERROR(new_name_list->MergeFrom(
+      **current_name_list, pipe_set,
+      {.columns_to_replace = &columns_to_replace_map}));
+
+  *current_name_list = std::move(new_name_list);
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolvePipePivot(
+    const ASTPipePivot* pipe_pivot, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  // `input_is_subquery` is only used for producing errors in strict mode,
+  // which is not relevant here, so just pass true to avoid the errors.
+  return ResolvePivotClause(std::move(*current_scan), *current_name_list, scope,
+                            /*input_is_subquery=*/true,
+                            pipe_pivot->pivot_clause(), current_scan,
+                            current_name_list);
+}
+
+absl::Status Resolver::ResolvePipeUnpivot(
+    const ASTPipeUnpivot* pipe_unpivot, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* current_scan,
+    std::shared_ptr<const NameList>* current_name_list) {
+  return ResolveUnpivotClause(std::move(*current_scan), *current_name_list,
+                              scope, pipe_unpivot->unpivot_clause(),
+                              current_scan, current_name_list);
 }
 
 static absl::Status VerifyNoLimitOrOrderByInRecursiveQuery(
@@ -984,6 +1978,11 @@ absl::Status Resolver::AddAggregateScan(
         aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
       analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_UDAS);
     }
+    if (aggregate_func_call->order_by_item_list_size() > 0 ||
+        aggregate_func_call->limit() != nullptr) {
+      analyzer_output_properties_.MarkRelevant(
+          REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE);
+    }
   }
 
   // If the feature is not enabled, any collation annotation that might exist on
@@ -1010,8 +2009,9 @@ absl::Status Resolver::AddAggregateScan(
     ZETASQL_RETURN_IF_ERROR(
         ResolveHintsForNode(select->group_by()->hint(), aggregate_scan.get()));
     if (query_resolution_info->is_group_by_all()) {
-      analyzer_output_properties_.MarkTargetSyntax(
-          aggregate_scan.get(), SQLBuildTargetSyntax::kGroupByAll);
+      InternalAnalyzerOutputProperties::MarkTargetSyntax(
+          analyzer_output_properties_, aggregate_scan.get(),
+          SQLBuildTargetSyntax::kGroupByAll);
     }
   }
 
@@ -1053,6 +2053,19 @@ absl::Status Resolver::AddAnonymizedAggregateScan(
     ZETASQL_RETURN_IF_ERROR(ResolveAnonymizationOptionsList(
         select->select_with()->options(), *query_resolution_info,
         &resolved_anonymization_options));
+  }
+
+  for (const auto& aggregate_column :
+       query_resolution_info->aggregate_columns_to_compute()) {
+    if (aggregate_column->expr()->Is<ResolvedAggregateFunctionCall>()) {
+      auto* aggregate_func_call =
+          aggregate_column->expr()->GetAs<ResolvedAggregateFunctionCall>();
+      if (aggregate_func_call->order_by_item_list_size() > 0 ||
+          aggregate_func_call->limit() != nullptr) {
+        analyzer_output_properties_.MarkRelevant(
+            REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE);
+      }
+    }
   }
 
   switch (query_resolution_info->select_with_mode()) {
@@ -1159,6 +2172,11 @@ Resolver::AddAggregationThresholdAggregateScan(
         aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
       analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_UDAS);
     }
+    if (aggregate_func_call->order_by_item_list_size() > 0 ||
+        aggregate_func_call->limit() != nullptr) {
+      analyzer_output_properties_.MarkRelevant(
+          REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE);
+    }
   }
   // Add the aggregation threshold rewriter.
   analyzer_output_properties_.MarkRelevant(REWRITE_AGGREGATION_THRESHOLD);
@@ -1230,6 +2248,12 @@ static absl::Status CreatePostGroupByNameScope(
     std::unique_ptr<const NameScope>* post_group_by_scope_out) {
   const ValidFieldInfoMap* valid_field_info_map =
       &query_resolution_info->group_by_valid_field_info_map();
+  ValidFieldInfoMap empty_map;
+  if (query_resolution_info->IsPipeAggregate()) {
+    // In pipe AGGREGATE, we pass an empty ValidFieldInfoMap because we
+    // don't want any non-aggregated column references to be valid.
+    valid_field_info_map = &empty_map;
+  }
 
   std::unique_ptr<NameScope> post_group_by_scope;
   ZETASQL_RETURN_IF_ERROR(pre_group_by_scope->CreateNameScopeGivenValidNamePaths(
@@ -1436,7 +2460,7 @@ absl::Status Resolver::AddRemainingScansForSelect(
     ZETASQL_RETURN_IF_ERROR(MakeResolvedOrderByScan(
         order_by->hint(), query_resolution_info->GetResolvedColumnList(),
         {query_resolution_info->order_by_item_info()},
-        current_scan));
+        /*is_pipe_order_by=*/false, current_scan));
   }
 
   if (order_by == nullptr && !select->distinct()) {
@@ -1446,15 +2470,58 @@ absl::Status Resolver::AddRemainingScansForSelect(
     // with the original plans.  We can probably do better about avoiding
     // unnecessary PROJECT nodes and delay projecting the non-aliased
     // expressions once this refactoring is submitted.
+    // That backwards compatibility issue does not apply for pipe operators.
+    // We do preserve this for pipe SELECT though, so we are consistent in
+    // always producing a ProjectScan reflecting the output schema.
+    if (!query_resolution_info->select_list_columns_to_compute()->empty() ||
+        !query_resolution_info->IsPipeOp() ||
+        query_resolution_info->IsPipeSelect()) {
+      // For pipe EXTEND, if projected columns are pruned from the column_list,
+      // the SQLBuilder will fail.
+      if (query_resolution_info->IsPipeExtend()) {
+        for (const auto& computed_column :
+             *query_resolution_info->select_list_columns_to_compute()) {
+          RecordColumnAccess(computed_column->column());
+        }
+      }
+
       *current_scan = MakeResolvedProjectScan(
           query_resolution_info->GetResolvedColumnList(),
           query_resolution_info->release_select_list_columns_to_compute(),
           std::move(*current_scan));
+    }
+  }
+
+  // If we have ordering from the AGGREGATE list or GROUP BY (in pipe
+  // AGGREGATE), add the ResolvedOrderByScan for that.
+  if (!query_resolution_info->aggregate_order_by_item_info().empty() ||
+      !query_resolution_info->group_by_order_by_item_info().empty()) {
+    ZETASQL_RET_CHECK(query_resolution_info->order_by_item_info().empty());
+
+    // All columns we need to order on already exist, so we don't need
+    // to compute any additional expressions.
+    // The order columns include GROUP BY items first and then AGGREGATE items.
+    ZETASQL_RETURN_IF_ERROR(MakeResolvedOrderByScan(
+        /*order_by_hint=*/nullptr,
+        query_resolution_info->GetResolvedColumnList(),
+        {query_resolution_info->group_by_order_by_item_info(),
+         query_resolution_info->aggregate_order_by_item_info()},
+        /*is_pipe_order_by=*/true, current_scan));
   }
 
   if (limit_offset != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveLimitOffsetScan(
         limit_offset, having_and_order_by_scope, current_scan));
+  }
+
+  // Check column count here, because if there is SELECT AS STRUCT or
+  // SELECT AS PROTO then the column counts will no longer match.
+  // This doesn't work for pipe EXTEND or WINDOW because the column lists may
+  // include pseudo-columns, which aren't counted in NameList::num_columns.
+  if (!query_resolution_info->IsPipeExtendOrWindow()) {
+    ZETASQL_RET_CHECK_EQ(query_resolution_info->pipe_extra_select_items()->size() +
+                     select_column_state_list->Size(),
+                 (*output_name_list)->num_columns());
   }
 
   if (select->select_as() != nullptr) {
@@ -1527,10 +2594,14 @@ absl::Status Resolver::AddColumnsForOrderByExprs(
   return absl::OkStatus();
 }
 
+// This is currently used for ORDER BY after set operations and for
+// pipe ORDER BY.  Resolution of ORDER BY for SELECT is done elsewhere since
+// it gets resolved in two phases.
 absl::Status Resolver::ResolveOrderBySimple(
     const ASTOrderBy* order_by, const NameScope* scope, const char* clause_name,
     OrderBySimpleMode mode, std::unique_ptr<const ResolvedScan>* scan) {
-  ZETASQL_RET_CHECK(mode == OrderBySimpleMode::kNormal    //
+  ZETASQL_RET_CHECK(mode == OrderBySimpleMode::kNormal ||
+            mode == OrderBySimpleMode::kPipes
   );
 
   // We use a new QueryResolutionInfo because resolving the ORDER BY
@@ -1541,6 +2612,8 @@ absl::Status Resolver::ResolveOrderBySimple(
 
   query_resolution_info->analytic_resolver()->DisableNamedWindowRefs(
       clause_name);
+
+  bool is_pipes = mode == OrderBySimpleMode::kPipes;
 
   ExprResolutionInfo expr_resolution_info(
       scope, scope, scope, /*allows_aggregation_in=*/false,
@@ -1586,16 +2659,20 @@ absl::Status Resolver::ResolveOrderBySimple(
 
   return MakeResolvedOrderByScan(order_by->hint(), output_columns,
                                  {query_resolution_info->order_by_item_info()},
-                                 scan);
+                                 is_pipes, scan);
 }
 
 absl::Status Resolver::ResolveOrderByItems(
     const std::vector<ResolvedColumn>& output_column_list,
-    const OrderByItemInfoVectorList& order_by_info_lists,
+    const OrderByItemInfoVectorList& order_by_info_lists, bool is_pipe_order_by,
     std::vector<std::unique_ptr<const ResolvedOrderByItem>>*
         resolved_order_by_items) {
   resolved_order_by_items->clear();
 
+  // There is always exactly one vector of OrderByInfo for standard ORDER BY
+  // and for pipe ORDER BY.
+  // For pipe AGGREGATE, there can be two vectors, from the GROUP BY and
+  // AGGREGATE lists, and the nested loops will concatenate them.
   ZETASQL_RET_CHECK(!order_by_info_lists.empty());
   for (const auto& order_by_info_vector : order_by_info_lists) {
     for (const OrderByItemInfo& item_info : order_by_info_vector.get()) {
@@ -1603,6 +2680,15 @@ absl::Status Resolver::ResolveOrderByItems(
       if (item_info.is_select_list_index()) {
         if (item_info.select_list_index < 0 ||
             item_info.select_list_index >= output_column_list.size()) {
+          if (is_pipe_order_by) {
+            // Note that the error for ordinal < 1 is produced earlier, in
+            // ResolveOrderByExprs.
+            return MakeSqlErrorAt(item_info.ast_location)
+                   << "ORDER BY column number exceeds input table column "
+                      "count: "
+                   << item_info.select_list_index + 1 << " vs "
+                   << output_column_list.size();
+          }
           return MakeSqlErrorAt(item_info.ast_location)
                  << "ORDER BY is out of SELECT column number range: "
                  << item_info.select_list_index + 1;
@@ -1628,6 +2714,8 @@ absl::Status Resolver::ResolveOrderByItems(
       auto resolved_order_by_item = MakeResolvedOrderByItem(
           std::move(resolved_column_ref), std::move(resolved_collation_name),
           item_info.is_descending, item_info.null_order);
+      resolved_order_by_item->SetParseLocationRange(
+          item_info.ast_location->GetParseLocationRange());
       if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
         ZETASQL_RETURN_IF_ERROR(
             CollationAnnotation::ResolveCollationForResolvedOrderByItem(
@@ -1655,14 +2743,14 @@ absl::Status Resolver::ResolveOrderByItems(
 absl::Status Resolver::MakeResolvedOrderByScan(
     const ASTHint* order_by_hint,
     const std::vector<ResolvedColumn>& output_column_list,
-    const OrderByItemInfoVectorList& order_by_info_lists,
+    const OrderByItemInfoVectorList& order_by_info_lists, bool is_pipe_order_by,
     std::unique_ptr<const ResolvedScan>* scan) {
   std::vector<std::unique_ptr<const ResolvedOrderByItem>>
       resolved_order_by_items;
 
-  ZETASQL_RETURN_IF_ERROR(
-      ResolveOrderByItems(output_column_list, order_by_info_lists,
-                          &resolved_order_by_items));
+  ZETASQL_RETURN_IF_ERROR(ResolveOrderByItems(output_column_list, order_by_info_lists,
+                                      is_pipe_order_by,
+                                      &resolved_order_by_items));
 
   std::unique_ptr<ResolvedOrderByScan> order_by_scan =
       zetasql::MakeResolvedOrderByScan(output_column_list, std::move(*scan),
@@ -1699,6 +2787,13 @@ absl::Status Resolver::ResolveQueryExpression(
       return ResolveQuery(query_expr->GetAsOrDie<ASTQuery>(), scope,
                           query_alias, /*is_outer_query=*/false, output,
                           output_name_list, inferred_type_for_query);
+    case AST_ALIASED_QUERY_EXPRESSION:
+      return ResolveAliasedQueryExpression(
+          query_expr->GetAsOrDie<ASTAliasedQueryExpression>(), scope, output,
+          output_name_list, inferred_type_for_query);
+    case AST_FROM_QUERY:
+      return ResolveFromQuery(query_expr->GetAsOrDie<ASTFromQuery>(), scope,
+                              output, output_name_list);
 
     default:
       break;
@@ -1708,12 +2803,77 @@ absl::Status Resolver::ResolveQueryExpression(
                                     << query_expr->DebugString();
 }
 
+absl::Status Resolver::ResolveAliasedQueryExpression(
+    const ASTAliasedQueryExpression* aliased_query, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list,
+    const Type* inferred_type_for_query) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  const IdString alias = aliased_query->alias()->GetAsIdString();
+
+  std::shared_ptr<const NameList> query_name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolveQuery(aliased_query->query(), scope, alias,
+                               /*is_outer_query=*/false, output,
+                               &query_name_list, inferred_type_for_query));
+
+  *output_name_list = std::make_shared<const NameList>();
+  ZETASQL_RETURN_IF_ERROR(UpdateNameListForTableAlias(
+      aliased_query, alias, query_name_list, output_name_list));
+
+  return absl::OkStatus();
+}
+
+// Note: inferred_type_for_query is not passed in.  In normal queries, it
+// never propagates into a FROM clause.  For FROM queries with just a single
+// table subquery, it could be applied, but this seems like an obscure case
+// since there is little reason to write `FROM (SELECT ...);`.
+absl::Status Resolver::ResolveFromQuery(
+    const ASTFromQuery* from_query, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  // The parser won't let ASTFromQuery through if the feature is disabled.
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_PIPES));
+
+  const ASTFromClause* from_clause = from_query->from_clause();
+  ZETASQL_RET_CHECK(from_clause != nullptr);
+  ZETASQL_RET_CHECK(from_clause->table_expression() != nullptr);
+
+  std::shared_ptr<const NameList> name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolveTableExpression(
+      from_clause->table_expression(),
+      /*external_scope=*/scope, /*local_scope=*/scope, output, &name_list));
+
+  // If we have a non-value-table NameList with exactly one column, and
+  // that column is a value table column, then we make a new NameList marked
+  // as a value table.  This will make the final query result a value
+  // table if this NameList becomes the final result.
+  //
+  // Value table resolution is inconsistent in ResolveTableExpression's cases.
+  // Some cases set is_value_table on the outer NameList and some don't.
+  if (!name_list->is_value_table() && name_list->num_columns() == 1 &&
+      name_list->column(0).is_value_table_column()) {
+    std::shared_ptr<NameList> new_name_list(new NameList);
+
+    ZETASQL_RETURN_IF_ERROR(new_name_list->MergeFrom(*name_list, from_clause));
+
+    ZETASQL_RETURN_IF_ERROR(new_name_list->SetIsValueTable());
+    name_list = new_name_list;
+  }
+
+  *output_name_list = name_list;
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveAdditionalExprsSecondPass(
     const NameScope* from_clause_or_group_by_scope,
     QueryResolutionInfo* query_resolution_info) {
   for (const auto& entry :
        *query_resolution_info
             ->dot_star_columns_with_aggregation_for_second_pass_resolution()) {
+    ZETASQL_RET_CHECK(!query_resolution_info->IsPipeOp());
     // Re-resolve the source expression for the dot-star expressions that
     // contain aggregation.
     ExprResolutionInfo expr_resolution_info(
@@ -1922,6 +3082,45 @@ absl::Status Resolver::ResolveSelect(
 //
 // For a more detailed discussion, see (broken link).
 //
+// For some pipe operators (listed below), this is called from methods other
+// than ResolveSelect.  We reuse this function because we are trying to share
+// all the complex functionality for the SELECT list and GROUP BY and don't
+// want two forks of that code.
+//
+// Resolving code for these clauses is not easily separable from others
+// due to complex entanglement of SELECT, aggregation, window functions,
+// etc in classic SQL queries.  For pipe operators, the logic becomes
+// mostly no-ops since none of the other clauses are present.
+//
+// For pipe operators, the input scan and NameList come from the input pipe
+// instead of a FROM clause.  The SelectForm enum in QueryResolutionInfo
+// records which case we're in, and is used to restrict or modify behavior
+// and give better error messages earlier.
+//
+// For pipe SELECT, called from ResolvePipeSelect:
+//   * The ASTSelect has a SELECT list and nothing else.
+//   * It resolves similarly to no-from-clause SELECTs. e.g. No aggregation.
+//   * The result is one or more ProjectScans, and nothing else.
+//
+// For pipe AGGREGATE, called from ResolvePipeAggregate:
+//   * The ASTSelect just has a SELECT list (representing aggregate expressions)
+//     and optionally a GROUP BY.
+//   * The SELECT list may be empty (if the GROUP BY is non-empty).
+//   * Expressions must include aggregation.
+//   * Window functions are not allowed.
+//   * The final output includes the GROUP BY columns, followed by the SELECT
+//     columns.
+//   * Name scoping is simplified so the SELECT and GROUP BY expressions are
+//     independent and cannot see each other.
+//   * The result includes an AggregateScan, and sometimes ProjectScans.
+//
+// For pipe WINDOW, called from ResolvePipeWindow:
+//   * The ASTSelect just has a SELECT list (representing window expressions).
+//   * Expressions must include a window function.
+//   * Aggregate functions are not allowed.
+//   * The operator projects new columns onto an existing dataset, so the final
+//     output includes the columns from the input NameList.
+//   * The result includes an AnalyticScan, and sometimes ProjectScans.
 absl::Status Resolver::ResolveSelectAfterFrom(
     const ASTSelect* select, const ASTOrderBy* order_by,
     const ASTLimitOffset* limit_offset, const NameScope* external_scope,
@@ -1968,6 +3167,22 @@ absl::Status Resolver::ResolveSelectAfterFrom(
   // Remember the columns of current scan (after the FROM clause and WHERE, but
   // before SELECT).
   query_resolution_info->set_from_clause_name_list(from_clause_name_list);
+
+  // For pipe EXTEND and WINDOW, all columns and names from the input pass
+  // through, including pseudo-columns and range variables, so we preserve the
+  // full input column_list.  We will also preserve the input NameList,
+  // so the names from this list won't be used.
+  if (query_resolution_info->IsPipeExtendOrWindow()) {
+    const IdString unused_name = MakeIdString("$unused_name");
+    for (const ResolvedColumn& column : (*scan)->column_list()) {
+      query_resolution_info->pipe_extra_select_items()->push_back(
+          PipeExtraSelectItem(unused_name, column));
+    }
+  }
+  if (query_resolution_info->IsPipeOp()) {
+    query_resolution_info->analytic_resolver()->DisableNamedWindowRefs(
+        query_resolution_info->SelectFormClauseName());
+  }
 
   // We avoid passing down the inferred type to the SELECT list if we have a
   // SELECT AS query.
@@ -2087,6 +3302,18 @@ absl::Status Resolver::ResolveSelectAfterFrom(
   }
 
   if (select->group_by() != nullptr) {
+    if (select->group_by()->and_order_by()) {
+      if (!query_resolution_info->IsPipeAggregate()) {
+        return MakeSqlErrorAt(select->group_by())
+               << "GROUP AND ORDER BY is not supported outside pipe AGGREGATE";
+      }
+      if (order_by != nullptr) {
+        return MakeSqlErrorAt(select->group_by())
+               << "Cannot use GROUP AND ORDER BY in a query that also "
+                  "has ORDER BY";
+      }
+      query_resolution_info->set_group_by_has_and_order_by();
+    }
     if (select->group_by()->all() != nullptr) {
       ZETASQL_RETURN_IF_ERROR(ResolveGroupByAll(select->group_by(),
                                         from_scan_scope.get(),
@@ -2119,6 +3346,11 @@ absl::Status Resolver::ResolveSelectAfterFrom(
   }
   if (!query_resolution_info->SelectFormAllowsAnalytic()) {
     ZETASQL_RET_CHECK(!query_resolution_info->HasAnalytic());
+  }
+  if (query_resolution_info->IsPipeAggregate()) {
+    ZETASQL_RET_CHECK(query_resolution_info->HasGroupByOrAggregation());
+  } else if (query_resolution_info->IsPipeWindow()) {
+    ZETASQL_RET_CHECK(query_resolution_info->HasAnalytic());
   }
 
   if (!query_resolution_info->HasGroupByOrAggregation() &&
@@ -2175,6 +3407,21 @@ absl::Status Resolver::ResolveSelectAfterFrom(
   }
 
   std::shared_ptr<NameList> final_project_name_list(new NameList);
+
+  if (query_resolution_info->IsPipeExtendOrWindow()) {
+    // For pipe EXTEND and WINDOW, we preserve all existing names from the
+    // input table, including pseudo-columns and range variables.
+    ZETASQL_RETURN_IF_ERROR(
+        final_project_name_list->MergeFrom(*from_clause_name_list, select));
+  } else {
+    // Add the columns from pipe AGGREGATE group by items into the output
+    // name list.  They'll show up first, before the aggregate columns.
+    for (const PipeExtraSelectItem& item :
+         *query_resolution_info->pipe_extra_select_items()) {
+      ZETASQL_RETURN_IF_ERROR(final_project_name_list->AddColumn(
+          item.alias, item.column, /*is_explicit=*/true));
+    }
+  }
 
   ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsSecondPass(
       query_alias, from_clause_or_group_by_scope, &final_project_name_list,
@@ -2272,9 +3519,13 @@ absl::Status Resolver::ResolveSelectAfterFrom(
       &resolved_having_expr, &resolved_qualify_expr,
       query_resolution_info.get(), output_name_list, scan));
 
+  // Exclude pipe EXTEND and WINDOW because they can include pseudo-columns,
+  // which should be prunable.
+  if (!query_resolution_info->IsPipeExtendOrWindow()) {
     // Any columns produced in a SELECT list (for the final query or any
     // subquery) count as referenced and cannot be pruned.
     RecordColumnAccess((*scan)->column_list());
+  }
 
   // Some sanity checks.
   // Note that we cannot check that the number of columns in the
@@ -3227,6 +4478,8 @@ absl::Status Resolver::ResolveSelectStarModifiers(
     // Override the ast_expr to point at the replacement expression
     // rather than `ast_select_column`, which points at the star expression.
     select_column_state->ast_expr = ast_replace_item->expression();
+    // If order suffixes become possible here, make sure we get the right one.
+    ZETASQL_RET_CHECK(select_column_state->ast_grouping_item_order == nullptr);
 
     if (!column_replacements->replaced_columns
              .emplace(identifier, std::move(select_column_state))
@@ -3610,6 +4863,28 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
 absl::Status Resolver::CheckExprResolutionInfoForQuery(
     const ASTNode* ast_location, QueryResolutionInfo* query_resolution_info,
     const ExprResolutionInfo& expr_resolution_info) {
+  // Errors for expressions that cannot occur are raised during ResolveExpr,
+  // with specific locations.
+  // Errors for missing required expression types are raised here.
+  if (query_resolution_info->IsPipeSelect() ||
+      query_resolution_info->IsPipeExtend()) {
+    ZETASQL_RET_CHECK(!expr_resolution_info.has_aggregation);
+  } else if (query_resolution_info->IsPipeAggregate()) {
+    ZETASQL_RET_CHECK(!expr_resolution_info.has_analytic);
+    if (!expr_resolution_info.has_aggregation) {
+      return MakeSqlErrorAt(ast_location)
+             << "Pipe AGGREGATE cannot include non-aggregate expressions";
+    }
+  } else if (query_resolution_info->IsPipeWindow()) {
+    // Note that ResolveSelectDotStar exits early above, so this error
+    // check needs to be duplicated in that function.
+    ZETASQL_RET_CHECK(!expr_resolution_info.has_aggregation);
+    if (!expr_resolution_info.has_analytic) {
+      return MakeSqlErrorAt(ast_location)
+             << "Pipe WINDOW expression must include a window function "
+                "call (with an OVER clause)";
+    }
+  }
 
   return absl::OkStatus();
 }
@@ -3622,6 +4897,12 @@ absl::Status Resolver::ResolveSelectColumnFirstPass(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK_LE(select_column_state_list_write_idx,
                query_resolution_info->select_column_state_list()->Size());
+
+  // The parser can only produce ordering suffixes in ASTSelectColumns
+  // produced for pipe AGGREGATE.
+  if (!query_resolution_info->IsPipeAggregate()) {
+    ZETASQL_RET_CHECK(ast_select_column->grouping_item_order() == nullptr);
+  }
 
   const ASTExpression* ast_select_expr = ast_select_column->expression();
 
@@ -3878,6 +5159,7 @@ absl::Status Resolver::HandleGroupBySelectColumn(
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr,
     const ResolvedExpr** pre_group_by_expr, ResolvedColumn* group_by_column) {
+  ZETASQL_RET_CHECK(!query_resolution_info->IsPipeOp());
 
   // If this SELECT list column is already being grouped by then we should
   // not be calling this.
@@ -4299,13 +5581,15 @@ absl::Status Resolver::ResolveGroupingSetExpressions(
         ZETASQL_RET_CHECK(field_expression != nullptr);
         ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
             field_expression,
-            from_clause_scope,
+            /*ast_alias=*/nullptr,
+            /*ast_grouping_item_order=*/nullptr, from_clause_scope,
             /*from_grouping_set=*/true, query_resolution_info, &column_list));
       }
     } else {
       ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
           expr,
-          from_clause_scope,
+          /*ast_alias=*/nullptr,
+          /*ast_grouping_item_order=*/nullptr, from_clause_scope,
           /*from_grouping_set=*/true, query_resolution_info, &column_list));
     }
     grouping_set_info.grouping_set_item_list.push_back(column_list);
@@ -4328,9 +5612,21 @@ absl::Status Resolver::ResolveGroupByExprs(
 
   bool has_rollup_or_cube = false;
   for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
+    if (grouping_item->alias() != nullptr) {
+      // The parser only allows aliases on expressions.
+      ZETASQL_RET_CHECK(grouping_item->expression() != nullptr);
+    }
+    if (grouping_item->grouping_item_order() != nullptr) {
+      // The parser only allows ASC/DESC ordering suffixes on expressions.
+      ZETASQL_RET_CHECK(grouping_item->expression() != nullptr);
+    }
 
     if (grouping_item->rollup() != nullptr) {
       // GROUP BY ROLLUP
+      if (query_resolution_info->group_by_has_and_order_by()) {
+        return MakeSqlErrorAt(grouping_item)
+               << "GROUP AND ORDER BY cannot be used with ROLLUP";
+      }
       has_rollup_or_cube = true;
       const ASTRollup* rollup = grouping_item->rollup();
       ZETASQL_RETURN_IF_ERROR(ValidateRollup(rollup, language(),
@@ -4343,6 +5639,10 @@ absl::Status Resolver::ResolveGroupByExprs(
       break;
     } else if (grouping_item->cube() != nullptr) {
       // GROUP BY CUBE
+      if (query_resolution_info->group_by_has_and_order_by()) {
+        return MakeSqlErrorAt(grouping_item)
+               << "GROUP AND ORDER BY cannot be used with CUBE";
+      }
       has_rollup_or_cube = true;
       const ASTCube* cube = grouping_item->cube();
       ZETASQL_RETURN_IF_ERROR(
@@ -4352,6 +5652,10 @@ absl::Status Resolver::ResolveGroupByExprs(
           query_resolution_info));
     } else if (grouping_item->grouping_set_list() != nullptr) {
       // GROUP BY GROUPING SETS
+      if (query_resolution_info->group_by_has_and_order_by()) {
+        return MakeSqlErrorAt(grouping_item)
+               << "GROUP AND ORDER BY cannot be used with GROUPING SETS";
+      }
       const ASTGroupingSetList* grouping_set_list =
           grouping_item->grouping_set_list();
       ZETASQL_RETURN_IF_ERROR(ValidateGroupingSetList(
@@ -4398,9 +5702,17 @@ absl::Status Resolver::ResolveGroupByExprs(
       }
     } else if (grouping_item->expression() != nullptr) {
       // GROUP BY expressions
+      if (grouping_item->grouping_item_order() != nullptr) {
+        if (!query_resolution_info->IsPipeAggregate()) {
+          return MakeSqlErrorAt(grouping_item->grouping_item_order())
+                 << "GROUP BY does not support order specification outside "
+                    "pipe AGGREGATE";
+        }
+      }
+
       ZETASQL_RETURN_IF_ERROR(ResolveGroupingItemExpression(
-          grouping_item->expression(),
-          from_clause_scope,
+          grouping_item->expression(), grouping_item->alias(),
+          grouping_item->grouping_item_order(), from_clause_scope,
           /*from_grouping_set=*/false, query_resolution_info));
     } else {
       // This is GROUP BY ()
@@ -4414,7 +5726,16 @@ absl::Status Resolver::ResolveGroupByExprs(
       } else {
         return MakeSqlErrorAt(grouping_item) << "GROUP BY () is not supported";
       }
+      if (query_resolution_info->group_by_has_and_order_by()) {
+        return MakeSqlErrorAt(grouping_item)
+               << "GROUP AND ORDER BY cannot be used with GROUP BY ()";
+      }
     }
+
+    // GROUP AND ORDER BY is only allowed on expression items.
+    // Errors should have been produced in all other cases above.
+    ZETASQL_RET_CHECK(grouping_item->expression() != nullptr ||
+              !query_resolution_info->group_by_has_and_order_by());
   }
   if (has_rollup_or_cube &&
       language().LanguageFeatureEnabled(FEATURE_V_1_4_GROUPING_SETS)) {
@@ -4463,8 +5784,14 @@ absl::Status Resolver::ResolveGroupByExprs(
 // 7) Add a ResolvedComputedColumn for the GROUP BY expression.
 // 8) If the expression is from a grouping set, then add the
 //    ResolvedComputedColumn to the passed-in GroupingSetItem.
+// 9) For pipe aggregate, record the item in PipeExtraSelectItems so the column
+//    can be added to the output.
+// 10) If adding an implicit order by for this GROUP BY column, add an entry
+//     to group_by_order_by_item_info.
 absl::Status Resolver::ResolveGroupingItemExpression(
     const ASTExpression* ast_group_by_expr,
+    const ASTAlias* ast_alias,
+    const ASTGroupingItemOrder* ast_grouping_item_order,
     const NameScope* from_clause_scope, bool from_grouping_set,
     QueryResolutionInfo* query_resolution_info,
     ResolvedComputedColumnList* column_list) {
@@ -4481,6 +5808,10 @@ absl::Status Resolver::ResolveGroupingItemExpression(
   const SelectColumnState* group_by_column_state = nullptr;
   // Determine if the GROUP BY expression exactly matches a SELECT list alias.
   if (ast_group_by_expr->node_kind() == AST_PATH_EXPRESSION
+      // For pipe AGGREGATE, we bypass this case that matches GROUP BY
+      // expressions against SELECT-list aliases.  We don't want aliases
+      // of aggregate expressions to be referencable in the GROUP BY.
+      && !query_resolution_info->IsPipeAggregate()
   ) {
     const ASTPathExpression* path_expr =
         ast_group_by_expr->GetAsOrDie<ASTPathExpression>();
@@ -4527,6 +5858,10 @@ absl::Status Resolver::ResolveGroupingItemExpression(
         !resolved_expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
       const Value& value = resolved_expr->GetAs<ResolvedLiteral>()->value();
       if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
+        if (query_resolution_info->IsPipeAggregate()) {
+          return MakeSqlErrorAt(ast_group_by_expr)
+                 << "GROUP BY ordinal not allowed in pipe AGGREGATE";
+        }
         ZETASQL_RETURN_IF_ERROR(query_resolution_info->select_column_state_list()
                             ->FindAndValidateSelectColumnStateByOrdinal(
                                 /*expr_description=*/"GROUP BY",
@@ -4537,11 +5872,18 @@ absl::Status Resolver::ResolveGroupingItemExpression(
   }
 
   IdString alias = GetAliasForExpression(ast_group_by_expr);
+  if (ast_alias != nullptr) {
+    if (!query_resolution_info->IsPipeAggregate()) {
+      return MakeSqlErrorAt(ast_alias) << "GROUP BY does not support aliases";
+    }
+    alias = ast_alias->GetAsIdString();
+  } else {
     if (alias.empty()) {
       alias = MakeIdString(absl::StrCat(
           "$groupbycol",
           query_resolution_info->group_by_column_state_list().size() + 1));
     }
+  }
 
   ResolvedColumn group_by_column;
   // This means the current group by column is a select column alias.
@@ -4551,6 +5893,9 @@ absl::Status Resolver::ResolveGroupingItemExpression(
       // to do more unless the query uses GROUPING SETS, in which case we need
       // to add another entry in the grouping set list for it.
       if (!from_grouping_set) {
+        // This early exit seems unreachable, so hasn't been tested.
+        // We don't want by bypass PipeExtraSelectItem tracking below.
+        ZETASQL_RET_CHECK(!query_resolution_info->IsPipeAggregate());
         return absl::OkStatus();
       }
 
@@ -4620,6 +5965,45 @@ absl::Status Resolver::ResolveGroupingItemExpression(
           group_by_column, std::move(resolved_expr), pre_group_by_expr);
   if (from_grouping_set) {
     column_list->push_back(computed_column);
+  }
+
+  // For pipe AGGREGATE, record the GROUP BY item, which will become an
+  // output column in the result table.
+  if (query_resolution_info->IsPipeAggregate()) {
+    query_resolution_info->pipe_extra_select_items()->push_back(
+        PipeExtraSelectItem(alias, group_by_column));
+  }
+
+  // Set up the ordering column if we have GROUP AND ORDER BY or the
+  // expression has ASC/DESC attached.
+  if (ast_grouping_item_order != nullptr ||
+      query_resolution_info->group_by_has_and_order_by()) {
+    ResolvedOrderByItemEnums::NullOrderMode null_order =
+        ResolvedOrderByItemEnums::ORDER_UNSPECIFIED;
+    if (ast_grouping_item_order != nullptr) {
+      if (!query_resolution_info->group_by_has_and_order_by() &&
+          ast_grouping_item_order->null_order() != nullptr &&
+          ast_grouping_item_order->ordering_spec() ==
+              ASTOrderingExpression::UNSPECIFIED) {
+        return MakeSqlErrorAt(ast_grouping_item_order->null_order())
+               << "GROUP BY items cannot have NULLS FIRST/LAST without "
+                  "ASC/DESC except when using GROUP AND ORDER BY";
+      }
+      ZETASQL_ASSIGN_OR_RETURN(null_order, ResolveNullOrderMode(
+                                       ast_grouping_item_order->null_order()));
+    }
+
+    // We will order by <group_by_column> directly, rather than a
+    // ResolvedExpression.  AddColumnsForOrderByExprs (which normally adds
+    // these columns) will not be called on this vector.
+    query_resolution_info->mutable_group_by_order_by_item_info()->emplace_back(
+        ast_group_by_expr,
+        /*ast_collate_in=*/nullptr, /*order_column=*/group_by_column,
+        /*is_descending=*/
+        (ast_grouping_item_order != nullptr
+             ? ast_grouping_item_order->descending()
+             : false),
+        null_order);
   }
 
   return absl::OkStatus();
@@ -4737,10 +6121,14 @@ absl::Status Resolver::ResolveSelectColumnSecondPass(
       }
     } else {
       const char* clause_name = "SELECT list";
+      if (query_resolution_info->IsPipeAggregate()) {
+        clause_name = "AGGREGATE list";
+      }
       ExprResolutionInfo expr_resolution_info(
           group_by_scope, group_by_scope, group_by_scope,
           /*allows_aggregation_in=*/true,
           /*allows_analytic_in=*/true,
+          /*use_post_grouping_columns_in=*/
           query_resolution_info->HasGroupByOrAggregation(), clause_name,
           query_resolution_info, select_column_state->ast_expr,
           select_column_state->alias);
@@ -4753,6 +6141,10 @@ absl::Status Resolver::ResolveSelectColumnSecondPass(
         // expression that exactly matches the ResolvedExpr from the
         // first pass resolution.
         bool found_group_by_expression = false;
+        // I didn't find any cases where the loop can find a match, but I don't
+        // think we ever want matches here anyway, so I'm skipping the search
+        // rather than asserting it finds nothing.
+        if (!query_resolution_info->IsPipeAggregate()) {
           for (const GroupByColumnState& group_by_column_state :
                query_resolution_info->group_by_column_state_list()) {
             ZETASQL_ASSIGN_OR_RETURN(
@@ -4771,6 +6163,7 @@ absl::Status Resolver::ResolveSelectColumnSecondPass(
               break;
             }
           }
+        }
         if (!found_group_by_expression) {
           // TODO: Improve error message to say that expressions didn't
           // match.
@@ -4801,6 +6194,24 @@ absl::Status Resolver::ResolveSelectColumnSecondPass(
                       ->AddColumn(select_column_state->alias,
                                   select_column_state->resolved_select_column,
                                   select_column_state->is_explicit));
+
+  // If the select item has an ordering suffix (which can occur only in
+  // pipe AGGREGATE), add the OrderByItemInfo for it, pointing at the
+  // post-aggregate ResolvedColumn.
+  const ASTGroupingItemOrder* ast_grouping_item_order =
+      select_column_state->ast_grouping_item_order;
+  if (ast_grouping_item_order != nullptr) {
+    ZETASQL_RET_CHECK(query_resolution_info->IsPipeAggregate());
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        const ResolvedOrderByItemEnums::NullOrderMode null_order,
+        ResolveNullOrderMode(ast_grouping_item_order->null_order()));
+
+    query_resolution_info->mutable_aggregate_order_by_item_info()->emplace_back(
+        select_column_state->ast_expr,
+        /*ast_collate_in=*/nullptr, select_column_state->resolved_select_column,
+        ast_grouping_item_order->descending(), null_order);
+  }
 
   return absl::OkStatus();
 }
@@ -7188,11 +8599,10 @@ absl::Status Resolver::ResolveTableExpression(
           table_expr->GetAsOrDie<ASTParenthesizedJoin>(), external_scope,
           local_scope, output, output_name_list);
 
-    case AST_TVF: {
-      std::vector<ResolvedTVFArg> tvf_args;
+    case AST_TVF:
       return ResolveTVF(table_expr->GetAsOrDie<ASTTVF>(), external_scope,
-                        local_scope, &tvf_args, output, output_name_list);
-    }
+                        local_scope, /*pipe_input_arg=*/nullptr, output,
+                        output_name_list);
 
     default:
       return MakeSqlErrorAt(table_expr)
@@ -8278,6 +9688,12 @@ absl::Status Resolver::ResolveTableSubquery(
       // but it doesn't have a value table column.  This happens for UNION
       // of value tables, for one example.  Calling this function
       // builds a NameList containing a value table column.
+      // TODO This should be fixed by setting up the value table
+      // NameList properly in the first place, rather than fixing it when
+      // handling a table subquery.  If we have a pipe operator after this
+      // input table without a table subquery, the value table won't work.
+      // e.g. The test with a parenthesized UNION ALL producing a value
+      // table exposes this problem.
       auto new_name_list = std::make_shared<NameList>();
       ZETASQL_RETURN_IF_ERROR(ConvertValueTableNameListToNameListWithValueTable(
           table_ref, alias, subquery_name_list, &new_name_list));
@@ -9329,8 +10745,7 @@ absl::StatusOr<const TableValuedFunction*> FindTVFOrMakeNiceError(
 
 absl::Status Resolver::ResolveTVF(
     const ASTTVF* ast_tvf, const NameScope* external_scope,
-    const NameScope* local_scope,
-    std::vector<ResolvedTVFArg>* resolved_tvf_args,
+    const NameScope* local_scope, ResolvedTVFArg* pipe_input_arg,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
@@ -9359,13 +10774,15 @@ absl::Status Resolver::ResolveTVF(
                    FindTVFOrMakeNiceError(tvf_name_string, ast_tvf,
                                           analyzer_options_, catalog_));
 
+  std::vector<ResolvedTVFArg> resolved_tvf_args;
   std::unique_ptr<FunctionSignature> result_signature;
   std::vector<TVFInputArgumentType> tvf_input_arguments;
   ZETASQL_RETURN_IF_ERROR(PrepareTVFInputArguments(
       tvf_name_string, ast_tvf, tvf_catalog_entry, external_scope, local_scope,
-      &result_signature, resolved_tvf_args, &tvf_input_arguments));
+      pipe_input_arg, &result_signature, &resolved_tvf_args,
+      &tvf_input_arguments));
 
-  ZETASQL_RET_CHECK_EQ(resolved_tvf_args->size(), tvf_input_arguments.size());
+  ZETASQL_RET_CHECK_EQ(resolved_tvf_args.size(), tvf_input_arguments.size());
 
   // Call the TableValuedFunction::Resolve method to get the output schema.
   // Use a new empty cycle detector, or the cycle detector from an enclosing
@@ -9471,7 +10888,7 @@ absl::Status Resolver::ResolveTVF(
 
   // Create the resolved TVF scan.
   std::vector<const ResolvedTVFArgument*> final_resolved_tvf_args;
-  for (ResolvedTVFArg& arg : *resolved_tvf_args) {
+  for (ResolvedTVFArg& arg : resolved_tvf_args) {
     if (arg.IsExpr()) {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
                        arg.MoveExpr());
@@ -9593,13 +11010,15 @@ absl::Status Resolver::ResolveTVF(
 absl::StatusOr<int> Resolver::MatchTVFSignature(
     const ASTTVF* ast_tvf, const TableValuedFunction* tvf_catalog_entry,
     const NameScope* external_scope, const NameScope* local_scope,
-    const FunctionResolver& function_resolver,
+    const FunctionResolver& function_resolver, ResolvedTVFArg* pipe_input_arg,
     std::unique_ptr<FunctionSignature>* result_signature,
     std::vector<const ASTNode*>* arg_locations,
     std::vector<ResolvedTVFArg>* resolved_tvf_args,
     std::vector<NamedArgumentInfo>* named_arguments,
     SignatureMatchResult* signature_match_result) {
-  ZETASQL_RET_CHECK_EQ(arg_locations->size(), resolved_tvf_args->size());
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  ABSL_DCHECK(arg_locations->empty());
+  ABSL_DCHECK(resolved_tvf_args->empty());
 
   // Get the TVF signature. Each TVF has exactly one signature; overloading is
   // not currently allowed.
@@ -9609,40 +11028,111 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
   const FunctionSignature& function_signature =
       *tvf_catalog_entry->GetSignature(signature_idx);
 
-  const int num_initial_args = static_cast<int>(resolved_tvf_args->size());
   const int num_ast_args = static_cast<int>(ast_tvf->argument_entries().size());
-  const int num_tvf_args = num_initial_args + num_ast_args;
+  const int num_tvf_args = num_ast_args + (pipe_input_arg != nullptr ? 1 : 0);
 
-  if (num_initial_args > 0) {
+  int pipe_input_arg_idx_in_sig = -1;
+  // If we have an initial table argument, find the first table argument in the
+  // signature to match it with.  It must not be a named-only argument or
+  // follow any optional arguments.
+  if (pipe_input_arg != nullptr) {
+    ZETASQL_RET_CHECK(pipe_input_arg->IsScan());
+
     // Make sure the signature has enough table arguments as positional
     // arguments at the front to support these initial table args.
-    bool signature_accepts_initial_args = true;
-    bool named_only = false;
-    if (function_signature.arguments().size() < num_initial_args) {
-      signature_accepts_initial_args = false;
-    } else {
-      for (int sig_idx = 0; sig_idx < num_initial_args; ++sig_idx) {
-        ZETASQL_RET_CHECK((*resolved_tvf_args)[sig_idx].IsScan());
-        const FunctionArgumentType& arg_type =
-            function_signature.argument(sig_idx);
-        if (!arg_type.IsRelation()) {
-          signature_accepts_initial_args = false;
-          break;
-        }
+    for (int sig_idx = 0; sig_idx < function_signature.arguments().size();
+         ++sig_idx) {
+      const FunctionArgumentType& arg_type =
+          function_signature.argument(sig_idx);
+      if (arg_type.IsRelation()) {
         if (arg_type.options().named_argument_kind() == kNamedOnly) {
-          signature_accepts_initial_args = false;
-          named_only = true;
-          break;
+          return MakeSqlErrorAt(ast_tvf)
+                 << "Table-valued function cannot be called with pipe CALL "
+                    "syntax because its first table-typed argument is a "
+                    "named-only argument; Supported signature: "
+                 << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
+                        language(), /*print_template_and_name_details=*/true);
         }
+        // Found the signature argument to use.
+        pipe_input_arg_idx_in_sig = sig_idx;
+        break;
       }
     }
-    if (!signature_accepts_initial_args) {
+    if (pipe_input_arg_idx_in_sig < 0) {
       return MakeSqlErrorAt(ast_tvf)
-             << "Table-valued function cannot be called "
-                "because its signature does not start with "
-             << (num_initial_args == 1 ? "a" : absl::StrCat(num_initial_args))
-             << (named_only ? " positional" : "") << " TABLE argument"
-             << (num_initial_args > 1 ? "s" : "") << "; Supported signature: "
+             << "Table-valued function cannot be called with pipe CALL syntax "
+                "because its signature does not include a table-typed argument"
+                "; Supported signature: "
+             << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
+                    language(), /*print_template_and_name_details=*/true);
+    }
+    // If any optional arguments occur before the table argument, that makes
+    // signature matching more complicated because we can't just insert the
+    // table argument in the right place in positional arguments ahead of time.
+    // We also get more confusing error messages.
+    // This case seems obscure so we disallow it.
+    for (int sig_idx = 0; sig_idx < pipe_input_arg_idx_in_sig; ++sig_idx) {
+      const FunctionArgumentType& arg_type =
+          function_signature.argument(sig_idx);
+      if (arg_type.optional()) {
+        return MakeSqlErrorAt(ast_tvf)
+               << "Table-valued function cannot be called with pipe CALL "
+                  "syntax because it has an optional argument before "
+                  "its first table-typed argument; "
+                  "Supported signature: "
+               << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
+                      language(), /*print_template_and_name_details=*/true);
+      }
+      // It shouldn't be possible that there's a named-only argument before
+      // the table argument since we checked that the table argument is
+      // not named-only above.
+      ZETASQL_RET_CHECK_NE(arg_type.options().named_argument_kind(), kNamedOnly);
+    }
+
+    // The CALL doesn't work if it doesn't have enough arguments to
+    // fill in all arguments that precede the pipe input argument.
+    if (num_ast_args < pipe_input_arg_idx_in_sig) {
+      return MakeSqlErrorAt(ast_tvf)
+             << "Table-valued function call in pipe CALL requires at least "
+             << pipe_input_arg_idx_in_sig << " positional argument "
+             << (pipe_input_arg_idx_in_sig == 1 ? "" : "s")
+             << "because its first table argument is in position "
+             << (pipe_input_arg_idx_in_sig + 1) << ", but the call has "
+             << (num_ast_args == 0
+                     ? "no arguments"
+                     : (num_ast_args == 1 ? "only 1 argument"
+                                          : absl::StrCat("only ", num_ast_args,
+                                                         " arguments")))
+             << "; Supported signature: "
+             << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
+                    language(), /*print_template_and_name_details=*/true);
+    }
+
+    // Require that all arguments passed in the CALL before the input table
+    // argument are positional.  This could be relaxed but it complicates the
+    // signature matching because we can't just insert the table argument
+    // in the correct place.  Errors can also be confusing.
+    int num_ast_positional_args = 0;
+    const ASTNode* ast_node_for_error = ast_tvf;
+    for (; num_ast_positional_args < num_ast_args; ++num_ast_positional_args) {
+      const ASTTVFArgument* ast_arg =
+          ast_tvf->argument_entries()[num_ast_positional_args];
+      const ASTExpression* ast_expr = ast_arg->expr();
+      if (ast_expr != nullptr && ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
+        // If we stopped at a named argument, use that as the error location.
+        // If we had too few total arguments, just point at the function name.
+        ast_node_for_error = ast_expr;
+        break;
+      }
+    }
+    if (num_ast_positional_args < pipe_input_arg_idx_in_sig) {
+      return MakeSqlErrorAt(ast_node_for_error)
+             << "Table-valued function call in pipe CALL requires at least "
+             << pipe_input_arg_idx_in_sig << " positional argument"
+             << (pipe_input_arg_idx_in_sig == 1 ? "" : "s")
+             << " before any named arguments because "
+                "its first table argument is in position "
+             << (pipe_input_arg_idx_in_sig + 1) << "; Supported signature: "
              << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
                     language(), /*print_template_and_name_details=*/true);
     }
@@ -9668,58 +11158,86 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
       sig_idx_to_name_scope_map;
   arg_locations->reserve(num_tvf_args);
   resolved_tvf_args->reserve(num_tvf_args);
-  for (int ast_idx = 0; ast_idx < num_ast_args; ++ast_idx) {
-    int sig_idx = num_initial_args + ast_idx;  // Position in FunctionSignature
-    const ASTExpression* ast_expr =
-        ast_tvf->argument_entries()[ast_idx]->expr();
-    if (ast_expr == nullptr) {
-      arg_locations->push_back(ast_tvf->argument_entries()[ast_idx]);
-    } else {
-      arg_locations->push_back(ast_expr);
-      if (ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
-        // Make sure the language feature is enabled.
-        if (!language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
-          return MakeSqlErrorAt(ast_expr)
-                 << "Named arguments are not supported";
-        }
-        // Add the named argument to the map.
-        const ASTNamedArgument* named_arg = ast_expr->GetAs<ASTNamedArgument>();
-        if (IsNamedLambda(named_arg)) {
-          return MakeSqlErrorAt(named_arg->expr())
-                 << "Lambda arguments are not implemented for TVF";
-        }
-        named_arguments->emplace_back(named_arg->name()->GetAsIdString(),
-                                      sig_idx, named_arg);
-        const absl::string_view arg_name =
-            named_arg->name()->GetAsIdString().ToStringView();
+  for (int arg_idx = 0, current_ast_idx = 0; arg_idx < num_tvf_args;
+       ++arg_idx) {
+    // `arg_idx` is the implicit argument number in the call after the
+    // pipe_input_arg has been inserted.
 
-        sig_idx = -1;
-        for (int j = 0; j < function_signature.arguments().size(); ++j) {
-          const FunctionArgumentType& arg_type = function_signature.argument(j);
-          if (arg_type.has_argument_name() &&
-              zetasql_base::CaseEqual(arg_type.argument_name(), arg_name)) {
-            sig_idx = j;
-            break;
+    if (arg_idx == pipe_input_arg_idx_in_sig) {
+      // The resolved input arg is just the `pipe_input_arg` table scan,
+      // which has already been resolved.
+      resolved_tvf_args->emplace_back(std::move(*pipe_input_arg));
+
+      // For the initial table argument, we don't have an argument location, so
+      // just use the location of the TVF call.
+      arg_locations->push_back(ast_tvf);
+    } else {
+      // ast_idx is the arg position in the AST arguments.
+      int ast_idx = current_ast_idx++;
+
+      // `sig_idx` is the position of the arg in the signature.
+      // Positional arguments come first, so this is initially `arg_idx`.
+      // `sig_idx` will be adjusted below for named arguments.
+      int sig_idx = arg_idx;
+
+      // Hitting this would mean we went off the end of AST args before we
+      // got to use the pipe_input_arg.
+      ZETASQL_RET_CHECK_LT(ast_idx, num_ast_args);
+
+      const ASTTVFArgument* ast_arg = ast_tvf->argument_entries()[ast_idx];
+      const ASTExpression* ast_expr = ast_arg->expr();
+      if (ast_expr == nullptr) {
+        arg_locations->push_back(ast_arg);
+      } else {
+        arg_locations->push_back(ast_expr);
+        if (ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
+          // Make sure the language feature is enabled.
+          if (!language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
+            return MakeSqlErrorAt(ast_expr)
+                   << "Named arguments are not supported";
+          }
+          // Add the named argument to the map.
+          const ASTNamedArgument* named_arg =
+              ast_expr->GetAs<ASTNamedArgument>();
+          if (IsNamedLambda(named_arg)) {
+            return MakeSqlErrorAt(named_arg->expr())
+                   << "Lambda arguments are not implemented for TVF";
+          }
+          named_arguments->emplace_back(named_arg->name()->GetAsIdString(),
+                                        arg_idx, named_arg);
+          const absl::string_view arg_name =
+              named_arg->name()->GetAsIdString().ToStringView();
+
+          sig_idx = -1;
+          for (int j = 0; j < function_signature.arguments().size(); ++j) {
+            const FunctionArgumentType& arg_type =
+                function_signature.argument(j);
+            if (arg_type.has_argument_name() &&
+                zetasql_base::CaseEqual(arg_type.argument_name(), arg_name)) {
+              sig_idx = j;
+              break;
+            }
+          }
+          if (sig_idx == -1) {
+            return MakeSqlErrorAt(ast_expr)
+                   << "Named argument " << arg_name
+                   << " not found in signature for call to function "
+                   << tvf_catalog_entry->FullName();
           }
         }
-        if (sig_idx == -1) {
-          return MakeSqlErrorAt(ast_expr)
-                 << "Named argument " << arg_name
-                 << " not found in signature for call to function "
-                 << tvf_catalog_entry->FullName();
-        }
       }
+      // NOTE: This function is not called for the pipe CALL lhs args.
+      auto tvf_arg_or_status = ResolveTVFArg(
+          ast_arg, external_scope, local_scope,
+          sig_idx < function_signature.arguments().size()
+              ? &function_signature.argument(sig_idx)
+              : nullptr,
+          tvf_catalog_entry, sig_idx,
+          descriptor_arg_present ? &sig_idx_to_name_scope_map : nullptr);
+
+      ZETASQL_RETURN_IF_ERROR(tvf_arg_or_status.status());
+      resolved_tvf_args->push_back(std::move(tvf_arg_or_status).value());
     }
-    // `sig_idx` is the position of the arg in the signature.
-    auto tvf_arg_or_status = ResolveTVFArg(
-        ast_tvf->argument_entries()[ast_idx], external_scope, local_scope,
-        sig_idx < function_signature.arguments().size()
-            ? &function_signature.argument(sig_idx)
-            : nullptr,
-        tvf_catalog_entry, sig_idx,
-        descriptor_arg_present ? &sig_idx_to_name_scope_map : nullptr);
-    ZETASQL_RETURN_IF_ERROR(tvf_arg_or_status.status());
-    resolved_tvf_args->push_back(std::move(tvf_arg_or_status).value());
   }
   ZETASQL_RET_CHECK_EQ(arg_locations->size(), num_tvf_args);
   ZETASQL_RET_CHECK_EQ(resolved_tvf_args->size(), num_tvf_args);
@@ -9731,20 +11249,31 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
   // (descriptor columns can reference table arguments that appear after them
   // in the function call).
   if (descriptor_arg_present) {
-    // Store the NameLists for the initial table args so descriptor matching
-    // can see them.
-    for (int sig_idx = 0; sig_idx < num_initial_args; ++sig_idx) {
-      ZETASQL_RET_CHECK(!sig_idx_to_name_scope_map.contains(sig_idx));
-      ZETASQL_ASSIGN_OR_RETURN(auto name_list,
-                       (*resolved_tvf_args)[sig_idx].GetNameList());
-      sig_idx_to_name_scope_map[sig_idx] =
+    // Store the NameList for the pipe_input_arg so descriptor matching
+    // can see it. This happened in ResolveTVFArg for other table args.
+    if (pipe_input_arg != nullptr) {
+      ZETASQL_RET_CHECK_GE(pipe_input_arg_idx_in_sig, 0);
+      ZETASQL_RET_CHECK(!sig_idx_to_name_scope_map.contains(pipe_input_arg_idx_in_sig));
+      ZETASQL_ASSIGN_OR_RETURN(
+          auto name_list,
+          (*resolved_tvf_args)[pipe_input_arg_idx_in_sig].GetNameList());
+      sig_idx_to_name_scope_map[pipe_input_arg_idx_in_sig] =
           std::make_unique<NameScope>(external_scope, name_list);
     }
 
-    for (int ast_idx = 0; ast_idx < num_ast_args; ast_idx++) {
-      const int sig_idx = ast_idx + num_initial_args;
+    for (int sig_idx = 0, current_ast_idx = 0; sig_idx < num_tvf_args;
+         ++sig_idx) {
+      // `sig_idx` is the index in the FunctionSignature.
+      // `ast_idx` is the arg position in the AST arguments, or -1 for
+      // pipe_input_arg.
+      int ast_idx = -1;
+      if (sig_idx != pipe_input_arg_idx_in_sig) {
+        ast_idx = current_ast_idx++;
+      }
+
       ResolvedTVFArg* resolved_tvf_arg = &(*resolved_tvf_args)[sig_idx];
       if (resolved_tvf_arg->IsDescriptor()) {
+        ZETASQL_RET_CHECK_NE(ast_idx, -1);  // pipe_input_arg is not a descriptor.
         const ASTTVFArgument* ast_tvf_arg =
             ast_tvf->argument_entries()[ast_idx];
         const FunctionArgumentType* function_argument =
@@ -9850,17 +11379,18 @@ absl::Status Resolver::PrepareTVFInputArguments(
     absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
     const TableValuedFunction* tvf_catalog_entry,
     const NameScope* external_scope, const NameScope* local_scope,
+    ResolvedTVFArg* pipe_input_arg,
     std::unique_ptr<FunctionSignature>* result_signature,
     std::vector<ResolvedTVFArg>* resolved_tvf_args,
     std::vector<TVFInputArgumentType>* tvf_input_arguments) {
-  // `resolved_tvf_args` can be non-empty to provide initial args.
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  ZETASQL_RET_CHECK(resolved_tvf_args->empty());
   ZETASQL_RET_CHECK(tvf_input_arguments->empty());
 
   // <arg_locations> and <resolved_tvf_args> reflect the concrete function
-  // call arguments in <result_signature> and match 1:1 to them. For initial
-  // arguments, we don't have an argument location, so just use the location
-  // of the TVF call.
-  std::vector<const ASTNode*> arg_locations(resolved_tvf_args->size(), ast_tvf);
+  // call arguments in <result_signature> and match 1:1 to them.
+  std::vector<const ASTNode*> arg_locations;
   std::vector<NamedArgumentInfo> named_arguments;
 
   SignatureMatchResult signature_match_result;
@@ -9868,8 +11398,8 @@ absl::Status Resolver::PrepareTVFInputArguments(
   ZETASQL_ASSIGN_OR_RETURN(
       const int matching_signature_idx,
       MatchTVFSignature(ast_tvf, tvf_catalog_entry, external_scope, local_scope,
-                        function_resolver, result_signature, &arg_locations,
-                        resolved_tvf_args, &named_arguments,
+                        function_resolver, pipe_input_arg, result_signature,
+                        &arg_locations, resolved_tvf_args, &named_arguments,
                         &signature_match_result));
   ZETASQL_RET_CHECK_EQ(arg_locations.size(), resolved_tvf_args->size());
   const FunctionSignature* function_signature =
@@ -10035,6 +11565,9 @@ absl::Status Resolver::GenerateTVFNotMatchError(
                 analyzer_options_.show_function_signature_mismatch_details());
 }
 
+// NOTE: This will not be called for initial arguments like the pipe CALL lhs.
+// This only does processing of the args on the rhs in the parentheses.
+// So we can't do any processing or checking required on all args here.
 absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
     const ASTTVFArgument* ast_tvf_arg, const NameScope* external_scope,
     const NameScope* local_scope, const FunctionArgumentType* function_argument,
@@ -10059,12 +11592,13 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
       // When X is a value table, TABLE X produces a scan of it as a value
       // table. (The same is true when we have TABLE tvf(...), and the tvf
       // returns a value table.)
-      std::vector<ResolvedTVFArg> tvf_args;
       std::unique_ptr<const ResolvedScan> scan;
       std::shared_ptr<const NameList> name_list;
       ZETASQL_RETURN_IF_ERROR(ResolveTVF(ast_table_clause->tvf(), external_scope,
-                                 local_scope, &tvf_args, &scan, &name_list));
-      resolved_tvf_arg.SetScan(std::move(scan), name_list);
+                                 local_scope, /*pipe_input_arg=*/nullptr, &scan,
+                                 &name_list));
+      resolved_tvf_arg.SetScan(std::move(scan), name_list,
+                               /*is_pipe_input_table=*/false);
     } else {
       // If the TVF argument is a TABLE clause, then the table name can be a
       // WITH clause entry, one of the table arguments to the TVF, or a table
@@ -10075,7 +11609,8 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
         std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolveNamedSubqueryRef(table_path, /*hint=*/nullptr,
                                                 &scan, &name_list));
-        resolved_tvf_arg.SetScan(std::move(scan), name_list);
+        resolved_tvf_arg.SetScan(std::move(scan), name_list,
+                                 /*is_pipe_input_table=*/false);
       } else if (table_path->num_names() == 1 &&
                  function_argument_info_ != nullptr &&
                  function_argument_info_->FindTableArg(
@@ -10088,7 +11623,8 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
         ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsFunctionTableArgument(
             table_path, /*hint=*/nullptr, GetAliasForExpression(table_path),
             /*ast_location=*/ast_table_clause, &scan, &name_list));
-        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list));
+        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list),
+                                 /*is_pipe_input_table=*/false);
       } else {
         ZETASQL_RET_CHECK(ast_expr == nullptr);
         std::unique_ptr<const ResolvedTableScan> table_scan;
@@ -10099,7 +11635,8 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
             /*hints=*/nullptr, /*for_system_time=*/nullptr, external_scope,
             /*remaining_names=*/nullptr, &table_scan, &name_list,
             resolved_columns_from_table_scans_));
-        resolved_tvf_arg.SetScan(std::move(table_scan), std::move(name_list));
+        resolved_tvf_arg.SetScan(std::move(table_scan), std::move(name_list),
+                                 /*is_pipe_input_table=*/false);
       }
     }
     ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
@@ -10166,7 +11703,8 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
           sig_idx_to_name_scope_map->emplace(
               sig_idx, std::make_unique<NameScope>(external_scope, name_list));
         }
-        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list));
+        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list),
+                                 /*is_pipe_input_table=*/false);
       } else if (function_argument->IsConnection()) {
         return MakeSqlErrorAt(ast_expr)
                << "Table-valued function " << tvf_catalog_entry->FullName()
@@ -10229,7 +11767,8 @@ absl::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
                      resolved_tvf_arg.GetNameList());
     if (name_list->is_value_table()) {
       input_arg_type = InputArgumentType::RelationInputArgumentType(
-          TVFRelation::ValueTable(name_list->column(0).column().type()));
+          TVFRelation::ValueTable(name_list->column(0).column().type()),
+          resolved_tvf_arg.IsPipeInputTable());
     } else {
       TVFRelation::ColumnList provided_input_relation_columns;
       provided_input_relation_columns.reserve(name_list->num_columns());
@@ -10243,7 +11782,8 @@ absl::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
             named_column.name().ToString(), named_column.column().type());
       }
       input_arg_type = InputArgumentType::RelationInputArgumentType(
-          TVFRelation(provided_input_relation_columns));
+          TVFRelation(provided_input_relation_columns),
+          resolved_tvf_arg.IsPipeInputTable());
     }
   } else if (resolved_tvf_arg.IsConnection()) {
     ZETASQL_ASSIGN_OR_RETURN(const ResolvedConnection* const connection,
@@ -10407,7 +11947,7 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
   resolved_tvf_arg->SetScan(
       MakeResolvedProjectScan(new_column_list, std::move(new_project_columns),
                               std::move(scan)),
-      std::move(new_project_name_list));
+      std::move(new_project_name_list), resolved_tvf_arg->IsPipeInputTable());
   return absl::OkStatus();
 }
 
@@ -10686,8 +12226,33 @@ absl::Status Resolver::ResolveArrayScan(
   ZETASQL_RET_CHECK_EQ(*resolved_input_scan == nullptr, name_list_input == nullptr);
 
   if (table_ref->sample_clause() != nullptr) {
-    return MakeSqlErrorAt(table_ref)
-           << "TABLESAMPLE cannot be used with arrays";
+    return MakeSqlErrorAt(table_ref->sample_clause())
+           << "TABLESAMPLE is not allowed with array scans";
+  }
+  if (table_ref->pivot_clause() != nullptr) {
+    if (language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS)) {
+      return MakeSqlErrorAt(table_ref->pivot_clause())
+             << "PIVOT is not allowed with array scans";
+    } else {
+      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
+          table_ref->pivot_clause(),
+          DeprecationWarning::PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN,
+          "PIVOT is not allowed with array scans. This will become an error"));
+    }
+  }
+  if (table_ref->unpivot_clause() != nullptr) {
+    if (language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS)) {
+      return MakeSqlErrorAt(table_ref->unpivot_clause())
+             << "UNPIVOT is not allowed with array scans";
+    } else {
+      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
+          table_ref->unpivot_clause(),
+          DeprecationWarning::PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN,
+          "UNPIVOT is not allowed with array scans. This will become an "
+          "error"));
+    }
   }
 
   // We have either an array reference or UNNEST.
@@ -11210,15 +12775,21 @@ absl::Status Resolver::FinishResolvingDescriptor(
 
 absl::Status Resolver::ResolveConnection(
     const ASTExpression* path_expr_or_default,
-    std::unique_ptr<const ResolvedConnection>* resolved_connection) {
+    std::unique_ptr<const ResolvedConnection>* resolved_connection,
+    bool is_default_connection_allowed) {
   if (path_expr_or_default->Is<ASTPathExpression>()) {
     return ResolveConnectionPath(
         path_expr_or_default->GetAsOrDie<ASTPathExpression>(),
         resolved_connection);
   }
   ZETASQL_RET_CHECK(path_expr_or_default->Is<ASTDefaultLiteral>());
-  return MakeSqlErrorAt(path_expr_or_default)
-         << "CONNECTION DEFAULT is not supported";
+  if (!is_default_connection_allowed) {
+    return MakeSqlErrorAt(path_expr_or_default)
+           << "CONNECTION DEFAULT is not supported";
+  }
+  return ResolveDefaultConnection(
+      path_expr_or_default->GetAsOrDie<ASTDefaultLiteral>(),
+      resolved_connection);
 }
 
 absl::Status Resolver::ResolveConnectionPath(
@@ -11232,6 +12803,21 @@ absl::Status Resolver::ResolveConnectionPath(
   if (find_status.code() == absl::StatusCode::kNotFound) {
     return MakeSqlErrorAt(path_expr)
            << "Connection not found: " << path_expr->ToIdentifierPathString();
+  }
+  ZETASQL_RETURN_IF_ERROR(find_status);
+
+  *resolved_connection = MakeResolvedConnection(connection);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveDefaultConnection(
+    const ASTDefaultLiteral* default_literal,
+    std::unique_ptr<const ResolvedConnection>* resolved_connection) {
+  const Connection* connection = nullptr;
+  const absl::Status find_status = catalog_->FindConnection(
+      {"$connection_default"}, &connection, analyzer_options_.find_options());
+  if (find_status.code() == absl::StatusCode::kNotFound) {
+    return MakeSqlErrorAt(default_literal) << "Default connection not found";
   }
   ZETASQL_RETURN_IF_ERROR(find_status);
 

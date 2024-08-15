@@ -173,6 +173,11 @@ class JSONValueConstRef {
   // Returns a JSON string value.
   // Requires IsString() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   std::string GetString() const;
+  // Returns a JSON string value.
+  // Requires IsString() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
+  // This function returns a const ref, avoiding a copy compared to the function
+  // above. The underlying JSONValue must outlive the returned reference.
+  const std::string& GetStringRef() const;
   // Returns a JSON boolean value.
   // Requires IsBoolean() to be true. Otherwise, the call results in ABSL_LOG(FATAL).
   bool GetBoolean() const;

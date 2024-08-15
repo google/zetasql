@@ -249,6 +249,8 @@ struct ExprResolutionInfo {
   // Currently used for initially resolving select list columns, and
   // resolving LIMIT with an empty NameScope, so never resolves against
   // post-grouping columns.
+  // Also used for expressions in pipe operators that could include
+  // window functions like pipe WHERE and EXTEND.
   ExprResolutionInfo(const NameScope* name_scope_in,
                      QueryResolutionInfo* query_resolution_info_in,
                      const ASTExpression* top_level_ast_expr_in = nullptr,
@@ -335,6 +337,13 @@ struct ExprResolutionInfo {
   // Context around if we can flatten and if we're currently actively doing so.
   // See FlattenState for details.
   FlattenState flatten_state;
+
+  // Used to track the enclosing aggregate function when resolving arguments to
+  // an aggregate function that uses multi-level aggregation. Only the immediate
+  // enclosing aggregate function is tracked; `MultiLevelAggregateInfo` is
+  // responsible for tracking the entire set of enclosing aggregate functions.
+  // See `MultiLevelAggregateInfo` for more details.
+  const ASTFunctionCall* enclosing_aggregate_function = nullptr;
 };
 
 // Create a vector<const ASTNode*> from another container.
@@ -364,10 +373,12 @@ class ResolvedTVFArg {
     type_ = EXPR;
   }
   void SetScan(std::unique_ptr<const ResolvedScan> scan,
-               std::shared_ptr<const NameList> name_list) {
+               std::shared_ptr<const NameList> name_list,
+               bool is_pipe_input_table) {
     scan_ = std::move(scan);
     name_list_ = name_list;
     type_ = SCAN;
+    is_pipe_input_table_ = is_pipe_input_table;
   }
   void SetModel(std::unique_ptr<const ResolvedModel> model) {
     model_ = std::move(model);
@@ -412,6 +423,7 @@ class ResolvedTVFArg {
     ZETASQL_RET_CHECK(IsScan());
     return name_list_;
   }
+  bool IsPipeInputTable() const { return is_pipe_input_table_; }
 
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> MoveExpr() {
     ZETASQL_RET_CHECK(IsExpr());
@@ -443,12 +455,19 @@ class ResolvedTVFArg {
     CONNECTION,
     DESCRIPTOR
   } type_ = UNDEFINED;
+
   std::unique_ptr<const ResolvedExpr> expr_;
   std::unique_ptr<const ResolvedScan> scan_;
   std::unique_ptr<const ResolvedModel> model_;
   std::unique_ptr<const ResolvedConnection> connection_;
   std::unique_ptr<const ResolvedDescriptor> descriptor_;
+
+  // If type is SCAN, the NameList of the table being scanned.
   std::shared_ptr<const NameList> name_list_;
+
+  // Indicates whether this is a relation created as a pipe CALL input table.
+  // Can only be true if type_ is SCAN.
+  bool is_pipe_input_table_ = false;
 };
 
 // Computes the default alias to use for an expression.

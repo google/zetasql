@@ -53,6 +53,8 @@ struct FusibleTokens {
   // parts of the identifier will be appended later by the default logic in
   // IsPartOfSameChunk.
   static constexpr char kIdentifier[] = "<id>";
+  // kString matches any string literal, e.g. 'a string'.
+  static constexpr char kString[] = "<string>";
 
   // Contains the list of tokens. The name is short to make initialization list
   // less verbose.

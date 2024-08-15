@@ -22,14 +22,18 @@
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/btree_map.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "zetasql/base/status.h"
 
+using ::testing::ContainerEq;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
@@ -522,6 +526,153 @@ TEST(GetNextStatementKindTest, DefineMacroStmt) {
   StatementProperties statement_properties;
   ZETASQL_EXPECT_OK(GetNextStatementProperties(parse_resume_location, language_options,
                                        &statement_properties));
+}
+
+struct GetTopLevelTableNameFromDDLStatementTestCase {
+  // The SQL string to test
+  std::string sql;
+
+  // The expected top level table name to be extracted from <sql> as an
+  // identifier path string. This is only set if the test case is expected to
+  // succeed.
+  std::string table_name;
+
+  // A substring of the expected error message. This is only set if the test
+  // case is expected to fail.
+  std::string error_message;
+};
+
+TEST(GetTopLevelTableNameFromDDLStatementTest, BasicStatements) {
+  // Success test cases
+  std::vector<GetTopLevelTableNameFromDDLStatementTestCase> success_test_cases =
+      {
+          {"CREATE TABLE apple AS SELECT 1", "apple", ""},
+          {"CREATE TEMP TABLE BANANA (A INT64);", "BANANA", ""},
+          {"CREATE TABLE pear AS SELECT 1", "pear", ""},
+          {"CREATE TEMP TABLE Mango.Peach (A INT64);", "Mango.Peach", ""},
+          {"CREATE TABLE `🍝`.foo.bar AS SELECT 1;", "`🍝`.foo.bar", ""},
+      };
+  for (const GetTopLevelTableNameFromDDLStatementTestCase& test_case :
+       success_test_cases) {
+    ParseResumeLocation parse_resume_location =
+        ParseResumeLocation::FromString(test_case.sql);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::vector<std::string> table_name,
+        GetTopLevelTableNameFromDDLStatement(test_case.sql, LanguageOptions()));
+    EXPECT_EQ(IdentifierPathToString(table_name), test_case.table_name);
+  }
+
+  // Failure test cases
+  std::vector<GetTopLevelTableNameFromDDLStatementTestCase> failure_test_cases =
+      {
+          {"CREATE TEMP FUNCTION foo() RETURNS INT64 AS (1);", "",
+           "Unsupported AST node type"},
+          {"SELECT * FROM FRUITS;", "", "Unsupported AST node type"},
+          {"CREATE TABLE CREATE;", "", "Syntax error"},
+          {"CREATE TABLE my.table.path AS SELECT SELECT SELECT", "",
+           "Syntax error"},
+      };
+  for (const GetTopLevelTableNameFromDDLStatementTestCase& test_case :
+       failure_test_cases) {
+    EXPECT_THAT(
+        GetTopLevelTableNameFromDDLStatement(test_case.sql, LanguageOptions())
+            .status()
+            .message(),
+        HasSubstr(test_case.error_message));
+  }
+}
+
+TEST(GetTopLevelTableNameFromDDLStatementTest, MultiStatementsTest) {
+  {
+    // Test that loops through all the statements in a multi-statement string
+    // to collect all the top level DDL table names.
+    LanguageOptions language_options;
+    std::string sql =
+        "CREATE TABLE Foo AS (SELECT 1 AS number UNION ALL SELECT 2 AS "
+        "number);CREATE TABLE Bar AS (SELECT number * 2 AS doubled_number FROM "
+        "Foo);CREATE TABLE Baz AS (SELECT Foo.number, Bar.doubled_number, "
+        "Foo.number * Bar.doubled_number AS product FROM Foo INNER JOIN Bar);";
+    ParseResumeLocation parse_resume_location =
+        ParseResumeLocation::FromString(sql);
+    bool at_end_of_input = false;
+    int statement_count = 0;
+    std::vector<std::string> table_names;
+    while (!at_end_of_input) {
+      ZETASQL_ASSERT_OK_AND_ASSIGN(
+          std::vector<std::string> table_name,
+          GetTopLevelTableNameFromNextDDLStatement(
+              sql, parse_resume_location, &at_end_of_input, language_options));
+      table_names.push_back(IdentifierPathToString(table_name));
+      statement_count++;
+    }
+    EXPECT_EQ(statement_count, 3);
+    EXPECT_THAT(table_names,
+                ContainerEq(std::vector<std::string>({"Foo", "Bar", "Baz"})));
+  }
+  {
+    // Error: Only CREATE TABLE is supported, but 2nd statement is a query.
+    LanguageOptions language_options;
+    std::string sql =
+        "CREATE TABLE Foo AS (SELECT 1 AS number UNION ALL SELECT 2 AS "
+        "number);SELECT * FROM Foo;CREATE TABLE Baz AS (SELECT Foo.number, "
+        "Bar.doubled_number, "
+        "Foo.number * Bar.doubled_number AS product FROM Foo INNER JOIN Bar);";
+    ParseResumeLocation parse_resume_location =
+        ParseResumeLocation::FromString(sql);
+    bool at_end_of_input = false;
+    int statement_count = 0;
+    std::vector<std::string> table_names;
+    absl::StatusOr<std::vector<std::string>> table_name_or_status;
+    while (!at_end_of_input) {
+      table_name_or_status = GetTopLevelTableNameFromNextDDLStatement(
+          sql, parse_resume_location, &at_end_of_input, language_options);
+      if (table_name_or_status.ok()) {
+        table_names.push_back(
+            IdentifierPathToString(table_name_or_status.value()));
+        statement_count++;
+      } else {
+        at_end_of_input = true;
+      }
+    }
+    EXPECT_EQ(statement_count, 1);
+    EXPECT_THAT(table_names, ContainerEq(std::vector<std::string>({"Foo"})));
+    EXPECT_FALSE(table_name_or_status.ok());
+    EXPECT_THAT(table_name_or_status.status(),
+                StatusIs(absl::StatusCode::kUnimplemented,
+                         HasSubstr("Unsupported AST node type")));
+  }
+  {
+    // Error: Final statement has a syntax error.
+    LanguageOptions language_options;
+    std::string sql =
+        "CREATE TABLE Foo AS (SELECT 1 AS number UNION ALL SELECT 2 AS "
+        "number);CREATE TABLE Bar AS (SELECT number * 2 AS doubled_number FROM "
+        "Foo);CREATE TABLE CREATE TABLE CREATE TABLE";
+    ParseResumeLocation parse_resume_location =
+        ParseResumeLocation::FromString(sql);
+    bool at_end_of_input = false;
+    int statement_count = 0;
+    std::vector<std::string> table_names;
+    absl::StatusOr<std::vector<std::string>> table_name_or_status;
+    while (!at_end_of_input) {
+      table_name_or_status = GetTopLevelTableNameFromNextDDLStatement(
+          sql, parse_resume_location, &at_end_of_input, language_options);
+      if (table_name_or_status.ok()) {
+        table_names.push_back(
+            IdentifierPathToString(table_name_or_status.value()));
+        statement_count++;
+      } else {
+        at_end_of_input = true;
+      }
+    }
+    EXPECT_EQ(statement_count, 2);
+    EXPECT_THAT(table_names,
+                ContainerEq(std::vector<std::string>({"Foo", "Bar"})));
+    EXPECT_FALSE(table_name_or_status.ok());
+    EXPECT_THAT(table_name_or_status.status(),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Syntax error")));
+  }
 }
 
 }  // namespace zetasql

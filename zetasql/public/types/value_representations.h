@@ -33,6 +33,7 @@
 #include "zetasql/public/uuid_value.h"
 #include "zetasql/public/value_content.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
@@ -348,7 +349,7 @@ class JSONRef final
   JSONRef& operator=(const JSONRef&) = delete;
 
   // Returns the json document representation if the value is represented
-  // through the document object. Otherwrise, returns null.
+  // through the document object. Otherwise, returns null.
   std::optional<JSONValueConstRef> document() {
     JSONValue* document = std::get_if<JSONValue>(&value_);
     if (document != nullptr) {

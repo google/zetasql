@@ -242,6 +242,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid BIGNUMERIC value"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid INTERVAL value"));
+  // Casting strings to proto.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Error parsing proto: Message type .* has no field named.*"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Error parsing proto: Expected identifier, got.*"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Protocol buffer missing required field.*"));
 
   // Regex/Like Errors
   //
@@ -385,6 +395,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "Interval overflow during multiplication"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Unsupported date part ("
+      "DAYOFWEEK|DAYOFYEAR|QUARTER|DATE|WEEK|DATETIME|TIME|ISOYEAR|ISOWEEK|"
+      "WEEK_MONDAY|WEEK_TUESDAY|WEEK_WEDNESDAY|WEEK_THURSDAY|WEEK_FRIDAY|"
+      "WEEK_SATURDAY) in EXTRACT FROM INTERVAL"));
 
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Illegal non-space trailing data"));
@@ -416,6 +432,20 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kUnimplemented,
       "Unsupported argument type for percentile_disc."));
+
+  // Expected errors for SPLIT_SUBSTR function.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Delimiter of SPLIT_SUBSTR function must be non-empty"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Text input to SPLIT_SUBSTR function must be valid UTF-8"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Delimiter of SPLIT_SUBSTR function must be valid UTF-8"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Count of SPLIT_SUBSTR function must be non-negative"));
 
   // Parsing and analysis errors.
   //

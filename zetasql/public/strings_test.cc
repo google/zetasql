@@ -61,7 +61,7 @@ constexpr char kUnicodeNotAllowedInBytes1[] =
 constexpr char kUnicodeNotAllowedInBytes2[] =
     "Unicode escape sequence \\U cannot be used in bytes literals";
 
-static void TestIdentifier(const std::string& orig) {
+static void TestIdentifier(absl::string_view orig) {
   const std::string quoted = ToIdentifierLiteral(orig);
   std::string unquoted;
   std::string error_string;
@@ -73,7 +73,7 @@ static void TestIdentifier(const std::string& orig) {
   EXPECT_EQ(orig, unquoted) << "quoted: " << quoted;
 }
 
-static void TestAlwaysQuotedIdentifier(const std::string& orig) {
+static void TestAlwaysQuotedIdentifier(absl::string_view orig) {
   const std::string quoted = ToAlwaysQuotedIdentifierLiteral(orig);
   EXPECT_THAT(quoted, testing::StartsWith("`"));
   EXPECT_THAT(quoted, testing::EndsWith("`"));
@@ -118,8 +118,8 @@ static void TestRawString(const std::string& unquoted) {
 // string mentioned in the test case.
 // This method compares the unescaped <unquoted> against its round trip version
 // i.e. after carrying out escaping followed by unescaping on it.
-static void TestBytesEscaping(const std::string& unquoted,
-                              const std::string& quoted) {
+static void TestBytesEscaping(absl::string_view unquoted,
+                              absl::string_view quoted) {
   std::string unescaped;
   ZETASQL_EXPECT_OK(UnescapeBytes(unquoted, &unescaped)) << quoted;
   const std::string escaped = EscapeBytes(unescaped);
@@ -198,7 +198,7 @@ static void TestRawBytes(const std::string& unquoted) {
                             absl::StrCat("br\"\"\"", unquoted, "\"\"\""));
 }
 
-static void TestParseString(const std::string& orig) {
+static void TestParseString(absl::string_view orig) {
   std::string parsed;
   ZETASQL_EXPECT_OK(ParseStringLiteral(orig, &parsed)) << orig;
 }
@@ -208,7 +208,7 @@ static void TestParseBytes(const std::string& orig) {
   ZETASQL_EXPECT_OK(ParseBytesLiteral(orig, &parsed)) << orig;
 }
 
-static void TestStringEscaping(const std::string& orig) {
+static void TestStringEscaping(absl::string_view orig) {
   const std::string escaped = EscapeString(orig);
   std::string unescaped;
   ZETASQL_EXPECT_OK(UnescapeString(escaped, &unescaped)) << orig;
@@ -864,8 +864,8 @@ static void ExpectParsedBytes(const std::string& expected,
   }
 }
 
-static void ExpectParsedIdentifier(const std::string& expected,
-                                   const std::string& quoted) {
+static void ExpectParsedIdentifier(absl::string_view expected,
+                                   absl::string_view quoted) {
   std::string parsed;
   std::string error_string;
   int error_offset;

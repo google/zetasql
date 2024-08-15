@@ -227,7 +227,7 @@ class FunctionResolver {
   // E.g., the ones in FunctionSignatureMatcher::GetConcreteArguments.
   absl::StatusOr<bool> SignatureMatches(
       const std::vector<const ASTNode*>& arg_ast_nodes,
-      const std::vector<InputArgumentType>& input_arguments,
+      absl::Span<const InputArgumentType> input_arguments,
       const FunctionSignature& signature, bool allow_argument_coercion,
       const NameScope* name_scope,
       std::unique_ptr<FunctionSignature>* result_signature,
@@ -400,7 +400,7 @@ class FunctionResolver {
   absl::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function, const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const std::vector<NamedArgumentInfo>& named_arguments,
+      absl::Span<const NamedArgumentInfo> named_arguments,
       const NameScope* name_scope,
       std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,

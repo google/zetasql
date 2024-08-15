@@ -19,6 +19,7 @@ load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
 load("//bazel:textmapper.bzl", "tm_syntax")
+
 # Placeholder: load py_proto_library
 # Placeholder: load py_binary
 # Placeholder: load py_library
@@ -211,8 +212,8 @@ cc_library(
         ":flex_istream",
         ":flex_tokenizer",
         ":keywords",
+        ":lookahead_transformer",
         ":parse_tree",
-        ":token_disambiguator",
         "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
@@ -297,9 +298,9 @@ cc_library(
 )
 
 cc_library(
-    name = "token_disambiguator",
-    srcs = ["token_disambiguator.cc"],
-    hdrs = ["token_disambiguator.h"],
+    name = "lookahead_transformer",
+    srcs = ["lookahead_transformer.cc"],
+    hdrs = ["lookahead_transformer.h"],
     deps = [
         ":bison_parser_mode",
         ":bison_token_codes",
@@ -326,15 +327,14 @@ cc_library(
 )
 
 cc_test(
-    name = "flex_tokenizer_test",
+    name = "lookahead_transformer_test",
     srcs = [
-        "flex_tokenizer_test.cc",
+        "lookahead_transformer_test.cc",
     ],
     deps = [
         ":bison_parser_mode",
         ":bison_token_codes",
-        ":flex_tokenizer",
-        ":token_disambiguator",
+        ":lookahead_transformer",
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:ret_check",
@@ -468,7 +468,9 @@ cc_library(
         "//zetasql/base:arena",
         "//zetasql/base:check",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
         "//zetasql/parser/macros:macro_catalog",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public/proto:logging_cc_proto",
@@ -537,16 +539,18 @@ cc_test(
     deps = [
         ":parse_tree",
         ":parser",
-        "//zetasql/base:source_location",
+        "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
         "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:error_location_cc_proto",
         "//zetasql/public:parse_location",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

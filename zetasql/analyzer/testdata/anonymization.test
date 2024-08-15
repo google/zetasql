@@ -2032,6 +2032,7 @@ QueryStmt
         |   |   |           +-Literal(type=INT64, value=0)
         |   |   +-order_by_item_list=
         |   |     +-OrderByItem
+        |   |       +-parse_location=265-272
         |   |       +-column_ref=
         |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   +-limit=
@@ -2103,6 +2104,7 @@ QueryStmt
         |   |   |   |           +-Literal(type=INT64, value=0)
         |   |   |   +-order_by_item_list=
         |   |   |     +-OrderByItem
+        |   |   |       +-parse_location=265-272
         |   |   |       +-column_ref=
         |   |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   |   +-limit=
@@ -8467,6 +8469,7 @@ QueryStmt
         |   | |   |     |           |       +-Literal(type=STRING, value="x")
         |   | |   |     |           +-order_by_item_list=
         |   | |   |     |             +-OrderByItem
+        |   | |   |     |               +-parse_location=231-234
         |   | |   |     |               +-column_ref=
         |   | |   |     |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
         |   | |   |     +-input_scan=
@@ -8615,6 +8618,7 @@ QueryStmt
     |         |           |       +-Literal(parse_location=65-68, type=STRING, value="x")
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
+    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
     |         +-input_scan=
@@ -9748,3 +9752,71 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#36)
         +-anonymization_option_list=
           +-max_groups_contributed := Literal(type=INT64, value=1)
+
+==
+
+[language_features=ANONYMIZATION,V_1_1_ORDER_BY_IN_AGGREGATE]
+[enabled_ast_rewrites={{DEFAULTS,+ANONYMIZATION,+ORDER_BY_AND_LIMIT_IN_AGGREGATE|DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE}}]
+# Making sure that ORDER_BY_AND_LIMIT_IN_AGGREGATE rewrite won't step into
+# differentially private aggregates.
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ARRAY_AGG(int64 ORDER BY int64)
+FROM SimpleTypesWithAnonymizationUid
+--
+ALTERNATION GROUP: DEFAULTS,+ANONYMIZATION,+ORDER_BY_AND_LIMIT_IN_AGGREGATE
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |     +-order_by_item_list=
+        |       +-OrderByItem
+        |         +-parse_location=202-207
+        |         +-column_ref=
+        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-anonymization_option_list=
+          +-epsilon := Literal(type=DOUBLE, value=1e+20)
+          +-k_threshold := Literal(type=INT64, value=1)
+
+Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: ARRAY_AGG
+--
+ALTERNATION GROUP: DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+        |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |     +-order_by_item_list=
+        |       +-OrderByItem
+        |         +-parse_location=202-207
+        |         +-column_ref=
+        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-anonymization_option_list=
+          +-epsilon := Literal(type=DOUBLE, value=1e+20)
+          +-k_threshold := Literal(type=INT64, value=1)
+
+Rewrite ERROR: generic::unimplemented: ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter does not support ORDER BY or LIMIT in differentially private aggregate functions

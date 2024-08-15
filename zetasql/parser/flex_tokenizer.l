@@ -340,10 +340,12 @@ loop            return Tokens::KW_LOOP;
 macro           return Tokens::KW_MACRO;
 map             return Tokens::KW_MAP;
 match           return Tokens::KW_MATCH;
+match_recognize return Tokens::KW_MATCH_RECOGNIZE_NONRESERVED;
 matched         return Tokens::KW_MATCHED;
 materialized    return Tokens::KW_MATERIALIZED;
 max             return Tokens::KW_MAX;
 maxvalue        return Tokens::KW_MAXVALUE;
+measures        return Tokens::KW_MEASURES;
 merge           return Tokens::KW_MERGE;
 message         return Tokens::KW_MESSAGE;
 metadata        return Tokens::KW_METADATA;
@@ -372,6 +374,7 @@ over            return Tokens::KW_OVER;
 overwrite       return Tokens::KW_OVERWRITE;
 partition       return Tokens::KW_PARTITION;
 partitions      return Tokens::KW_PARTITIONS;
+pattern         return Tokens::KW_PATTERN;
 percent         return Tokens::KW_PERCENT;
 pivot           return Tokens::KW_PIVOT;
 policies        return Tokens::KW_POLICIES;
@@ -428,6 +431,7 @@ source          return Tokens::KW_SOURCE;
 sql             return Tokens::KW_SQL;
 stable          return Tokens::KW_STABLE;
 start           return Tokens::KW_START;
+static_describe  return Tokens::KW_STATIC_DESCRIBE;
 stored          return Tokens::KW_STORED;
 storing         return Tokens::KW_STORING;
 strict          return Tokens::KW_STRICT;
@@ -536,6 +540,7 @@ zone            return Tokens::KW_ZONE;
 "?"             return '?';
 "!"             return '!';
 "%"             return '%';
+"|>"            return Tokens::KW_PIPE;
 "@"             return '@';
 "@@"            return Tokens::KW_DOUBLE_AT;
 "."             return '.';
@@ -553,16 +558,13 @@ zone            return Tokens::KW_ZONE;
     in better errors for unexpected end of input. But it doesn't skip trailing
     comments.
  */
-<*>{whitespace_no_comments}   {}
+{whitespace_no_comments}   {}
 
-<*>{comment}              {
-  if (preserve_comments_) {
-    return Tokens::COMMENT;
-  }
-}
+{comment}       return Tokens::COMMENT;
 
 <<EOF>>                   {
-  // The location of YYEOF is always [N, N), where N is the length of the input.
+  /* The location of YYEOF is always [N, N), where N is the length of the input.
+  */
   location->mutable_start().SetByteOffset(
       location->mutable_end().GetByteOffset());
   yyterminate();

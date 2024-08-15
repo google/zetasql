@@ -1,0 +1,820 @@
+# This file has tests for GROUP BY with ordering, using AND ORDER and ASC/DESC.
+# After the tests with pipe syntax, it has tests for GROUP BY with aliases in
+# regular syntax, with FEATURE_PIPES turned on and off.
+
+[default language_features=PIPES]
+select 1
+|> AGGREGATE
+   GROUP BY
+      x,
+      x+1 ASC,
+      f() DESC,
+      z ASC NULLS FIRST,
+      zz DESC NULLS LAST,
+      a NULLS FIRST,
+      aa NULLS LAST
+--
+QueryStatement [0-165] [select 1 |...NULLS LAST]
+  Query [0-165] [select 1 |...NULLS LAST]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-165] [|> AGGREGATE...NULLS LAST]
+      Select [12-165] [AGGREGATE...NULLS LAST]
+        SelectList [21-21] []
+        GroupBy [25-165] [GROUP BY...NULLS LAST]
+          GroupingItem [40-41] [x]
+            PathExpression [40-41] [x]
+              Identifier(x) [40-41] [x]
+          GroupingItem [49-56] [x+1 ASC]
+            BinaryExpression(+) [49-52] [x+1]
+              PathExpression [49-50] [x]
+                Identifier(x) [49-50] [x]
+              IntLiteral(1) [51-52] [1]
+            GroupingItemOrder(ASC) [53-56] [ASC]
+          GroupingItem [64-72] [f() DESC]
+            FunctionCall [64-67] [f()]
+              PathExpression [64-65] [f]
+                Identifier(f) [64-65] [f]
+            GroupingItemOrder(DESC) [68-72] [DESC]
+          GroupingItem [80-97] [z ASC NULLS FIRST]
+            PathExpression [80-81] [z]
+              Identifier(z) [80-81] [z]
+            GroupingItemOrder(ASC) [82-97] [ASC NULLS FIRST]
+              NullOrder(NULLS FIRST) [86-97] [NULLS FIRST]
+          GroupingItem [105-123] [zz DESC NULLS LAST]
+            PathExpression [105-107] [zz]
+              Identifier(zz) [105-107] [zz]
+            GroupingItemOrder(DESC) [108-123] [DESC NULLS LAST]
+              NullOrder(NULLS LAST) [113-123] [NULLS LAST]
+          GroupingItem [131-144] [a NULLS FIRST]
+            PathExpression [131-132] [a]
+              Identifier(a) [131-132] [a]
+            GroupingItemOrder(UNSPECIFIED) [133-144] [NULLS FIRST]
+              NullOrder(NULLS FIRST) [133-144] [NULLS FIRST]
+          GroupingItem [152-165] [aa NULLS LAST]
+            PathExpression [152-154] [aa]
+              Identifier(aa) [152-154] [aa]
+            GroupingItemOrder(UNSPECIFIED) [155-165] [NULLS LAST]
+              NullOrder(NULLS LAST) [155-165] [NULLS LAST]
+--
+SELECT
+  1
+|> AGGREGATE
+   GROUP BY x, x + 1 ASC, f() DESC, z ASC NULLS FIRST, zz DESC NULLS LAST, a NULLS FIRST, aa NULLS LAST
+==
+
+# NULLS FIRST/LAST are allowed by the parser without ASC/DESC.
+select 1
+|> AGGREGATE
+   GROUP BY x+1 {{NULLS|NULLS FIRST|AS alias NULLS LAST|alias NULLS FIRST}}
+--
+ALTERNATION GROUP: NULLS
+--
+ERROR: Syntax error: Expected keyword FIRST or keyword LAST but got end of statement [at 3:22]
+   GROUP BY x+1 NULLS
+                     ^
+--
+ALTERNATION GROUP: NULLS FIRST
+--
+QueryStatement [0-49] [select 1 |...NULLS FIRST]
+  Query [0-49] [select 1 |...NULLS FIRST]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-49] [|> AGGREGATE...NULLS FIRST]
+      Select [12-49] [AGGREGATE...NULLS FIRST]
+        SelectList [21-21] []
+        GroupBy [25-49] [GROUP BY x+1 NULLS FIRST]
+          GroupingItem [34-49] [x+1 NULLS FIRST]
+            BinaryExpression(+) [34-37] [x+1]
+              PathExpression [34-35] [x]
+                Identifier(x) [34-35] [x]
+              IntLiteral(1) [36-37] [1]
+            GroupingItemOrder(UNSPECIFIED) [38-49] [NULLS FIRST]
+              NullOrder(NULLS FIRST) [38-49] [NULLS FIRST]
+--
+SELECT
+  1
+|> AGGREGATE
+   GROUP BY x + 1 NULLS FIRST
+--
+ALTERNATION GROUP: AS alias NULLS LAST
+--
+QueryStatement [0-57] [select 1 |...NULLS LAST]
+  Query [0-57] [select 1 |...NULLS LAST]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-57] [|> AGGREGATE...NULLS LAST]
+      Select [12-57] [AGGREGATE...NULLS LAST]
+        SelectList [21-21] []
+        GroupBy [25-57] [GROUP BY x...NULLS LAST]
+          GroupingItem [34-57] [x+1 AS alias NULLS LAST]
+            BinaryExpression(+) [34-37] [x+1]
+              PathExpression [34-35] [x]
+                Identifier(x) [34-35] [x]
+              IntLiteral(1) [36-37] [1]
+            Alias [38-46] [AS alias]
+              Identifier(alias) [41-46] [alias]
+            GroupingItemOrder(UNSPECIFIED) [47-57] [NULLS LAST]
+              NullOrder(NULLS LAST) [47-57] [NULLS LAST]
+--
+SELECT
+  1
+|> AGGREGATE
+   GROUP BY x + 1 AS alias NULLS LAST
+--
+ALTERNATION GROUP: alias NULLS FIRST
+--
+ERROR: Syntax error: Expected end of input but got identifier "alias" [at 3:17]
+   GROUP BY x+1 alias NULLS FIRST
+                ^
+==
+
+# COLLATE is not supported in GROUP BY.
+from t
+|> aggregate count(*)
+   GROUP {{|AND ORDER}} BY k {{|ASC}}
+     COLLATE "abc"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 4:6]
+     COLLATE "abc"
+     ^
+==
+
+select 1
+|> AGGREGATE 1 GROUP AND ORDER BY x, y DESC,
+--
+QueryStatement [0-53] [select 1 |...x, y DESC,]
+  Query [0-53] [select 1 |...x, y DESC,]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-53] [|> AGGREGATE...x, y DESC,]
+      Select [12-53] [AGGREGATE...x, y DESC,]
+        SelectList [22-23] [1]
+          SelectColumn [22-23] [1]
+            IntLiteral(1) [22-23] [1]
+        GroupBy(and_order_by=true) [24-53] [GROUP AND ORDER BY x, y DESC,]
+          GroupingItem [43-44] [x]
+            PathExpression [43-44] [x]
+              Identifier(x) [43-44] [x]
+          GroupingItem [46-52] [y DESC]
+            PathExpression [46-47] [y]
+              Identifier(y) [46-47] [y]
+            GroupingItemOrder(DESC) [48-52] [DESC]
+--
+SELECT
+  1
+|> AGGREGATE
+     1
+   GROUP AND ORDER BY x, y DESC
+==
+
+# Ordering suffixes are not supported on non-expression items.
+select 1
+|> AGGREGATE 1
+   GROUP BY {{ALL|()|ROLLUP(x)|CUBE(x)|GROUPING SETS(x)}} ASC
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 3:13]
+   GROUP BY ALL ASC
+            ^
+--
+ALTERNATION GROUP: ()
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 3:16]
+   GROUP BY () ASC
+               ^
+--
+ALTERNATION GROUP: ROLLUP(x)
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 3:23]
+   GROUP BY ROLLUP(x) ASC
+                      ^
+--
+ALTERNATION GROUP: CUBE(x)
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 3:21]
+   GROUP BY CUBE(x) ASC
+                    ^
+--
+ALTERNATION GROUP: GROUPING SETS(x)
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 3:30]
+   GROUP BY GROUPING SETS(x) ASC
+                             ^
+==
+
+# AND ORDER BY will parse for non-expression items, but won't be accepted
+# in the analyzer.
+select 1
+|> AGGREGATE 1
+   GROUP AND ORDER BY {{ALL|(),ROLLUP(x),CUBE(x),GROUPING SETS(x)}}
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 3:23]
+   GROUP AND ORDER BY ALL
+                      ^
+--
+ALTERNATION GROUP: (),ROLLUP(x),CUBE(x),GROUPING SETS(x)
+--
+QueryStatement [0-83] [select 1 |...GROUPING SETS(x)]
+  Query [0-83] [select 1 |...GROUPING SETS(x)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAggregate [9-83] [|> AGGREGATE...ROUPING SETS(x)]
+      Select [12-83] [AGGREGATE...GROUPING SETS(x)]
+        SelectList [22-23] [1]
+          SelectColumn [22-23] [1]
+            IntLiteral(1) [22-23] [1]
+        GroupBy(and_order_by=true) [27-83] [GROUP AND...GROUPING SETS(x)]
+          GroupingItem [46-48] [()]
+          GroupingItem [49-58] [ROLLUP(x)]
+            Rollup [49-58] [ROLLUP(x)]
+              PathExpression [56-57] [x]
+                Identifier(x) [56-57] [x]
+          GroupingItem [59-66] [CUBE(x)]
+            Cube [59-66] [CUBE(x)]
+              PathExpression [64-65] [x]
+                Identifier(x) [64-65] [x]
+          GroupingItem [67-83] [GROUPING SETS(x)]
+            GroupingSetList [67-83] [GROUPING SETS(x)]
+              GroupingSet [81-82] [x]
+                PathExpression [81-82] [x]
+                  Identifier(x) [81-82] [x]
+--
+SELECT
+  1
+|> AGGREGATE
+     1
+   GROUP AND ORDER BY (), ROLLUP(x), CUBE(x), GROUPING SETS(x)
+==
+
+# Ordering modifiers in combination with aliases.
+from x
+|> AGGREGATE
+   GROUP AND ORDER BY x+1 AS y ASC
+--
+QueryStatement [0-54] [from x |>...1 AS y ASC]
+  Query [0-54] [from x |>...1 AS y ASC]
+    FromQuery [0-6] [from x]
+      FromClause [0-6] [from x]
+        TablePathExpression [5-6] [x]
+          PathExpression [5-6] [x]
+            Identifier(x) [5-6] [x]
+    PipeAggregate [7-54] [|> AGGREGATE...1 AS y ASC]
+      Select [10-54] [AGGREGATE...1 AS y ASC]
+        SelectList [19-19] []
+        GroupBy(and_order_by=true) [23-54] [GROUP AND...1 AS y ASC]
+          GroupingItem [42-54] [x+1 AS y ASC]
+            BinaryExpression(+) [42-45] [x+1]
+              PathExpression [42-43] [x]
+                Identifier(x) [42-43] [x]
+              IntLiteral(1) [44-45] [1]
+            Alias [46-50] [AS y]
+              Identifier(y) [49-50] [y]
+            GroupingItemOrder(ASC) [51-54] [ASC]
+--
+FROM
+  x
+|> AGGREGATE
+   GROUP AND ORDER BY x + 1 AS y ASC
+==
+
+from x
+|> AGGREGATE
+   GROUP BY x+1 ASC AS y
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:21]
+   GROUP BY x+1 ASC AS y
+                    ^
+==
+
+# Now we try using order modifiers in regular GROUP BY syntax,
+# with FEATURE_PIPES turned on or off.  With PIPES disabled, these are
+# rejected immediately in parser.  With PIPES enabled, they parse
+# but will be rejected during analysis.
+
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY x {{ASC|DESC|ASC NULLS FIRST|NULLS FIRST}}
+--
+ALTERNATION GROUP: PIPES,ASC
+--
+QueryStatement [0-37] [select COUNT...GROUP BY x ASC]
+  Query [0-37] [select COUNT...GROUP BY x ASC]
+    Select [0-37] [select COUNT...GROUP BY x ASC]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy [23-37] [GROUP BY x ASC]
+        GroupingItem [32-37] [x ASC]
+          PathExpression [32-33] [x]
+            Identifier(x) [32-33] [x]
+          GroupingItemOrder(ASC) [34-37] [ASC]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP BY x ASC
+--
+ALTERNATION GROUP: PIPES,DESC
+--
+QueryStatement [0-38] [select COUNT...BY x DESC]
+  Query [0-38] [select COUNT...BY x DESC]
+    Select [0-38] [select COUNT...BY x DESC]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy [23-38] [GROUP BY x DESC]
+        GroupingItem [32-38] [x DESC]
+          PathExpression [32-33] [x]
+            Identifier(x) [32-33] [x]
+          GroupingItemOrder(DESC) [34-38] [DESC]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP BY x DESC
+--
+ALTERNATION GROUP: PIPES,ASC NULLS FIRST
+--
+QueryStatement [0-49] [select COUNT...NULLS FIRST]
+  Query [0-49] [select COUNT...NULLS FIRST]
+    Select [0-49] [select COUNT...NULLS FIRST]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy [23-49] [GROUP BY x ASC NULLS FIRST]
+        GroupingItem [32-49] [x ASC NULLS FIRST]
+          PathExpression [32-33] [x]
+            Identifier(x) [32-33] [x]
+          GroupingItemOrder(ASC) [34-49] [ASC NULLS FIRST]
+            NullOrder(NULLS FIRST) [38-49] [NULLS FIRST]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP BY x ASC NULLS FIRST
+--
+ALTERNATION GROUP: PIPES,NULLS FIRST
+--
+QueryStatement [0-45] [select COUNT...NULLS FIRST]
+  Query [0-45] [select COUNT...NULLS FIRST]
+    Select [0-45] [select COUNT...NULLS FIRST]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy [23-45] [GROUP BY x NULLS FIRST]
+        GroupingItem [32-45] [x NULLS FIRST]
+          PathExpression [32-33] [x]
+            Identifier(x) [32-33] [x]
+          GroupingItemOrder(UNSPECIFIED) [34-45] [NULLS FIRST]
+            NullOrder(NULLS FIRST) [34-45] [NULLS FIRST]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP BY x NULLS FIRST
+--
+ALTERNATION GROUP: ASC
+--
+ERROR: Syntax error: Unexpected ASC [at 3:12]
+GROUP BY x ASC
+           ^
+--
+ALTERNATION GROUP: DESC
+--
+ERROR: Syntax error: Unexpected DESC [at 3:12]
+GROUP BY x DESC
+           ^
+--
+ALTERNATION GROUP: ASC NULLS FIRST
+--
+ERROR: Syntax error: Unexpected ASC [at 3:12]
+GROUP BY x ASC NULLS FIRST
+           ^
+--
+ALTERNATION GROUP: NULLS FIRST
+--
+ERROR: Syntax error: Unexpected NULLS [at 3:12]
+GROUP BY x NULLS FIRST
+           ^
+==
+
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP AND ORDER BY x
+--
+ALTERNATION GROUP: PIPES
+--
+QueryStatement [0-43] [select COUNT...ORDER BY x]
+  Query [0-43] [select COUNT...ORDER BY x]
+    Select [0-43] [select COUNT...ORDER BY x]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy(and_order_by=true) [23-43] [GROUP AND ORDER BY x]
+        GroupingItem [42-43] [x]
+          PathExpression [42-43] [x]
+            Identifier(x) [42-43] [x]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP AND ORDER BY x
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected AND [at 3:7]
+GROUP AND ORDER BY x
+      ^
+==
+
+# Order suffixes in the aggregate list.
+from t
+|> aggregate count(*) ASC,
+             sum(x) alias DESC,
+             avg(y) AS alias ASC NULLS FIRST,
+             max(distinct z) DESC NULLS LAST,
+             nosuffix()
+--
+QueryStatement [0-181] [from t |>...nosuffix()]
+  Query [0-181] [from t |>...nosuffix()]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAggregate [7-181] [|> aggregate...nosuffix()]
+      Select [10-181] [aggregate...nosuffix()]
+        SelectList [20-181] [count(*) ASC...nosuffix()]
+          SelectColumn [20-32] [count(*) ASC]
+            FunctionCall [20-28] [count(*)]
+              PathExpression [20-25] [count]
+                Identifier(count) [20-25] [count]
+              Star(*) [26-27] [*]
+            GroupingItemOrder(ASC) [29-32] [ASC]
+          SelectColumn [47-64] [sum(x) alias DESC]
+            FunctionCall [47-53] [sum(x)]
+              PathExpression [47-50] [sum]
+                Identifier(sum) [47-50] [sum]
+              PathExpression [51-52] [x]
+                Identifier(x) [51-52] [x]
+            Alias [54-59] [alias]
+              Identifier(alias) [54-59] [alias]
+            GroupingItemOrder(DESC) [60-64] [DESC]
+          SelectColumn [79-110] [avg(y) AS...NULLS FIRST]
+            FunctionCall [79-85] [avg(y)]
+              PathExpression [79-82] [avg]
+                Identifier(avg) [79-82] [avg]
+              PathExpression [83-84] [y]
+                Identifier(y) [83-84] [y]
+            Alias [86-94] [AS alias]
+              Identifier(alias) [89-94] [alias]
+            GroupingItemOrder(ASC) [95-110] [ASC NULLS FIRST]
+              NullOrder(NULLS FIRST) [99-110] [NULLS FIRST]
+          SelectColumn [125-156] [max(distinct...NULLS LAST]
+            FunctionCall(distinct=true) [125-140] [max(distinct z)]
+              PathExpression [125-128] [max]
+                Identifier(max) [125-128] [max]
+              PathExpression [138-139] [z]
+                Identifier(z) [138-139] [z]
+            GroupingItemOrder(DESC) [141-156] [DESC NULLS LAST]
+              NullOrder(NULLS LAST) [146-156] [NULLS LAST]
+          SelectColumn [171-181] [nosuffix()]
+            FunctionCall [171-181] [nosuffix()]
+              PathExpression [171-179] [nosuffix]
+                Identifier(nosuffix) [171-179] [nosuffix]
+--
+FROM
+  t
+|> AGGREGATE
+     count(*) ASC,
+     sum(x) AS alias DESC,
+     avg(y) AS alias ASC NULLS FIRST,
+     max(DISTINCT z) DESC NULLS LAST,
+     nosuffix()
+==
+
+# Order suffixes are independent of ordering modifiers on the GROUP BY.
+from t
+|> aggregate count(*) asc
+   group {{|and order}} by key{{| asc}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-49] [from t |>...group  by key]
+  Query [0-49] [from t |>...group  by key]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAggregate [7-49] [|> aggregate...group  by key]
+      Select [10-49] [aggregate...group  by key]
+        SelectList [20-32] [count(*) asc]
+          SelectColumn [20-32] [count(*) asc]
+            FunctionCall [20-28] [count(*)]
+              PathExpression [20-25] [count]
+                Identifier(count) [20-25] [count]
+              Star(*) [26-27] [*]
+            GroupingItemOrder(ASC) [29-32] [asc]
+        GroupBy [36-49] [group  by key]
+          GroupingItem [46-49] [key]
+            PathExpression [46-49] [key]
+              Identifier(key) [46-49] [key]
+--
+FROM
+  t
+|> AGGREGATE
+     count(*) ASC
+   GROUP BY key
+--
+ALTERNATION GROUP:  asc
+--
+QueryStatement [0-53] [from t |>...by key asc]
+  Query [0-53] [from t |>...by key asc]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAggregate [7-53] [|> aggregate...by key asc]
+      Select [10-53] [aggregate...by key asc]
+        SelectList [20-32] [count(*) asc]
+          SelectColumn [20-32] [count(*) asc]
+            FunctionCall [20-28] [count(*)]
+              PathExpression [20-25] [count]
+                Identifier(count) [20-25] [count]
+              Star(*) [26-27] [*]
+            GroupingItemOrder(ASC) [29-32] [asc]
+        GroupBy [36-53] [group  by key asc]
+          GroupingItem [46-53] [key asc]
+            PathExpression [46-49] [key]
+              Identifier(key) [46-49] [key]
+            GroupingItemOrder(ASC) [50-53] [asc]
+--
+FROM
+  t
+|> AGGREGATE
+     count(*) ASC
+   GROUP BY key ASC
+--
+ALTERNATION GROUP: and order,
+--
+QueryStatement [0-58] [from t |>...order by key]
+  Query [0-58] [from t |>...order by key]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAggregate [7-58] [|> aggregate...order by key]
+      Select [10-58] [aggregate...order by key]
+        SelectList [20-32] [count(*) asc]
+          SelectColumn [20-32] [count(*) asc]
+            FunctionCall [20-28] [count(*)]
+              PathExpression [20-25] [count]
+                Identifier(count) [20-25] [count]
+              Star(*) [26-27] [*]
+            GroupingItemOrder(ASC) [29-32] [asc]
+        GroupBy(and_order_by=true) [36-58] [group and order by key]
+          GroupingItem [55-58] [key]
+            PathExpression [55-58] [key]
+              Identifier(key) [55-58] [key]
+--
+FROM
+  t
+|> AGGREGATE
+     count(*) ASC
+   GROUP AND ORDER BY key
+--
+ALTERNATION GROUP: and order, asc
+--
+QueryStatement [0-62] [from t |>...by key asc]
+  Query [0-62] [from t |>...by key asc]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAggregate [7-62] [|> aggregate...by key asc]
+      Select [10-62] [aggregate...by key asc]
+        SelectList [20-32] [count(*) asc]
+          SelectColumn [20-32] [count(*) asc]
+            FunctionCall [20-28] [count(*)]
+              PathExpression [20-25] [count]
+                Identifier(count) [20-25] [count]
+              Star(*) [26-27] [*]
+            GroupingItemOrder(ASC) [29-32] [asc]
+        GroupBy(and_order_by=true) [36-62] [group and order by key asc]
+          GroupingItem [55-62] [key asc]
+            PathExpression [55-58] [key]
+              Identifier(key) [55-58] [key]
+            GroupingItemOrder(ASC) [59-62] [asc]
+--
+FROM
+  t
+|> AGGREGATE
+     count(*) ASC
+   GROUP AND ORDER BY key ASC
+==
+
+# Order suffixes don't parse in the selection list for other pipe operators.
+from t
+|> {{select|extend|window}} xyz ASC
+--
+ALTERNATION GROUP: select
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:15]
+|> select xyz ASC
+              ^
+--
+ALTERNATION GROUP: extend
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:15]
+|> extend xyz ASC
+              ^
+--
+ALTERNATION GROUP: window
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:15]
+|> window xyz ASC
+              ^
+==
+
+# Order suffixes don't parse in the selection list for other pipe operators,
+# with aliases.
+from t
+|> extend xyz {{|alias|AS alias}} ASC
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:16]
+|> extend xyz  ASC
+               ^
+--
+ALTERNATION GROUP: alias
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:21]
+|> extend xyz alias ASC
+                    ^
+--
+ALTERNATION GROUP: AS alias
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 2:24]
+|> extend xyz AS alias ASC
+                       ^
+==
+
+# Order suffxies don't parse in standard SELECT.
+select xyz {{|alias|AS alias}} ASC
+from t
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 1:13]
+select xyz  ASC
+            ^
+--
+ALTERNATION GROUP: alias
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 1:18]
+select xyz alias ASC
+                 ^
+--
+ALTERNATION GROUP: AS alias
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 1:21]
+select xyz AS alias ASC
+                    ^
+==
+
+# ASC or DESC is required before NULLS in the AGGREGATE list.
+from t
+|> aggregate count(*) {{nulls first|alias null last|AS alias nulls first|nulls}}
+--
+ALTERNATION GROUP: nulls first
+--
+ERROR: Syntax error: Expected end of input but got keyword NULLS [at 2:23]
+|> aggregate count(*) nulls first
+                      ^
+--
+ALTERNATION GROUP: alias null last
+--
+ERROR: Syntax error: Expected end of input but got keyword NULL [at 2:29]
+|> aggregate count(*) alias null last
+                            ^
+--
+ALTERNATION GROUP: AS alias nulls first
+--
+ERROR: Syntax error: Expected end of input but got keyword NULLS [at 2:32]
+|> aggregate count(*) AS alias nulls first
+                               ^
+--
+ALTERNATION GROUP: nulls
+--
+ERROR: Syntax error: Expected end of input but got keyword NULLS [at 2:23]
+|> aggregate count(*) nulls
+                      ^
+==
+
+# COLLATE is not supported on AGGREGATE items.
+from t
+|> aggregate count(*) {{|ASC}}
+                          COLLATE "abc"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 3:27]
+                          COLLATE "abc"
+                          ^
+==
+
+# ASC/DESC modifiers don't work with star or dot-star, with or
+# without modifiers.
+select 1
+|> AGGREGATE {{*|s.*}}
+     {{|EXCEPT(x)|REPLACE(x AS y)}}
+     {{ASC|DESC}}
+--
+ALTERNATION GROUPS:
+    *,,ASC
+    *,,DESC
+    *,EXCEPT(x),ASC
+    *,EXCEPT(x),DESC
+    *,REPLACE(x AS y),ASC
+    *,REPLACE(x AS y),DESC
+--
+ERROR: Syntax error: Expected end of input but got "*" [at 2:14]
+|> AGGREGATE *
+             ^
+--
+ALTERNATION GROUPS:
+    s.*,,ASC
+    s.*,EXCEPT(x),ASC
+    s.*,REPLACE(x AS y),ASC
+--
+ERROR: Syntax error: Expected end of input but got keyword ASC [at 4:6]
+     ASC
+     ^
+--
+ALTERNATION GROUPS:
+    s.*,,DESC
+    s.*,EXCEPT(x),DESC
+    s.*,REPLACE(x AS y),DESC
+--
+ERROR: Syntax error: Expected end of input but got keyword DESC [at 4:6]
+     DESC
+     ^

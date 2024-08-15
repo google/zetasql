@@ -2,7 +2,13 @@
 # verified as correct.
 [default no_show_parse_location_text]
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set OPTIONS
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set OPTIONS
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:33]
+ALTER CONNECTION foo set OPTIONS
+                                ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -54,7 +60,13 @@ ALTER APPROX VIEW foo set OPTIONS
                                  ^
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set timestamp;
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set timestamp;
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:26]
+ALTER CONNECTION foo set timestamp;
+                         ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -106,7 +118,13 @@ ALTER APPROX VIEW foo set timestamp;
                           ^
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo drop;
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo drop;
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:26]
+ALTER CONNECTION foo drop;
+                         ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -157,13 +175,19 @@ ALTER APPROX VIEW foo drop;
                           ^
 ==
 
-ALTER {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|EXTERNAL SCHEMA|TABLE FUNCTION|APPROX VIEW}};
+ALTER {{AGGREGATE FUNCTION|CONNECTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|EXTERNAL SCHEMA|TABLE FUNCTION|APPROX VIEW}};
 --
 ALTERNATION GROUP: AGGREGATE FUNCTION
 --
 ERROR: Syntax error: Unexpected ";" [at 1:25]
 ALTER AGGREGATE FUNCTION;
                         ^
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:17]
+ALTER CONNECTION;
+                ^
 --
 ALTERNATION GROUP: CONSTANT
 --
@@ -245,7 +269,7 @@ ALTER ;
       ^
 ==
 
-ALTER {{Aggregate FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|SCHEMA|EXTERNAL SCHEMA|TABLE|TABLE FUNCTION|APPROX VIEW}} adsdw.foo
+ALTER {{Aggregate FUNCTION|CONNECTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|SCHEMA|EXTERNAL SCHEMA|TABLE|TABLE FUNCTION|APPROX VIEW}} adsdw.foo
 SET OPTIONS ();
 --
 ALTERNATION GROUP: Aggregate FUNCTION
@@ -253,6 +277,18 @@ ALTERNATION GROUP: Aggregate FUNCTION
 ERROR: ALTER AGGREGATE FUNCTION is not supported [at 1:7]
 ALTER Aggregate FUNCTION adsdw.foo
       ^
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-41]
+  PathExpression [17-26]
+    Identifier(adsdw) [17-22]
+    Identifier(foo) [23-26]
+  AlterActionList [27-41]
+    SetOptionsAction [27-41]
+      OptionsList [39-41]
+--
+ALTER CONNECTION adsdw.foo SET OPTIONS()
 --
 ALTERNATION GROUP: CONSTANT
 --
@@ -369,7 +405,23 @@ AlterApproxViewStatement [0-42]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (), SET OPTIONS (), SET OPTIONS ();
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (), SET OPTIONS (), SET OPTIONS ();
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-73]
+  PathExpression [17-26]
+    Identifier(adsdw) [17-22]
+    Identifier(foo) [23-26]
+  AlterActionList [27-73]
+    SetOptionsAction [27-41]
+      OptionsList [39-41]
+    SetOptionsAction [43-57]
+      OptionsList [55-57]
+    SetOptionsAction [59-73]
+      OptionsList [71-73]
+--
+ALTER CONNECTION adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -472,7 +524,19 @@ AlterMaterializedViewStatement [0-80]
 ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|APPROX VIEW}} IF EXISTS adsdw.foo SET OPTIONS ();
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|APPROX VIEW}} IF EXISTS adsdw.foo SET OPTIONS ();
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement(is_if_exists) [0-51]
+  PathExpression [27-36]
+    Identifier(adsdw) [27-32]
+    Identifier(foo) [33-36]
+  AlterActionList [37-51]
+    SetOptionsAction [37-51]
+      OptionsList [49-51]
+--
+ALTER CONNECTION IF EXISTS adsdw.foo SET OPTIONS()
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -559,8 +623,24 @@ AlterApproxViewStatement(is_if_exists) [0-52]
 ALTER APPROX VIEW IF EXISTS adsdw.foo SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (
   quota_accounting_owner='adsdw-etl@google.com');
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-89]
+  PathExpression [17-26]
+    Identifier(adsdw) [17-22]
+    Identifier(foo) [23-26]
+  AlterActionList [27-89]
+    SetOptionsAction [27-89]
+      OptionsList [39-89]
+        OptionsEntry [43-88]
+          Identifier(quota_accounting_owner) [43-65]
+          StringLiteral [66-88]
+            StringLiteralComponent('adsdw-etl@google.com') [66-88]
+--
+ALTER CONNECTION adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -696,7 +776,22 @@ AlterApproxViewStatement [0-90]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-57]
+  PathExpression [17-26]
+    Identifier(adsdw) [17-22]
+    Identifier(foo) [23-26]
+  AlterActionList [27-57]
+    SetOptionsAction [27-57]
+      OptionsList [39-57]
+        OptionsEntry [40-56]
+          Identifier(ttl_seconds) [40-51]
+          IntLiteral(3600) [52-56]
+--
+ALTER CONNECTION adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -819,7 +914,22 @@ AlterApproxViewStatement [0-58]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-57]
+  PathExpression [17-26]
+    Identifier(adsdw) [17-22]
+    Identifier(foo) [23-26]
+  AlterActionList [27-57]
+    SetOptionsAction [27-57]
+      OptionsList [39-57]
+        OptionsEntry [40-56]
+          Identifier(ttl_seconds) [40-51]
+          NullLiteral(NULL) [52-56]
+--
+ALTER CONNECTION adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -942,8 +1052,26 @@ AlterApproxViewStatement [0-58]
 ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo SET OPTIONS (
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo SET OPTIONS (
   quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds=3600);
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-103]
+  PathExpression [17-20]
+    Identifier(foo) [17-20]
+  AlterActionList [21-103]
+    SetOptionsAction [21-103]
+      OptionsList [33-103]
+        OptionsEntry [37-84]
+          Identifier(quota_accounting_owner) [37-59]
+          StringLiteral [62-84]
+            StringLiteralComponent('adsdw-etl@google.com') [62-84]
+        OptionsEntry [86-102]
+          Identifier(ttl_seconds) [86-97]
+          IntLiteral(3600) [98-102]
+--
+ALTER CONNECTION foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1092,9 +1220,29 @@ AlterApproxViewStatement [0-104]
 ALTER APPROX VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
   quota_accounting_owner = 'adsdw-etl@google.com',
   quota_accounting_owner = 'adsdw-etl@google.com');
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-136]
+  PathExpression [17-20]
+    Identifier(foo) [17-20]
+  AlterActionList [21-136]
+    SetOptionsAction [21-136]
+      OptionsList [33-136]
+        OptionsEntry [37-84]
+          Identifier(quota_accounting_owner) [37-59]
+          StringLiteral [62-84]
+            StringLiteralComponent('adsdw-etl@google.com') [62-84]
+        OptionsEntry [88-135]
+          Identifier(quota_accounting_owner) [88-110]
+          StringLiteral [113-135]
+            StringLiteralComponent('adsdw-etl@google.com') [113-135]
+--
+ALTER CONNECTION foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1217,11 +1365,44 @@ ALTER MATERIALIZED VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@goog
     'adsdw-etl@google.com')
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo
 SET OPTIONS (a = 'a', b = 1),
 SET OPTIONS (c = 'c'),
 SET OPTIONS (a = 'a', b = 1)
 ;
+--
+ALTERNATION GROUP: CONNECTION
+--
+AlterConnectionStatement [0-102]
+  PathExpression [17-20]
+    Identifier(foo) [17-20]
+  AlterActionList [21-102]
+    SetOptionsAction [21-49]
+      OptionsList [33-49]
+        OptionsEntry [34-41]
+          Identifier(a) [34-35]
+          StringLiteral [38-41]
+            StringLiteralComponent('a') [38-41]
+        OptionsEntry [43-48]
+          Identifier(b) [43-44]
+          IntLiteral(1) [47-48]
+    SetOptionsAction [51-72]
+      OptionsList [63-72]
+        OptionsEntry [64-71]
+          Identifier(c) [64-65]
+          StringLiteral [68-71]
+            StringLiteralComponent('c') [68-71]
+    SetOptionsAction [74-102]
+      OptionsList [86-102]
+        OptionsEntry [87-94]
+          Identifier(a) [87-88]
+          StringLiteral [91-94]
+            StringLiteralComponent('a') [91-94]
+        OptionsEntry [96-101]
+          Identifier(b) [96-97]
+          IntLiteral(1) [100-101]
+--
+ALTER CONNECTION foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1457,7 +1638,13 @@ AlterModelStatement [0-97]
 ALTER MODEL foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}}
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}}
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:17]
+ALTER CONNECTION
+                ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1502,7 +1689,13 @@ ALTER MODEL
            ^
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo;
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo;
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+ALTER CONNECTION foo;
+                    ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1547,7 +1740,13 @@ ALTER MODEL foo;
                ^
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1),
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1),
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:51]
+ALTER CONNECTION foo SET OPTIONS (a = 'a', b = 1),
+                                                  ^
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1592,7 +1791,14 @@ ALTER MODEL foo SET OPTIONS (a = 'a', b = 1),
                                              ^
 ==
 
-ALTER {{DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1), SET
+ALTER {{CONNECTION|DATABASE|SCHEMA|EXTERNAL SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1), SET
+--
+ALTERNATION GROUP: CONNECTION
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got end of statement [at 1:55]
+ALTER CONNECTION foo SET OPTIONS (a = 'a', b = 1), SET
+                                                      ^
+
 --
 ALTERNATION GROUP: DATABASE
 --

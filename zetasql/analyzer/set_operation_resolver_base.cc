@@ -147,7 +147,7 @@ SetOperationResolverBase::GetSuperTypesOfSetOperation(
 
 absl::StatusOr<ResolvedColumnList>
 SetOperationResolverBase::BuildFinalColumnList(
-    const std::vector<IdString>& final_column_names,
+    absl::Span<const IdString> final_column_names,
     const std::vector<const Type*>& final_column_types, IdString table_name,
     std::function<void(const ResolvedColumn&)> record_column_access) {
   ZETASQL_RET_CHECK_EQ(final_column_names.size(), final_column_types.size());

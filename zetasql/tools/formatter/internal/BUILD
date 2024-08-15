@@ -100,6 +100,7 @@ cc_library(
         "//zetasql/public:parse_helpers",
         "//zetasql/public:parse_location",
         "//zetasql/public:parse_resume_location",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log",

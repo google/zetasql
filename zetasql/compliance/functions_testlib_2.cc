@@ -51,6 +51,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -2351,6 +2352,10 @@ GetOrderableTypesWithFeaturesAndValues() {
       {BytesType(), Bytes("0x00"), Bytes("0xAA"), Bytes("0xAA"), Bytes("0xFF")},
       {TimestampType(), Timestamp(timestamp_min), Timestamp(1500000000),
        Timestamp(1500000000), Timestamp(timestamp_max)},
+      {TimestampType(), Timestamp(absl::FromUnixNanos(15674896748561)),
+       Timestamp(absl::FromUnixNanos(15674896748562)),
+       Timestamp(absl::FromUnixNanos(15674896748562)),
+       Timestamp(absl::FromUnixNanos(15674896748563)), FEATURE_TIMESTAMP_NANOS},
       {DateType(), Date(date_min), DateFromStr("1960-01-07"),
        DateFromStr("1960-01-07"), Date(date_max)},
       {NumericType(), Numeric(NumericValue::MinValue()), Numeric(-3),
@@ -2574,8 +2579,15 @@ static const std::vector<QueryParamsWithResult> GetArrayMinMaxTestCases(
       if (is_safe) {
         test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
       }
+
+      std::set<LanguageFeature> required_features = v.required_features;
+      if (test_cases[i].result().is_null()) {
+        // TIMESTAMP_NANOS feature doesn't affect null results.
+        required_features.erase(FEATURE_TIMESTAMP_NANOS);
+      }
+
       test_cases[i]
-          .AddRequiredFeatures(v.required_features)
+          .AddRequiredFeatures(required_features)
           .AddProhibitedFeature(FEATURE_DISABLE_ARRAY_MIN_AND_MAX);
     }
   }
@@ -3512,6 +3524,13 @@ static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
           {v.input_array, v.target_element}, v.find_all_result));
     }
 
+    // ARRAY_FIND always takes care of timestamp precision,
+    // FEATUE_TIMESTAMP_NANOS is not needed.
+    // TODO: Remove this once ARRAY_FIND reference implementation
+    // sanitizes the input for nanosecond precision.
+    std::set<LanguageFeature> required_features = v.required_features;
+    required_features.erase(FEATURE_TIMESTAMP_NANOS);
+
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
       if (is_safe) {
         test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
@@ -3519,7 +3538,7 @@ static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
             FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
       }
       test_cases[i]
-          .AddRequiredFeatures(v.required_features)
+          .AddRequiredFeatures(required_features)
           .AddRequiredFeature(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
     }
   }

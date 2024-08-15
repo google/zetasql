@@ -1,0 +1,155 @@
+[default language_features=PIPES]
+
+SELECT 1 |> AS t
+--
+QueryStatement [0-16] [SELECT 1 |> AS t]
+  Query [0-16] [SELECT 1 |> AS t]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAs [9-16] [|> AS t]
+      Alias [15-16] [t]
+        Identifier(t) [15-16] [t]
+--
+SELECT
+  1
+|> AS t
+==
+
+SELECT 1 x |> AS t
+--
+QueryStatement [0-18] [SELECT 1 x |> AS t]
+  Query [0-18] [SELECT 1 x |> AS t]
+    Select [0-10] [SELECT 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeAs [11-18] [|> AS t]
+      Alias [17-18] [t]
+        Identifier(t) [17-18] [t]
+--
+SELECT
+  1 AS x
+|> AS t
+==
+
+SELECT 1 |> AS a.b
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:17]
+SELECT 1 |> AS a.b
+                ^
+==
+
+SELECT 1 |> AS;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+SELECT 1 |> AS;
+              ^
+==
+
+SELECT 1 |> @{hint=1} AS t;
+--
+ERROR: Syntax error: Expected keyword JOIN but got "@" [at 1:13]
+SELECT 1 |> @{hint=1} AS t;
+            ^
+==
+
+SELECT 1 |> AS @{hint=1} t;
+--
+ERROR: Syntax error: Unexpected "@" [at 1:16]
+SELECT 1 |> AS @{hint=1} t;
+               ^
+==
+
+SELECT 1 |> AS t1 |> AS t2;
+--
+QueryStatement [0-26] [SELECT 1 |> AS t1 |> AS t2]
+  Query [0-26] [SELECT 1 |> AS t1 |> AS t2]
+    Select [0-8] [SELECT 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeAs [9-17] [|> AS t1]
+      Alias [15-17] [t1]
+        Identifier(t1) [15-17] [t1]
+    PipeAs [18-26] [|> AS t2]
+      Alias [24-26] [t2]
+        Identifier(t2) [24-26] [t2]
+--
+SELECT
+  1
+|> AS t1
+|> AS t2
+==
+
+# This case is syntactically correct but semantically wrong, since "t" is in the
+# inner scope, won't be visible to the follow up pipe select.
+FROM (SELECT 1 AS a |> AS t)
+|> SELECT t.a
+--
+QueryStatement [0-42] [FROM (SELECT...SELECT t.a]
+  Query [0-42] [FROM (SELECT...SELECT t.a]
+    FromQuery [0-28] [FROM (SELECT 1 AS a |> AS t)]
+      FromClause [0-28] [FROM (SELECT 1 AS a |> AS t)]
+        TableSubquery [5-28] [(SELECT 1 AS a |> AS t)]
+          Query [6-27] [SELECT 1 AS a |> AS t]
+            Select [6-19] [SELECT 1 AS a]
+              SelectList [13-19] [1 AS a]
+                SelectColumn [13-19] [1 AS a]
+                  IntLiteral(1) [13-14] [1]
+                  Alias [15-19] [AS a]
+                    Identifier(a) [18-19] [a]
+            PipeAs [20-27] [|> AS t]
+              Alias [26-27] [t]
+                Identifier(t) [26-27] [t]
+    PipeSelect [29-42] [|> SELECT t.a]
+      Select [32-42] [SELECT t.a]
+        SelectList [39-42] [t.a]
+          SelectColumn [39-42] [t.a]
+            PathExpression [39-42] [t.a]
+              Identifier(t) [39-40] [t]
+              Identifier(a) [41-42] [a]
+--
+FROM
+  (
+    SELECT
+      1 AS a
+    |> AS t
+  )
+|> SELECT
+     t.a
+==
+
+FROM t1
+|> JOIN t2 USING(key)
+|> AS t3
+--
+QueryStatement [0-38] [FROM t1 |>...) |> AS t3]
+  Query [0-38] [FROM t1 |>...) |> AS t3]
+    FromQuery [0-7] [FROM t1]
+      FromClause [0-7] [FROM t1]
+        TablePathExpression [5-7] [t1]
+          PathExpression [5-7] [t1]
+            Identifier(t1) [5-7] [t1]
+    PipeJoin [8-29] [|> JOIN t2 USING(key)]
+      Join [10-29] [JOIN t2 USING(key)]
+        PipeJoinLhsPlaceholder [11-29] [JOIN t2 USING(key)]
+        Location [11-15] [JOIN]
+        TablePathExpression [16-18] [t2]
+          PathExpression [16-18] [t2]
+            Identifier(t2) [16-18] [t2]
+        UsingClause [19-29] [USING(key)]
+          Identifier(key) [25-28] [key]
+    PipeAs [30-38] [|> AS t3]
+      Alias [36-38] [t3]
+        Identifier(t3) [36-38] [t3]
+--
+FROM
+  t1
+|> JOIN
+   t2
+   USING(key)
+|> AS t3

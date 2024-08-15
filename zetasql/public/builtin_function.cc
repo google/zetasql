@@ -255,6 +255,10 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
     ZETASQL_RETURN_IF_ERROR(
         GetArrayZipFunctions(&type_factory, options, &functions, &types));
   }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
+    ZETASQL_RETURN_IF_ERROR(GetToJsonBuiltinEnumTypes(&type_factory, options, &types));
+  }
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
   GetMapCoreFunctions(&type_factory, options, &functions);

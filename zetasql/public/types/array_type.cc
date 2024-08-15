@@ -17,17 +17,24 @@
 #include "zetasql/public/types/array_type.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/float_margin.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/collation.h"
+#include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -37,13 +44,13 @@
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
-#include "absl/container/flat_hash_map.h"
+#include "absl/base/attributes.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
-#include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -386,9 +393,9 @@ bool ArrayType::EqualElementMultiSet(
       y.GetAs<internal::ValueContentOrderedListRef*>()->value();
   std::string* reason = options.reason;
   using CountMap =
-      absl::flat_hash_map<internal::NullableValueContent, int,
-                          MultisetValueContentContainerElementHasher,
-                          NullableValueContentEq>;
+      std::unordered_map<internal::NullableValueContent, int,
+                         MultisetValueContentContainerElementHasher,
+                         NullableValueContentEq>;
 
   MultisetValueContentContainerElementHasher hasher(options.float_margin,
                                                     element_type());
@@ -540,56 +547,79 @@ absl::Status ArrayType::DeserializeValueContent(const ValueProto& value_proto,
       "value content is maintained in the Value class");
 }
 
-std::string ArrayType::GetFormatPrefix(
-    const ValueContent& value_content,
-    const FormatValueContentOptions& options) const {
-  std::string prefix;
-  switch (options.mode) {
-    case Type::FormatValueContentOptions::Mode::kDebug: {
-      const internal::ValueContentOrderedListRef* container_ref =
-          value_content.GetAs<internal::ValueContentOrderedListRef*>();
-      if (options.verbose) {
-        const internal::ValueContentOrderedList* container =
-            container_ref->value();
-        if (container->num_elements() == 0) {
-          prefix.append(CapitalizedName());
-        } else {
-          prefix.append("Array");
-        }
-      }
-      prefix.push_back('[');
-      if (options.include_array_ordereness &&
-          container_ref->value()->num_elements() > 1) {
-        if (container_ref->preserves_order()) {
-          absl::StrAppend(&prefix, "known order: ");
-        } else {
-          absl::StrAppend(&prefix, "unknown order: ");
-        }
-      }
+void ArrayType::FormatValueContentDebugModeImpl(
+    const internal::ValueContentOrderedListRef* container_ref,
+    const FormatValueContentOptions& options, std::string* result) const {
+  const internal::ValueContentOrderedList* container = container_ref->value();
 
-      break;
-    }
-    case Type::FormatValueContentOptions::Mode::kSQLLiteral: {
-      prefix.push_back('[');
-      break;
-    }
-    case Type::FormatValueContentOptions::Mode::kSQLExpression: {
-      prefix.append(
-          TypeName(options.product_mode, options.use_external_float32));
-      prefix.push_back('[');
-      break;
-    }
+  if (options.verbose) {
+    absl::StrAppend(
+        result, container->num_elements() == 0 ? CapitalizedName() : "Array");
   }
-  return prefix;
+  absl::StrAppend(result, "[");
+  if (options.include_array_ordereness && container->num_elements() > 1) {
+    absl::StrAppend(result, container_ref->preserves_order()
+                                ? "known order: "
+                                : "unknown order: ");
+  }
+
+  for (int i = 0; i < container->num_elements(); ++i) {
+    const internal::NullableValueContent& element_value_content =
+        container->element(i);
+    if (i > 0) {
+      absl::StrAppend(result, ", ");
+    }
+
+    absl::StrAppend(result,
+                    DebugFormatNullableValueContentForContainer(
+                        element_value_content, element_type(), options));
+  }
+  absl::StrAppend(result, "]");
 }
 
-char ArrayType::GetFormatClosingCharacter(
-    const Type::FormatValueContentOptions& options) const {
-  return ']';
+void ArrayType::FormatValueContentSqlModeImpl(
+    const internal::ValueContentOrderedListRef* container_ref,
+    const FormatValueContentOptions& options, std::string* result) const {
+  const internal::ValueContentOrderedList* container = container_ref->value();
+
+  if (options.mode == Type::FormatValueContentOptions::Mode::kSQLExpression) {
+    absl::StrAppend(
+        result, TypeName(options.product_mode, options.use_external_float32));
+  }
+  absl::StrAppend(result, "[");
+
+  for (int i = 0; i < container->num_elements(); ++i) {
+    const internal::NullableValueContent& element_value_content =
+        container->element(i);
+    if (i > 0) {
+      absl::StrAppend(result, ", ");
+    }
+    absl::StrAppend(result,
+                    FormatNullableValueContent(element_value_content,
+                                               element_type(), options));
+  }
+  absl::StrAppend(result, "]");
 }
 
-const Type* ArrayType::GetElementType(int index) const {
-  return element_type();
+std::string ArrayType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  if (!ThreadHasEnoughStack()) {
+    return std::string(kFormatValueContentOutOfStackError);
+  }
+
+  const internal::ValueContentOrderedListRef* container_ref =
+      value.GetAs<internal::ValueContentOrderedListRef*>();
+  std::string result;
+
+  switch (options.mode) {
+    case Type::FormatValueContentOptions::Mode::kDebug:
+      FormatValueContentDebugModeImpl(container_ref, options, &result);
+      return result;
+    case Type::FormatValueContentOptions::Mode::kSQLLiteral:
+    case Type::FormatValueContentOptions::Mode::kSQLExpression:
+      FormatValueContentSqlModeImpl(container_ref, options, &result);
+      return result;
+  }
 }
 
 }  // namespace zetasql

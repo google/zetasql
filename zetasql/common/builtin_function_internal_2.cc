@@ -1976,7 +1976,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FN_EQUAL,
            FunctionSignatureOptions().set_uses_operation_collation()},
           {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
-          {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64}
+          {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -1995,7 +1995,7 @@ absl::Status GetBooleanFunctions(TypeFactory* type_factory,
            FN_NOT_EQUAL,
            FunctionSignatureOptions().set_uses_operation_collation()},
           {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
-          {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64}
+          {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)

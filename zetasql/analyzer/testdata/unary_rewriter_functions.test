@@ -365,6 +365,7 @@ QueryStmt
     |           | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
     |           +-order_by_item_list=
     |             +-OrderByItem
+    |               +-parse_location=61-66
     |               +-column_ref=
     |                 +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-input_scan=
@@ -417,6 +418,7 @@ QueryStmt
     |             |         | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
     |             |         +-order_by_item_list=
     |             |           +-OrderByItem
+    |             |             +-parse_location=61-66
     |             |             +-column_ref=
     |             |               +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |             +-input_scan=
@@ -803,9 +805,11 @@ QueryStmt
     |         |           |   |         +-ColumnRef(type=STRING, column=$array.e#3)
     |         |           |   +-order_by_item_list=
     |         |           |     +-OrderByItem
+    |         |           |     | +-parse_location=216-221
     |         |           |     | +-column_ref=
     |         |           |     |   +-ColumnRef(type=STRING, column=$array.e#3)
     |         |           |     +-OrderByItem
+    |         |           |       +-parse_location=223-230
     |         |           |       +-column_ref=
     |         |           |         +-ColumnRef(type=INT64, column=$array_offset.idx#4)
     |         |           +-limit=
@@ -886,9 +890,11 @@ QueryStmt
     |         |     |       |   |         +-ColumnRef(type=STRING, column=$array.e#3)
     |         |     |       |   +-order_by_item_list=
     |         |     |       |     +-OrderByItem
+    |         |     |       |     | +-parse_location=228-233
     |         |     |       |     | +-column_ref=
     |         |     |       |     |   +-ColumnRef(type=STRING, column=$array.e#3)
     |         |     |       |     +-OrderByItem
+    |         |     |       |       +-parse_location=235-242
     |         |     |       |       +-column_ref=
     |         |     |       |         +-ColumnRef(type=INT64, column=$array_offset.idx#4)
     |         |     |       +-limit=
@@ -971,10 +977,12 @@ QueryStmt
     |         |           |   |         +-ColumnRef(type=INT64, column=$array.e#3)
     |         |           |   +-order_by_item_list=
     |         |           |     +-OrderByItem
+    |         |           |     | +-parse_location=216-222
     |         |           |     | +-column_ref=
     |         |           |     | | +-ColumnRef(type=INT64, column=$array.e#3)
     |         |           |     | +-is_descending=TRUE
     |         |           |     +-OrderByItem
+    |         |           |       +-parse_location=224-231
     |         |           |       +-column_ref=
     |         |           |         +-ColumnRef(type=INT64, column=$array_offset.idx#4)
     |         |           +-limit=
@@ -1063,14 +1071,17 @@ QueryStmt
     |         |           |   |             +-ColumnRef(type=DOUBLE, column=$array.e#3)
     |         |           |   +-order_by_item_list=
     |         |           |     +-OrderByItem
+    |         |           |     | +-parse_location=216-230
     |         |           |     | +-column_ref=
     |         |           |     | | +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
     |         |           |     | +-is_descending=TRUE
     |         |           |     +-OrderByItem
+    |         |           |     | +-parse_location=232-238
     |         |           |     | +-column_ref=
     |         |           |     | | +-ColumnRef(type=DOUBLE, column=$array.e#3)
     |         |           |     | +-is_descending=TRUE
     |         |           |     +-OrderByItem
+    |         |           |       +-parse_location=240-247
     |         |           |       +-column_ref=
     |         |           |         +-ColumnRef(type=INT64, column=$array_offset.idx#4)
     |         |           +-limit=

@@ -28,6 +28,7 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_factory.h"
@@ -44,9 +45,12 @@
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/span.h"
+#include "file_based_test_driver/file_based_test_driver.h"
+#include "file_based_test_driver/test_case_options.h"
 
 namespace zetasql {
 namespace {
@@ -55,6 +59,7 @@ using zetasql_test__::EmptyMessage;
 using zetasql_test__::KitchenSinkPB;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using testing::MatchesRegex;
 using testing::Not;
 using testing::NotNull;
 using zetasql_base::testing::StatusIs;
@@ -69,13 +74,22 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 }
 
 TEST(ExecuteQueryDefaults, AllRewritesEnabledByDefault) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   ZETASQL_ASSERT_OK(SetAnalyzerOptionsFromFlags(config));
   EXPECT_EQ(config.analyzer_options().enabled_rewrites(),
             internal::GetAllRewrites());
 }
 
+TEST(ExecuteQueryDefaults, FoldLiteralCastEnabledByDefault) {
+  absl::FlagSaver fs;
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(SetAnalyzerOptionsFromFlags(config));
+  EXPECT_TRUE(config.analyzer_options().fold_literal_cast());
+}
+
 TEST(SetToolModeFromFlags, SingleToolMode) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](std::string name, ToolMode expected_mode) {
     absl::SetFlag(&FLAGS_mode, std::vector<std::string>{name});
     ExecuteQueryConfig config;
@@ -91,6 +105,7 @@ TEST(SetToolModeFromFlags, SingleToolMode) {
 }
 
 TEST(SetToolModeFromFlags, MultipleToolModes) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](const std::vector<std::string>& names,
                       const absl::flat_hash_set<ToolMode>& expected_modes,
                       const absl::flat_hash_set<ToolMode>& unexpected_modes) {
@@ -127,6 +142,7 @@ TEST(SetToolModeFromFlags, MultipleToolModes) {
 }
 
 TEST(SetToolModeFromFlags, BadToolMode) {
+  absl::FlagSaver fs;
   absl::SetFlag(&FLAGS_mode, {"bad-mode"});
   ExecuteQueryConfig config;
   EXPECT_THAT(SetToolModeFromFlags(config),
@@ -134,6 +150,7 @@ TEST(SetToolModeFromFlags, BadToolMode) {
 }
 
 TEST(SetSqlModeFromFlags, SqlMode) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](absl::string_view name, SqlMode expected_mode) {
     absl::SetFlag(&FLAGS_sql_mode, name);
     ExecuteQueryConfig config;
@@ -145,6 +162,7 @@ TEST(SetSqlModeFromFlags, SqlMode) {
 }
 
 TEST(SetSqlModeFromFlags, BadSqlMode) {
+  absl::FlagSaver fs;
   absl::SetFlag(&FLAGS_sql_mode, "bad-mode");
   ExecuteQueryConfig config;
   EXPECT_THAT(SetSqlModeFromFlags(config),
@@ -152,6 +170,7 @@ TEST(SetSqlModeFromFlags, BadSqlMode) {
 }
 
 TEST(SetLanguageOptionsFromFlags, BadProductMode) {
+  absl::FlagSaver fs;
   absl::SetFlag(&FLAGS_product_mode, "bad-mode");
   ExecuteQueryConfig config;
   EXPECT_THAT(SetLanguageOptionsFromFlags(config),
@@ -159,6 +178,7 @@ TEST(SetLanguageOptionsFromFlags, BadProductMode) {
 }
 
 TEST(SetLanguageOptionsFromFlags, ProductMode) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](absl::string_view name, ProductMode expected_mode) {
     absl::SetFlag(&FLAGS_product_mode, name);
     ExecuteQueryConfig config;
@@ -171,6 +191,7 @@ TEST(SetLanguageOptionsFromFlags, ProductMode) {
 }
 
 TEST(SetLanguageOptionsFromFlags, NameResolutionMode) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](bool flag_value, NameResolutionMode expected_mode) {
     absl::SetFlag(&FLAGS_strict_name_resolution_mode, flag_value);
     ExecuteQueryConfig config;
@@ -183,6 +204,7 @@ TEST(SetLanguageOptionsFromFlags, NameResolutionMode) {
 }
 
 TEST(SetAnalyzerOptionsFromFlags, EnabledAstRewrites) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](absl::string_view str,
                       absl::Span<const ResolvedASTRewrite> expected_enabled,
                       absl::Span<const ResolvedASTRewrite> expected_disabled) {
@@ -219,7 +241,20 @@ TEST(SetAnalyzerOptionsFromFlags, EnabledAstRewrites) {
             {REWRITE_INVALID_DO_NOT_USE});
 }
 
+TEST(SetFoldLiteralCastFromFlags, FoldLiteralCast) {
+  absl::FlagSaver fs;
+  auto CheckFlag = [](bool flag_value, bool expected_value) {
+    absl::SetFlag(&FLAGS_fold_literal_cast, flag_value);
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetAnalyzerOptionsFromFlags(config));
+    EXPECT_EQ(config.analyzer_options().fold_literal_cast(), expected_value);
+  };
+  CheckFlag(false, false);
+  CheckFlag(true, true);
+}
+
 TEST(SetLanguageOptionsFromFlags, EnabledLanguageFeatures) {
+  absl::FlagSaver fs;
   auto CheckFlag = [](absl::string_view str,
                       absl::Span<const LanguageFeature> expected_enabled,
                       absl::Span<const LanguageFeature> expected_disabled) {
@@ -292,6 +327,7 @@ TEST(SetEvaluatorOptionsFromFlagsTest, Options) {
 }
 
 TEST(SetQueryParameterValuesFromFlagsTest, NoOp) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   ZETASQL_EXPECT_OK(SetQueryParametersFromFlags(config));
   EXPECT_THAT(config.analyzer_options().query_parameters(), IsEmpty());
@@ -401,8 +437,9 @@ TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
   ZETASQL_EXPECT_OK(SetDescriptorPoolFromFlags(config));
 
   const Type* type = nullptr;
-  ZETASQL_EXPECT_OK(
-      config.mutable_catalog().GetType("zetasql_test__.KitchenSinkPB", &type));
+  EXPECT_THAT(
+      config.catalog()->FindType({"zetasql_test__.KitchenSinkPB"}, &type),
+      StatusIs(absl::StatusCode::kNotFound));
   EXPECT_EQ(type, nullptr);
 }
 
@@ -476,6 +513,7 @@ static std::string TextProtoFilePath() {
 }
 
 TEST(AddTablesFromFlags, BadFlags) {
+  absl::FlagSaver fs;
   auto ExpectTableSpecIsInvalid = [](absl::string_view table_spec) {
     ExecuteQueryConfig config;
     absl::SetFlag(&FLAGS_table_spec, table_spec);
@@ -501,9 +539,9 @@ TEST(AddTablesFromFlags, BadFlags) {
 }
 
 TEST(AddTablesFromFlags, GoodFlags) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
-  config.mutable_catalog().SetDescriptorPool(
-      google::protobuf::DescriptorPool::generated_pool());
+  config.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
 
   absl::SetFlag(&FLAGS_table_spec,
                 absl::StrCat(
@@ -515,26 +553,26 @@ TEST(AddTablesFromFlags, GoodFlags) {
   ZETASQL_EXPECT_OK(AddTablesFromFlags(config));
 
   absl::flat_hash_set<const Table*> tables;
-  ZETASQL_EXPECT_OK(config.catalog().GetTables(&tables));
+  ZETASQL_EXPECT_OK(config.wrapper_catalog()->GetTables(&tables));
   EXPECT_EQ(tables.size(),  //
             2);
 
   const Table* csv_table = nullptr;
-  ZETASQL_EXPECT_OK(config.mutable_catalog().GetTable("CsvTable", &csv_table));
+  ZETASQL_EXPECT_OK(config.wrapper_catalog()->GetTable("CsvTable", &csv_table));
   EXPECT_NE(csv_table, nullptr);
   EXPECT_EQ(csv_table->NumColumns(), 3);
 
   const Table* textproto_table = nullptr;
   ZETASQL_EXPECT_OK(
-      config.mutable_catalog().GetTable("TextProtoTable", &textproto_table));
+      config.wrapper_catalog()->GetTable("TextProtoTable", &textproto_table));
   EXPECT_NE(textproto_table, nullptr);
   EXPECT_EQ(textproto_table->NumColumns(), 1);
 }
 
 TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
-  config.mutable_catalog().SetDescriptorPool(
-      google::protobuf::DescriptorPool::generated_pool());
+  config.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
 
   absl::SetFlag(&FLAGS_table_spec,
                 absl::StrCat("CsvTable=csv:", CsvFilePath()));
@@ -553,6 +591,7 @@ TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
 }
 
 TEST(ExecuteQuery, ParseQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kParse);
@@ -569,6 +608,7 @@ TEST(ExecuteQuery, ParseQuery) {
 }
 
 TEST(ExecuteQuery, UnparseQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kUnparse);
@@ -581,6 +621,7 @@ TEST(ExecuteQuery, UnparseQuery) {
 }
 
 TEST(ExecuteQuery, ResolveQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kResolve);
@@ -601,6 +642,7 @@ TEST(ExecuteQuery, ResolveQuery) {
 }
 
 TEST(ExecuteQuery, UnAnalyzeQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kUnAnalyze);
@@ -613,21 +655,22 @@ TEST(ExecuteQuery, UnAnalyzeQuery) {
 }
 
 TEST(ExecuteQuery, ExplainQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExplain);
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
-  EXPECT_EQ(output.str(), R"(RootOp(
-+-input: ComputeOp(
-  +-map: {
-  | +-$col1 := ConstExpr(1)},
-  +-input: EnumerateOp(ConstExpr(1))))
+  EXPECT_EQ(output.str(), R"(ComputeOp(
++-map: {
+| +-$col1 := ConstExpr(1)},
++-input: EnumerateOp(ConstExpr(1)))
 
 )");
 }
 
 TEST(ExecuteQuery, ExecuteQuery) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
@@ -643,6 +686,7 @@ TEST(ExecuteQuery, ExecuteQuery) {
 }
 
 TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
@@ -658,9 +702,7 @@ TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion) {
           absl::StatusCode::kInvalidArgument,
           HasSubstr(
               "Syntax error: Expected macro name but got end of statement")));
-  EXPECT_EQ(output.str(), R"(Expanded SQL:
-define macro
-)");
+  EXPECT_EQ(output.str(), "");
 
   output.str("");
   ZETASQL_EXPECT_OK(ExecuteQuery("define macro repeat $1, $1, $2, $2", config, output));
@@ -675,8 +717,6 @@ define macro
             R"(Warning: Macro 'absent' not found. [at <filename>:1:8]
 select $absent
        ^
-Expanded SQL:
-select $absent
 )");
 
   output.str("");
@@ -690,9 +730,133 @@ select 1, 1, (2), (2)
 +---+---+---+---+
 
 )");
+
+  // Macros in multi-statement scripts aren't supported, with macros
+  // either first or non-first.
+  output.str("");
+  EXPECT_THAT(
+      ExecuteQuery("define macro abc 123;\n"
+                   "select 123;",
+                   config, output),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Statement not supported: DefineMacroStatement")));
+
+  output.str("");
+  EXPECT_THAT(
+      ExecuteQuery("select 123;\n"
+                   "define macro abc 123;",
+                   config, output),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Statement not supported: DefineMacroStatement")));
+
+  // DefineMacro statements are allowed to parse.
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kParse);
+  output.str("");
+  ZETASQL_EXPECT_OK(
+      ExecuteQuery("select 123;\n"
+                   "define macro abc 123;",
+                   config, output));
+  EXPECT_EQ(output.str(),
+            R"(QueryStatement [0-10]
+  Query [0-10]
+    Select [0-10]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          IntLiteral(123) [7-10]
+
+DefineMacroStatement [12-32]
+  Identifier(abc) [25-28]
+  MacroBody(123) [29-32]
+
+)");
+
+  // A query without any macros doesn't print Expanded SQL.
+  output.str("");
+  ZETASQL_EXPECT_OK(ExecuteQuery("select 1 a", config, output));
+  EXPECT_EQ(output.str(),
+            R"(QueryStatement [0-10]
+  Query [0-10]
+    Select [0-10]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          IntLiteral(1) [7-8]
+          Alias [9-10]
+            Identifier(a) [9-10]
+
+)");
+}
+
+TEST(ExecuteQuery, ExecuteQueryWithMacroExpansion_StrictMode) {
+  absl::FlagSaver fs;
+  ExecuteQueryConfig config;
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
+  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_SQL_MACROS);
+  config.mutable_analyzer_options().mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_ENFORCE_STRICT_MACROS);
+  config.mutable_analyzer_options().set_error_message_mode(
+      ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("define macro abc 123;", config, output));
+  EXPECT_EQ(output.str(), "Macro registered: abc\n");
+  output.str("");
+
+  ZETASQL_EXPECT_OK(ExecuteQuery("select $abc()", config, output));
+  EXPECT_EQ(output.str(), R"(Expanded SQL:
+select 123
++-----+
+|     |
++-----+
+| 123 |
++-----+
+
+)");
+
+  output.str("");
+  EXPECT_THAT(ExecuteQuery("select $abc", config, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invocation of macro 'abc' missing argument "
+                                 "list. [at <filename>:1:12]")));
+  EXPECT_EQ(output.str(), "");
+}
+
+// This tests invoking ExecuteQuery multiple times with the same Config,
+// carrying state (DDL definitions) from previous calls to the next.
+// This simulates how --interactive mode calls ExecuteQuery.
+TEST(ExecuteQuery, ExecuteQueryStateful) {
+  absl::FlagSaver fs;
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(InitializeExecuteQueryConfig(config));
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kExecute);
+  config.mutable_analyzer_options().set_error_message_mode(
+      ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("create function f() AS (10*2)", config, output));
+  EXPECT_EQ(output.str(), "Function registered.\n");
+
+  output.str("");
+  ZETASQL_EXPECT_OK(ExecuteQuery("create function g() AS (f()*3)", config, output));
+  EXPECT_EQ(output.str(), "Function registered.\n");
+
+  output.str("");
+  ZETASQL_EXPECT_OK(ExecuteQuery("select f() f, g() g", config, output));
+  EXPECT_EQ(output.str(),
+            R"(+----+----+
+| f  | g  |
++----+----+
+| 20 | 60 |
++----+----+
+
+)");
 }
 
 TEST(ExecuteQuery, ParseExpression) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kParse);
@@ -705,6 +869,7 @@ TEST(ExecuteQuery, ParseExpression) {
 }
 
 TEST(ExecuteQuery, ResolveExpression) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kResolve);
@@ -717,6 +882,7 @@ TEST(ExecuteQuery, ResolveExpression) {
 }
 
 TEST(ExecuteQuery, ExplainExpression) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExplain);
@@ -724,11 +890,12 @@ TEST(ExecuteQuery, ExplainExpression) {
 
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
-  EXPECT_EQ(output.str(), R"(RootExpr(ConstExpr(1))
+  EXPECT_EQ(output.str(), R"(ConstExpr(1)
 )");
 }
 
 TEST(ExecuteQuery, ExecuteExpression) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
@@ -740,6 +907,7 @@ TEST(ExecuteQuery, ExecuteExpression) {
 }
 
 TEST(ExecuteQuery, ExecuteError) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
@@ -749,10 +917,11 @@ TEST(ExecuteQuery, ExecuteError) {
 }
 
 TEST(ExecuteQuery, RespectEvaluatorOptions) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
-  config.mutable_catalog().AddBuiltinFunctions(
+  config.builtins_catalog()->AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
 
   {
@@ -773,11 +942,12 @@ TEST(ExecuteQuery, RespectEvaluatorOptions) {
 }
 
 TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
-  config.mutable_catalog().AddBuiltinFunctions(
+  config.builtins_catalog()->AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
 
   {
@@ -798,10 +968,11 @@ TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
 }
 
 TEST(ExecuteQuery, RespectQueryParameters) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
-  config.mutable_catalog().AddBuiltinFunctions(
+  config.builtins_catalog()->AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
   ZETASQL_ASSERT_OK(config.mutable_analyzer_options().AddQueryParameter(
       "p1", types::Int64Type()));
@@ -818,11 +989,12 @@ TEST(ExecuteQuery, RespectQueryParameters) {
 }
 
 TEST(ExecuteQuery, RespectQueryParametersExpression) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
   config.set_sql_mode(SqlMode::kExpression);
-  config.mutable_catalog().AddBuiltinFunctions(
+  config.builtins_catalog()->AddBuiltinFunctions(
       BuiltinFunctionOptions(config.analyzer_options().language()));
   ZETASQL_ASSERT_OK(config.mutable_analyzer_options().AddQueryParameter(
       "p1", types::Int64Type()));
@@ -833,6 +1005,7 @@ TEST(ExecuteQuery, RespectQueryParametersExpression) {
 }
 
 TEST(ExecuteQuery, ExamineResolvedASTCallback) {
+  absl::FlagSaver fs;
   ExecuteQueryConfig config;
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
@@ -845,6 +1018,117 @@ TEST(ExecuteQuery, ExamineResolvedASTCallback) {
   EXPECT_THAT(ExecuteQuery("select 1", config, output),
               StatusIs(absl::StatusCode::kFailedPrecondition));
   EXPECT_THAT(output.str(), IsEmpty());
+}
+
+TEST(SetLanguageOptionsFromFlags, SelectedCatalog_None) {
+  absl::FlagSaver fs;
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(InitializeExecuteQueryConfig(config));
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kResolve);
+
+  // Referencing built-in functions works.
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("select sqrt(1)", config, output));
+
+  // There are no tables to reference.
+  EXPECT_THAT(ExecuteQuery("select sqrt(1) from TestTable", config, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       MatchesRegex(".*Table not found.*")));
+}
+
+TEST(SetLanguageOptionsFromFlags, SelectedCatalog_Sample) {
+  absl::FlagSaver fs;
+  absl::SetFlag(&FLAGS_catalog, "sample");
+
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(InitializeExecuteQueryConfig(config));
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kResolve);
+
+  // Built-ins work, and tables from SampleCatalog work.
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("select sqrt(1) from TestTable", config, output));
+}
+
+// Regression test for a case where the query defines a function that refers to
+// a builtin function in a different catalog. ExecuteQueryConfig has different
+// catalogs for builtins and newly defined objects. This case was triggering a
+// ZETASQL_RET_CHECK previously.
+TEST(ExecuteQuery, ResolveFunction_DifferentCatalogs) {
+  absl::FlagSaver fs;
+  ExecuteQueryConfig config;
+  config.clear_tool_modes();
+  config.add_tool_mode(ToolMode::kResolve);
+  config.mutable_analyzer_options()
+      .mutable_language()
+      ->SetSupportedStatementKinds({zetasql::RESOLVED_CREATE_FUNCTION_STMT});
+  ZETASQL_ASSERT_OK(config.builtins_catalog()->AddBuiltinFunctionsAndTypes(
+      BuiltinFunctionOptions(config.analyzer_options().language())));
+  std::ostringstream output;
+
+  // Here, the IF() function is provided by the builtins catalog.
+  const auto& query = R"(
+  CREATE TEMP FUNCTION NewFunction(id STRING) RETURNS INT64
+  AS (
+    IF(LENGTH(id) > 0, 1, 0)
+  );)";
+  ZETASQL_EXPECT_OK(ExecuteQuery(query, config, output));
+}
+
+static absl::Status RunFileBasedTestImpl(
+    absl::string_view test_case_input,
+    file_based_test_driver::RunTestCaseResult* test_result,
+    std::ostringstream* output) {
+  file_based_test_driver::TestCaseOptions test_case_options;
+  // `mode` and `catalog` options correspond to flags of the same name.
+  test_case_options.RegisterString("mode", "execute");
+  test_case_options.RegisterString("catalog", "sample");
+
+  std::string test_case = std::string(test_case_input);
+  ZETASQL_RETURN_IF_ERROR(test_case_options.ParseTestCaseOptions(&test_case));
+
+  absl::SetFlag(&FLAGS_mode,
+                absl::StrSplit(test_case_options.GetString("mode"), ","));
+  absl::SetFlag(&FLAGS_catalog, test_case_options.GetString("catalog"));
+
+  ExecuteQueryConfig config;
+  ZETASQL_RETURN_IF_ERROR(InitializeExecuteQueryConfig(config));
+  config.mutable_analyzer_options().set_error_message_mode(
+      ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
+
+  return ExecuteQuery(test_case, config, *output);
+}
+
+// Wrapper around RunFileBasedTestImpl that turns returned errors into
+// test output.
+static void RunFileBasedTest(
+    absl::string_view test_case_input,
+    file_based_test_driver::RunTestCaseResult* test_result) {
+  std::ostringstream output;
+  absl::Status status =
+      RunFileBasedTestImpl(test_case_input, test_result, &output);
+  if (!status.ok()) {
+    status.ErasePayload(kErrorMessageModeUrl);
+
+    // Show both the output so far plus the error.
+    output << "ERROR: " << status.ToString() << std::endl;
+  }
+  // String-replace is a hack because some catalog->FindX errors have a trailing
+  // space when there's no catalog name and then the linter blocks the CL.
+  test_result->AddTestOutput(
+      absl::StrReplaceAll(output.str(), {{" \n", "<space removed>\n"}}));
+}
+
+TEST(ExecuteQuery, FileBasedTest) {
+  absl::FlagSaver fs;
+  const std::string pattern =
+      zetasql_base::JoinPath(::testing::SrcDir(),
+                     "com_google_zetasql/zetasql/tools/execute_query/"
+                     "testdata/execute_query_tool.test");
+
+  EXPECT_TRUE(file_based_test_driver::RunTestCasesFromFiles(pattern,
+                                                            &RunFileBasedTest));
 }
 
 }  // namespace

@@ -1,0 +1,263 @@
+select 1
+|> WINDOW f() OVER (), g() OVER (PARTITION BY x ORDER BY y) x
+|> WINDOW 3, h() OVER (ROWS UNBOUNDED PRECEDING) AS z
+--
+QueryStatement [0-124] [select 1 |...PRECEDING) AS z]
+  Query [0-124] [select 1 |...PRECEDING) AS z]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeWindow [9-70] [|> WINDOW...ORDER BY y) x]
+      Select [12-70] [WINDOW f()...ORDER BY y) x]
+        SelectList [19-70] [f() OVER (...ORDER BY y) x]
+          SelectColumn [19-30] [f() OVER ()]
+            AnalyticFunctionCall [19-30] [f() OVER ()]
+              FunctionCall [19-22] [f()]
+                PathExpression [19-20] [f]
+                  Identifier(f) [19-20] [f]
+              WindowSpecification [28-30] [()]
+          SelectColumn [32-70] [g() OVER (...ORDER BY y) x]
+            AnalyticFunctionCall [32-68] [g() OVER (...ORDER BY y)]
+              FunctionCall [32-35] [g()]
+                PathExpression [32-33] [g]
+                  Identifier(g) [32-33] [g]
+              WindowSpecification [41-68] [(PARTITION BY x ORDER BY y)]
+                PartitionBy [42-56] [PARTITION BY x]
+                  PathExpression [55-56] [x]
+                    Identifier(x) [55-56] [x]
+                OrderBy [57-67] [ORDER BY y]
+                  OrderingExpression(ASC) [66-67] [y]
+                    PathExpression [66-67] [y]
+                      Identifier(y) [66-67] [y]
+            Alias [69-70] [x]
+              Identifier(x) [69-70] [x]
+    PipeWindow [71-124] [|> WINDOW...PRECEDING) AS z]
+      Select [74-124] [WINDOW 3,...PRECEDING) AS z]
+        SelectList [81-124] [3, h() OVER...PRECEDING) AS z]
+          SelectColumn [81-82] [3]
+            IntLiteral(3) [81-82] [3]
+          SelectColumn [84-124] [h() OVER (...PRECEDING) AS z]
+            AnalyticFunctionCall [84-119] [h() OVER (...PRECEDING)]
+              FunctionCall [84-87] [h()]
+                PathExpression [84-85] [h]
+                  Identifier(h) [84-85] [h]
+              WindowSpecification [93-119] [(ROWS UNBOUNDED PRECEDING)]
+                WindowFrame(ROWS) [94-118] [ROWS UNBOUNDED PRECEDING]
+                  WindowFrameExpr(UNBOUNDED PRECEDING) [99-118] [UNBOUNDED PRECEDING]
+            Alias [120-124] [AS z]
+              Identifier(z) [123-124] [z]
+--
+SELECT
+  1
+|> WINDOW
+     f() OVER (),
+     g() OVER (PARTITION BY x
+       ORDER BY y) AS x
+|> WINDOW
+     3,
+     h() OVER (ROWS UNBOUNDED PRECEDING) AS z
+==
+
+select 1
+|> WINDOW
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:10]
+|> WINDOW
+         ^
+==
+
+# The parser doesn't check that OVER is present.  It accepts any expression.
+# Trailing commas are allowed.
+select 0
+|> WINDOW 1, x, f()+g(),
+--
+QueryStatement [0-33] [select 0 |..., f()+g(),]
+  Query [0-33] [select 0 |..., f()+g(),]
+    Select [0-8] [select 0]
+      SelectList [7-8] [0]
+        SelectColumn [7-8] [0]
+          IntLiteral(0) [7-8] [0]
+    PipeWindow [9-33] [|> WINDOW 1, x, f()+g(),]
+      Select [12-33] [WINDOW 1, x, f()+g(),]
+        SelectList [19-33] [1, x, f()+g(),]
+          SelectColumn [19-20] [1]
+            IntLiteral(1) [19-20] [1]
+          SelectColumn [22-23] [x]
+            PathExpression [22-23] [x]
+              Identifier(x) [22-23] [x]
+          SelectColumn [25-32] [f()+g()]
+            BinaryExpression(+) [25-32] [f()+g()]
+              FunctionCall [25-28] [f()]
+                PathExpression [25-26] [f]
+                  Identifier(f) [25-26] [f]
+              FunctionCall [29-32] [g()]
+                PathExpression [29-30] [g]
+                  Identifier(g) [29-30] [g]
+--
+SELECT
+  0
+|> WINDOW
+     1,
+     x,
+     f() + g()
+==
+
+# OVER precedence works as usual.
+select 1
+|> WINDOW x+f(y+z) OVER ()+k
+--
+QueryStatement [0-37] [select 1 |...OVER ()+k]
+  Query [0-37] [select 1 |...OVER ()+k]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeWindow [9-37] [|> WINDOW x+f(y+z) OVER ()+k]
+      Select [12-37] [WINDOW x+f(y+z) OVER ()+k]
+        SelectList [19-37] [x+f(y+z) OVER ()+k]
+          SelectColumn [19-37] [x+f(y+z) OVER ()+k]
+            BinaryExpression(+) [19-37] [x+f(y+z) OVER ()+k]
+              BinaryExpression(+) [19-35] [x+f(y+z) OVER ()]
+                PathExpression [19-20] [x]
+                  Identifier(x) [19-20] [x]
+                AnalyticFunctionCall [21-35] [f(y+z) OVER ()]
+                  FunctionCall [21-27] [f(y+z)]
+                    PathExpression [21-22] [f]
+                      Identifier(f) [21-22] [f]
+                    BinaryExpression(+) [23-26] [y+z]
+                      PathExpression [23-24] [y]
+                        Identifier(y) [23-24] [y]
+                      PathExpression [25-26] [z]
+                        Identifier(z) [25-26] [z]
+                  WindowSpecification [33-35] [()]
+              PathExpression [36-37] [k]
+                Identifier(k) [36-37] [k]
+--
+SELECT
+  1
+|> WINDOW
+     x + f(y + z) OVER () + k
+==
+
+select 1
+|> WINDOW *
+--
+ERROR: Syntax error: Unexpected "*" [at 2:11]
+|> WINDOW *
+          ^
+==
+
+# Dot-star is allowed, with the optional modifiers, including
+# on the output of window functions.
+select 1
+|> WINDOW x.*,
+          f(x).* except(a),
+          (1+x).* replace(a as b),
+          (sum(x) OVER ()).*
+--
+QueryStatement [0-115] [select 1 |...OVER ()).*]
+  Query [0-115] [select 1 |...OVER ()).*]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeWindow [9-115] [|> WINDOW...OVER ()).*]
+      Select [12-115] [WINDOW x.*...OVER ()).*]
+        SelectList [19-115] [x.*,...OVER ()).*]
+          SelectColumn [19-22] [x.*]
+            DotStar [19-22] [x.*]
+              PathExpression [19-20] [x]
+                Identifier(x) [19-20] [x]
+          SelectColumn [34-50] [f(x).* except(a)]
+            DotStarWithModifiers [34-50] [f(x).* except(a)]
+              FunctionCall [34-38] [f(x)]
+                PathExpression [34-35] [f]
+                  Identifier(f) [34-35] [f]
+                PathExpression [36-37] [x]
+                  Identifier(x) [36-37] [x]
+              StarModifiers [41-50] [except(a)]
+                StarExceptList [41-50] [except(a)]
+                  Identifier(a) [48-49] [a]
+          SelectColumn [62-85] [(1+x).* replace(a as b)]
+            DotStarWithModifiers [62-85] [(1+x).* replace(a as b)]
+              BinaryExpression(+) [63-66] [1+x]
+                IntLiteral(1) [63-64] [1]
+                PathExpression [65-66] [x]
+                  Identifier(x) [65-66] [x]
+              StarModifiers [70-85] [replace(a as b)]
+                StarReplaceItem [78-84] [a as b]
+                  PathExpression [78-79] [a]
+                    Identifier(a) [78-79] [a]
+                  Identifier(b) [83-84] [b]
+          SelectColumn [97-115] [(sum(x) OVER ()).*]
+            DotStar [97-115] [(sum(x) OVER ()).*]
+              AnalyticFunctionCall [98-112] [sum(x) OVER ()]
+                FunctionCall [98-104] [sum(x)]
+                  PathExpression [98-101] [sum]
+                    Identifier(sum) [98-101] [sum]
+                  PathExpression [102-103] [x]
+                    Identifier(x) [102-103] [x]
+                WindowSpecification [110-112] [()]
+--
+SELECT
+  1
+|> WINDOW
+     x.*,
+     f(x).* EXCEPT (a),
+     (1 + x).* REPLACE (a AS b),
+     (sum(x) OVER ()).*
+==
+
+# The precedence allows binding .* here.
+select 1
+|> WINDOW sum(x) OVER ().*
+--
+QueryStatement [0-35] [select 1 |...OVER ().*]
+  Query [0-35] [select 1 |...OVER ().*]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeWindow [9-35] [|> WINDOW sum(x) OVER ().*]
+      Select [12-35] [WINDOW sum(x) OVER ().*]
+        SelectList [19-35] [sum(x) OVER ().*]
+          SelectColumn [19-35] [sum(x) OVER ().*]
+            DotStar [19-35] [sum(x) OVER ().*]
+              AnalyticFunctionCall [19-33] [sum(x) OVER ()]
+                FunctionCall [19-25] [sum(x)]
+                  PathExpression [19-22] [sum]
+                    Identifier(sum) [19-22] [sum]
+                  PathExpression [23-24] [x]
+                    Identifier(x) [23-24] [x]
+                WindowSpecification [31-33] [()]
+--
+SELECT
+  1
+|> WINDOW
+     sum(x) OVER ().*
+==
+
+# Precedence makes this illegal.
+select 1
+|> WINDOW 1+sum(x) OVER ().*
+--
+ERROR: Syntax error: Unexpected "*" [at 2:28]
+|> WINDOW 1+sum(x) OVER ().*
+                           ^
+==
+
+select 1
+|> WINDOW sum(x).* OVER ()
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 2:20]
+|> WINDOW sum(x).* OVER ()
+                   ^
+==
+
+select 1
+|> WINDOW sum(x.*) OVER ()
+--
+ERROR: Syntax error: Unexpected "*" [at 2:17]
+|> WINDOW sum(x.*) OVER ()
+                ^

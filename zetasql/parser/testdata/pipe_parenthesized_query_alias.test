@@ -1,0 +1,512 @@
+[language_{{features=PIPES|features=}}]
+(SELECT 1) {{AS q1|q1|}}
+--
+ALTERNATION GROUP: features=PIPES,AS q1
+--
+QueryStatement [0-16] [(SELECT 1) AS q1]
+  Query [0-16] [(SELECT 1) AS q1]
+    AliasedQueryExpression [0-16] [(SELECT 1) AS q1]
+      Query [1-9] [SELECT 1]
+        Select [1-9] [SELECT 1]
+          SelectList [8-9] [1]
+            SelectColumn [8-9] [1]
+              IntLiteral(1) [8-9] [1]
+      Alias [11-16] [AS q1]
+        Identifier(q1) [14-16] [q1]
+--
+(
+  SELECT
+    1
+) AS q1
+--
+ALTERNATION GROUPS:
+    features=PIPES,q1
+    features=,q1
+--
+ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:12]
+(SELECT 1) q1
+           ^
+--
+ALTERNATION GROUPS:
+    features=PIPES,
+    features=,
+--
+QueryStatement [0-10] [(SELECT 1)]
+  Query [1-9] [SELECT 1]
+    Select [1-9] [SELECT 1]
+      SelectList [8-9] [1]
+        SelectColumn [8-9] [1]
+          IntLiteral(1) [8-9] [1]
+--
+(
+SELECT
+  1
+)
+--
+ALTERNATION GROUP: features=,AS q1
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:12]
+(SELECT 1) AS q1
+           ^
+==
+
+[language_{{features=PIPES|features=}}]
+(FROM t1) {{AS q1|q1|}}
+--
+ALTERNATION GROUP: features=PIPES,AS q1
+--
+QueryStatement [0-15] [(FROM t1) AS q1]
+  Query [0-15] [(FROM t1) AS q1]
+    AliasedQueryExpression [0-15] [(FROM t1) AS q1]
+      Query [1-8] [FROM t1]
+        FromQuery [1-8] [FROM t1]
+          FromClause [1-8] [FROM t1]
+            TablePathExpression [6-8] [t1]
+              PathExpression [6-8] [t1]
+                Identifier(t1) [6-8] [t1]
+      Alias [10-15] [AS q1]
+        Identifier(q1) [13-15] [q1]
+--
+(
+  FROM
+    t1
+) AS q1
+--
+ALTERNATION GROUP: features=PIPES,q1
+--
+ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:11]
+(FROM t1) q1
+          ^
+--
+ALTERNATION GROUP: features=PIPES,
+--
+QueryStatement [0-9] [(FROM t1)]
+  Query [1-8] [FROM t1]
+    FromQuery [1-8] [FROM t1]
+      FromClause [1-8] [FROM t1]
+        TablePathExpression [6-8] [t1]
+          PathExpression [6-8] [t1]
+            Identifier(t1) [6-8] [t1]
+--
+(
+FROM
+  t1)
+--
+ALTERNATION GROUP: features=,AS q1
+--
+ERROR: Syntax error: Unexpected FROM [at 1:2]
+(FROM t1) AS q1
+ ^
+--
+ALTERNATION GROUP: features=,q1
+--
+ERROR: Syntax error: Unexpected FROM [at 1:2]
+(FROM t1) q1
+ ^
+--
+ALTERNATION GROUP: features=,
+--
+ERROR: Syntax error: Unexpected FROM [at 1:2]
+(FROM t1) 
+ ^
+==
+
+[language_features=PIPES]
+(FROM t1) {{AS|}} q1
+|> WHERE true
+--
+ALTERNATION GROUP: AS
+--
+QueryStatement [0-29] [(FROM t1) AS q1 |> WHERE true]
+  Query [0-29] [(FROM t1) AS q1 |> WHERE true]
+    AliasedQueryExpression [0-15] [(FROM t1) AS q1]
+      Query [1-8] [FROM t1]
+        FromQuery [1-8] [FROM t1]
+          FromClause [1-8] [FROM t1]
+            TablePathExpression [6-8] [t1]
+              PathExpression [6-8] [t1]
+                Identifier(t1) [6-8] [t1]
+      Alias [10-15] [AS q1]
+        Identifier(q1) [13-15] [q1]
+    PipeWhere [16-29] [|> WHERE true]
+      WhereClause [19-29] [WHERE true]
+        BooleanLiteral(true) [25-29] [true]
+--
+(
+  FROM
+    t1
+) AS q1
+|> WHERE
+     true
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:12]
+(FROM t1)  q1
+           ^
+==
+
+[language_{{features=PIPES|features=}}]
+(SELECT * FROM t1) AS q1
+UNION ALL
+(SELECT * FROM t2) AS q2
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-59] [(SELECT *...t2) AS q2]
+  Query [0-59] [(SELECT *...t2) AS q2]
+    SetOperation(UNION ALL) [0-59] [(SELECT *...t2) AS q2]
+      SetOperationMetadataList [25-34] [UNION ALL]
+        SetOperationMetadata [25-34] [UNION ALL]
+          SetOperationType [25-30] [UNION]
+          SetOperationAllOrDistinct [31-34] [ALL]
+      AliasedQueryExpression [0-24] [(SELECT * FROM t1) AS q1]
+        Query [1-17] [SELECT * FROM t1]
+          Select [1-17] [SELECT * FROM t1]
+            SelectList [8-9] [*]
+              SelectColumn [8-9] [*]
+                Star(*) [8-9] [*]
+            FromClause [10-17] [FROM t1]
+              TablePathExpression [15-17] [t1]
+                PathExpression [15-17] [t1]
+                  Identifier(t1) [15-17] [t1]
+        Alias [19-24] [AS q1]
+          Identifier(q1) [22-24] [q1]
+      AliasedQueryExpression [35-59] [(SELECT * FROM t2) AS q2]
+        Query [36-52] [SELECT * FROM t2]
+          Select [36-52] [SELECT * FROM t2]
+            SelectList [43-44] [*]
+              SelectColumn [43-44] [*]
+                Star(*) [43-44] [*]
+            FromClause [45-52] [FROM t2]
+              TablePathExpression [50-52] [t2]
+                PathExpression [50-52] [t2]
+                  Identifier(t2) [50-52] [t2]
+        Alias [54-59] [AS q2]
+          Identifier(q2) [57-59] [q2]
+--
+(
+  SELECT
+    *
+  FROM
+    t1
+) AS q1 UNION ALL
+(
+  SELECT
+    *
+  FROM
+    t2
+) AS q2
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
+(SELECT * FROM t1) AS q1
+                   ^
+==
+
+[language_{{features=PIPES|features=}}]
+(SELECT * FROM t1) AS q1
+ORDER BY x
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-35] [(SELECT *...ORDER BY x]
+  Query [0-35] [(SELECT *...ORDER BY x]
+    AliasedQueryExpression [0-24] [(SELECT * FROM t1) AS q1]
+      Query [1-17] [SELECT * FROM t1]
+        Select [1-17] [SELECT * FROM t1]
+          SelectList [8-9] [*]
+            SelectColumn [8-9] [*]
+              Star(*) [8-9] [*]
+          FromClause [10-17] [FROM t1]
+            TablePathExpression [15-17] [t1]
+              PathExpression [15-17] [t1]
+                Identifier(t1) [15-17] [t1]
+      Alias [19-24] [AS q1]
+        Identifier(q1) [22-24] [q1]
+    OrderBy [25-35] [ORDER BY x]
+      OrderingExpression(ASC) [34-35] [x]
+        PathExpression [34-35] [x]
+          Identifier(x) [34-35] [x]
+--
+(
+  SELECT
+    *
+  FROM
+    t1
+) AS q1
+ORDER BY x
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
+(SELECT * FROM t1) AS q1
+                   ^
+==
+
+[language_{{features=PIPES|features=}}]
+(SELECT * FROM t1) AS q1
+LIMIT 10
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-33] [(SELECT *...q1 LIMIT 10]
+  Query [0-33] [(SELECT *...q1 LIMIT 10]
+    AliasedQueryExpression [0-24] [(SELECT * FROM t1) AS q1]
+      Query [1-17] [SELECT * FROM t1]
+        Select [1-17] [SELECT * FROM t1]
+          SelectList [8-9] [*]
+            SelectColumn [8-9] [*]
+              Star(*) [8-9] [*]
+          FromClause [10-17] [FROM t1]
+            TablePathExpression [15-17] [t1]
+              PathExpression [15-17] [t1]
+                Identifier(t1) [15-17] [t1]
+      Alias [19-24] [AS q1]
+        Identifier(q1) [22-24] [q1]
+    LimitOffset [25-33] [LIMIT 10]
+      IntLiteral(10) [31-33] [10]
+--
+(
+  SELECT
+    *
+  FROM
+    t1
+) AS q1
+LIMIT 10
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
+(SELECT * FROM t1) AS q1
+                   ^
+==
+
+[language_{{features=PIPES|features=}}]
+(SELECT * FROM t1) {{AS q1|q1}}
+JOIN 
+(SELECT * FROM t2) {{AS q2|q2}}
+--
+ALTERNATION GROUPS:
+    features=PIPES,AS q1,AS q2
+    features=PIPES,AS q1,q2
+--
+ERROR: Syntax error: Expected end of input but got keyword JOIN [at 2:1]
+JOIN 
+^
+--
+ALTERNATION GROUPS:
+    features=PIPES,q1,AS q2
+    features=PIPES,q1,q2
+    features=,q1,AS q2
+    features=,q1,q2
+--
+ERROR: Syntax error: Expected end of input but got identifier "q1" [at 1:20]
+(SELECT * FROM t1) q1
+                   ^
+--
+ALTERNATION GROUPS:
+    features=,AS q1,AS q2
+    features=,AS q1,q2
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:20]
+(SELECT * FROM t1) AS q1
+                   ^
+==
+
+[language_{{features=PIPES|features=}}]
+# This compares aliased query output inside and outside FROM.
+{{FROM|}} (SELECT 1) AS q
+--
+ALTERNATION GROUP: features=PIPES,FROM
+--
+QueryStatement [62-82] [FROM (SELECT 1) AS q]
+  Query [62-82] [FROM (SELECT 1) AS q]
+    FromQuery [62-82] [FROM (SELECT 1) AS q]
+      FromClause [62-82] [FROM (SELECT 1) AS q]
+        TableSubquery [67-82] [(SELECT 1) AS q]
+          Query [68-76] [SELECT 1]
+            Select [68-76] [SELECT 1]
+              SelectList [75-76] [1]
+                SelectColumn [75-76] [1]
+                  IntLiteral(1) [75-76] [1]
+          Alias [78-82] [AS q]
+            Identifier(q) [81-82] [q]
+--
+FROM
+  (
+    SELECT
+      1
+  ) AS q
+--
+ALTERNATION GROUP: features=PIPES,
+--
+QueryStatement [63-78] [(SELECT 1) AS q]
+  Query [63-78] [(SELECT 1) AS q]
+    AliasedQueryExpression [63-78] [(SELECT 1) AS q]
+      Query [64-72] [SELECT 1]
+        Select [64-72] [SELECT 1]
+          SelectList [71-72] [1]
+            SelectColumn [71-72] [1]
+              IntLiteral(1) [71-72] [1]
+      Alias [74-78] [AS q]
+        Identifier(q) [77-78] [q]
+--
+(
+  SELECT
+    1
+) AS q
+--
+ALTERNATION GROUP: features=,FROM
+--
+ERROR: Syntax error: Unexpected FROM [at 2:1]
+FROM (SELECT 1) AS q
+^
+--
+ALTERNATION GROUP: features=,
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 2:13]
+ (SELECT 1) AS q
+            ^
+==
+
+[language_{{features=PIPES|features=}}]
+(((SELECT 1))) AS q1
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-20] [(((SELECT 1))) AS q1]
+  Query [0-20] [(((SELECT 1))) AS q1]
+    AliasedQueryExpression [0-20] [(((SELECT 1))) AS q1]
+      Query [3-11] [SELECT 1]
+        Select [3-11] [SELECT 1]
+          SelectList [10-11] [1]
+            SelectColumn [10-11] [1]
+              IntLiteral(1) [10-11] [1]
+      Alias [15-20] [AS q1]
+        Identifier(q1) [18-20] [q1]
+--
+((
+  SELECT
+    1
+  )
+) AS q1
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:16]
+(((SELECT 1))) AS q1
+               ^
+==
+
+[language_{{features=PIPES|features=}}]
+(((SELECT 1) AS q1))
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-20] [(((SELECT 1) AS q1))]
+  Query [2-18] [(SELECT 1) AS q1]
+    AliasedQueryExpression [2-18] [(SELECT 1) AS q1]
+      Query [3-11] [SELECT 1]
+        Select [3-11] [SELECT 1]
+          SelectList [10-11] [1]
+            SelectColumn [10-11] [1]
+              IntLiteral(1) [10-11] [1]
+      Alias [13-18] [AS q1]
+        Identifier(q1) [16-18] [q1]
+--
+(
+(
+  SELECT
+    1
+) AS q1)
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:14]
+(((SELECT 1) AS q1))
+             ^
+==
+
+[language_{{features=PIPES|features=}}]
+(((SELECT 1) AS q1) AS q2) AS q3
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [0-32] [(((SELECT...q2) AS q3]
+  Query [0-32] [(((SELECT...q2) AS q3]
+    AliasedQueryExpression [0-32] [(((SELECT...q2) AS q3]
+      Query [1-25] [((SELECT 1) AS q1) AS q2]
+        AliasedQueryExpression [1-25] [((SELECT 1) AS q1) AS q2]
+          Query [2-18] [(SELECT 1) AS q1]
+            AliasedQueryExpression [2-18] [(SELECT 1) AS q1]
+              Query [3-11] [SELECT 1]
+                Select [3-11] [SELECT 1]
+                  SelectList [10-11] [1]
+                    SelectColumn [10-11] [1]
+                      IntLiteral(1) [10-11] [1]
+              Alias [13-18] [AS q1]
+                Identifier(q1) [16-18] [q1]
+          Alias [20-25] [AS q2]
+            Identifier(q2) [23-25] [q2]
+      Alias [27-32] [AS q3]
+        Identifier(q3) [30-32] [q3]
+--
+(
+  (
+    (
+      SELECT
+        1
+    ) AS q1
+  ) AS q2
+) AS q3
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 1:14]
+(((SELECT 1) AS q1) AS q2) AS q3
+             ^
+==
+
+[language_{{features=PIPES|features=}}]
+# Test another kind of QueryExpression with an alias.
+(select 1
+ union all
+ select 2) AS q
+--
+ALTERNATION GROUP: features=PIPES
+--
+QueryStatement [54-90] [(select 1...select 2) AS q]
+  Query [54-90] [(select 1...select 2) AS q]
+    AliasedQueryExpression [54-90] [(select 1...select 2) AS q]
+      Query [55-84] [select 1  union all  select 2]
+        SetOperation(UNION ALL) [55-84] [select 1  union all  select 2]
+          SetOperationMetadataList [65-74] [union all]
+            SetOperationMetadata [65-74] [union all]
+              SetOperationType [65-70] [union]
+              SetOperationAllOrDistinct [71-74] [all]
+          Select [55-63] [select 1]
+            SelectList [62-63] [1]
+              SelectColumn [62-63] [1]
+                IntLiteral(1) [62-63] [1]
+          Select [76-84] [select 2]
+            SelectList [83-84] [2]
+              SelectColumn [83-84] [2]
+                IntLiteral(2) [83-84] [2]
+      Alias [86-90] [AS q]
+        Identifier(q) [89-90] [q]
+--
+(
+  SELECT
+    1
+  UNION ALL
+  SELECT
+    2
+) AS q
+--
+ALTERNATION GROUP: features=
+--
+ERROR: Syntax error: Alias not allowed on parenthesized outer query [at 4:12]
+ select 2) AS q
+           ^

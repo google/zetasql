@@ -17,7 +17,6 @@
 #include "zetasql/reference_impl/uda_evaluation.h"
 
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -27,6 +26,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/type_helpers.h"
@@ -42,19 +42,20 @@
 namespace zetasql {
 
 class UserDefinedAggregateFunctionEvaluator
-    : public AggregateFunctionEvaluator {
+    : public SqlDefinedAggregateFunctionEvaluator {
  public:
   UserDefinedAggregateFunctionEvaluator(
       std::unique_ptr<RelationalOp> algebrized_tree,
-      std::vector<std::string> argument_names,
-      std::vector<bool> argument_is_aggregate)
+      std::vector<UdaArgumentInfo> argument_infos)
       : algebrized_tree_(std::move(algebrized_tree)),
-        argument_names_(std::move(argument_names)),
-        argument_is_aggregate_(std::move(argument_is_aggregate)) {}
+        argument_infos_(std::move(argument_infos)) {}
   ~UserDefinedAggregateFunctionEvaluator() override = default;
 
-  void SetEvaluationContext(EvaluationContext* context) override {
+  void SetEvaluationContext(
+      EvaluationContext* context,
+      absl::Span<const TupleData* const> params) override {
     eval_context_ = context;
+    params_ = std::vector<const TupleData*>(params.begin(), params.end());
   }
 
   absl::Status Reset() override {
@@ -90,18 +91,20 @@ class UserDefinedAggregateFunctionEvaluator
         eval_context_->MakeChildContext();
     local_context->set_active_group_rows(inputs_.get());
 
-    if (!inputs_->IsEmpty()) {
-      auto first_row = inputs_->GetTuplePtrs()[0];
-      for (int i = 0; i < argument_names_.size(); ++i) {
-        // NOT_AGGREGATE arguments should be mapped by value since they are
-        // represented by a FunctionArgumentRefExpr. These arguments have a
-        // constant value for each grouped rows, so we can just add them once.
-        if (!local_context->HasFunctionArgumentRef(argument_names_[i]) &&
-            !argument_is_aggregate_[i]) {
-          ZETASQL_RETURN_IF_ERROR(local_context->AddFunctionArgumentRef(
-              argument_names_[i], first_row->slot(i).value()));
-        }
+    std::shared_ptr<TupleSlot::SharedProtoState> shared_state =
+        std::make_shared<TupleSlot::SharedProtoState>();
+    for (const auto& info : argument_infos_) {
+      if (info.is_aggregate) {
+        continue;
       }
+      Value arg;
+      VirtualTupleSlot virtual_slot(&arg, &shared_state);
+      absl::Status status;
+      ZETASQL_RET_CHECK(info.expr != nullptr);
+      info.expr->Eval(params_, eval_context_, &virtual_slot, &status);
+      ZETASQL_RETURN_IF_ERROR(status);
+      ZETASQL_RETURN_IF_ERROR(
+          local_context->AddFunctionArgumentRef(info.argument_name, arg));
     }
 
     ZETASQL_RETURN_IF_ERROR(
@@ -127,8 +130,8 @@ class UserDefinedAggregateFunctionEvaluator
 
  private:
   std::unique_ptr<RelationalOp> algebrized_tree_;
-  std::vector<std::string> argument_names_;
-  std::vector<bool> argument_is_aggregate_;
+  std::vector<UdaArgumentInfo> argument_infos_;
+  std::vector<const TupleData*> params_;
   std::unique_ptr<MemoryAccountant> memory_accountant_;
   std::unique_ptr<TupleDataDeque> inputs_;
   EvaluationContext* eval_context_;
@@ -137,11 +140,9 @@ class UserDefinedAggregateFunctionEvaluator
 std::unique_ptr<AggregateFunctionEvaluator>
 MakeUserDefinedAggregateFunctionEvaluator(
     std::unique_ptr<RelationalOp> algebrized_tree,
-    std::vector<std::string> argument_names,
-    std::vector<bool> argument_is_aggregate) {
+    std::vector<UdaArgumentInfo> argument_infos) {
   return std::make_unique<UserDefinedAggregateFunctionEvaluator>(
-      std::move(algebrized_tree), std::move(argument_names),
-      std::move(argument_is_aggregate));
+      std::move(algebrized_tree), std::move(argument_infos));
 }
 
 }  // namespace zetasql

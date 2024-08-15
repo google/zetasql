@@ -18,29 +18,29 @@
 
 #include <memory>
 
+#include "zetasql/parser/parser.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode,
+    ErrorMessageOptions error_message_options,
     const ParsedScriptOptions& parsed_script_options) {
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(
-      ParseScript(script_string, parser_options, error_message_mode,
-                  /*keep_error_location_payload=*/error_message_mode ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options,
+                              error_message_options, &parser_output));
 
-  // Verify that we can obtain a ParsedScript from the AST.  This performs
+  // Verify that we can obtain a ParsedScript from the AST. This performs
   // various checks, such as that BREAK and CONTINUE statements have an
   // enclosing loop.
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ParsedScript> parsed_script,
       ParsedScript::Create(script_string, parser_output->script(),
-                           error_message_mode, parsed_script_options));
+                           error_message_options, parsed_script_options));
   return parser_output;
 }
 }  // namespace zetasql

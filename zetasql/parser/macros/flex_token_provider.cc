@@ -43,22 +43,19 @@ static absl::string_view GetTextBetween(absl::string_view input, size_t start,
 }
 
 FlexTokenProvider::FlexTokenProvider(absl::string_view filename,
-                                     absl::string_view input,
-                                     bool preserve_comments, int start_offset,
+                                     absl::string_view input, int start_offset,
                                      std::optional<int> end_offset)
     : TokenProviderBase(filename, input, start_offset, end_offset),
       tokenizer_(std::make_unique<ZetaSqlFlexTokenizer>(
-          filename, input.substr(0, this->end_offset()), preserve_comments,
-          start_offset)),
-      preserve_comments_(preserve_comments),
+          filename, input.substr(0, this->end_offset()), start_offset)),
       location_(ParseLocationPoint::FromByteOffset(filename, -1),
                 ParseLocationPoint::FromByteOffset(filename, -1)) {}
 
 std::unique_ptr<TokenProviderBase> FlexTokenProvider::CreateNewInstance(
     absl::string_view filename, absl::string_view input, int start_offset,
     std::optional<int> end_offset) const {
-  return std::make_unique<FlexTokenProvider>(
-      filename, input, preserve_comments_, start_offset, end_offset);
+  return std::make_unique<FlexTokenProvider>(filename, input, start_offset,
+                                             end_offset);
 }
 
 absl::StatusOr<TokenWithLocation> FlexTokenProvider::ConsumeNextTokenImpl() {

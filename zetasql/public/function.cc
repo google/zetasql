@@ -402,9 +402,9 @@ absl::Status Function::AddSignature(const TypeKind result_kind,
   return absl::OkStatus();
 }
 
-Function* Function::AddSignatureOrDie(
-    const TypeKind result_kind, const std::vector<TypeKind>& input_kinds,
-    void* context, TypeFactory* factory) {
+Function* Function::AddSignatureOrDie(const TypeKind result_kind,
+                                      absl::Span<const TypeKind> input_kinds,
+                                      void* context, TypeFactory* factory) {
   ZETASQL_CHECK_OK(AddSignature(result_kind, input_kinds, context, factory));
   return this;
 }
@@ -429,7 +429,7 @@ std::string Function::DebugString(bool verbose) const {
         FullName(),
         (alias_name().empty() ? "" : absl::StrCat("|", alias_name())),
         (function_signatures_.empty() ? "" : "\n"),
-        FunctionSignature::SignaturesToString(function_signatures_));
+        FunctionSignature::SignaturesToString(function_signatures_, verbose));
   }
   return FullName();
 }

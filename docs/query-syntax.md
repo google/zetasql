@@ -17,15 +17,7 @@ syntax notation rules:
 + Curly braces with vertical bars `{ a | b | c }`: Logical `OR`. Select one
   option.
 + Ellipsis `...`: Preceding item can repeat.
-+ Red square brackets
-  <code><span class="syntax">[ ]</span></code>: Required and
-  part of the syntax.
-+ Red curly braces
-  <code><span class="syntax">{ }</span></code>: Required and
-  part of the syntax.
-+ Red vertical bar
-  <code><span class="syntax">|</span></code>: Required and
-  part of the syntax.
++ Double quotes `"`: Syntax wrapped in double quotes (`""`) is required.
 
 ## SQL syntax
 
@@ -390,7 +382,7 @@ FROM <span class="var">from_clause</span>[, ...]
 
 <span class="var">from_clause</span>:
   <span class="var">from_item</span>
-  [ <span class="var">unpivot_operator</span> ]
+  [ { <a href="#pivot_operator"><span class="var">pivot_operator</span></a> | <a href="#unpivot_operator"><span class="var">unpivot_operator</span></a> } ]
   [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
 
 <span class="var">from_item</span>:
@@ -410,6 +402,11 @@ FROM <span class="var">from_clause</span>[, ...]
 The `FROM` clause indicates the table or tables from which to retrieve rows,
 and specifies how to join those rows together to produce a single stream of
 rows for processing in the rest of the query.
+
+#### `pivot_operator` 
+<a id="pivot_operator_stub"></a>
+
+See [PIVOT operator][pivot-operator].
 
 #### `unpivot_operator` 
 <a id="unpivot_operator_stub"></a>
@@ -786,6 +783,369 @@ SELECT results FROM Coordinates, Coordinates.position.y[SAFE_OFFSET(1)] AS resul
 +  `NULL` and empty arrays produce zero rows.
 +  An array containing `NULL` values produces rows containing `NULL` values.
 
+## `PIVOT` operator 
+<a id="pivot_operator"></a>
+
+<pre>
+FROM <span class="var">from_item</span>[, ...] <span class="var">pivot_operator</span>
+
+<span class="var">pivot_operator</span>:
+  PIVOT(
+    <span class="var">aggregate_function_call</span> [<span class="var">as_alias</span>][, ...]
+    FOR <span class="var">input_column</span>
+    IN ( <span class="var">pivot_column</span> [<span class="var">as_alias</span>][, ...] )
+  ) [AS <span class="var">alias</span>]
+
+<span class="var">as_alias</span>:
+  [AS] <span class="var">alias</span>
+</pre>
+
+The `PIVOT` operator rotates rows into columns, using aggregation.
+`PIVOT` is part of the `FROM` clause.
+
++ `PIVOT` can be used to modify any table expression.
++ A `WITH OFFSET` clause immediately preceding the `PIVOT` operator is not
+  allowed.
+
+Conceptual example:
+
+```sql
+-- Before PIVOT is used to rotate sales and quarter into Q1, Q2, Q3, Q4 columns:
+/*---------+-------+---------+------*
+ | product | sales | quarter | year |
+ +---------+-------+---------+------|
+ | Kale    | 51    | Q1      | 2020 |
+ | Kale    | 23    | Q2      | 2020 |
+ | Kale    | 45    | Q3      | 2020 |
+ | Kale    | 3     | Q4      | 2020 |
+ | Kale    | 70    | Q1      | 2021 |
+ | Kale    | 85    | Q2      | 2021 |
+ | Apple   | 77    | Q1      | 2020 |
+ | Apple   | 0     | Q2      | 2020 |
+ | Apple   | 1     | Q1      | 2021 |
+ *---------+-------+---------+------*/
+
+-- After PIVOT is used to rotate sales and quarter into Q1, Q2, Q3, Q4 columns:
+/*---------+------+----+------+------+------*
+ | product | year | Q1 | Q2   | Q3   | Q4   |
+ +---------+------+----+------+------+------+
+ | Apple   | 2020 | 77 | 0    | NULL | NULL |
+ | Apple   | 2021 | 1  | NULL | NULL | NULL |
+ | Kale    | 2020 | 51 | 23   | 45   | 3    |
+ | Kale    | 2021 | 70 | 85   | NULL | NULL |
+ *---------+------+----+------+------+------*/
+```
+
+**Definitions**
+
+Top-level definitions:
+
++ `from_item`: The subquery on which to perform a pivot operation.
+  The `from_item` must [follow these rules](#rules_for_pivot_from_item).
++ `pivot_operator`: The pivot operation to perform on a `from_item`.
++ `alias`: An alias to use for an item in the query.
+
+`pivot_operator` definitions:
+
++ `aggregate_function_call`: An aggregate function call that aggregates all
+  input rows such that `input_column` matches a particular value in
+  `pivot_column`. Each aggregation corresponding to a different `pivot_column`
+  value produces a different column in the output.
+  [Follow these rules](#rules_for_pivot_agg_function) when creating an
+  aggregate function call.
++ `input_column`: Takes a column and retrieves the row values for the
+  column, [following these rules](#rules_input_column).
++ `pivot_column`: A pivot column to create for each aggregate function
+  call. If an alias is not provided, a default alias is created. A pivot column
+  value type must match the value type in `input_column` so that the values can
+  be compared. It is possible to have a value in `pivot_column` that doesn't
+  match a value in `input_column`. Must be a constant and
+  [follow these rules](#rules_pivot_column).
+
+**Rules**
+
+<a id="rules_for_pivot_from_item"></a>
+Rules for a `from_item` passed to `PIVOT`:
+
++ The `from_item` is restricted to subqueries only.
++ The `from_item` may not produce a value table.
++ The `from_item` may not be a subquery using `SELECT AS STRUCT`.
+
+<a id="rules_for_pivot_agg_function"></a>
+Rules for `aggregate_function_call`:
+
++ Must be an aggregate function. For example, `SUM`.
++ You may reference columns in a table passed to `PIVOT`, as
+  well as correlated columns, but may not access columns defined by the `PIVOT`
+  clause itself.
++ A table passed to `PIVOT` may be accessed through its alias if one is
+  provided.
+
+<a id="rules_input_column"></a>
+Rules for `input_column`:
+
++ May access columns from the input table, as well as correlated columns,
+  not columns defined by the `PIVOT` clause, itself.
++ Evaluated against each row in the input table; aggregate and window function
+  calls are prohibited.
++ Non-determinism is okay.
++ The type must be groupable.
++ The input table may be accessed through its alias if one is provided.
+
+<a id="rules_pivot_column"></a>
+Rules for `pivot_column`:
+
++ A `pivot_column` must be a constant.
++ Named constants, such as variables, are not supported.
++ Query parameters are not supported.
++ If a name is desired for a named constant or query parameter,
+  specify it explicitly with an alias.
++ Corner cases exist where a distinct `pivot_column`s can end up with the same
+  default column names. For example, an input column might contain both a
+  `NULL` value and the string literal `"NULL"`. When this happens, multiple
+  pivot columns are created with the same name. To avoid this situation,
+  use aliases for pivot column names.
++ If a `pivot_column` doesn't specify an alias, a column name is constructed as
+  follows:
+
+<table>
+  <thead>
+    <tr>
+      <th>From</th>
+      <th>To</th>
+      <th width='400px'>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NULL</td>
+      <td>NULL</td>
+      <td>
+        Input: NULL<br />
+        Output: "NULL"<br />
+      </td>
+    </tr>
+    <tr>
+      <td>
+
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT32</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
+</td>
+      <td>
+        The number in string format with the following rules:
+        <ul>
+          <li>
+            Positive numbers are preceded with <code>_</code>.
+          </li>
+          <li>
+            Negative numbers are preceded with <code>minus_</code>.
+          </li>
+          <li>
+            A decimal point is replaced with <code>_point_</code>.
+          </li>
+        </ul>
+      </td>
+      <td>
+        Input: 1<br />
+        Output: _1<br />
+        <hr />
+        Input: -1<br />
+        Output: minus_1<br />
+        <hr />
+        Input: 1.0<br />
+        Output: _1_point_0<br />
+      </td>
+    </tr>
+    <tr>
+      <td>BOOL</td>
+      <td><code>TRUE</code> or <code>FALSE</code>.</td>
+      <td>
+        Input: TRUE<br />
+        Output: TRUE<br />
+        <hr />
+        Input: FALSE<br />
+        Output: FALSE<br />
+      </td>
+    </tr>
+    <tr>
+      <td>STRING</td>
+      <td>The string value.</td>
+      <td>
+        Input: "PlayerName"<br />
+        Output: PlayerName<br />
+      </td>
+    </tr>
+    <tr>
+      <td>DATE</td>
+      <td>The date in <code>_YYYY_MM_DD</code> format.</td>
+      <td>
+        Input: DATE '2013-11-25'<br />
+        Output: _2013_11_25<br />
+      </td>
+    </tr>
+    <tr>
+      <td>ENUM</td>
+      <td>The name of the enumeration constant.</td>
+      <td>
+        Input: COLOR.RED<br />
+        Output: RED<br />
+      </td>
+    </tr>
+    <tr>
+      <td>STRUCT</td>
+      <td>
+        A string formed by computing the <code>pivot_column</code> name for each
+        field and joining the results together with an underscore. The following
+        rules apply:
+        <ul>
+          <li>
+            If the field is named:
+            <code>&lt;field_name&gt;_&lt;pivot_column_name_for_field_name&gt;</code>.
+          </li>
+          <li>
+            If the field is unnamed:
+            <code>&lt;pivot_column_name_for_field_name&gt;</code>.
+          </li>
+        </ul>
+        <p>
+          <code>&lt;pivot_column_name_for_field_name&gt;</code> is determined by
+          applying the rules in this table, recursively. If no rule is available
+          for any <code>STRUCT</code> field, the entire pivot column is unnamed.
+        </p>
+        <p>
+          Due to implicit type coercion from the <code>IN</code> list values to
+          the type of <code>&lt;value-expression&gt;</code>, field names must be
+          present in <code>input_column</code> to have an effect on the names of
+          the pivot columns.
+        </p>
+      </td>
+      <td>
+        Input: STRUCT("one", "two")<br />
+        Output: one_two<br />
+        <hr />
+        Input: STRUCT("one" AS a, "two" AS b)<br />
+        Output: one_a_two_b<br />
+      </td>
+    </tr>
+    <tr>
+      <td>All other data types</td>
+      <td>Not supported. You must provide an alias.</td>
+      <td>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Examples**
+
+The following examples reference a table called `Produce` that looks like this:
+
+```sql
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as sales, 'Q1' as quarter, 2020 as year UNION ALL
+  SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
+  SELECT 'Kale', 45, 'Q3', 2020 UNION ALL
+  SELECT 'Kale', 3, 'Q4', 2020 UNION ALL
+  SELECT 'Kale', 70, 'Q1', 2021 UNION ALL
+  SELECT 'Kale', 85, 'Q2', 2021 UNION ALL
+  SELECT 'Apple', 77, 'Q1', 2020 UNION ALL
+  SELECT 'Apple', 0, 'Q2', 2020 UNION ALL
+  SELECT 'Apple', 1, 'Q1', 2021)
+SELECT * FROM Produce
+
+/*---------+-------+---------+------*
+ | product | sales | quarter | year |
+ +---------+-------+---------+------|
+ | Kale    | 51    | Q1      | 2020 |
+ | Kale    | 23    | Q2      | 2020 |
+ | Kale    | 45    | Q3      | 2020 |
+ | Kale    | 3     | Q4      | 2020 |
+ | Kale    | 70    | Q1      | 2021 |
+ | Kale    | 85    | Q2      | 2021 |
+ | Apple   | 77    | Q1      | 2020 |
+ | Apple   | 0     | Q2      | 2020 |
+ | Apple   | 1     | Q1      | 2021 |
+ *---------+-------+---------+------*/
+```
+
+With the `PIVOT` operator, the rows in the `quarter` column are rotated into
+these new columns: `Q1`, `Q2`, `Q3`, `Q4`. The aggregate function `SUM` is
+implicitly grouped by all unaggregated columns other than the `pivot_column`:
+`product` and `year`.
+
+```sql
+SELECT * FROM
+  Produce
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
+
+/*---------+------+----+------+------+------*
+ | product | year | Q1 | Q2   | Q3   | Q4   |
+ +---------+------+----+------+------+------+
+ | Apple   | 2020 | 77 | 0    | NULL | NULL |
+ | Apple   | 2021 | 1  | NULL | NULL | NULL |
+ | Kale    | 2020 | 51 | 23   | 45   | 3    |
+ | Kale    | 2021 | 70 | 85   | NULL | NULL |
+ *---------+------+----+------+------+------*/
+```
+
+If you don't include `year`, then `SUM` is grouped only by `product`.
+
+```sql
+SELECT * FROM
+  (SELECT product, sales, quarter FROM Produce)
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
+
+/*---------+-----+-----+------+------*
+ | product | Q1  | Q2  | Q3   | Q4   |
+ +---------+-----+-----+------+------+
+ | Apple   | 78  | 0   | NULL | NULL |
+ | Kale    | 121 | 108 | 45   | 3    |
+ *---------+-----+-----+------+------*/
+```
+
+You can select a subset of values in the `pivot_column`:
+
+```sql
+SELECT * FROM
+  (SELECT product, sales, quarter FROM Produce)
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
+
+/*---------+-----+-----+------*
+ | product | Q1  | Q2  | Q3   |
+ +---------+-----+-----+------+
+ | Apple   | 78  | 0   | NULL |
+ | Kale    | 121 | 108 | 45   |
+ *---------+-----+-----+------*/
+```
+
+```sql
+SELECT * FROM
+  (SELECT sales, quarter FROM Produce)
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
+
+/*-----+-----+----*
+ | Q1  | Q2  | Q3 |
+ +-----+-----+----+
+ | 199 | 108 | 45 |
+ *-----+-----+----*/
+```
+
+You can include multiple aggregation functions in the `PIVOT`. In this case, you
+must specify an alias for each aggregation. These aliases are used to construct
+the column names in the resulting table.
+
+```sql
+SELECT * FROM
+  (SELECT product, sales, quarter FROM Produce)
+  PIVOT(SUM(sales) AS total_sales, COUNT(*) AS num_records FOR quarter IN ('Q1', 'Q2'))
+
+/*--------+----------------+----------------+----------------+----------------*
+ |product | total_sales_Q1 | num_records_Q1 | total_sales_Q2 | num_records_Q2 |
+ +--------+----------------+----------------+----------------+----------------+
+ | Kale   | 121            | 2              | 108            | 2              |
+ | Apple  | 78             | 2              | 0              | 1              |
+ *--------+----------------+----------------+----------------+----------------*/
+```
+
 ## `UNPIVOT` operator 
 <a id="unpivot_operator"></a>
 
@@ -827,6 +1187,7 @@ The `UNPIVOT` operator rotates columns into rows. `UNPIVOT` is part of the
   expression.
 + A `WITH OFFSET` clause immediately preceding the `UNPIVOT` operator is not
   allowed.
++ `PIVOT` aggregations cannot be reversed with `UNPIVOT`.
 
 Conceptual example:
 
@@ -2580,6 +2941,7 @@ GROUP BY <span class="var">group_by_specification</span>
 <span class="var">group_by_specification</span>:
   {
     <span class="var">groupable_items</span>
+    | ALL
     | <span class="var">grouping_sets_specification</span>
     | <span class="var">rollup_specification</span>
     | <span class="var">cube_specification</span>
@@ -2600,6 +2962,8 @@ present in the `SELECT` list, or to eliminate redundancy in the output.
 + `groupable_items`: Group rows in a table that share common values
   for certain columns. To learn more, see
   [Group rows by groupable items][group-by-groupable-item].
++ `ALL`: Automatically group rows. To learn more, see
+  [Group rows automatically][group-by-all].
 + `grouping_sets_specification`: Group rows with the
   `GROUP BY GROUPING SETS` clause. To learn more, see
   [Group rows by `GROUPING SETS`][group-by-grouping-sets].
@@ -2740,6 +3104,137 @@ GROUP BY 2, 3;
  | 13           | Buchanan | Jie       |
  | 1            | Coolidge | Kiran     |
  +--------------+----------+-----------*/
+```
+
+### Group rows by `ALL` 
+<a id="group_by_all"></a>
+
+<pre>
+GROUP BY ALL
+</pre>
+
+**Description**
+
+The `GROUP BY ALL` clause groups rows by inferring grouping keys from the
+`SELECT` items.
+
+The following `SELECT` items are excluded from the `GROUP BY ALL` clause:
+
++   Expressions that include [aggregate functions][aggregate-function-calls].
++   Expressions that include [window functions][window-function-calls].
++   Expressions that do not reference a name from the `FROM` clause.
+    This includes:
+    +   Constants
+    +   Query parameters
+    +   Correlated column references
+    +   Expressions that only reference `GROUP BY` keys inferred from
+        other `SELECT` items.
+
+After exclusions are applied, an error is produced if any remaining `SELECT`
+item includes a volatile function or has a non-groupable type.
+
+If the set of inferred grouping keys is empty after exclusions are applied, all
+input rows are considered a single group for aggregation. This
+behavior is equivalent to writing `GROUP BY ()`.
+
+**Examples**
+
+In the following example, the query groups rows by `first_name` and
+`last_name`. `total_points` is excluded because it represents an
+aggregate function.
+
+```sql
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT
+  SUM(PointsScored) AS total_points,
+  FirstName AS first_name,
+  LastName AS last_name
+FROM PlayerStats
+GROUP BY ALL;
+
+/*--------------+------------+-----------+
+ | total_points | first_name | last_name |
+ +--------------+------------+-----------+
+ | 7            | Noam       | Adams     |
+ | 13           | Jie        | Buchanan  |
+ | 1            | Kiran      | Coolidge  |
+ +--------------+------------+-----------*/
+```
+
+If the select list contains an analytic function, the query groups rows by
+`first_name` and `last_name`. `total_people` is excluded because it
+contains a window function.
+
+```sql
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT
+  COUNT(*) OVER () AS total_people,
+  FirstName AS first_name,
+  LastName AS last_name
+FROM PlayerStats
+GROUP BY ALL;
+
+/*--------------+------------+-----------+
+ | total_people | first_name | last_name |
+ +--------------+------------+-----------+
+ | 3            | Noam       | Adams     |
+ | 3            | Jie        | Buchanan  |
+ | 3            | Kiran      | Coolidge  |
+ +--------------+------------+-----------*/
+```
+
+If multiple `SELECT` items reference the same `FROM` item, and any of them is
+a path expression prefix of another, only the prefix path is used for grouping.
+In the following example, `coordinates` is excluded because `x_coordinate` and
+`y_coordinate` have already referenced `Values.x` and `Values.y` in the
+`FROM` clause, and they are prefixes of the path expression used in
+`x_coordinate`:
+
+```sql
+WITH Values AS (
+  SELECT 1 AS x, 2 AS y
+  UNION ALL SELECT 1 AS x, 4 AS y
+  UNION ALL SELECT 2 AS x, 5 AS y
+)
+SELECT
+  Values.x AS x_coordinate,
+  Values.y AS y_coordinate,
+  [Values.x, Values.y] AS coordinates
+FROM Values
+GROUP BY ALL
+
+/*--------------+--------------+-------------+
+ | x_coordinate | y_coordinate | coordinates |
+ +--------------+--------------+-------------+
+ | 1            | 4            | [1, 4]      |
+ | 1            | 2            | [1, 2]      |
+ | 2            | 5            | [2, 5]      |
+ +--------------+--------------+-------------*/
+```
+
+In the following example, the inferred set of grouping keys is empty. The query
+returns one row even when the input contains zero rows.
+
+```sql
+SELECT COUNT(*) AS num_rows
+FROM UNNEST([])
+GROUP BY ALL
+
+/*----------+
+ | num_rows |
+ +----------+
+ | 0        |
+ +----------*/
 ```
 
 ### Group rows by `GROUPING SETS` 
@@ -4888,6 +5383,93 @@ SELECT * FROM B
 -- Error
 ```
 
+## `AGGREGATION_THRESHOLD` clause 
+<a id="agg_threshold_clause"></a>
+
+<pre>
+WITH AGGREGATION_THRESHOLD OPTIONS (
+  <span class="var">threshold</span> = <span class="var">threshold_amount</span>,
+  <span class="var">privacy_unit_column</span> = <span class="var">column_name</span>
+)
+</pre>
+
+**Description**
+
+Use the `AGGREGATION_THRESHOLD` clause to enforce an
+aggregation threshold. This clause counts the number of distinct privacy units
+(represented by the privacy unit column) for each group, and only outputs the
+groups where the distinct privacy unit count satisfies the
+aggregation threshold.
+
+**Definitions:**
+
++ `threshold`: The minimum number of distinct
+  privacy units (privacy unit column values) that need to contribute to each row
+  in the query results. If a potential row doesn't satisfy this threshold,
+  that row is omitted from the query results. `threshold_amount` must be
+  a positive `INT64` value.
++ `privacy_unit_column`: The column that represents the
+  privacy unit column. Replace `column_name` with the
+  path expression for the column. The first identifier in the path can start
+  with either a table name or a column name that's visible in the
+  `FROM` clause.
+
+**Details**
+
+<a id="agg_threshold_policy_functions"></a>
+
+The following functions can be used on any column in a query with the
+`AGGREGATION_THRESHOLD` clause, including the commonly used
+`COUNT`, `SUM`, and `AVG` functions:
+
++ `APPROX_COUNT_DISTINCT`
++ `AVG`
++ `COUNT`
++ `COUNTIF`
++ `LOGICAL_OR`
++ `LOGICAL_AND`
++ `SUM`
++ `COVAR_SAMP`
++ `STDDEV_POP`
++ `STDDEV_SAMP`
++ `VAR_POP`
++ `VAR_SAMP`
+
+**Example**
+
+In the following example, an aggregation threshold is enforced
+on a query. Notice that some privacy units are dropped because
+there aren't enough distinct instances.
+
+```sql
+WITH ExamTable AS (
+  SELECT "Hansen" AS last_name, "P91" AS test_id, 510 AS test_score UNION ALL
+  SELECT "Wang", "U25", 500 UNION ALL
+  SELECT "Wang", "C83", 520 UNION ALL
+  SELECT "Wang", "U25", 460 UNION ALL
+  SELECT "Hansen", "C83", 420 UNION ALL
+  SELECT "Hansen", "C83", 560 UNION ALL
+  SELECT "Devi", "U25", 580 UNION ALL
+  SELECT "Devi", "P91", 480 UNION ALL
+  SELECT "Ivanov", "U25", 490 UNION ALL
+  SELECT "Ivanov", "P91", 540 UNION ALL
+  SELECT "Silva", "U25", 550)
+SELECT WITH AGGREGATION_THRESHOLD
+  OPTIONS(threshold=3, privacy_unit_column=last_name)
+  test_id,
+  COUNT(DISTINCT last_name) AS student_count,
+  AVG(test_score) AS avg_test_score
+FROM ExamTable
+GROUP BY test_id;
+
+/*---------+---------------+----------------*
+ | test_id | student_count | avg_test_score |
+ +---------+---------------+----------------+
+ | P91     | 3             | 510.0          |
+ | U25     | 4             | 516.0          |
+ *---------+---------------+----------------*/
+```
+
 ## Differential privacy clause 
 <a id="dp_clause"></a>
 
@@ -6121,6 +6703,10 @@ Results:
 
 [group-by-col-ordinals]: #group_by_col_ordinals
 
+[group-by-all]: #group_by_all
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
 [group-by-rollup]: #group_by_rollup
 
 [group-by-cube]: #group_by_cube
@@ -6132,6 +6718,8 @@ Results:
 [tuple-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#tuple_syntax
 
 [grouping-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#grouping
+
+[pivot-operator]: #pivot_operator
 
 [unpivot-operator]: #unpivot_operator
 
@@ -6218,6 +6806,10 @@ Results:
 [dp-define-privacy-unit-id]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_define_privacy_unit_id
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+
+[analysis-rules]: https://github.com/google/zetasql/blob/master/docs/analysis-rules.md
+
+[privacy-view]: https://github.com/google/zetasql/blob/master/docs/analysis-rules.md#privacy_view
 
 [coalesce]: https://github.com/google/zetasql/blob/master/docs/conditional_expressions.md#coalesce
 

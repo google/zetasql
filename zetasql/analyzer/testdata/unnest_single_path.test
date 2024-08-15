@@ -676,8 +676,10 @@ from ArrayTypes.ProtoArray.(zetasql_test__.TestExtraPBExtensionHolder.test_ex...
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_PIVOT]
+[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR int32_val1 IN (0, 1));
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -704,6 +706,13 @@ QueryStmt
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
         +-element_column_list=[$array.Value#21]
+
+
+DEPRECATION WARNING:
+PIVOT is not allowed with array scans. This will become an error [at 1:57]
+...FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR int3...
+                                                  ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 
 [REWRITTEN AST]
 QueryStmt
@@ -736,11 +745,19 @@ QueryStmt
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column_list=[$flatten.injected#22]
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: PIVOT is not allowed with array scans [at 1:57]
+...FROM ArrayTypes.ProtoArray.int32_val1 AS Value PIVOT(COUNT(Value) FOR int3...
+                                                  ^
 ==
 
 [enabled_ast_rewrites=DEFAULTS]
-[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_UNPIVOT]
+[language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -767,6 +784,13 @@ QueryStmt
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
         +-element_column_list=[$array.int32_val1#21]
+
+
+DEPRECATION WARNING:
+UNPIVOT is not allowed with array scans. This will become an error [at 1:48]
+SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
+                                               ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
 
 [REWRITTEN AST]
 QueryStmt
@@ -799,15 +823,21 @@ QueryStmt
                 +-array_expr_list=
                 | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column_list=[$flatten.injected#22]
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: UNPIVOT is not allowed with array scans [at 1:48]
+SELECT * FROM ArrayTypes.ProtoArray.int32_val1 UNPIVOT(a FOR b IN (int32_val1));
+                                               ^
 ==
 
 [language_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH,V_1_3_UNNEST_AND_FLATTEN_ARRAYS,TABLESAMPLE]
 SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value
 TABLESAMPLE RESERVOIR (100 ROWS);
 --
-ERROR: TABLESAMPLE cannot be used with arrays [at 1:15]
-SELECT * FROM ArrayTypes.ProtoArray.int32_val1 AS Value
-              ^
+ERROR: TABLESAMPLE is not allowed with array scans [at 2:1]
+TABLESAMPLE RESERVOIR (100 ROWS);
+^
 ==
 
 # This is to test backward compatibility.

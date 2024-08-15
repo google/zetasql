@@ -589,9 +589,9 @@ select *
 from TestTable T, T.KitchenSink.repeated_int32_val
      TABLESAMPLE RESERVOIR (1 ROWS)
 --
-ERROR: TABLESAMPLE cannot be used with arrays [at 2:19]
-from TestTable T, T.KitchenSink.repeated_int32_val
-                  ^
+ERROR: TABLESAMPLE is not allowed with array scans [at 3:6]
+     TABLESAMPLE RESERVOIR (1 ROWS)
+     ^
 ==
 
 select val
@@ -631,16 +631,43 @@ QueryStmt
 
 select * from UNNEST([1, 2, 3]) TABLESAMPLE RESERVOIR (1 ROWS)
 --
-ERROR: TABLESAMPLE cannot be used with arrays [at 1:15]
+ERROR: TABLESAMPLE is not allowed with array scans [at 1:33]
 select * from UNNEST([1, 2, 3]) TABLESAMPLE RESERVOIR (1 ROWS)
-              ^
+                                ^
 ==
 
 select * from UNNEST([1, 2, 3]) WITH OFFSET pos TABLESAMPLE RESERVOIR (1 ROWS)
 --
-ERROR: TABLESAMPLE cannot be used with arrays [at 1:15]
+ERROR: TABLESAMPLE is not allowed with array scans [at 1:49]
 select * from UNNEST([1, 2, 3]) WITH OFFSET pos TABLESAMPLE RESERVOIR (1 ROWS)
-              ^
+                                                ^
+==
+
+# 2 UNNESTs
+select * from UNNEST(['a', 'b', 'c']) AS k, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+--
+
+ERROR: TABLESAMPLE is not allowed with array scans [at 1:68]
+...a', 'b', 'c']) AS k, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+                                               ^
+==
+
+# Table with UNNEST
+select *, m from keyvalue, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+--
+
+ERROR: TABLESAMPLE is not allowed with array scans [at 1:51]
+select *, m from keyvalue, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+                                                  ^
+==
+
+# Table with 2 UNNESTs
+select * from keyvalue, UNNEST(['a', 'b', 'c']) AS k, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+--
+
+ERROR: TABLESAMPLE is not allowed with array scans [at 1:78]
+...a', 'b', 'c']) AS k, UNNEST([1, 2, 3]) AS v TABLESAMPLE RESERVOIR (1 ROWS)
+                                               ^
 ==
 
 select * from (select * from UNNEST([1, 2, 3])) TABLESAMPLE RESERVOIR (1 ROWS)
@@ -719,6 +746,7 @@ QueryStmt
     |   |               +-unit=ROWS
     |   +-order_by_item_list=
     |     +-OrderByItem
+    |       +-parse_location=136-139
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-limit=

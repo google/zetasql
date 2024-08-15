@@ -39,9 +39,13 @@
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -72,6 +76,14 @@ enum class SelectForm {
   kClassic,
   // A no-FROM-clause SELECT query.
   kNoFrom,
+  // An ASTSelect representing a pipe SELECT operator.
+  kPipeSelect,
+  // An ASTSelect representing a pipe EXTEND operator.
+  kPipeExtend,
+  // An ASTSelect representing a pipe AGGREGATE operator.
+  kPipeAggregate,
+  // An ASTSelect representing a pipe WINDOW operator.
+  kPipeWindow,
 };
 
 struct GroupingSetInfo {
@@ -123,6 +135,13 @@ struct GroupingSetIds {
 };
 
 // This stores a column to order by in the final ResolvedOrderByScan.
+// It is used for
+// * items from ORDER BY (in QueryResolutionInfo::order_by_item_info).
+// * items from pipe AGGREGATE ... GROUP BY to order by
+//   (in QueryResolutionInfo::aggregate_order_by_item_info and
+//    QueryResolutionInfo::group_by_order_by_item_info).
+// Since ordering items come from multiple sources, any needed attributes are
+// passed via this object rather than the original ASTOrderBy.
 struct OrderByItemInfo {
   // Constructor for ordering by an ordinal (column number).
   OrderByItemInfo(const ASTNode* ast_location_in,
@@ -179,6 +198,9 @@ struct OrderByItemInfo {
   // AddColumnsForOrderByExprs resolves those expressions to a specific
   // <order_column>, which is then referenced in MakeResolvedOrderByScan.
   //
+  // For OrderByItemInfos added from the GROUP BY, the <order_column>
+  // is filled in directly, without an <order_expression>,
+  // in ResolveGroupingItemExpression.
   std::unique_ptr<const ResolvedExpr> order_expression;
   ResolvedColumn order_column;
 
@@ -229,6 +251,122 @@ struct GroupByColumnState {
     }
     return debug_string;
   }
+};
+
+// Stores (and mutates) information needed to resolve multi-level aggregate
+// expressions.
+//
+// A Multi-level aggregate function (i.e. an aggregate function with one or more
+// GROUP BY modifiers) is resolved in 2 passes. 2-pass resolution is required to
+// determine if column references in scalar expression arguments are valid to
+// access. For instance, consider this expression:
+//
+//   SUM(k2 + v2 + ANY_VALUE(k1 + MIN(v1) GROUP BY k1) GROUP BY k2)
+//
+// 'k1' is valid to access within the ANY_VALUE function since it is a grouping
+// key for the 'k1 + MIN(v1)' expression. 'k2' is valid to access within the
+// SUM function since it is a grouping key for the 'k2 + v2' expression.
+// But 'v2' is not valid to access within the SUM function since it is not a
+// grouping key within the 'k2 + v2 + ANY_VALUE(...)' expression.
+//
+// The 1st pass resolves the arguments to the aggregate function. This pass also
+// computes grouping key information and stores it in `MultiLevelAggregateInfo`.
+// The 2nd pass uses the computed grouping keys to creates a namescope which
+// marks non-grouping key columns as target access errors, and re-resolves the
+// arguments against this new namescope.
+class MultiLevelAggregateInfo {
+ public:
+  MultiLevelAggregateInfo() = default;
+  MultiLevelAggregateInfo(const MultiLevelAggregateInfo&) = delete;
+  MultiLevelAggregateInfo& operator=(const MultiLevelAggregateInfo&) = delete;
+
+  // Add an aggregate function to `MultiLevelAggregateInfo`, along with its
+  // enclosing aggregate function (nullptr if no enclosing aggregate function).
+  absl::Status AddAggregateFunction(
+      const ASTFunctionCall* aggregate_function,
+      const ASTFunctionCall* enclosing_aggregate_function);
+
+ private:
+  // Populate `aggregate_function_argument_grouping_keys_map_` with grouping
+  // items in the GROUP BY modifier of the `aggregate_function`, as well as all
+  // enclosing aggregate functions.
+  absl::Status AddAllGroupingItems(const ASTFunctionCall* aggregate_function);
+
+  // Return the enclosing aggregate function of the given aggregate function,
+  // or nullptr if there is no enclosing aggregate function.
+  const ASTFunctionCall* GetEnclosingAggregateFunction(
+      const ASTFunctionCall* aggregate_function) const;
+
+  // Populate `aggregate_function_argument_grouping_keys_map_` with grouping
+  // items from all enclosing aggregate functions. Since resolution order will
+  // have fully populated all the grouping items for the immediate enclosing
+  // aggregate function, we can just copy the grouping items from the enclosing
+  // aggregate function in the map.
+  absl::Status AddGroupingItemsFromAllEnclosingAggregateFunctions(
+      const ASTFunctionCall* aggregate_function);
+
+  // Maps an aggregate function in a multi-level aggregate expression to
+  // aggregate functions nested within it.
+  //
+  // For example, given the expression:
+  //
+  //   SUM(ANY_VALUE(MIN(value1) GROUP BY key3) + MAX(value2) GROUP BY key2)
+  //
+  // - SUM would be mapped to ANY_VALUE and MAX aggregate functions
+  // - ANY_VALUE would be mapped to MIN
+  // - MIN and MAX would not be present in the map
+  // TODO: The use `flat_hash_set` results in a non-deterministic
+  // resolution order when multiple nested aggregate functions are present at
+  // the same level in multi-level aggregate expr (e.g. SUM(MAX(...)+MIN(...)))
+  // This breaks multi-level aggregation analyzer tests and should be fixed.
+  absl::flat_hash_map<const ASTFunctionCall*,
+                      absl::flat_hash_set<const ASTFunctionCall*>>
+      directly_nested_aggregate_functions_map_;
+
+  // Map an aggregate function in a multi-level aggregate expression to
+  // the grouping items that form the grouping key for **arguments to the**
+  // the aggregate function (not the grouping key for the aggregate function
+  // itself). Only maps aggregate functions that have a GROUP BY modifier.
+  //
+  // This information is used during the 2nd-pass resolution of an aggregate
+  // function with a GROUP BY modifier.
+  //
+  // For example, given this query:
+  //
+  //  SELECT
+  //    SUM(ANY_VALUE(MIN(value1) GROUP BY key3) + MAX(value2) GROUP BY key2)
+  //  FROM Table
+  //  GROUP BY key1
+  //
+  // - SUM would be mapped to key1, key2
+  // - ANY_VALUE would be mapped to key1, key2, key3
+  // - MIN and MAX would not be present in the map.
+  // TODO: The use `flat_hash_map` results in a non-deterministic
+  // resolution order when multiple (and/or nested) GROUP BY modifiers are
+  // present in the multi-level aggregate expr. This breaks multi-level
+  // aggregation analyzer tests and should be fixed.
+  absl::flat_hash_map<
+      const ASTFunctionCall*,
+      absl::flat_hash_map<const ASTGroupingItem*,
+                          std::unique_ptr<const ResolvedComputedColumnBase>>>
+      aggregate_function_argument_grouping_keys_map_;
+
+  // Stores ResolvedComputedColumns for aggregate functions nested within an
+  // outer aggregate function. These ResolvedComputedColumns are used when
+  // finishing resolution of the outer aggregate function.
+  //
+  // For example, given the expression:
+  //
+  //   SUM(ANY_VALUE(MIN(value1) GROUP BY key3) GROUP BY key2)
+  //
+  // MIN would have it's resolved expression (R1) stored in this map. When
+  // finishing resolution of ANY_VALUE, R1 will be moved out of this map and
+  // into the resolved expr for ANY_VALUE (R2), and R2 will be stored in this
+  // map. When finishing resolution of SUM, R2 will be moved out of this map
+  // and into the resolved expr for SUM (R3).
+  absl::flat_hash_map<const ASTFunctionCall*,
+                      std::unique_ptr<const ResolvedComputedColumnBase>>
+      resolved_nested_aggregate_functions_map_;
 };
 
 // QueryGroupByAndAggregateInfo is used (and mutated) to store info related
@@ -286,6 +424,11 @@ struct QueryGroupByAndAggregateInfo {
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       grouping_output_columns;
 
+  // TODO: Consider moving this to `ExprResolutionInfo`.
+  // Stores (and mutates) information needed to resolve multi-level aggregate
+  // expressions.
+  MultiLevelAggregateInfo multi_level_aggregate_info;
+
   // Stores information about STRUCT or PROTO fields that appear in the
   // GROUP BY.
   //
@@ -328,6 +471,7 @@ struct SelectColumnState {
       std::unique_ptr<const ResolvedExpr> resolved_expr_in)
       : ast_select_column(ast_select_column),
         ast_expr(ast_select_column->expression()),
+        ast_grouping_item_order(ast_select_column->grouping_item_order()),
         alias(alias_in),
         is_explicit(is_explicit_in),
         select_list_position(-1),
@@ -358,6 +502,9 @@ struct SelectColumnState {
   // The expression for this selected column.
   // Points at the * if this came from SELECT *.
   const ASTExpression* ast_expr;
+
+  // Stores the ordering suffix applied for this select item.
+  const ASTGroupingItemOrder* ast_grouping_item_order;
 
   // The alias provided by the user or computed for this column.
   const IdString alias;
@@ -505,6 +652,17 @@ class SelectColumnStateList {
   // stored as -1.
   std::map<IdString, int, IdStringCaseLess>
       column_alias_to_state_list_position_;
+};
+
+// This represents extra items to prepend on the output column list and
+// NameList, used when resolving pipe operators.  For pipe AGGREGATE, it's the
+// GROUP BY columns.  For pipe WINDOW, it's the passed-through input columns.
+struct PipeExtraSelectItem {
+  PipeExtraSelectItem(IdString alias_in, ResolvedColumn column_in)
+      : alias(alias_in), column(column_in) {}
+
+  const IdString alias;
+  const ResolvedColumn column;
 };
 
 // QueryResolutionInfo is used (and mutated) to store info related to
@@ -710,12 +868,40 @@ class QueryResolutionInfo {
     return &order_by_item_info_;
   }
 
+  bool group_by_has_and_order_by() const { return group_by_has_and_order_by_; }
+  void set_group_by_has_and_order_by() { group_by_has_and_order_by_ = true; }
+
+  const std::vector<OrderByItemInfo>& aggregate_order_by_item_info() const {
+    return aggregate_order_by_item_info_;
+  }
+  std::vector<OrderByItemInfo>* mutable_aggregate_order_by_item_info() {
+    return &aggregate_order_by_item_info_;
+  }
+
+  const std::vector<OrderByItemInfo>& group_by_order_by_item_info() const {
+    return group_by_order_by_item_info_;
+  }
+  std::vector<OrderByItemInfo>* mutable_group_by_order_by_item_info() {
+    return &group_by_order_by_item_info_;
+  }
+
   AnalyticFunctionResolver* analytic_resolver() {
     return analytic_resolver_.get();
   }
 
   SelectColumnStateList* select_column_state_list() {
     return select_column_state_list_.get();
+  }
+
+  MultiLevelAggregateInfo* multi_level_aggregate_info() {
+    return &group_by_info_.multi_level_aggregate_info;
+  }
+
+  // This is the list of extra items to prepend on the output column list and
+  // NameList, used when resolving pipe operators.  For pipe AGGREGATE, it's the
+  // GROUP BY columns.  For pipe WINDOW, it's the passed-through input columns.
+  std::vector<PipeExtraSelectItem>* pipe_extra_select_items() {
+    return &pipe_extra_select_items_;
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
@@ -808,6 +994,15 @@ class QueryResolutionInfo {
   SelectForm select_form() const { return select_form_; }
 
   const char* SelectFormClauseName() const;
+
+  bool IsPipeSelect() const { return select_form() == SelectForm::kPipeSelect; }
+  bool IsPipeExtend() const { return select_form() == SelectForm::kPipeExtend; }
+  bool IsPipeWindow() const { return select_form() == SelectForm::kPipeWindow; }
+  bool IsPipeExtendOrWindow() const { return IsPipeExtend() || IsPipeWindow(); }
+  bool IsPipeAggregate() const {
+    return select_form() == SelectForm::kPipeAggregate;
+  }
+  bool IsPipeOp() const;  // True for any pipe operator.
 
   // Tests for conditions that depend on SelectForm.
   bool SelectFormAllowsSelectStar() const;
@@ -927,6 +1122,8 @@ class QueryResolutionInfo {
 
   QueryGroupByAndAggregateInfo group_by_info_;
 
+  std::vector<PipeExtraSelectItem> pipe_extra_select_items_;
+
   // Indicates if we're resolving a special form of ASTSelect, like
   // a no-FROM-clause query.
   SelectForm select_form_ = SelectForm::kClassic;
@@ -944,7 +1141,19 @@ class QueryResolutionInfo {
   bool has_order_by_ = false;
 
   // List of items from ORDER BY.
+  // This has items from the standard ORDER BY clause or pipe ORDER BY.
+  // Orderings from other pipe clauses are in the vectors below.
+  // This vector and the vectors below cannot both be non-empty.
   std::vector<OrderByItemInfo> order_by_item_info_;
+
+  // Indicates whether the AND ORDER BY modifier is present on GROUP BY.
+  bool group_by_has_and_order_by_ = false;
+
+  // Ordering items added from the AGGREGATE list (in pipe AGGREGATE).
+  std::vector<OrderByItemInfo> aggregate_order_by_item_info_;
+
+  // Ordering items added from the GROUP BY (in pipe AGGREGATE).
+  std::vector<OrderByItemInfo> group_by_order_by_item_info_;
 
   // DML THEN RETURN information, where it also uses the select list.
   bool is_resolving_returning_clause_ = false;

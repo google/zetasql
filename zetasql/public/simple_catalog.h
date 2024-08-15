@@ -489,6 +489,8 @@ class SimpleCatalog : public EnumerableCatalog {
       absl::flat_hash_set<const Type*>* output) const override;
   absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const override;
+  absl::Status GetModels(
+      absl::flat_hash_set<const Model*>* output) const override;
   absl::Status GetTableValuedFunctions(
       absl::flat_hash_set<const TableValuedFunction*>* output) const override;
 

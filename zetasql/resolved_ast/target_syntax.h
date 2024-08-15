@@ -26,7 +26,8 @@ namespace zetasql {
 // This is a side channel used by SQLBuilder to decide which SQL syntax to
 // produce when multiple choices are available.
 enum class SQLBuildTargetSyntax {
-  kGroupByAll,  // Represents GROUP BY ALL produced a ResolvedAggregateScan
+  kGroupByAll,  // Represents GROUP BY ALL produced a
+                // ResolvedAggregateScan.
 };
 
 using TargetSyntaxMap =

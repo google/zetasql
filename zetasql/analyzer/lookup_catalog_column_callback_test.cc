@@ -30,6 +30,9 @@
 
 namespace zetasql {
 namespace {
+
+using ::testing::HasSubstr;
+using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
 
 class LookupCatalogColumnCallbackTest : public ::testing::Test {
@@ -40,9 +43,14 @@ class LookupCatalogColumnCallbackTest : public ::testing::Test {
         BuiltinFunctionOptions::AllReleasedFunctions());
   }
 
-  absl::Status Analyze(absl::string_view sql) {
+  absl::Status AnalyzeExpression(absl::string_view sql) {
     return AnalyzeExpressionForAssignmentToType(
         sql, options_, &catalog_, &type_factory_, types::Int64Type(), &output_);
+  }
+
+  absl::Status AnalyzeStatement(absl::string_view sql) {
+    return zetasql::AnalyzeStatement(sql, options_, &catalog_, &type_factory_,
+                                       &output_);
   }
 
   std::unique_ptr<AnnotationMap> MakeAnnotation() {
@@ -64,9 +72,13 @@ class LookupCatalogColumnCallbackTest : public ::testing::Test {
 };
 
 TEST_F(LookupCatalogColumnCallbackTest, BaselineErrorWhenNoColumnDefined) {
-  EXPECT_THAT(Analyze("mycolumn + 1"),
+  EXPECT_THAT(AnalyzeExpression("mycolumn + 1"),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Unrecognized name: mycolumn")));
+                       HasSubstr("Unrecognized name: mycolumn")));
+
+  EXPECT_THAT(AnalyzeStatement("SELECT mycolumn + 1"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: mycolumn")));
 }
 
 TEST_F(LookupCatalogColumnCallbackTest,
@@ -75,9 +87,14 @@ TEST_F(LookupCatalogColumnCallbackTest,
       [](absl::string_view column) -> absl::StatusOr<const Column*> {
         return nullptr;
       });
-  EXPECT_THAT(Analyze("mycolumn + 1"),
+
+  EXPECT_THAT(AnalyzeExpression("mycolumn + 1"),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Unrecognized name: mycolumn")));
+                       HasSubstr("Unrecognized name: mycolumn")));
+
+  EXPECT_THAT(AnalyzeStatement("SELECT mycolumn + 1"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Unrecognized name: mycolumn")));
 }
 
 TEST_F(LookupCatalogColumnCallbackTest,
@@ -86,9 +103,14 @@ TEST_F(LookupCatalogColumnCallbackTest,
       [](absl::string_view column) -> absl::StatusOr<const Column*> {
         return absl::NotFoundError("error column-not-found: mycolumn");
       });
-  EXPECT_THAT(Analyze("mycolumn + 1"),
+
+  EXPECT_THAT(AnalyzeExpression("mycolumn + 1"),
               StatusIs(absl::StatusCode::kNotFound,
-                       testing::HasSubstr("error column-not-found: mycolumn")));
+                       HasSubstr("error column-not-found: mycolumn")));
+
+  EXPECT_THAT(AnalyzeStatement("SELECT mycolumn + 1"),
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("error column-not-found: mycolumn")));
 }
 
 TEST_F(LookupCatalogColumnCallbackTest, SuccessfulLookupTest) {
@@ -97,23 +119,50 @@ TEST_F(LookupCatalogColumnCallbackTest, SuccessfulLookupTest) {
         EXPECT_THAT(column, testing::StrCaseEq("mycolumn"));
         return &column_;
       });
-  EXPECT_THAT(Analyze("MycOluMn + 1"), zetasql_base::testing::IsOk());
 
-  const zetasql::ResolvedCatalogColumnRef& result =
+  EXPECT_THAT(AnalyzeExpression("MycOluMn + 1"), IsOk());
+
+  const ResolvedCatalogColumnRef& resolved_expression =
       *output_->resolved_expr()
            ->GetAs<ResolvedFunctionCallBase>()
            ->argument_list(0)
            ->GetAs<ResolvedCatalogColumnRef>();
 
   // Case of the column name will match the column returned by the callback.
-  EXPECT_EQ(result.column()->Name(), "mycolumn");
+  EXPECT_EQ(resolved_expression.column()->Name(), "mycolumn");
   // Types will match.
-  EXPECT_TRUE(result.column()->GetType()->Equals(types::Int64Type()))
-      << result.column()->GetType()->DebugString();
-  // Column annotation will be propagated.
   EXPECT_TRUE(
-      result.column()->GetTypeAnnotationMap()->Equals(*column_annotation_))
-      << result.column()->GetTypeAnnotationMap()->DebugString();
+      resolved_expression.column()->GetType()->Equals(types::Int64Type()))
+      << resolved_expression.column()->GetType()->DebugString();
+  // Column annotation will be propagated.
+  EXPECT_TRUE(resolved_expression.column()->GetTypeAnnotationMap()->Equals(
+      *column_annotation_))
+      << resolved_expression.column()->GetTypeAnnotationMap()->DebugString();
+
+  EXPECT_THAT(AnalyzeStatement("SELECT MycOluMn + 1"), IsOk());
+
+  const ResolvedCatalogColumnRef& resolved_statement =
+      *output_->resolved_statement()
+           ->GetAs<ResolvedQueryStmt>()
+           ->query()
+           ->GetAs<ResolvedProjectScan>()
+           ->expr_list(0)
+           ->GetAs<ResolvedComputedColumn>()
+           ->expr()
+           ->GetAs<ResolvedFunctionCallBase>()
+           ->argument_list(0)
+           ->GetAs<ResolvedCatalogColumnRef>();
+
+  // Case of the column name will match the column returned by the callback.
+  EXPECT_EQ(resolved_statement.column()->Name(), "mycolumn");
+  // Types will match.
+  EXPECT_TRUE(
+      resolved_statement.column()->GetType()->Equals(types::Int64Type()))
+      << resolved_statement.column()->GetType()->DebugString();
+  // Column annotation will be propagated.
+  EXPECT_TRUE(resolved_statement.column()->GetTypeAnnotationMap()->Equals(
+      *column_annotation_))
+      << resolved_statement.column()->GetTypeAnnotationMap()->DebugString();
 }
 
 }  // namespace

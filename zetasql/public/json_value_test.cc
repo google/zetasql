@@ -16,13 +16,11 @@
 
 #include "zetasql/public/json_value.h"
 
-#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -34,8 +32,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
@@ -185,6 +185,7 @@ TEST(JSONValueTest, StringValue) {
     JSONValue value(kStringValue);
     ASSERT_TRUE(value.GetConstRef().IsString());
     EXPECT_EQ(kStringValue, value.GetConstRef().GetString());
+    EXPECT_EQ(kStringValue, value.GetConstRef().GetStringRef());
   }
 
   {
@@ -201,6 +202,7 @@ TEST(JSONValueTest, StringValue) {
     EXPECT_FALSE(ref.IsNumber());
 
     EXPECT_EQ(kStringValue, ref.GetString());
+    EXPECT_EQ(kStringValue, ref.GetStringRef());
     EXPECT_DEATH(ref.GetBoolean(), "type must be boolean, but is string");
   }
 }

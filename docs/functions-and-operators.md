@@ -570,18 +570,14 @@ a field by position is useful when fields are un-named or have ambiguous names.
 
 **Example**
 
-In the following example, the expression is `t.customer` and the
-field access operations are `.address` and `.country`. An operation is an
-application of an operator (`.`) to specific operands (in this case,
-`address` and `country`, or more specifically, `t.customer` and `address`,
-for the first operation, and `t.customer.address` and `country` for the
-second operation).
+In the following example, the field access operations are `.address` and
+`.country`.
 
 ```sql
-WITH orders AS (
-  SELECT STRUCT(STRUCT('Yonge Street' AS street, 'Canada' AS country) AS address) AS customer
-)
-SELECT t.customer.address.country FROM orders AS t;
+SELECT
+  STRUCT(
+    STRUCT('Yonge Street' AS street, 'Canada' AS country)
+      AS address).address.country
 
 /*---------*
  | country |
@@ -595,8 +591,10 @@ SELECT t.customer.address.country FROM orders AS t;
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-array_expression[array_subscript_specifier]
+array_expression "[" array_subscript_specifier "]"
 
 array_subscript_specifier:
   { index | position_keyword(index) }
@@ -604,9 +602,6 @@ array_subscript_specifier:
 position_keyword:
   { OFFSET | SAFE_OFFSET | ORDINAL | SAFE_ORDINAL }
 ```
-
-Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 
@@ -646,14 +641,12 @@ reference an index (`6`) in an array that is out of range. If the `SAFE` prefix
 is included, `NULL` is returned, otherwise an error is produced.
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
 SELECT
-  item_array,
-  item_array[0] AS item_index,
-  item_array[OFFSET(0)] AS item_offset,
-  item_array[ORDINAL(1)] AS item_ordinal,
-  item_array[SAFE_OFFSET(6)] AS item_safe_offset
-FROM Items
+  ["coffee", "tea", "milk"] AS item_array,
+  ["coffee", "tea", "milk"][0] AS item_index,
+  ["coffee", "tea", "milk"][OFFSET(0)] AS item_offset,
+  ["coffee", "tea", "milk"][ORDINAL(1)] AS item_ordinal,
+  ["coffee", "tea", "milk"][SAFE_OFFSET(6)] AS item_safe_offset
 
 /*---------------------+------------+-------------+--------------+------------------*
  | item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
@@ -667,28 +660,22 @@ keyword that begins with `SAFE` is not included, an error is produced.
 For example:
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
-SELECT
-  item_array[6] AS item_offset
-FROM Items
-
 -- Error. Array index 6 is out of bounds.
+SELECT ["coffee", "tea", "milk"][6] AS item_offset
 ```
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
-SELECT
-  item_array[OFFSET(6)] AS item_offset
-FROM Items
-
 -- Error. Array index 6 is out of bounds.
+SELECT ["coffee", "tea", "milk"][OFFSET(6)] AS item_offset
 ```
 
 ### Struct subscript operator 
 <a id="struct_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-struct_expression[struct_subscript_specifier]
+struct_expression "[" struct_subscript_specifier "]"
 
 struct_subscript_specifier:
   { index | position_keyword(index) }
@@ -696,9 +683,6 @@ struct_subscript_specifier:
 position_keyword:
   { OFFSET | ORDINAL }
 ```
-
-Note: The brackets (`[]`) around `struct_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 
@@ -730,12 +714,10 @@ shows what happens when you reference an index (`6`) in an struct that is out of
 range.
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
 SELECT
-  item_struct[0] AS field_index,
-  item_struct[OFFSET(0)] AS field_offset,
-  item_struct[ORDINAL(1)] AS field_ordinal
-FROM Items
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[0] AS field_index,
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(0)] AS field_offset,
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[ORDINAL(1)] AS field_ordinal
 
 /*-------------+--------------+---------------*
  | field_index | field_offset | field_ordinal |
@@ -748,36 +730,27 @@ When you reference an index that is out of range in a struct, an error is
 produced. For example:
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
-SELECT
-  item_struct[6] AS field_offset
-FROM Items
-
--- Error. Field ordinal 6 is out of bounds in STRUCT
+-- Error: Field ordinal 6 is out of bounds in STRUCT
+SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[6] AS field_offset
 ```
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
-SELECT
-  item_struct[OFFSET(6)] AS field_offset
-FROM Items
-
--- Error. Field ordinal 6 is out of bounds in STRUCT
+-- Error: Field ordinal 6 is out of bounds in STRUCT
+SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(6)] AS field_offset
 ```
 
 ### JSON subscript operator 
 <a id="json_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-json_expression[array_element_id]
+json_expression "[" array_element_id "]"
 ```
 
 ```
-json_expression[field_name]
+json_expression "[" field_name "]"
 ```
-
-Note: The brackets (`[]`) around `array_element_id` and `field_name` are part
-of the syntax; they do not represent an optional part.
 
 **Description**
 
@@ -959,6 +932,8 @@ FROM
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
 array_expression.field_or_element[. ...]
 
@@ -966,11 +941,8 @@ field_or_element:
   { fieldname | array_element }
 
 array_element:
-  array_fieldname[array_subscript_specifier]
+  array_fieldname "[" array_subscript_specifier "]"
 ```
-
-Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 
@@ -3534,26 +3506,31 @@ must be coercible to a common [supertype][cond-exp-supertype].
 
 [Supertype][cond-exp-supertype] of `true_result` and `else_result`.
 
-**Example**
+**Examples**
 
 ```sql
-WITH Numbers AS (
-  SELECT 10 as A, 20 as B UNION ALL
-  SELECT 50, 30 UNION ALL
-  SELECT 60, 60
-)
 SELECT
-  A,
-  B,
-  IF(A < B, 'true', 'false') AS result
-FROM Numbers
+  10 AS A,
+  20 AS B,
+  IF(10 < 20, 'true', 'false') AS result
 
 /*------------------*
  | A  | B  | result |
  +------------------+
  | 10 | 20 | true   |
- | 50 | 30 | false  |
- | 60 | 60 | false  |
+ *------------------*/
+```
+
+```sql
+SELECT
+  30 AS A,
+  20 AS B,
+  IF(30 < 20, 'true', 'false') AS result
+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 30 | 20 | false  |
  *------------------*/
 ```
 
@@ -3708,6 +3685,858 @@ SELECT ZEROIFNULL(NULL) AS result
 
 ---
 ## FUNCTIONS
+
+## AEAD encryption functions
+
+ZetaSQL supports the following AEAD encryption functions.
+For a description of how the AEAD encryption
+functions work, see [AEAD encryption concepts][aead-encryption-concepts].
+
+### Function list
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+
+<tr>
+  <td><a href="#aeaddecrypt_bytes"><code>AEAD.DECRYPT_BYTES</code></a>
+
+</td>
+  <td>
+    Uses the matching key from a keyset to decrypt a
+    <code>BYTES</code> ciphertext.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#aeaddecrypt_string"><code>AEAD.DECRYPT_STRING</code></a>
+
+</td>
+  <td>
+    Uses the matching key from a keyset to decrypt a <code>BYTES</code>
+    ciphertext into a <code>STRING</code> plaintext.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#aeadencrypt"><code>AEAD.ENCRYPT</code></a>
+
+</td>
+  <td>
+    Encrypts <code>STRING</code> plaintext, using the primary cryptographic key
+    in a keyset.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#deterministic_decrypt_bytes"><code>DETERMINISTIC_DECRYPT_BYTES</code></a>
+
+</td>
+  <td>
+    Uses the matching key from a keyset to decrypt a <code>BYTES</code>
+    ciphertext, using deterministic AEAD.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#deterministic_decrypt_string"><code>DETERMINISTIC_DECRYPT_STRING</code></a>
+
+</td>
+  <td>
+    Uses the matching key from a keyset to decrypt a <code>BYTES</code>
+    ciphertext into a <code>STRING</code> plaintext, using deterministic AEAD.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#deterministic_encrypt"><code>DETERMINISTIC_ENCRYPT</code></a>
+
+</td>
+  <td>
+    Encrypts <code>STRING</code> plaintext, using the primary cryptographic key
+    in a keyset, using deterministic AEAD encryption.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keysadd_key_from_raw_bytes"><code>KEYS.ADD_KEY_FROM_RAW_BYTES</code></a>
+
+</td>
+  <td>
+    Adds a key to a keyset, and return the new keyset as a serialized
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keyskeyset_from_json"><code>KEYS.KEYSET_FROM_JSON</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> JSON keyset to a serialized
+    <code>BYTES</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keyskeyset_length"><code>KEYS.KEYSET_LENGTH</code></a>
+
+</td>
+  <td>
+    Gets the number of keys in the provided keyset.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keyskeyset_to_json"><code>KEYS.KEYSET_TO_JSON</code></a>
+
+</td>
+  <td>
+    Gets a JSON <code>STRING</code> representation of a keyset.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keysnew_keyset"><code>KEYS.NEW_KEYSET</code></a>
+
+</td>
+  <td>
+    Gets a serialized keyset containing a new key based on the key type.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#keysrotate_keyset"><code>KEYS.ROTATE_KEYSET</code></a>
+
+</td>
+  <td>
+    Adds a new primary cryptographic key to a keyset, based on the key type.
+  </td>
+</tr>
+
+  </tbody>
+</table>
+
+### `AEAD.DECRYPT_BYTES`
+
+```sql
+AEAD.DECRYPT_BYTES(keyset, ciphertext, additional_data)
+```
+
+**Description**
+
+Uses the matching key from `keyset` to decrypt `ciphertext` and verifies the
+integrity of the data using `additional_data`. Returns an error if decryption or
+verification fails.
+
+`keyset` is a serialized `BYTES` value returned by one of the
+`KEYS` functions. `keyset` must contain the key that was used to
+encrypt `ciphertext`, and the key must be in an `'ENABLED'` state, or else the
+function returns an error. `AEAD.DECRYPT_BYTES` identifies the matching key
+in `keyset` by finding the key with the key ID that matches the one encrypted in
+`ciphertext`.
+
+`ciphertext` is a `BYTES` value that is the result of
+a call to `AEAD.ENCRYPT` where the input `plaintext` was of type
+`BYTES`.
+
+If `ciphertext` includes an initialization vector (IV),
+it should be the first bytes of `ciphertext`. If `ciphertext` includes an
+authentication tag, it should be the last bytes of `ciphertext`. If the
+IV and authentic tag are one (SIV), it should be the first bytes of
+`ciphertext`. The IV and authentication tag commonly require 16 bytes, but may
+vary in size.
+
+`additional_data` is a `STRING` or `BYTES` value that binds the ciphertext to
+its context. This forces the ciphertext to be decrypted in the same context in
+which it was encrypted. This function casts any
+`STRING` value to `BYTES`.
+This must be the same as the `additional_data` provided to `AEAD.ENCRYPT` to
+encrypt `ciphertext`, ignoring its type, or else the function returns an error.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+This example creates a table of unique IDs with associated plaintext values and
+keysets. Then it uses these keysets to encrypt the plaintext values as
+`BYTES` and store them in a new table. Finally, it
+uses `AEAD.DECRYPT_BYTES` to decrypt the encrypted values and display them as
+plaintext.
+
+The following statement creates a table `CustomerKeysets` containing a column of
+unique IDs, a column of `AEAD_AES_GCM_256` keysets, and a column of favorite
+animals.
+
+```sql
+CREATE TABLE aead.CustomerKeysets AS
+SELECT
+  1 AS customer_id,
+  KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset,
+  b'jaguar' AS favorite_animal
+UNION ALL
+SELECT
+  2 AS customer_id,
+  KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset,
+  b'zebra' AS favorite_animal
+UNION ALL
+SELECT
+  3 AS customer_id,
+  KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset,
+  b'nautilus' AS favorite_animal;
+```
+
+The following statement creates a table `EncryptedCustomerData` containing a
+column of unique IDs and a column of ciphertext. The statement encrypts the
+plaintext `favorite_animal` using the keyset value from `CustomerKeysets`
+corresponding to each unique ID.
+
+```sql
+CREATE TABLE aead.EncryptedCustomerData AS
+SELECT
+  customer_id,
+  AEAD.ENCRYPT(keyset, favorite_animal, CAST(CAST(customer_id AS STRING) AS BYTES))
+   AS encrypted_animal
+FROM
+  aead.CustomerKeysets AS ck;
+```
+
+The following query uses the keysets in the `CustomerKeysets` table to decrypt
+data in the `EncryptedCustomerData` table.
+
+```sql
+SELECT
+  ecd.customer_id,
+  AEAD.DECRYPT_BYTES(
+    (SELECT ck.keyset
+     FROM aead.CustomerKeysets AS ck
+     WHERE ecd.customer_id = ck.customer_id),
+    ecd.encrypted_animal,
+    CAST(CAST(customer_id AS STRING) AS BYTES)
+  ) AS favorite_animal
+FROM aead.EncryptedCustomerData AS ecd;
+```
+
+### `AEAD.DECRYPT_STRING`
+
+```sql
+AEAD.DECRYPT_STRING(keyset, ciphertext, additional_data)
+```
+
+**Description**
+
+Like [`AEAD.DECRYPT_BYTES`][aeaddecrypt-bytes], but where `additional_data` is
+of type `STRING`.
+
+**Return Data Type**
+
+`STRING`
+
+[aeaddecrypt-bytes]: #aeaddecrypt_bytes
+
+### `AEAD.ENCRYPT`
+
+```sql
+AEAD.ENCRYPT(keyset, plaintext, additional_data)
+```
+
+**Description**
+
+Encrypts `plaintext` using the primary cryptographic key in `keyset`. The
+algorithm of the primary key must be `AEAD_AES_GCM_256`. Binds the ciphertext to
+the context defined by `additional_data`. Returns `NULL` if any input is `NULL`.
+
+`keyset` is a serialized `BYTES` value returned by one of the
+`KEYS` functions.
+
+`plaintext` is the `STRING` or
+`BYTES` value to be encrypted.
+
+`additional_data` is a `STRING` or `BYTES` value that binds the ciphertext to
+its context. This forces the ciphertext to be decrypted in the same context in
+which it was encrypted. `plaintext` and `additional_data` must be of the same
+type. `AEAD.ENCRYPT(keyset, string1, string2)` is equivalent to
+`AEAD.ENCRYPT(keyset, CAST(string1 AS BYTES), CAST(string2 AS BYTES))`.
+
+The output is ciphertext `BYTES`. The ciphertext contains a
+[Tink-specific][tink] prefix indicating the key used to perform the encryption.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+The following query uses the keysets for each `customer_id` in the
+`CustomerKeysets` table to encrypt the value of the plaintext `favorite_animal`
+in the `PlaintextCustomerData` table corresponding to that `customer_id`. The
+output contains a column of `customer_id` values and a column of
+corresponding ciphertext output as `BYTES`.
+
+```sql
+WITH CustomerKeysets AS (
+  SELECT 1 AS customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset UNION ALL
+  SELECT 2, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') UNION ALL
+  SELECT 3, KEYS.NEW_KEYSET('AEAD_AES_GCM_256')
+), PlaintextCustomerData AS (
+  SELECT 1 AS customer_id, 'elephant' AS favorite_animal UNION ALL
+  SELECT 2, 'walrus' UNION ALL
+  SELECT 3, 'leopard'
+)
+SELECT
+  pcd.customer_id,
+  AEAD.ENCRYPT(
+    (SELECT keyset
+     FROM CustomerKeysets AS ck
+     WHERE ck.customer_id = pcd.customer_id),
+    pcd.favorite_animal,
+    CAST(pcd.customer_id AS STRING)
+  ) AS encrypted_animal
+FROM PlaintextCustomerData AS pcd;
+```
+
+[tink]: https://github.com/google/tink/blob/master/docs/KEY-MANAGEMENT.md
+
+### `DETERMINISTIC_DECRYPT_BYTES`
+
+```sql
+DETERMINISTIC_DECRYPT_BYTES(keyset, ciphertext, additional_data)
+```
+
+**Description**
+
+Uses the matching key from `keyset` to decrypt `ciphertext` and verifies the
+integrity of the data using `additional_data`. Returns an error if decryption
+fails.
+
+`keyset` is a serialized `BYTES` value returned by one of the `KEYS` functions. `keyset` must contain
+the key that was used to encrypt `ciphertext`, the key must be in an `'ENABLED'`
+state, and the key must be of type `DETERMINISTIC_AEAD_AES_SIV_CMAC_256`, or
+else the function returns an error. `DETERMINISTIC_DECRYPT_BYTES` identifies the
+matching key in `keyset` by finding the key with the key ID that matches the one
+encrypted in `ciphertext`.
+
+`ciphertext` is a `BYTES` value that is the result of a call to
+`DETERMINISTIC_ENCRYPT` where the input `plaintext` was of type `BYTES`.
+
+The ciphertext must follow Tink's [wire format][tink-wire-format]. The first
+byte of `ciphertext` should contain a Tink key version followed by a 4 byte key
+hint. If `ciphertext` includes an initialization vector (IV), it should be the
+next bytes of `ciphertext`. If `ciphertext` includes an authentication tag, it
+should be the last bytes of `ciphertext`. If the IV and authentic tag are one
+(SIV), it should be the first bytes of `ciphertext`. The IV and authentication
+tag commonly require 16 bytes, but may vary in size.
+
+`additional_data` is a `STRING` or `BYTES` value that binds the ciphertext to
+its context. This forces the ciphertext to be decrypted in the same context in
+which it was encrypted. This function casts any `STRING` value to `BYTES`. This
+must be the same as the `additional_data` provided to `DETERMINISTIC_ENCRYPT` to
+encrypt `ciphertext`, ignoring its type, or else the function returns an error.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+This example creates a table of unique IDs with associated plaintext values and
+keysets. Then it uses these keysets to encrypt the plaintext values as `BYTES`
+and store them in a new table. Finally, it uses `DETERMINISTIC_DECRYPT_BYTES` to
+decrypt the encrypted values and display them as plaintext.
+
+The following statement creates a table `CustomerKeysets` containing a column of
+unique IDs, a column of `DETERMINISTIC_AEAD_AES_SIV_CMAC_256` keysets, and a
+column of favorite animals.
+
+```sql
+CREATE TABLE deterministic.CustomerKeysets AS
+SELECT
+  1 AS customer_id,
+  KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') AS keyset,
+  b'jaguar' AS favorite_animal
+UNION ALL
+SELECT
+  2 AS customer_id,
+  KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') AS keyset,
+  b'zebra' AS favorite_animal
+UNION ALL
+SELECT
+  3 AS customer_id,
+  KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') AS keyset,
+  b'nautilus' AS favorite_animal;
+```
+
+The following statement creates a table `EncryptedCustomerData` containing a
+column of unique IDs and a column of ciphertext. The statement encrypts the
+plaintext `favorite_animal` using the keyset value from `CustomerKeysets`
+corresponding to each unique ID.
+
+```sql
+CREATE TABLE deterministic.EncryptedCustomerData AS
+SELECT
+  customer_id,
+  DETERMINISTIC_ENCRYPT(ck.keyset, favorite_animal, CAST(CAST(customer_id AS STRING) AS BYTES))
+   AS encrypted_animal
+FROM
+  deterministic.CustomerKeysets AS ck;
+```
+
+The following query uses the keysets in the `CustomerKeysets` table to decrypt
+data in the `EncryptedCustomerData` table.
+
+```sql
+SELECT
+  ecd.customer_id,
+  DETERMINISTIC_DECRYPT_BYTES(
+    (SELECT ck.keyset
+     FROM deterministic.CustomerKeysets AS ck
+     WHERE ecd.customer_id = ck.customer_id),
+    ecd.encrypted_animal,
+    CAST(CAST(ecd.customer_id AS STRING) AS BYTES)
+  ) AS favorite_animal
+FROM deterministic.EncryptedCustomerData AS ecd;
+```
+
+[tink-wire-format]: https://developers.google.com/tink/wire-format#deterministic_aead
+
+### `DETERMINISTIC_DECRYPT_STRING`
+
+```sql
+DETERMINISTIC_DECRYPT_STRING(keyset, ciphertext, additional_data)
+```
+
+**Description**
+
+Like [`DETERMINISTIC_DECRYPT_BYTES`][deterministic-decrypt-bytes], but where
+`plaintext` is of type `STRING`.
+
+**Return Data Type**
+
+`STRING`
+
+[deterministic-decrypt-bytes]: #deterministic_decrypt_bytes
+
+### `DETERMINISTIC_ENCRYPT`
+
+```sql
+DETERMINISTIC_ENCRYPT(keyset, plaintext, additional_data)
+```
+
+**Description**
+
+Encrypts `plaintext` using the primary cryptographic key in `keyset` using
+[deterministic AEAD][deterministic-aead]. The algorithm of the primary key must
+be `DETERMINISTIC_AEAD_AES_SIV_CMAC_256`. Binds the ciphertext to the context
+defined by `additional_data`. Returns `NULL` if any input is `NULL`.
+
+`keyset` is a serialized `BYTES` value returned by one of the `KEYS` functions.
+
+`plaintext` is the `STRING` or `BYTES` value to be encrypted.
+
+`additional_data` is a `STRING` or `BYTES` value that binds the ciphertext to
+its context. This forces the ciphertext to be decrypted in the same context in
+which it was encrypted. `plaintext` and `additional_data` must be of the same
+type. `DETERMINISTIC_ENCRYPT(keyset, string1, string2)` is equivalent to
+`DETERMINISTIC_ENCRYPT(keyset, CAST(string1 AS BYTES), CAST(string2 AS BYTES))`.
+
+The output is ciphertext `BYTES`. The ciphertext contains a
+[Tink-specific][tink] prefix indicating the key used to perform the encryption.
+Given an identical `keyset` and `plaintext`, this function returns the same
+ciphertext each time it is invoked (including across queries).
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+The following query uses the keysets for each `customer_id` in the
+`CustomerKeysets` table to encrypt the value of the plaintext `favorite_animal`
+in the `PlaintextCustomerData` table corresponding to that `customer_id`. The
+output contains a column of `customer_id` values and a column of corresponding
+ciphertext output as `BYTES`.
+
+```sql
+WITH CustomerKeysets AS (
+  SELECT 1 AS customer_id,
+  KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') AS keyset UNION ALL
+  SELECT 2, KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') UNION ALL
+  SELECT 3, KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256')
+), PlaintextCustomerData AS (
+  SELECT 1 AS customer_id, 'elephant' AS favorite_animal UNION ALL
+  SELECT 2, 'walrus' UNION ALL
+  SELECT 3, 'leopard'
+)
+SELECT
+  pcd.customer_id,
+  DETERMINISTIC_ENCRYPT(
+    (SELECT keyset
+     FROM CustomerKeysets AS ck
+     WHERE ck.customer_id = pcd.customer_id),
+    pcd.favorite_animal,
+    CAST(pcd.customer_id AS STRING)
+  ) AS encrypted_animal
+FROM PlaintextCustomerData AS pcd;
+```
+
+[tink]: https://github.com/google/tink/blob/master/docs/KEY-MANAGEMENT.md
+
+[deterministic-aead]: https://developers.google.com/tink/deterministic-aead
+
+### `KEYS.ADD_KEY_FROM_RAW_BYTES`
+
+```
+KEYS.ADD_KEY_FROM_RAW_BYTES(keyset, key_type, raw_key_bytes)
+```
+
+**Description**
+
+Returns a serialized keyset as `BYTES` with the
+addition of a key to `keyset` based on `key_type` and `raw_key_bytes`.
+
+The primary cryptographic key remains the same as in `keyset`. The expected
+length of `raw_key_bytes` depends on the value of `key_type`. The following are
+supported `key_types`:
+
++ `'AES_CBC_PKCS'`: Creates a key for AES decryption using cipher block chaining
+  and PKCS padding. `raw_key_bytes` is expected to be a raw key
+  `BYTES` value of length 16, 24, or 32; these
+  lengths have sizes of 128, 192, and 256 bits, respectively. ZetaSQL
+  AEAD functions do not support keys of these types for encryption; instead,
+  prefer `'AEAD_AES_GCM_256'` or `'AES_GCM'` keys.
++ `'AES_GCM'`: Creates a key for AES decryption or encryption using
+  [Galois/Counter Mode][galois-counter-mode].
+  `raw_key_bytes` must be a raw key `BYTES`
+  value of length 16 or 32; these lengths have sizes of 128 and 256 bits,
+  respectively. When keys of this type are inputs to `AEAD.ENCRYPT`, the output
+  ciphertext does not have a Tink-specific prefix indicating which key was
+  used as input.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+The following query creates a table of customer IDs along with raw key bytes,
+called `CustomerRawKeys`, and a table of unique IDs, called `CustomerIds`. It
+creates a new `'AEAD_AES_GCM_256'` keyset for each `customer_id`; then it adds a
+new key to each keyset, using the `raw_key_bytes` value corresponding to that
+`customer_id`. The output is a table where each row contains a `customer_id` and
+a keyset in `BYTES`, which contains the raw key added
+using KEYS.ADD_KEY_FROM_RAW_BYTES.
+
+```sql
+WITH CustomerRawKeys AS (
+  SELECT 1 AS customer_id, b'0123456789012345' AS raw_key_bytes UNION ALL
+  SELECT 2, b'9876543210543210' UNION ALL
+  SELECT 3, b'0123012301230123'
+), CustomerIds AS (
+  SELECT 1 AS customer_id UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3
+)
+SELECT
+  ci.customer_id,
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+    'AES_CBC_PKCS',
+    (SELECT raw_key_bytes FROM CustomerRawKeys AS crk
+     WHERE crk.customer_id = ci.customer_id)
+  ) AS keyset
+FROM CustomerIds AS ci;
+```
+
+The output keysets each contain two things: the primary cryptographic key
+created using `KEYS.NEW_KEYSET('AEAD_AES_GCM_256')`, and the raw key added using
+`KEYS.ADD_KEY_FROM_RAW_BYTES`. If a keyset in the output is used with
+`AEAD.ENCRYPT`, ZetaSQL uses the primary cryptographic key created
+using `KEYS.NEW_KEYSET('AEAD_AES_GCM_256')` to encrypt the input plaintext. If
+the keyset is used with `AEAD.DECRYPT_STRING` or `AEAD.DECRYPT_BYTES`,
+ZetaSQL returns the resulting plaintext if either key succeeds in
+decrypting the ciphertext.
+
+[galois-counter-mode]: https://en.wikipedia.org/wiki/Galois/Counter_Mode
+
+### `KEYS.KEYSET_FROM_JSON`
+
+```sql
+KEYS.KEYSET_FROM_JSON(json_keyset)
+```
+
+**Description**
+
+Returns the input `json_keyset` `STRING` as
+serialized `BYTES`, which is a valid input for other
+`KEYS` and `AEAD` functions. The JSON `STRING` must
+be compatible with the definition of the
+[google.crypto.tink.Keyset][google-crypto-tink-keyset]
+protocol buffer message: the JSON keyset should be a JSON object containing
+objects and name-value pairs corresponding to those in the "keyset" message in
+the google.crypto.tink.Keyset definition. You can convert the output serialized
+`BYTES` representation back to a JSON
+`STRING` using `KEYS.KEYSET_TO_JSON`.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+`KEYS.KEYSET_FROM_JSON` takes JSON-formatted `STRING`
+values like the following:
+
+```json
+{
+  "key":[
+      {
+        "keyData":{
+          "keyMaterialType":"SYMMETRIC",
+          "typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey",
+          "value":"GiD80Z8kL6AP3iSNHhqseZGAIvq7TVQzClT7FQy8YwK3OQ=="
+        },
+        "keyId":3101427138,
+        "outputPrefixType":"TINK",
+        "status":"ENABLED"
+      }
+    ],
+  "primaryKeyId":3101427138
+}
+```
+
+The following query creates a new keyset from a JSON-formatted
+`STRING` `json_keyset`:
+
+```sql
+SELECT KEYS.KEYSET_FROM_JSON(json_keyset);
+```
+
+This returns the `json_keyset` serialized as `BYTES`, like the following:
+
+```
+\x08\x9d\x8e\x85\x82\x09\x12d\x0aX\x0a0
+type.googleapis.com/google.crypto.tink.AesGcmKey\x12\"\x1a qX\xe4IG\x87\x1f\xde
+\xe3)+e\x98\x0a\x1c}\xfe\x88<\x12\xeb\xc1t\xb8\x83\x1a\xcd\xa8\x97\x84g\x18\x01
+\x10\x01\x18\x9d\x8e\x85\x82\x09 \x01
+```
+
+[google-crypto-tink-keyset]: https://github.com/google/tink/blob/master/proto/tink.proto
+
+### `KEYS.KEYSET_LENGTH`
+
+```sql
+KEYS.KEYSET_LENGTH(keyset)
+```
+
+**Description**
+
+Returns the number of keys in the provided keyset.
+
+**Return Data Type**
+
+`INT64`
+
+**Example**
+
+This example references a JSON-formatted STRING
+called `json_keyset` that contains two keys:
+
+```json
+{
+   "primaryKeyId":1354994251,
+   "key":[
+      {
+         "keyData":{
+            "keyMaterialType":"SYMMETRIC",
+            "typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value":"GiD9sxQRgFj4aYN78vaIlxInjZkG/uvyWSY9a8GN+ELV2Q=="
+         },
+         "keyId":1354994251,
+         "outputPrefixType":"TINK",
+         "status":"ENABLED"
+      }
+   ],
+   "key":[
+      {
+         "keyData":{
+            "keyMaterialType":"SYMMETRIC",
+            "typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey",
+            "value":"PRn76sxQRgFj4aYN00vaIlxInjZkG/uvyWSY9a2bLRm"
+         },
+         "keyId":852264701,
+         "outputPrefixType":"TINK",
+         "status":"DISABLED"
+      }
+   ]
+}
+```
+
+The following query converts `json_keyset` to a keyset and then returns
+the number of keys in the keyset:
+
+```sql
+SELECT KEYS.KEYSET_LENGTH(KEYS.KEYSET_FROM_JSON(json_keyset)) as key_count;
+
+/*-----------*
+ | key_count |
+ +-----------+
+ | 2         |
+ *-----------*/
+```
+
+### `KEYS.KEYSET_TO_JSON`
+
+```sql
+KEYS.KEYSET_TO_JSON(keyset)
+```
+
+**Description**
+
+Returns a JSON `STRING` representation of the input
+`keyset`. The returned JSON `STRING` is compatible
+with the definition of the
+[google.crypto.tink.Keyset][google-crypto-tink-keyset]
+protocol buffer message. You can convert the JSON
+`STRING` representation back to
+`BYTES` using `KEYS.KEYSET_FROM_JSON`.
+
+**Return Data Type**
+
+`STRING`
+
+**Example**
+
+The following query returns a new `'AEAD_AES_GCM_256'` keyset as a
+JSON-formatted `STRING`.
+
+```sql
+SELECT KEYS.KEYSET_TO_JSON(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'));
+```
+
+The result is a `STRING` like the following.
+
+```json
+{
+  "key":[
+      {
+        "keyData":{
+          "keyMaterialType":"SYMMETRIC",
+          "typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey",
+          "value":"GiD80Z8kL6AP3iSNHhqseZGAIvq7TVQzClT7FQy8YwK3OQ=="
+        },
+        "keyId":3101427138,
+        "outputPrefixType":"TINK",
+        "status":"ENABLED"
+      }
+    ],
+  "primaryKeyId":3101427138
+}
+```
+
+[google-crypto-tink-keyset]: https://github.com/google/tink/blob/master/proto/tink.proto
+
+### `KEYS.NEW_KEYSET`
+
+```
+KEYS.NEW_KEYSET(key_type)
+```
+
+**Description**
+
+Returns a serialized keyset containing a new key based on `key_type`. The
+returned keyset is a serialized `BYTES`
+representation of
+[google.crypto.tink.Keyset][google-crypto-tink-keyset]
+that contains a primary cryptographic key and no additional keys. You can use
+the keyset with the `AEAD.ENCRYPT`, `AEAD.DECRYPT_BYTES`, and
+`AEAD.DECRYPT_STRING` functions for encryption and decryption, as well as with
+the `KEYS` group of key- and keyset-related functions.
+
+`key_type` is a `STRING` literal representation of the type of key to create.
+`key_type` cannot be `NULL`. `key_type` can be:
+
++   `AEAD_AES_GCM_256`: Creates a 256-bit key with the pseudo-random number
+    generator provided by [boringSSL][boringSSL]. The key uses AES-GCM for
+    encryption and decryption operations.
++   `DETERMINISTIC_AEAD_AES_SIV_CMAC_256`:
+    Creates a 512-bit `AES-SIV-CMAC` key, which contains a 256-bit `AES-CTR` key
+    and 256-bit `AES-CMAC` key. The `AES-SIV-CMAC` key is created with the
+    pseudo-random number generator provided by [boringSSL][boringSSL]. The key
+    uses AES-SIV for encryption and decryption operations.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+The following query creates a keyset for each row in `CustomerIds`, which can
+subsequently be used to encrypt data. Each keyset contains a single encryption
+key with randomly-generated key data. Each row in the output contains a
+`customer_id` and an `'AEAD_AES_GCM_256'` key in
+`BYTES`.
+
+```sql
+SELECT customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
+FROM (
+  SELECT 1 AS customer_id UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3
+) AS CustomerIds;
+```
+
+[boringSSL]: https://boringssl.googlesource.com/boringssl/
+
+[google-crypto-tink-keyset]: https://github.com/google/tink/blob/master/proto/tink.proto
+
+### `KEYS.ROTATE_KEYSET`
+
+```sql
+KEYS.ROTATE_KEYSET(keyset, key_type)
+```
+
+**Description**
+
+Adds a new key to `keyset` based on `key_type`. This new key becomes the primary
+cryptographic key of the new keyset. Returns the new keyset serialized as
+`BYTES`.
+
+The old primary cryptographic key from the input `keyset` remains an additional
+key in the returned keyset.
+
+The new `key_type` must match the key type of existing keys in the `keyset`.
+
+**Return Data Type**
+
+`BYTES`
+
+**Example**
+
+The following statement creates a table containing a column of unique
+`customer_id` values and `'AEAD_AES_GCM_256'` keysets. Then, it creates a new
+primary cryptographic key within each keyset in the source table using
+`KEYS.ROTATE_KEYSET`. Each row in the output contains a `customer_id` and an
+`'AEAD_AES_GCM_256'` keyset in `BYTES`.
+
+```sql
+WITH ExistingKeysets AS (
+SELECT 1 AS customer_id, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
+    UNION ALL
+  SELECT 2, KEYS.NEW_KEYSET('AEAD_AES_GCM_256') UNION ALL
+  SELECT 3, KEYS.NEW_KEYSET('AEAD_AES_GCM_256')
+)
+SELECT customer_id, KEYS.ROTATE_KEYSET(keyset, 'AEAD_AES_GCM_256') AS keyset
+FROM ExistingKeysets;
+```
+
+[aead-encryption-concepts]: https://github.com/google/zetasql/blob/master/docs/aead-encryption-concepts.md
 
 ## Aggregate functions
 
@@ -3904,8 +4733,9 @@ rows. Returns `NULL` when `expression`
 or `expression2` is
 `NULL` for all rows in the group.
 
-`ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
-rows for which `expression` is `NULL` are considered and may be selected.
+`ANY_VALUE` behaves as if `IGNORE NULLS` is specified;
+rows for which `expression` is `NULL` are not considered and won't be
+selected.
 
 To learn more about the optional aggregate clauses that you can pass
 into this function, see
@@ -4299,9 +5129,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -4598,9 +5433,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -4786,9 +5626,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -4993,9 +5838,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -5060,9 +5910,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -5455,9 +6310,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -6681,31 +7541,72 @@ equality comparison logic as `SELECT DISTINCT`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [1, 1, 1] AS arr UNION ALL
-  SELECT [1, 2, NULL] AS arr UNION ALL
-  SELECT [1, 1, NULL] AS arr UNION ALL
-  SELECT [1, NULL, NULL] AS arr UNION ALL
-  SELECT [] AS arr UNION ALL
-  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
-)
-SELECT
-  arr,
-  ARRAY_IS_DISTINCT(arr) as is_distinct
-FROM example;
+SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
 
-/*-----------------+-------------*
- | arr             | is_distinct |
- +-----------------+-------------+
- | [1, 2, 3]       | TRUE        |
- | [1, 1, 1]       | FALSE       |
- | [1, 2, NULL]    | TRUE        |
- | [1, 1, NULL]    | FALSE       |
- | [1, NULL, NULL] | FALSE       |
- | []              | TRUE        |
- | NULL            | NULL        |
- *-----------------+-------------*/
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+```sql
+SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | NULL        |
+ *-------------*/
 ```
 
 ### `ARRAY_LAST`
@@ -6760,20 +7661,15 @@ the `array_expression` is `NULL`.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT ["coffee", NULL, "milk" ] as list
-  UNION ALL
-  SELECT ["cake", "pie"] as list)
-SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
-FROM items
-ORDER BY size DESC;
+SELECT
+  ARRAY_LENGTH(["coffee", NULL, "milk" ]) AS size_a,
+  ARRAY_LENGTH(["cake", "pie"]) AS size_b;
 
-/*--------------------+------*
- | list               | size |
- +--------------------+------+
- | coffee, NULL, milk | 3    |
- | cake, pie          | 2    |
- *--------------------+------*/
+/*--------+--------*
+ | size_a | size_b |
+ +--------+--------+
+ | 3      | 2      |
+ *--------+--------*/
 ```
 
 ### `ARRAY_MAX`
@@ -6871,23 +7767,13 @@ Returns the input `ARRAY` with elements in reverse order.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [4, 5] AS arr UNION ALL
-  SELECT [] AS arr
-)
-SELECT
-  arr,
-  ARRAY_REVERSE(arr) AS reverse_arr
-FROM example;
+SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
-/*-----------+-------------*
- | arr       | reverse_arr |
- +-----------+-------------+
- | [1, 2, 3] | [3, 2, 1]   |
- | [4, 5]    | [5, 4]      |
- | []        | []          |
- *-----------+-------------*/
+/*-------------*
+ | reverse_arr |
+ +-------------+
+ | [3, 2, 1]   |
+ *-------------*/
 ```
 
 ### `ARRAY_SLICE`
@@ -7219,35 +8105,22 @@ and its preceding delimiter.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT ['coffee', 'tea', 'milk' ] as list
-  UNION ALL
-  SELECT ['cake', 'pie', NULL] as list)
-
-SELECT ARRAY_TO_STRING(list, '--') AS text
-FROM items;
+SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
  | text                           |
  +--------------------------------+
- | coffee--tea--milk              |
- | cake--pie                      |
+ | coffee--tea--milk--MISSING     |
  *--------------------------------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT ['coffee', 'tea', 'milk' ] as list
-  UNION ALL
-  SELECT ['cake', 'pie', NULL] as list)
 
-SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text
-FROM items;
+SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
  | text                           |
  +--------------------------------+
- | coffee--tea--milk              |
  | cake--pie--MISSING             |
  *--------------------------------*/
 ```
@@ -8246,6 +9119,24 @@ learn more about implicit and explicit conversion [here][conversion-rules].
 </td>
   <td>
     Convert the results of an expression to the given type.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_bignumeric"><code>PARSE_BIGNUMERIC</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>BIGNUMERIC</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#parse_numeric"><code>PARSE_NUMERIC</code></a>
+
+</td>
+  <td>
+    Converts a <code>STRING</code> value to a <code>NUMERIC</code> value.
   </td>
 </tr>
 
@@ -9593,6 +10484,472 @@ SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'MM/DD/YYYY HH24:M
 
 [con-func-safecast]: #safe_casting
 
+### `PARSE_BIGNUMERIC` 
+<a id="parse_bignumeric"></a>
+
+```sql
+PARSE_BIGNUMERIC(string_expression)
+```
+
+**Description**
+
+Converts a `STRING` to a `BIGNUMERIC` value.
+
+The numeric literal contained in the string must not exceed the
+[maximum precision or range][bignumeric-type] of the `BIGNUMERIC` type, or an
+error occurs. If the number of digits after the decimal point exceeds 38, then
+the resulting `BIGNUMERIC` value rounds
+[half away from zero][half-from-zero-wikipedia] to have 38 digits after the
+decimal point.
+
+```sql
+
+-- This example shows how a string with a decimal point is parsed.
+SELECT PARSE_BIGNUMERIC("123.45") AS parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 123.45 |
+ *--------*/
+
+-- This example shows how a string with an exponent is parsed.
+SELECT PARSE_BIGNUMERIC("123.456E37") AS parsed;
+
+/*-----------------------------------------*
+ | parsed                                  |
+ +-----------------------------------------+
+ | 123400000000000000000000000000000000000 |
+ *-----------------------------------------*/
+
+-- This example shows the rounding when digits after the decimal point exceeds 38.
+SELECT PARSE_BIGNUMERIC("1.123456789012345678901234567890123456789") as parsed;
+
+/*------------------------------------------*
+ | parsed                                   |
+ +------------------------------------------+
+ | 1.12345678901234567890123456789012345679 |
+ *------------------------------------------*/
+```
+
+This function is similar to using the [`CAST AS BIGNUMERIC`][cast-bignumeric]
+function except that the `PARSE_BIGNUMERIC` function only accepts string inputs
+and allows the following in the string:
+
++   Spaces between the sign (+/-) and the number
++   Signs (+/-) after the number
+
+Rules for valid input strings:
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Example Input</th>
+      <th>Output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        The string can only contain digits, commas, decimal points and signs.
+      </td>
+      <td>
+        "- 12,34567,89.0"
+      </td>
+      <td>-123456789</td>
+    </tr>
+    <tr>
+      <td>Whitespaces are allowed anywhere except between digits.</td>
+      <td>
+        "  -  12.345  "
+      </td>
+      <td>-12.345</td>
+    </tr>
+    <tr>
+      <td>Only digits and commas are allowed before the decimal point.</td>
+      <td>
+        " 12,345,678"
+      </td>
+      <td>12345678</td>
+    </tr>
+    <tr>
+      <td>Only digits are allowed after the decimal point.</td>
+      <td>
+        "1.234 "
+      </td>
+      <td>1.234</td>
+    </tr>
+    <tr>
+      <td>
+        Use <code>E</code> or <code>e</code> for exponents. After the
+        <code>e</code>, digits and a leading sign indicator are allowed.
+      </td>
+      <td>" 123.45e-1"</td>
+      <td>12.345</td>
+    </tr>
+    <tr>
+      <td>
+        If the integer part is not empty, then it must contain at least one
+        digit.
+      </td>
+      <td>" 0,.12 -"</td>
+      <td>-0.12</td>
+    </tr>
+    <tr>
+      <td>
+        If the string contains a decimal point, then it must contain at least
+        one digit.
+      </td>
+      <td>" .1"</td>
+      <td>0.1</td>
+    </tr>
+    <tr>
+      <td>
+        The string cannot contain more than one sign.
+      </td>
+      <td>" 0.5 +"</td>
+      <td>0.5</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`BIGNUMERIC`
+
+**Examples**
+
+This example shows an input with spaces before, after, and between the
+sign and the number:
+
+```sql
+SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | -12.34 |
+ *--------*/
+```
+
+This example shows an input with an exponent as well as the sign after the
+number:
+
+```sql
+SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | -1.234 |
+ *--------*/
+```
+
+This example shows an input with multiple commas in the integer part of the
+number:
+
+```sql
+SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 123.45 |
+ *--------*/
+```
+
+This example shows an input with a decimal point and no digits in the whole
+number part:
+
+```sql
+SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 0.1234 |
+ *--------*/
+```
+
+**Examples of invalid inputs**
+
+This example is invalid because the whole number part contains no digits:
+
+```sql
+SELECT PARSE_BIGNUMERIC(",,,.1234  ") as parsed;
+```
+
+This example is invalid because there are whitespaces between digits:
+
+```sql
+SELECT PARSE_BIGNUMERIC("1  23.4 5  ") as parsed;
+```
+
+This example is invalid because the number is empty except for an exponent:
+
+```sql
+SELECT PARSE_BIGNUMERIC("  e1 ") as parsed;
+```
+
+This example is invalid because the string contains multiple signs:
+
+```sql
+SELECT PARSE_BIGNUMERIC("  - 12.3 - ") as parsed;
+```
+
+This example is invalid because the value of the number falls outside the range
+of `BIGNUMERIC`:
+
+```sql
+SELECT PARSE_BIGNUMERIC("12.34E100 ") as parsed;
+```
+
+This example is invalid because the string contains invalid characters:
+
+```sql
+SELECT PARSE_BIGNUMERIC("$12.34") as parsed;
+```
+
+[half-from-zero-wikipedia]: https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero
+
+[cast-bignumeric]: #cast_bignumeric
+
+[bignumeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
+
+### `PARSE_NUMERIC`
+
+```sql
+PARSE_NUMERIC(string_expression)
+```
+
+**Description**
+
+Converts a `STRING` to a `NUMERIC` value.
+
+The numeric literal contained in the string must not exceed the
+[maximum precision or range][numeric-type] of the `NUMERIC` type, or an error
+occurs. If the number of digits after the decimal point exceeds nine, then the
+resulting `NUMERIC` value rounds
+[half away from zero][half-from-zero-wikipedia] to have nine digits after the
+decimal point.
+
+```sql
+
+-- This example shows how a string with a decimal point is parsed.
+SELECT PARSE_NUMERIC("123.45") AS parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 123.45 |
+ *--------*/
+
+-- This example shows how a string with an exponent is parsed.
+SELECT PARSE_NUMERIC("12.34E27") as parsed;
+
+/*-------------------------------*
+ | parsed                        |
+ +-------------------------------+
+ | 12340000000000000000000000000 |
+ *-------------------------------*/
+
+-- This example shows the rounding when digits after the decimal point exceeds 9.
+SELECT PARSE_NUMERIC("1.0123456789") as parsed;
+
+/*-------------*
+ | parsed      |
+ +-------------+
+ | 1.012345679 |
+ *-------------*/
+```
+
+This function is similar to using the [`CAST AS NUMERIC`][cast-numeric] function
+except that the `PARSE_NUMERIC` function only accepts string inputs and allows
+the following in the string:
+
++   Spaces between the sign (+/-) and the number
++   Signs (+/-) after the number
+
+Rules for valid input strings:
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Example Input</th>
+      <th>Output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        The string can only contain digits, commas, decimal points and signs.
+      </td>
+      <td>
+        "- 12,34567,89.0"
+      </td>
+      <td>-123456789</td>
+    </tr>
+    <tr>
+      <td>Whitespaces are allowed anywhere except between digits.</td>
+      <td>
+        "  -  12.345  "
+      </td>
+      <td>-12.345</td>
+    </tr>
+    <tr>
+      <td>Only digits and commas are allowed before the decimal point.</td>
+      <td>
+        " 12,345,678"
+      </td>
+      <td>12345678</td>
+    </tr>
+    <tr>
+      <td>Only digits are allowed after the decimal point.</td>
+      <td>
+        "1.234 "
+      </td>
+      <td>1.234</td>
+    </tr>
+    <tr>
+      <td>
+        Use <code>E</code> or <code>e</code> for exponents. After
+        the <code>e</code>,
+        digits and a leading sign indicator are allowed.
+      </td>
+      <td>" 123.45e-1"</td>
+      <td>12.345</td>
+    </tr>
+    <tr>
+      <td>
+        If the integer part is not empty, then it must contain at least one
+        digit.
+      </td>
+      <td>" 0,.12 -"</td>
+      <td>-0.12</td>
+    </tr>
+    <tr>
+      <td>
+        If the string contains a decimal point, then it must contain at least
+        one digit.
+      </td>
+      <td>" .1"</td>
+      <td>0.1</td>
+    </tr>
+    <tr>
+      <td>
+        The string cannot contain more than one sign.
+      </td>
+      <td>" 0.5 +"</td>
+      <td>0.5</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`NUMERIC`
+
+**Examples**
+
+This example shows an input with spaces before, after, and between the
+sign and the number:
+
+```sql
+SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | -12.34 |
+ *--------*/
+```
+
+This example shows an input with an exponent as well as the sign after the
+number:
+
+```sql
+SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | -1.234 |
+ *--------*/
+```
+
+This example shows an input with multiple commas in the integer part of the
+number:
+
+```sql
+SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 123.45 |
+ *--------*/
+```
+
+This example shows an input with a decimal point and no digits in the whole
+number part:
+
+```sql
+SELECT PARSE_NUMERIC(".1234  ") as parsed;
+
+/*--------*
+ | parsed |
+ +--------+
+ | 0.1234 |
+ *--------*/
+```
+
+**Examples of invalid inputs**
+
+This example is invalid because the whole number part contains no digits:
+
+```sql
+SELECT PARSE_NUMERIC(",,,.1234  ") as parsed;
+```
+
+This example is invalid because there are whitespaces between digits:
+
+```sql
+SELECT PARSE_NUMERIC("1  23.4 5  ") as parsed;
+```
+
+This example is invalid because the number is empty except for an exponent:
+
+```sql
+SELECT PARSE_NUMERIC("  e1 ") as parsed;
+```
+
+This example is invalid because the string contains multiple signs:
+
+```sql
+SELECT PARSE_NUMERIC("  - 12.3 - ") as parsed;
+```
+
+This example is invalid because the value of the number falls outside the range
+of `BIGNUMERIC`:
+
+```sql
+SELECT PARSE_NUMERIC("12.34E100 ") as parsed;
+```
+
+This example is invalid because the string contains invalid characters:
+
+```sql
+SELECT PARSE_NUMERIC("$12.34") as parsed;
+```
+
+[half-from-zero-wikipedia]: https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero
+
+[cast-numeric]: #cast_numeric
+
+[numeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
+
 ### `SAFE_CAST` 
 <a id="safe_casting"></a>
 
@@ -9983,24 +11340,6 @@ SELECT CURRENT_DATE AS the_date;
  *--------------*/
 ```
 
-When a column named `current_date` is present, the column name and the function
-call without parentheses are ambiguous. To ensure the function call, add
-parentheses; to ensure the column name, qualify it with its
-[range variable][date-range-variables]. For example, the
-following query will select the function in the `the_date` column and the table
-column in the `current_date` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_date`)
-SELECT current_date() AS the_date, t.current_date FROM t;
-
-/*------------+--------------*
- | the_date   | current_date |
- +------------+--------------+
- | 2016-12-25 | column value |
- *------------+--------------*/
-```
-
 [date-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
@@ -10114,7 +11453,9 @@ Gets the number of unit boundaries between two `DATE` values (`end_date` -
 
 +   `start_date`: The starting `DATE` value.
 +   `end_date`: The ending `DATE` value.
-+   `granularity`: The date part that represents the granularity. This can be:
++   `granularity`: The date part that represents the granularity. If
+    you have passed in `DATE` values for the first arguments, `granularity` can
+    be:
 
     +  `DAY`
     +  `WEEK` This date part begins on Sunday.
@@ -10133,6 +11474,10 @@ Gets the number of unit boundaries between two `DATE` values (`end_date` -
 **Details**
 
 If `end_date` is earlier than `start_date`, the output is negative.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `DATE_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -10279,38 +11624,51 @@ SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 ### `DATE_TRUNC`
 
 ```sql
-DATE_TRUNC(date_expression, date_part)
+DATE_TRUNC(date_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `DATE` value to the granularity of `date_part`. The `DATE` value
-is always rounded to the beginning of `date_part`, which can be one of the
-following:
+Truncates a `DATE` value at a particular time granularity. The `DATE` value
+is always rounded to the beginning of `granularity`.
 
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `DATE` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `DATE` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `DATE` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `DATE` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `DATE` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `DATE` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `date_expression`: The `DATE` value to truncate.
++ `granularity`: The date part that represents the granularity. If
+  you passed in a `DATE` value for the first argument, `granularity` can
+  be:
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `DATE` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `DATE` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `DATE` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `DATE` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `DATE` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `DATE` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -10322,7 +11680,7 @@ following:
 
 **Return Data Type**
 
-DATE
+`DATE`
 
 **Examples**
 
@@ -10883,24 +12241,6 @@ SELECT CURRENT_DATETIME() as now;
  *----------------------------*/
 ```
 
-When a column named `current_datetime` is present, the column name and the
-function call without parentheses are ambiguous. To ensure the function call,
-add parentheses; to ensure the column name, qualify it with its
-[range variable][datetime-range-variables]. For example, the
-following query will select the function in the `now` column and the table
-column in the `current_datetime` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_datetime`)
-SELECT current_datetime() as now, t.current_datetime FROM t;
-
-/*----------------------------+------------------*
- | now                        | current_datetime |
- +----------------------------+------------------+
- | 2016-05-19 10:38:47.046465 | column value     |
- *----------------------------+------------------*/
-```
-
 [datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [datetime-timezone-definitions]: #timezone_definitions
@@ -11008,8 +12348,9 @@ Gets the number of unit boundaries between two `DATETIME` values
 
 +   `start_datetime`: The starting `DATETIME` value.
 +   `end_datetime`: The ending `DATETIME` value.
-+   `granularity`: The datetime part that represents the granularity.
-    This can be:
++   `granularity`: The datetime part that represents the granularity. If
+    you have passed in `DATETIME` values for the first arguments, `granularity`
+    can be:
 
       
       + `NANOSECOND`
@@ -11040,6 +12381,10 @@ If `end_datetime` is earlier than `start_datetime`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `DATETIME` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `DATETIME_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -11178,44 +12523,63 @@ SELECT
 ### `DATETIME_TRUNC`
 
 ```sql
-DATETIME_TRUNC(datetime_expression, date_time_part)
+DATETIME_TRUNC(datetime_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `DATETIME` value to the granularity of `date_time_part`.
-The `DATETIME` value is always rounded to the beginning of `date_time_part`,
-which can be one of the following:
+Truncates a `DATETIME` value at a particular time granularity. The `DATETIME`
+value is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `DATETIME` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `DATETIME` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `DATETIME` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `DATETIME` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `DATETIME` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `DATETIME` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `datetime_expression`: The `DATETIME` value to truncate.
++ `granularity`: The datetime part that represents the granularity. If
+  you passed in a `DATETIME` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `DATETIME` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `DATETIME` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `DATETIME` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `DATETIME` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `DATETIME` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `DATETIME` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -11728,7 +13092,8 @@ Returns an error.
 **Definitions**
 
 +   `error_message`: A `STRING` value that represents the error message to
-    produce.
+    produce. Any whitespace characters beyond a
+    single space are trimmed from the results.
 
 **Details**
 
@@ -11740,6 +13105,13 @@ result in an error: there is no special guarantee of evaluation order.
 ZetaSQL infers the return type in context.
 
 **Examples**
+
+In the following example, the query produces an error message:
+
+```sql
+-- ERROR: Show this error message (while evaluating error("Show this error message"))
+SELECT ERROR('Show this error message')
+```
 
 In the following example, the query returns an error message if the value of the
 row does not match one of two defined values.
@@ -11824,7 +13196,7 @@ The [supertype][supertype] for `try_expression` and
 
 **Example**
 
-In the following examples, the query successfully evaluates `try_expression`.
+In the following example, the query successfully evaluates `try_expression`.
 
 ```sql
 SELECT IFERROR('a', 'b') AS result
@@ -11836,6 +13208,9 @@ SELECT IFERROR('a', 'b') AS result
  *--------*/
 ```
 
+In the following example, the query successfully evaluates the
+`try_expression` subquery.
+
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
@@ -11846,7 +13221,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
  *--------*/
 ```
 
-In the following examples, `IFERROR` catches an evaluation error in the
+In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` and successfully evaluates `catch_expression`.
 
 ```sql
@@ -11858,6 +13233,9 @@ SELECT IFERROR(ERROR('a'), 'b') AS result
  | b      |
  *--------*/
 ```
+
+In the following example, `IFERROR` catches an evaluation error in the
+`try_expression` subquery and successfully evaluates `catch_expression`.
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
@@ -12053,7 +13431,7 @@ The data type for `try_expression` or `NULL`
 
 **Example**
 
-In the following examples, `NULLIFERROR` successfully evaluates
+In the following example, `NULLIFERROR` successfully evaluates
 `try_expression`.
 
 ```sql
@@ -12066,6 +13444,9 @@ SELECT NULLIFERROR('a') AS result
  *--------*/
 ```
 
+In the following example, `NULLIFERROR` successfully evaluates
+the `try_expression` subquery.
+
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
@@ -12076,7 +13457,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
  *--------*/
 ```
 
-In the following examples, `NULLIFERROR` catches an evaluation error in
+In the following example, `NULLIFERROR` catches an evaluation error in
 `try_expression`.
 
 ```sql
@@ -12088,6 +13469,9 @@ SELECT NULLIFERROR(ERROR('a')) AS result
  | NULL   |
  *--------*/
 ```
+
+In the following example, `NULLIFERROR` catches an evaluation error in
+the `try_expression` subquery.
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
@@ -14108,6 +15492,17 @@ behavior:
     </tr>
     
     
+    <tr>
+      <td>S2 functions</td>
+      <td>
+        <a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a><br>
+        <a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a><br>
+      </td>
+      <td>
+        Functions for working with S2 cell coverings of GEOGRAPHY.
+      </td>
+    </tr>
+    
   </tbody>
 </table>
 
@@ -14121,6 +15516,24 @@ behavior:
     </tr>
   </thead>
   <tbody>
+
+<tr>
+  <td><a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a>
+
+</td>
+  <td>
+    Gets the S2 cell ID covering a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a>
+
+</td>
+  <td>
+    Gets an array of S2 cell IDs that cover a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
 
 <tr>
   <td><a href="#st_accum"><code>ST_ACCUM</code></a>
@@ -14800,6 +16213,135 @@ behavior:
 
   </tbody>
 </table>
+
+### `S2_CELLIDFROMPOINT`
+
+```sql
+S2_CELLIDFROMPOINT(point_geography[, level => cell_level])
+```
+
+**Description**
+
+Returns the [S2 cell ID][s2-cells-link] covering a point `GEOGRAPHY`.
+
++ The optional `INT64` parameter `level` specifies the S2 cell level for the
+  returned cell. Naming this argument is optional.
+
+This is advanced functionality for interoperability with systems utilizing the
+[S2 Geometry Library][s2-root-link].
+
+**Constraints**
+
++ Returns the cell ID as a signed `INT64` bit-equivalent to
+  [unsigned 64-bit integer representation][s2-cells-link].
++ Can return negative cell IDs.
++ Valid S2 cell levels are 0 to 30.
++ `level` defaults to 30 if not explicitly specified.
++ The function only supports a single point GEOGRAPHY. Use the `SAFE` prefix if
+  the input can be multipoint, linestring, polygon, or an empty `GEOGRAPHY`.
++ To compute the covering of a complex `GEOGRAPHY`, use
+  [S2_COVERINGCELLIDS][s2-coveringcellids].
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
+  UNION ALL
+  -- empty geography is not supported
+  SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
+  UNION ALL
+  -- only points are supported
+  SELECT 3 AS id, ST_GEOGFROMTEXT('LINESTRING(1 2, 3 4)') AS geo
+)
+SELECT id,
+       SAFE.S2_CELLIDFROMPOINT(geo) cell30,
+       SAFE.S2_CELLIDFROMPOINT(geo, level => 10) cell10
+FROM data;
+
+/*----+---------------------+---------------------*
+ | id | cell30              | cell10              |
+ +----+---------------------+---------------------+
+ | 1  | 6093613931972369317 | 6093613287902019584 |
+ | 2  | NULL                | NULL                |
+ | 3  | NULL                | NULL                |
+ *----+---------------------+---------------------*/
+```
+
+[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
+
+[s2-root-link]: https://s2geometry.io/
+
+[s2-coveringcellids]: #s2_coveringcellids
+
+### `S2_COVERINGCELLIDS`
+
+```sql
+S2_COVERINGCELLIDS(
+    geography
+    [, min_level => cell_level]
+    [, max_level => cell_level]
+    [, max_cells => max_cells]
+    [, buffer => buffer])
+```
+
+**Description**
+
+Returns an array of [S2 cell IDs][s2-cells-link] that cover the input
+`GEOGRAPHY`. The function returns at most `max_cells` cells. The optional
+arguments `min_level` and `max_level` specify minimum and maximum levels for
+returned S2 cells. The array size is limited by the optional `max_cells`
+argument. The optional `buffer` argument specifies a buffering factor in
+meters; the region being covered is expanded from the extent of the
+input geography by this amount.
+
+This is advanced functionality for interoperability with systems utilizing the
+[S2 Geometry Library][s2-root-link].
+
+**Constraints**
+
++ Returns the cell ID as a signed `INT64` bit-equivalent to
+  [unsigned 64-bit integer representation][s2-cells-link].
++ Can return negative cell IDs.
++ Valid S2 cell levels are 0 to 30.
++ `max_cells` defaults to 8 if not explicitly specified.
++ `buffer` should be nonnegative. It defaults to 0.0 meters if not explicitly
+  specified.
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
+  UNION ALL
+  SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
+  UNION ALL
+  SELECT 3 AS id, ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)') AS geo
+)
+SELECT id, S2_COVERINGCELLIDS(geo, min_level => 12) cells
+FROM data;
+
+/*----+--------------------------------------------------------------------------------------*
+ | id | cells                                                                                |
+ +----+--------------------------------------------------------------------------------------+
+ | 1  | [6093613931972369317]                                                                |
+ | 2  | []                                                                                   |
+ | 3  | [6093384954555662336, 6093390709811838976, 6093390735581642752, 6093390740145045504, |
+ |    |  6093390791416217600, 6093390812891054080, 6093390817187069952, 6093496378892222464] |
+ *----+--------------------------------------------------------------------------------------*/
+```
+
+[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
+
+[s2-root-link]: https://s2geometry.io/
 
 ### `ST_ACCUM`
 
@@ -18671,6 +20213,8 @@ behavior:
         <a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a><br>
         
         
+        <a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a><br>
+        
         
         <a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a><br>
         
@@ -18898,7 +20442,7 @@ behavior:
   <td><a href="#bool_array_for_json"><code>BOOL</code></a>
 
 </td>
-  <td> Converts a JSON boolean to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td> Converts a JSON array of booleans to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -18921,7 +20465,7 @@ behavior:
 
     
   </td>
-  <td> Converts a JSON number to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+  <td> Converts a JSON array of numbers to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -18941,7 +20485,7 @@ behavior:
 
     
   </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
+  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -18973,7 +20517,7 @@ behavior:
   <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
 
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -19013,6 +20557,21 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
 
 </td>
@@ -19020,6 +20579,17 @@ behavior:
     (Deprecated)
     Extracts a JSON scalar value and converts it to a SQL
     <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
   </td>
 </tr>
 
@@ -19397,7 +20967,7 @@ BOOL_ARRAY(json_expr)
 
 **Description**
 
-Converts a JSON boolean to a SQL `ARRAY<BOOL>` value.
+Converts a JSON array of booleans to a SQL `ARRAY<BOOL>` value.
 
 Arguments:
 
@@ -19540,7 +21110,7 @@ DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Converts a JSON number to a SQL `ARRAY<DOUBLE>` value.
+Converts a JSON array of numbers to a SQL `ARRAY<DOUBLE>` value.
 
 Arguments:
 
@@ -19720,7 +21290,7 @@ FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Converts a JSON number to a SQL `ARRAY<FLOAT>` value.
+Converts a JSON array of numbers to a SQL `ARRAY<FLOAT>` value.
 
 Arguments:
 
@@ -20001,7 +21571,7 @@ INT64_ARRAY(json_expr)
 
 **Description**
 
-Converts a JSON number to a SQL `INT64_ARRAY` value.
+Converts a JSON array of numbers to a SQL `INT64_ARRAY` value.
 
 Arguments:
 
@@ -20072,18 +21642,6 @@ Arguments:
 
 **Examples**
 
-You can create an empty JSON array. For example:
-
-```sql
-SELECT JSON_ARRAY() AS json_data
-
-/*-----------*
- | json_data |
- +-----------+
- | []        |
- *-----------*/
-```
-
 The following query creates a JSON array with one value in it:
 
 ```sql
@@ -20146,6 +21704,18 @@ SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
  +-----------------+
  | [10,[20,"foo"]] |
  *-----------------*/
+```
+
+You can create an empty JSON array. For example:
+
+```sql
+SELECT JSON_ARRAY() AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | []        |
+ *-----------*/
 ```
 
 ### `JSON_ARRAY_APPEND`
@@ -20601,71 +22171,157 @@ In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$') AS json_text_string
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$') AS json_text_string;
 
 /*-----------------------------------------------------------*
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
  *-----------------------------------------------------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$.class.students[0]') AS first_student;
 
 /*-----------------*
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | NULL            |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | {"name":"John"} |
  *-----------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$.class.students[1].name') AS second_student;
 
 /*----------------*
  | second_student |
  +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | "Jamie"        |
  *----------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, "$.class['students']") AS student_names
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  "$.class['students']") AS student_names;
 
 /*------------------------------------*
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
+ *------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  "$.class['students']") AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | []                                 |
+ *------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  "$.class['students']") AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
  *------------------------------------*/
 ```
@@ -20681,6 +22337,210 @@ SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 [json-query]: #json_query
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_EXTRACT_ARRAY`
+
+Note: This function is deprecated. Consider using
+[JSON_QUERY_ARRAY][json-query-array].
+
+```sql
+JSON_EXTRACT_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a JSON array and converts it to
+a SQL `ARRAY<JSON-formatted STRING>` or
+`ARRAY<JSON>` value.
+This function uses single quotes and brackets to escape invalid
+[JSONPath][JSONPath-format] characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '["a", "b", {"key": "c"}]'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["a", "b", {"key": "c"}]'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
++ `json_string_expr`: `ARRAY<JSON-formatted STRING>`
++ `json_expr`: `ARRAY<JSON>`
+
+**Examples**
+
+This extracts items in JSON to an array of `JSON` values:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY(
+  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  ) AS json_array;
+
+/*---------------------------------*
+ | json_array                      |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('[1,2,3]') AS string_array;
+
+/*--------------*
+ | string_array |
+ +--------------+
+ | [1, 2, 3]    |
+ *--------------*/
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_EXTRACT_ARRAY('[1,2,3]','$')
+  ) AS integer_element
+) AS integer_array;
+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
+```
+
+This extracts string values in a JSON-formatted string to an array:
+
+```sql
+-- Doesn't strip the double quotes
+SELECT JSON_EXTRACT_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+
+-- Strips the double quotes
+SELECT ARRAY(
+  SELECT JSON_EXTRACT_SCALAR(string_element, '$')
+  FROM UNNEST(JSON_EXTRACT_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
+) AS string_array;
+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+This extracts only the items in the `fruit` property to an array:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY(
+  '{"fruit": [{"apples": 5, "oranges": 10}, {"apples": 2, "oranges": 4}], "vegetables": [{"lettuce": 7, "kale": 8}]}',
+  '$.fruit'
+) AS string_array;
+
+/*-------------------------------------------------------*
+ | string_array                                          |
+ +-------------------------------------------------------+
+ | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
+ *-------------------------------------------------------*/
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
+
+SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
+
+-- The queries above produce the following result:
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
+
+/*-----------*
+ | hello     |
+ +-----------+
+ | ["world"] |
+ *-----------*/
+```
+
+The following examples explore how invalid requests and empty arrays are
+handled:
+
++  If a JSONPath is invalid, an error is thrown.
++  If a JSON-formatted string is invalid, the output is NULL.
++  It is okay to have empty arrays in the JSON-formatted string.
+
+```sql
+-- An error is thrown if you provide an invalid JSONPath.
+SELECT JSON_EXTRACT_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
+
+-- If the JSONPath does not refer to an array, then NULL is returned.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a key that does not exist is specified, then the result is NULL.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- Empty arrays in JSON-formatted strings are supported.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
+```
+
+[json-query-array]: #json_query_array
 
 [JSONPath-format]: #JSONPath_format
 
@@ -20791,6 +22651,237 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 ```
 
 [json-value]: #json_value
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_EXTRACT_STRING_ARRAY`
+
+Note: This function is deprecated. Consider using
+[JSON_VALUE_ARRAY][json-value-array].
+
+```sql
+JSON_EXTRACT_STRING_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_STRING_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a JSON array of scalar values and converts it to a SQL `ARRAY<STRING>`
+value. In addition, this function:
+
++   Removes the outermost quotes and unescapes the values.
++   Returns a SQL `NULL` if the selected value is not an array or
+    not an array containing only scalar values.
++   Uses single quotes and brackets to escape invalid [JSONPath][JSONPath-format]
+    characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '["apples", "oranges", "grapes"]'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["apples", "oranges", "grapes"]'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+Caveats:
+
++ A JSON `null` in the input array produces a SQL `NULL` as the output for that
+  JSON `null`.
++ If a JSONPath matches an array that contains scalar objects and a JSON `null`,
+  then the output is an array of the scalar objects and a SQL `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+This extracts items in JSON to a string array:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY(
+  JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
+  ) AS string_array;
+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+The following example compares how results are returned for the
+`JSON_EXTRACT_ARRAY` and `JSON_EXTRACT_STRING_ARRAY` functions.
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('["apples", "oranges"]') AS json_array,
+JSON_EXTRACT_STRING_ARRAY('["apples", "oranges"]') AS string_array;
+
+/*-----------------------+-------------------*
+ | json_array            | string_array      |
+ +-----------------------+-------------------+
+ | ["apples", "oranges"] | [apples, oranges] |
+ *-----------------------+-------------------*/
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+-- Strips the double quotes
+SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
+
+/*-----------------*
+ | string_array    |
+ +-----------------+
+ | [foo, bar, baz] |
+ *-----------------*/
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_EXTRACT_STRING_ARRAY('[1, 2, 3]', '$')
+  ) AS integer_element
+) AS integer_array;
+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
+
+SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
+
+-- The queries above produce the following result:
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets: `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
+
+/*---------*
+ | hello   |
+ +---------+
+ | [world] |
+ *---------*/
+```
+
+The following examples explore how invalid requests and empty arrays are
+handled:
+
+```sql
+-- An error is thrown if you provide an invalid JSONPath.
+SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
+
+-- If the JSON formatted string is invalid, then NULL is returned.
+SELECT JSON_EXTRACT_STRING_ARRAY('}}', '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If the JSON document is NULL, then NULL is returned.
+SELECT JSON_EXTRACT_STRING_ARRAY(NULL, '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath does not match anything, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an object that is not an array, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo"}', '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [{"b": "foo", "c": 1}, {"b": "bar", "c":2}], "d": "baz"}', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an array of mixed scalar and non-scalar objects, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [10, {"b": 20}]', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
+
+-- In the following query, the JSON null input is returned as a
+-- SQL NULL in the output.
+SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
+
+/*------------------*
+ | result           |
+ +------------------+
+ | [world, 1, NULL] |
+ *------------------*/
+
+```
+
+[json-value-array]: #json_value_array
 
 [JSONPath-format]: #JSONPath_format
 
@@ -21113,8 +23204,9 @@ In the following example, JSON data is extracted and returned as JSON.
 
 ```sql
 SELECT
-  JSON_QUERY(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
-  AS json_data;
+  JSON_QUERY(
+    JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}',
+    '$.class') AS json_data;
 
 /*-----------------------------------*
  | json_data                         |
@@ -21127,71 +23219,163 @@ In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
 ```sql
-SELECT JSON_QUERY(json_text, '$') AS json_text_string
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY('{"class": {"students": [{"name": "Jane"}]}}', '$') AS json_text_string;
 
 /*-----------------------------------------------------------*
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_QUERY('{"class": {"students": []}}', '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"},{"name": "Jamie"}]}}',
+    '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
  *-----------------------------------------------------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class.students[0]') AS first_student;
 
 /*-----------------*
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
+ *-----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY('{"class": {"students": []}}', '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | NULL            |
+ *-----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | {"name":"John"} |
  *-----------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class.students[1].name') AS second_student;
 
 /*----------------*
  | second_student |
  +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": []}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | "Jamie"        |
  *----------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class."students"') AS student_names;
 
 /*------------------------------------*
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
+ *------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": []}}',
+    '$.class."students"') AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | []                                 |
+ *------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class."students"') AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
  *------------------------------------*/
 ```
@@ -21209,6 +23393,8 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 [JSONPath-format]: #JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
+
+[JSONPath-mode]: #JSONPath_mode
 
 ### `JSON_QUERY_ARRAY`
 
@@ -21309,7 +23495,9 @@ SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
  *---------------------------------*/
+```
 
+```sql
 -- Strips the double quotes
 SELECT ARRAY(
   SELECT JSON_VALUE(string_element, '$')
@@ -25678,53 +27866,35 @@ A JSON-formatted `STRING`
 
 **Examples**
 
-Convert rows in a table to JSON-formatted strings.
+The following query converts a `STRUCT` value to a JSON-formatted string:
 
 ```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30, 40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50, 60] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
-FROM CoordinatesTable AS t;
+SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates)) AS json_data
 
-/*----+-------------+--------------------------------*
- | id | coordinates | json_data                      |
- +----+-------------+--------------------------------+
- | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
- | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
- | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
- *----+-------------+--------------------------------*/
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"id":1,"coordinates":[10,20]} |
+ *--------------------------------*/
 ```
 
-Convert rows in a table to JSON-formatted strings that are easy to read.
+The following query converts a `STRUCT` value to a JSON-formatted string that is
+easy to read:
 
 ```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30, 40] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
-FROM CoordinatesTable AS t;
+SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_data
 
-/*----+-------------+--------------------*
- | id | coordinates | json_data          |
- +----+-------------+--------------------+
- | 1  | [10, 20]    | {                  |
- |    |             |   "id": 1,         |
- |    |             |   "coordinates": [ |
- |    |             |     10,            |
- |    |             |     20             |
- |    |             |   ]                |
- |    |             | }                  |
- +----+-------------+--------------------+
- | 2  | [30, 40]    | {                  |
- |    |             |   "id": 2,         |
- |    |             |   "coordinates": [ |
- |    |             |     30,            |
- |    |             |     40             |
- |    |             |   ]                |
- |    |             | }                  |
- *----+-------------+--------------------*/
+/*--------------------*
+ | json_data          |
+ +--------------------+
+ | {                  |
+ |   "id": 1,         |
+ |   "coordinates": [ |
+ |     10,            |
+ |     20             |
+ |   ]                |
+ | }                  |
+ *--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -26440,6 +28610,27 @@ The following SQL to JSON encodings are supported:
       </td>
     </tr>
     
+    
+    
+    <tr>
+      <td>RANGE</td>
+      <td>
+        <p>range</p>
+        <p>
+          Encoded as an object with a <code>start</code> and <code>end</code>
+          value. Any unbounded part of the range is represented as
+          <code>null</code>.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>RANGE&lt;DATE&gt; '[2024-07-24, 2024-07-25)'</code><br />
+        JSON output: <code>{"start":"2024-07-24","end":"2024-07-25"}</code><br />
+        <hr />
+        SQL input: <code>RANGE&lt;DATETIME&gt; '[2024-07-24 10:00:00, UNBOUNDED)'</code><br />
+        JSON output: <code>{"start":"2024-07-24T10:00:00","end":null}</code><br />
+      </td>
+    </tr>
+    
   </tbody>
 </table>
 
@@ -26447,8 +28638,19 @@ The following SQL to JSON encodings are supported:
 <a id="JSONPath_format"></a>
 
 With the JSONPath format, you can identify the values you want to
-obtain from a JSON-formatted string. The JSONPath format supports these
-operators:
+obtain from a JSON-formatted string.
+
+If a key in a JSON functions contains a JSON format operator, refer to each
+JSON function for how to escape them.
+
+A JSON function returns `NULL` if the JSONPath format does not match a value in
+a JSON-formatted string. If the selected value for a scalar function is not
+scalar, such as an object or an array, the function returns `NULL`. If the
+JSONPath format is invalid, an error is produced.
+
+#### Operators for JSONPath
+
+The JSONPath format supports these operators:
 
 <table>
   <thead>
@@ -26552,14 +28754,6 @@ operators:
   </tbody>
 </table>
 
-If a key in a JSON functions contains a JSON format operator, refer to each
-JSON function for how to escape them.
-
-A JSON function returns `NULL` if the JSONPath format does not match a value in
-a JSON-formatted string. If the selected value for a scalar function is not
-scalar, such as an object or an array, the function returns `NULL`. If the
-JSONPath format is invalid, an error is produced.
-
 ### Differences between the JSON and JSON-formatted STRING types 
 <a id="differences_json_and_string"></a>
 
@@ -26660,6 +28854,8 @@ FROM t;
 
 [JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
 
+[JSONPath-mode]: #JSONPath_mode
+
 ## Mathematical functions
 
 ZetaSQL supports mathematical functions.
@@ -26751,6 +28947,9 @@ All mathematical functions have the following behaviors:
         Distance
       </td>
       <td>
+        
+        
+        
         
         <a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>&nbsp;&nbsp;
         <a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>&nbsp;&nbsp;
@@ -29510,7 +31709,7 @@ GROUP BY 1
 ### `ROUND`
 
 ```
-ROUND(X [, N])
+ROUND(X [, N [, rounding_mode]])
 ```
 
 **Description**
@@ -29519,6 +31718,18 @@ If only X is present, rounds X to the nearest integer. If N is present,
 rounds X to N decimal places after the decimal point. If N is negative,
 rounds off digits to the left of the decimal point. Rounds halfway cases
 away from zero. Generates an error if overflow occurs.
+
+If X is a `NUMERIC` or `BIGNUMERIC` type, then you can
+explicitly set `rounding_mode`
+to one of the following:
+
++   [`"ROUND_HALF_AWAY_FROM_ZERO"`][round-half-away-from-zero]: (Default) Rounds
+    halfway cases away from zero.
++   [`"ROUND_HALF_EVEN"`][round-half-even]: Rounds halfway cases
+    towards the nearest even digit.
+
+If you set the `rounding_mode` and X is not a `NUMERIC` or `BIGNUMERIC` type,
+then the function generates an error.
 
 <table>
   <thead>
@@ -29580,6 +31791,30 @@ away from zero. Generates an error if overflow occurs.
       <td><code>ROUND(1.235, 2)</code></td>
       <td>1.24</td>
     </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.25", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.2</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.35", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.4</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.251", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.3</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "-2.5", 0, "ROUND_HALF_EVEN")</code></td>
+      <td>-2</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.5", 0, "ROUND_HALF_AWAY_FROM_ZERO")</code></td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "-2.5", 0, "ROUND_HALF_AWAY_FROM_ZERO")</code></td>
+      <td>-3</td>
+    </tr>
   </tbody>
 </table>
 
@@ -29597,6 +31832,10 @@ away from zero. Generates an error if overflow occurs.
 </tbody>
 
 </table>
+
+[round-half-away-from-zero]: https://en.wikipedia.org/wiki/Rounding#Rounding_half_away_from_zero
+
+[round-half-even]: https://en.wikipedia.org/wiki/Rounding#Rounding_half_to_even
 
 ### `SAFE_ADD`
 
@@ -35215,9 +37454,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -35386,9 +37630,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -35506,9 +37755,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -35732,9 +37986,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -36160,6 +38419,15 @@ canonical equivalence.
 </tr>
 
 <tr>
+  <td><a href="#regexp_substr"><code>REGEXP_SUBSTR</code></a>
+
+</td>
+  <td>
+    Synonym for <code>REGEXP_EXTRACT</code>.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#repeat"><code>REPEAT</code></a>
 
 </td>
@@ -36413,21 +38681,23 @@ regardless of whether the value is a `STRING` or `BYTES` type.
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT BYTE_LENGTH('абвгд') AS string_example;
 
-SELECT
-  characters,
-  BYTE_LENGTH(characters) AS string_example,
-  bytes,
-  BYTE_LENGTH(bytes) AS bytes_example
-FROM example;
+/*----------------*
+ | string_example |
+ +----------------+
+ | 10             |
+ *----------------*/
+```
 
-/*------------+----------------+-------+---------------*
- | characters | string_example | bytes | bytes_example |
- +------------+----------------+-------+---------------+
- | абвгд      | 10             | абвгд | 10            |
- *------------+----------------+-------+---------------*/
+```sql
+SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
+
+/*----------------*
+ | bytes_example  |
+ +----------------+
+ | 10             |
+ *----------------*/
 ```
 
 ### `CHAR_LENGTH`
@@ -36447,19 +38717,13 @@ Gets the number of characters in a `STRING` value.
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters)
+SELECT CHAR_LENGTH('абвгд') AS char_length;
 
-SELECT
-  characters,
-  CHAR_LENGTH(characters) AS char_length_example
-FROM example;
-
-/*------------+---------------------*
- | characters | char_length_example |
- +------------+---------------------+
- | абвгд      |                   5 |
- *------------+---------------------*/
+/*-------------*
+ | char_length |
+ +-------------+
+ | 5           |
+ *------------ */
 ```
 
 ### `CHARACTER_LENGTH`
@@ -36479,13 +38743,9 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters)
-
 SELECT
-  characters,
-  CHARACTER_LENGTH(characters) AS char_length_example
-FROM example;
+  'абвгд' AS characters,
+  CHARACTER_LENGTH('абвгд') AS char_length_example
 
 /*------------+---------------------*
  | characters | char_length_example |
@@ -36946,22 +39206,11 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  ENDS_WITH(item, 'e') as example
-FROM items;
+SELECT ENDS_WITH('apple', 'e') as example
 
 /*---------*
  | example |
  +---------+
- |    True |
- |   False |
  |    True |
  *---------*/
 ```
@@ -37557,6 +39806,8 @@ JSON '
  
 </table>
 
+ 
+
 ##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
 
@@ -37941,40 +40192,27 @@ If `value` or `delimiters` is `NULL`, the function returns `NULL`.
 **Examples**
 
 ```sql
-WITH example AS
-(
-  SELECT 'Hello World-everyone!' AS value UNION ALL
-  SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
-  SELECT 'apples&oranges;&pears' AS value UNION ALL
-  SELECT 'καθίσματα ταινιών' AS value
-)
-SELECT value, INITCAP(value) AS initcap_value FROM example
+SELECT
+  'Hello World-everyone!' AS value,
+  INITCAP('Hello World-everyone!') AS initcap_value
 
 /*-------------------------------+-------------------------------*
  | value                         | initcap_value                 |
  +-------------------------------+-------------------------------+
  | Hello World-everyone!         | Hello World-Everyone!         |
- | tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
- | apples&oranges;&pears         | Apples&Oranges;&Pears         |
- | καθίσματα ταινιών             | Καθίσματα Ταινιών             |
  *-------------------------------+-------------------------------*/
+```
 
-WITH example AS
-(
-  SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
-  SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
-  SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
-  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
-)
-SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
+```sql
+SELECT
+  'Apples1oranges2pears' as value,
+  '12' AS delimiters,
+  INITCAP('Apples1oranges2pears' , '12') AS initcap_value
 
 /*----------------------+------------+----------------------*
  | value                | delimiters | initcap_value        |
  +----------------------+------------+----------------------+
- | hello WORLD!         |            | Hello world!         |
- | καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
  | Apples1oranges2pears | 12         | Apples1Oranges2Pears |
- | tHisEisEaESentence   | E          | ThisEIsEAESentence   |
  *----------------------+------------+----------------------*/
 ```
 
@@ -38028,41 +40266,109 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH example AS
-(SELECT 'banana' as value, 'an' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 1 as position, 2 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 1 as position, 3 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 3 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, -1 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, -3 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'ann' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 2 as
-occurrence
-)
-SELECT value, subvalue, position, occurrence, INSTR(value,
-subvalue, position, occurrence) AS instr
-FROM example;
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', 1, 1) AS instr;
 
 /*--------------+--------------+----------+------------+-------*
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 1          | 2     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 2 AS occurrence,
+  INSTR('banana', 'an', 1, 2) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 2          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 3 AS occurrence,
+  INSTR('banana', 'an', 1, 3) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 3          | 0     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 3 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', 3, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 3        | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, -1 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', -1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | -1       | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, -3 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', -3, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | -3       | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'ann' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('banana', 'ann', 1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | ann          | 1        | 1          | 0     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('helloooo', 'oo', 1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 1          | 5     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 2 AS occurrence,
+  INSTR('helloooo', 'oo', 1, 2) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 2          | 6     |
  *--------------+--------------+----------+------------+-------*/
 ```
@@ -38094,43 +40400,23 @@ will be returned.
 **Examples**
 
 ```sql
-WITH examples AS
-(SELECT 'apple' as example
-UNION ALL
-SELECT 'banana' as example
-UNION ALL
-SELECT 'абвгд' as example
-)
-SELECT example, LEFT(example, 3) AS left_example
-FROM examples;
+SELECT LEFT('banana', 3) AS results
 
-/*---------+--------------*
- | example | left_example |
- +---------+--------------+
- | apple   | app          |
- | banana  | ban          |
- | абвгд   | абв          |
- *---------+--------------*/
+/*---------*
+ | results |
+  +--------+
+ | ban     |
+ *---------*/
 ```
 
 ```sql
-WITH examples AS
-(SELECT b'apple' as example
-UNION ALL
-SELECT b'banana' as example
-UNION ALL
-SELECT b'\xab\xcd\xef\xaa\xbb' as example
-)
-SELECT example, LEFT(example, 3) AS left_example
-FROM examples;
+SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
-/*----------------------+--------------*
- | example              | left_example |
- +----------------------+--------------+
- | apple                | app          |
- | banana               | ban          |
- | \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
- *----------------------+--------------*/
+/*--------------*
+ | results      |
+ +--------------+
+ | \xab\xcd\xef |
+ *--------------*/
 ```
 
 ### `LENGTH`
@@ -38152,21 +40438,15 @@ argument.
 **Examples**
 
 ```sql
-
-WITH example AS
-  (SELECT 'абвгд' AS characters)
-
 SELECT
-  characters,
-  LENGTH(characters) AS string_example,
-  LENGTH(CAST(characters AS BYTES)) AS bytes_example
-FROM example;
+  LENGTH('абвгд') AS string_example,
+  LENGTH(CAST('абвгд' AS BYTES)) AS bytes_example;
 
-/*------------+----------------+---------------*
- | characters | string_example | bytes_example |
- +------------+----------------+---------------+
- | абвгд      |              5 |            10 |
- *------------+----------------+---------------*/
+/*----------------+---------------*
+ | string_example | bytes_example |
+ +----------------+---------------+
+ | 5              | 10            |
+ *----------------+---------------*/
 ```
 
 ### `LOWER`
@@ -38193,28 +40473,15 @@ greater than 127 left intact.
 **Examples**
 
 ```sql
-
-WITH items AS
-  (SELECT
-    'FOO' as item
-  UNION ALL
-  SELECT
-    'BAR' as item
-  UNION ALL
-  SELECT
-    'BAZ' as item)
-
 SELECT
-  LOWER(item) AS example
+  LOWER('FOO BAR BAZ') AS example
 FROM items;
 
-/*---------*
- | example |
- +---------+
- | foo     |
- | bar     |
- | baz     |
- *---------*/
+/*-------------*
+ | example     |
+ +-------------+
+ | foo bar baz |
+ *-------------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -38256,72 +40523,53 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
-  STRUCT('abc' AS t, 5 AS len),
-  ('abc', 2),
-  ('例子', 4)
-]);
+SELECT FORMAT('%T', LPAD('c', 5)) AS results
 
-/*------+-----+----------*
- | t    | len | LPAD     |
- |------|-----|----------|
- | abc  | 5   | "  abc"  |
- | abc  | 2   | "ab"     |
- | 例子  | 4   | "  例子" |
- *------+-----+----------*/
+/*---------*
+ | results |
+ +---------+
+ | "    c" |
+ *---------*/
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT('%T', LPAD(t, len, pattern)) AS LPAD FROM UNNEST([
-  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
-  ('abc', 5, '-'),
-  ('例子', 5, '中文')
-]);
+SELECT LPAD('b', 5, 'a') AS results
 
-/*------+-----+---------+--------------*
- | t    | len | pattern | LPAD         |
- |------|-----|---------|--------------|
- | abc  | 8   | def     | "defdeabc"   |
- | abc  | 5   | -       | "--abc"      |
- | 例子  | 5   | 中文    | "中文中例子"   |
- *------+-----+---------+--------------*/
+/*---------*
+ | results |
+ +---------+
+ | aaaab   |
+ *---------*/
 ```
 
 ```sql
-SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
-  STRUCT(b'abc' AS t, 5 AS len),
-  (b'abc', 2),
-  (b'\xab\xcd\xef', 4)
-]);
+SELECT LPAD('abc', 10, 'ghd') AS results
 
-/*-----------------+-----+------------------*
- | t               | len | LPAD             |
- |-----------------|-----|------------------|
- | b"abc"          | 5   | b"  abc"         |
- | b"abc"          | 2   | b"ab"            |
- | b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
- *-----------------+-----+------------------*/
+/*------------*
+ | results    |
+ +------------+
+ | ghdghdgabc |
+ *------------*/
 ```
 
 ```sql
-SELECT
-  FORMAT('%T', t) AS t,
-  len,
-  FORMAT('%T', pattern) AS pattern,
-  FORMAT('%T', LPAD(t, len, pattern)) AS LPAD
-FROM UNNEST([
-  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
-  (b'abc', 5, b'-'),
-  (b'\xab\xcd\xef', 5, b'\x00')
-]);
+SELECT LPAD('abc', 2, 'd') AS results
 
-/*-----------------+-----+---------+-------------------------*
- | t               | len | pattern | LPAD                    |
- |-----------------|-----|---------|-------------------------|
- | b"abc"          | 8   | b"def"  | b"defdeabc"             |
- | b"abc"          | 5   | b"-"    | b"--abc"                |
- | b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
- *-----------------+-----+---------+-------------------------*/
+/*---------*
+ | results |
+ +---------+
+ | ab      |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
+
+/*---------------*
+ | results       |
+ +---------------+
+ | b"ghdghdgabc" |
+ *---------------*/
 ```
 
 ### `LTRIM`
@@ -38341,68 +40589,32 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT '   apple   ' as item
-  UNION ALL
-  SELECT '   banana   ' as item
-  UNION ALL
-  SELECT '   orange   ' as item)
-
-SELECT
-  CONCAT('#', LTRIM(item), '#') as example
-FROM items;
+SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 
 /*-------------*
  | example     |
  +-------------+
- | #apple   #  |
- | #banana   # |
- | #orange   # |
+ | #apple #    |
  *-------------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  LTRIM(item, '*') as example
-FROM items;
+SELECT LTRIM('***apple***', '*') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | apple***  |
- | banana*** |
- | orange*** |
  *-----------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'xxxapplexxx' as item
-  UNION ALL
-  SELECT 'yyybananayyy' as item
-  UNION ALL
-  SELECT 'zzzorangezzz' as item
-  UNION ALL
-  SELECT 'xyzpearxyz' as item)
-
-SELECT
-  LTRIM(item, 'xyz') as example
-FROM items;
+SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | applexxx  |
- | bananayyy |
- | orangezzz |
- | pearxyz   |
  *-----------*/
 ```
 
@@ -38439,40 +40651,60 @@ points.
 
 **Examples**
 
+The following example normalizes different language characters:
+
 ```sql
-SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
+SELECT
+  NORMALIZE('\u00ea') as a,
+  NORMALIZE('\u0065\u0302') as b,
+  NORMALIZE('\u00ea') = NORMALIZE('\u0065\u0302') as normalized;
 
 /*---+---+------------*
  | a | b | normalized |
  +---+---+------------+
- | ê | ê | true       |
+ | ê | ê | TRUE       |
  *---+---+------------*/
 ```
-The following example normalizes different space characters.
+The following examples normalize different space characters:
 
 ```sql
-WITH EquivalentNames AS (
-  SELECT name
-  FROM UNNEST([
-      'Jane\u2004Doe',
-      'John\u2004Smith',
-      'Jane\u2005Doe',
-      'Jane\u2006Doe',
-      'John Smith']) AS name
-)
-SELECT
-  NORMALIZE(name, NFKC) AS normalized_name,
-  COUNT(*) AS name_count
-FROM EquivalentNames
-GROUP BY 1;
+SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
 
-/*-----------------+------------*
- | normalized_name | name_count |
- +-----------------+------------+
- | John Smith      | 2          |
- | Jane Doe        | 3          |
- *-----------------+------------*/
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -38515,34 +40747,45 @@ considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 
 ```sql
 SELECT
-  a, b,
-  NORMALIZE(a) = NORMALIZE(b) as normalized,
-  NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
-FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
+  NORMALIZE('The red barn') = NORMALIZE('The Red Barn') AS normalized,
+  NORMALIZE_AND_CASEFOLD('The red barn')
+    = NORMALIZE_AND_CASEFOLD('The Red Barn') AS normalized_with_case_folding;
 
-/*--------------+--------------+------------+------------------------------*
- | a            | b            | normalized | normalized_with_case_folding |
- +--------------+--------------+------------+------------------------------+
- | The red barn | The Red Barn | false      | true                         |
- *--------------+--------------+------------+------------------------------*/
+/*------------+------------------------------*
+ | normalized | normalized_with_case_folding |
+ +------------+------------------------------+
+ | FALSE      | TRUE                         |
+ *------------+------------------------------*/
 ```
 
 ```sql
-WITH Strings AS (
-  SELECT '\u2168' AS a, 'IX' AS b UNION ALL
-  SELECT '\u0041\u030A', '\u00C5'
-)
-SELECT a, b,
-  NORMALIZE_AND_CASEFOLD(a, NFD)=NORMALIZE_AND_CASEFOLD(b, NFD) AS nfd,
-  NORMALIZE_AND_CASEFOLD(a, NFC)=NORMALIZE_AND_CASEFOLD(b, NFC) AS nfc,
-  NORMALIZE_AND_CASEFOLD(a, NFKD)=NORMALIZE_AND_CASEFOLD(b, NFKD) AS nkfd,
-  NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
-FROM Strings;
+SELECT
+  '\u2168' AS a,
+  'IX' AS b,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFD)=NORMALIZE_AND_CASEFOLD('IX', NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFC)=NORMALIZE_AND_CASEFOLD('IX', NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFKD)=NORMALIZE_AND_CASEFOLD('IX', NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFKC)=NORMALIZE_AND_CASEFOLD('IX', NFKC) AS nkfc;
 
 /*---+----+-------+-------+------+------*
  | a | b  | nfd   | nfc   | nkfd | nkfc |
  +---+----+-------+-------+------+------+
  | Ⅸ | IX | false | false | true | true |
+ *---+----+-------+-------+------+------*/
+```
+
+```sql
+SELECT
+  '\u0041\u030A' AS a,
+  '\u00C5' AS b,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFD)=NORMALIZE_AND_CASEFOLD('\u00C5', NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFC)=NORMALIZE_AND_CASEFOLD('\u00C5', NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKD)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKC)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKC) AS nkfc;
+
+/*---+----+-------+-------+------+------*
+ | a | b  | nfd   | nfc   | nkfd | nkfc |
+ +---+----+-------+-------+------+------+
  | Å | Å  | true  | true  | true | true |
  *---+----+-------+-------+------+------*/
 ```
@@ -38590,46 +40833,98 @@ regular expression syntax.
 
 **Examples**
 
+The following queries check to see if an email is valid:
+
 ```sql
 SELECT
-  email,
-  REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
-FROM
-  (SELECT
-    ['foo@example.com', 'bar@example.org', 'www.example.net']
-    AS addresses),
-  UNNEST(addresses) AS email;
+  'foo@example.com' AS email,
+  REGEXP_CONTAINS('foo@example.com', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
 
 /*-----------------+----------*
  | email           | is_valid |
  +-----------------+----------+
- | foo@example.com | true     |
- | bar@example.org | true     |
- | www.example.net | false    |
+ | foo@example.com | TRUE     |
  *-----------------+----------*/
+ ```
 
--- Performs a full match, using ^ and $. Due to regular expression operator
--- precedence, it is good practice to use parentheses around everything between ^
--- and $.
+ ```sql
 SELECT
-  email,
-  REGEXP_CONTAINS(email, r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$')
-    AS valid_email_address,
-  REGEXP_CONTAINS(email, r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$')
-    AS without_parentheses
-FROM
-  (SELECT
-    ['a@foo.com', 'a@foo.computer', 'b@bar.org', '!b@bar.org', 'c@buz.net']
-    AS addresses),
-  UNNEST(addresses) AS email;
+  'www.example.net' AS email,
+  REGEXP_CONTAINS('www.example.net', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
+
+/*-----------------+----------*
+ | email           | is_valid |
+ +-----------------+----------+
+ | www.example.net | FALSE    |
+ *-----------------+----------*/
+ ```
+
+The following queries check to see if an email is valid. They
+perform a full match, using `^` and `$`. Due to regular expression operator
+precedence, it is good practice to use parentheses around everything between `^`
+and `$`.
+
+```sql
+SELECT
+  'a@foo.com' AS email,
+  REGEXP_CONTAINS('a@foo.com', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('a@foo.com', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
 /*----------------+---------------------+---------------------*
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | a@foo.com      | true                | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'a@foo.computer' AS email,
+  REGEXP_CONTAINS('a@foo.computer', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('a@foo.computer', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | a@foo.computer | false               | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'b@bar.org' AS email,
+  REGEXP_CONTAINS('b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | b@bar.org      | true                | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  '!b@bar.org' AS email,
+  REGEXP_CONTAINS('!b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('!b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | !b@bar.org     | false               | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'c@buz.net' AS email,
+  REGEXP_CONTAINS('c@buz.net', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('c@buz.net', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | c@buz.net      | false               | false               |
  *----------------+---------------------+---------------------*/
 ```
@@ -38639,23 +40934,36 @@ FROM
 ### `REGEXP_EXTRACT`
 
 ```sql
-REGEXP_EXTRACT(value, regexp)
+REGEXP_EXTRACT(value, regexp[, position[, occurrence]])
 ```
 
 **Description**
 
-Returns the first substring in `value` that matches the
-[re2 regular expression][string-link-to-re2],
-`regexp`. Returns `NULL` if there is no match.
+Returns the substring in `value` that matches the
+[re2 regular expression][string-link-to-re2], `regexp`.
+Returns `NULL` if there is no match.
 
 If the regular expression contains a capturing group (`(...)`), and there is a
 match for that capturing group, that match is returned. If there
 are multiple matches for a capturing group, the first match is returned.
 
+If `position` is specified, the search starts at this
+position in `value`, otherwise it starts at the beginning of `value`. The
+`position` must be a positive integer and cannot be 0. If `position` is greater
+than the length of `value`, `NULL` is returned.
+
+If `occurrence` is specified, the search returns a specific occurrence of the
+`regexp` in `value`, otherwise returns the first match. If `occurrence` is
+greater than the number of matches found, `NULL` is returned. For
+`occurrence` > 1, the function searches for additional occurrences beginning
+with the character following the previous occurrence.
+
 Returns an error if:
 
 + The regular expression is invalid
 + The regular expression has more than one capturing group
++ The `position` is not a positive integer
++ The `occurrence` is not a positive integer
 
 **Return type**
 
@@ -38664,67 +40972,72 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH email_addresses AS
-  (SELECT 'foo@example.com' as email
-  UNION ALL
-  SELECT 'bar@example.org' as email
-  UNION ALL
-  SELECT 'baz@example.net' as email)
-
-SELECT
-  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+')
-  AS user_name
-FROM email_addresses;
+SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
 
 /*-----------*
  | user_name |
  +-----------+
  | foo       |
- | bar       |
- | baz       |
  *-----------*/
 ```
 
 ```sql
-WITH email_addresses AS
-  (SELECT 'foo@example.com' as email
-  UNION ALL
-  SELECT 'bar@example.org' as email
-  UNION ALL
-  SELECT 'baz@example.net' as email)
-
-SELECT
-  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
-  AS top_level_domain
-FROM email_addresses;
+SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
 
 /*------------------*
  | top_level_domain |
  +------------------+
  | com              |
- | org              |
- | net              |
  *------------------*/
 ```
 
 ```sql
-WITH
-  characters AS (
-    SELECT 'ab' AS value, '.b' AS regex UNION ALL
-    SELECT 'ab' AS value, '(.)b' AS regex UNION ALL
-    SELECT 'xyztb' AS value, '(.)+b' AS regex UNION ALL
-    SELECT 'ab' AS value, '(z)?b' AS regex
-  )
-SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
+SELECT
+  REGEXP_EXTRACT('ab', '.b') AS result_a,
+  REGEXP_EXTRACT('ab', '(.)b') AS result_b,
+  REGEXP_EXTRACT('xyztb', '(.)+b') AS result_c,
+  REGEXP_EXTRACT('ab', '(z)?b') AS result_d
 
-/*-------+---------+----------*
- | value | regex   | result   |
- +-------+---------+----------+
- | ab    | .b      | ab       |
- | ab    | (.)b    | a        |
- | xyztb | (.)+b   | t        |
- | ab    | (z)?b   | NULL     |
- *-------+---------+----------*/
+/*-------------------------------------------*
+ | result_a | result_b | result_c | result_d |
+ +-------------------------------------------+
+ | ab       | a        | t        | NULL     |
+ *-------------------------------------------*/
+```
+
+```sql
+WITH example AS
+(SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position,
+1 AS occurrence UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 2 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 3 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 4 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 2, 1 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 1 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 2 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 3 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 20, 1 UNION ALL
+SELECT 'cats&dogs&rabbits' ,'\\w+&', 1, 2 UNION ALL
+SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
+)
+SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex,
+position, occurrence) AS regexp_value FROM example;
+
+/*--------------------------+---------+----------+------------+--------------*
+ | value                    | regex   | position | occurrence | regexp_value |
+ +--------------------------+---------+----------+------------+--------------+
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 1          | Hello        |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 2          | Helloo       |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 3          | Hellooo      |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 4          | NULL         |
+ | Hello Helloo and Hellooo | H?ello+ | 2        | 1          | ello         |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 1          | Helloo       |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 2          | Hellooo      |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 3          | NULL         |
+ | Hello Helloo and Hellooo | H?ello+ | 20       | 1          | NULL         |
+ | cats&dogs&rabbits        | \w+&    | 1        | 2          | dogs&        |
+ | cats&dogs&rabbits        | \w+&    | 2        | 3          | NULL         |
+ *--------------------------+---------+----------+------------+--------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -38760,18 +41073,13 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH code_markdown AS
-  (SELECT 'Try `function(x)` or `function(y)`' as code)
+SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
-SELECT
-  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
-FROM code_markdown;
-
-/*----------------------------*
- | example                    |
- +----------------------------+
- | [function(x), function(y)] |
- *----------------------------*/
+/*--------------------*
+ | example            |
+ +--------------------+
+ | [func(x), func(y)] |
+ *--------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -38833,81 +41141,56 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'ab@cd-ef' AS source_value, '@[^-]*' AS regexp UNION ALL
-  SELECT 'ab@d-ef', '@[^-]*' UNION ALL
-  SELECT 'abc@cd-ef', '@[^-]*' UNION ALL
-  SELECT 'abc-ef', '@[^-]*')
-SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
-FROM example;
+SELECT
+  REGEXP_INSTR('ab@cd-ef',  '@[^-]*') AS instr_a,
+  REGEXP_INSTR('ab@d-ef',   '@[^-]*') AS instr_b,
+  REGEXP_INSTR('abc@cd-ef', '@[^-]*') AS instr_c,
+  REGEXP_INSTR('abc-ef',    '@[^-]*') AS instr_d,
 
-/*--------------+--------+-------*
- | source_value | regexp | instr |
- +--------------+--------+-------+
- | ab@cd-ef     | @[^-]* | 3     |
- | ab@d-ef      | @[^-]* | 3     |
- | abc@cd-ef    | @[^-]* | 4     |
- | abc-ef       | @[^-]* | 0     |
- *--------------+--------+-------*/
+/*---------------------------------------*
+ | instr_a | instr_b | instr_c | instr_d |
+ +---------------------------------------+
+ | 3       | 3       | 4       | 0       |
+ *---------------------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef b@cd-ef' AS source_value, '@[^-]*' AS regexp, 1 AS position UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 2 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 3 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 4)
 SELECT
-  source_value, regexp, position,
-  REGEXP_INSTR(source_value, regexp, position) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 1) AS instr_a,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 2) AS instr_b,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 3) AS instr_c,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 4) AS instr_d,
 
-/*-----------------+--------+----------+-------*
- | source_value    | regexp | position | instr |
- +-----------------+--------+----------+-------+
- | a@cd-ef b@cd-ef | @[^-]* | 1        | 2     |
- | a@cd-ef b@cd-ef | @[^-]* | 2        | 2     |
- | a@cd-ef b@cd-ef | @[^-]* | 3        | 10    |
- | a@cd-ef b@cd-ef | @[^-]* | 4        | 10    |
- *-----------------+--------+----------+-------*/
+/*---------------------------------------*
+ | instr_a | instr_b | instr_c | instr_d |
+ +---------------------------------------+
+ | 2       | 2       | 10      | 10      |
+ *---------------------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef' AS source_value,
-         '@[^-]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3)
 SELECT
-  source_value, regexp, position, occurrence,
-  REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 1) AS instr_a,
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2) AS instr_b,
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3) AS instr_c
 
-/*-------------------------+--------+----------+------------+-------*
- | source_value            | regexp | position | occurrence | instr |
- +-------------------------+--------+----------+------------+-------+
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 1          | 2     |
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 2          | 10    |
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 3          | 18    |
- *-------------------------+--------+----------+------------+-------*/
+/*-----------------------------*
+ | instr_a | instr_b | instr_c |
+ +-----------------------------+
+ | 2       | 10      | 18      |
+ *-----------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef' AS source_value, '@[^-]*' AS regexp,
-         1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
-  SELECT 'a@cd-ef', '@[^-]*', 1, 1, 1)
 SELECT
-  source_value, regexp, position, occurrence, o_position,
-  REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 0) AS instr_a,
+  REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 1) AS instr_b
 
-/*--------------+--------+----------+------------+------------+-------*
- | source_value | regexp | position | occurrence | o_position | instr |
- +--------------+--------+----------+------------+------------+-------+
- | a@cd-ef      | @[^-]* | 1        | 1          | 0          | 2     |
- | a@cd-ef      | @[^-]* | 1        | 1          | 1          | 5     |
- *--------------+--------+----------+------------+------------+-------*/
+/*-------------------*
+ | instr_a | instr_b |
+ +-------------------+
+ | 2       | 5       |
+ *-------------------*/
 ```
 
 ### `REGEXP_MATCH` (Deprecated) 
@@ -39003,27 +41286,51 @@ regular expression syntax.
 **Examples**
 
 ```sql
-WITH markdown AS
-  (SELECT '# Heading' as heading
-  UNION ALL
-  SELECT '# Another heading' as heading)
-
-SELECT
-  REGEXP_REPLACE(heading, r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>')
-  AS html
-FROM markdown;
+SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS html
 
 /*--------------------------*
  | html                     |
  +--------------------------+
  | <h1>Heading</h1>         |
- | <h1>Another heading</h1> |
  *--------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 
 [string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+### `REGEXP_SUBSTR`
+
+```sql
+REGEXP_SUBSTR(value, regexp[, position[, occurrence]])
+```
+
+**Description**
+
+Synonym for [REGEXP_EXTRACT][string-link-to-regex].
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+WITH example AS
+(SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS
+occurrence
+)
+SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex,
+position, occurrence) AS regexp_value FROM example;
+
+/*--------------------+---------+----------+------------+--------------*
+ | value              | regex   | position | occurrence | regexp_value |
+ +--------------------+---------+----------+------------+--------------+
+ | Hello World Helloo | H?ello+ | 1        | 1          | Hello        |
+ *--------------------+---------+----------+------------+--------------*/
+```
+
+[string-link-to-regex]: #regexp_extract
 
 ### `REPEAT`
 
@@ -39047,21 +41354,33 @@ This function returns an error if the `repetitions` value is negative.
 **Examples**
 
 ```sql
-SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
-  STRUCT('abc' AS t, 3 AS n),
-  ('例子', 2),
-  ('abc', null),
-  (null, 3)
-]);
+SELECT REPEAT('abc', 3) AS results
 
-/*------+------+-----------*
- | t    | n    | REPEAT    |
- |------|------|-----------|
- | abc  | 3    | abcabcabc |
- | 例子 | 2    | 例子例子  |
- | abc  | NULL | NULL      |
- | NULL | 3    | NULL      |
- *------+------+-----------*/
+/*-----------*
+ | results   |
+ |-----------|
+ | abcabcabc |
+ *-----------*/
+```
+
+```sql
+SELECT REPEAT('abc', NULL) AS results
+
+/*---------*
+ | results |
+ |---------|
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT REPEAT(NULL, 3) AS results
+
+/*---------*
+ | results |
+ |---------|
+ | NULL    |
+ *---------*/
 ```
 
 ### `REPLACE`
@@ -39123,23 +41442,23 @@ Returns the reverse of the input `STRING` or `BYTES`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
-  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
-)
-SELECT
-  sample_string,
-  REVERSE(sample_string) AS reverse_string,
-  sample_bytes,
-  REVERSE(sample_bytes) AS reverse_bytes
-FROM example;
+SELECT REVERSE('abc') AS results
 
-/*---------------+----------------+--------------+---------------*
- | sample_string | reverse_string | sample_bytes | reverse_bytes |
- +---------------+----------------+--------------+---------------+
- | foo           | oof            | bar          | rab           |
- | абвгд         | дгвба          | 123          | 321           |
- *---------------+----------------+--------------+---------------*/
+/*---------*
+ | results |
+ +---------+
+ | cba     |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
+
+/*---------*
+ | results |
+ +---------+
+ | b"3a1"  |
+ *---------*/
 ```
 
 ### `RIGHT`
@@ -39169,42 +41488,22 @@ will be returned.
 **Examples**
 
 ```sql
-WITH examples AS
-(SELECT 'apple' as example
-UNION ALL
-SELECT 'banana' as example
-UNION ALL
-SELECT 'абвгд' as example
-)
-SELECT example, RIGHT(example, 3) AS right_example
-FROM examples;
+SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
 
 /*---------+---------------*
  | example | right_example |
  +---------+---------------+
  | apple   | ple           |
- | banana  | ana           |
- | абвгд   | вгд           |
  *---------+---------------*/
 ```
 
 ```sql
-WITH examples AS
-(SELECT b'apple' as example
-UNION ALL
-SELECT b'banana' as example
-UNION ALL
-SELECT b'\xab\xcd\xef\xaa\xbb' as example
-)
-SELECT example, RIGHT(example, 3) AS right_example
-FROM examples;
+SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 /*----------------------+---------------*
  | example              | right_example |
  +----------------------+---------------+
  | apple                | ple           |
- | banana               | ana           |
- | \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
  *----------------------+---------------*
 ```
 
@@ -39246,72 +41545,53 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
-  STRUCT('abc' AS t, 5 AS len),
-  ('abc', 2),
-  ('例子', 4)
-]);
+SELECT FORMAT('%T', RPAD('c', 5)) AS results
 
-/*------+-----+----------*
- | t    | len | RPAD     |
- +------+-----+----------+
- | abc  | 5   | "abc  "  |
- | abc  | 2   | "ab"     |
- | 例子  | 4   | "例子  " |
- *------+-----+----------*/
+/*---------*
+ | results |
+ +---------+
+ | "c    " |
+ *---------*/
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) AS RPAD FROM UNNEST([
-  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
-  ('abc', 5, '-'),
-  ('例子', 5, '中文')
-]);
+SELECT RPAD('b', 5, 'a') AS results
 
-/*------+-----+---------+--------------*
- | t    | len | pattern | RPAD         |
- +------+-----+---------+--------------+
- | abc  | 8   | def     | "abcdefde"   |
- | abc  | 5   | -       | "abc--"      |
- | 例子  | 5   | 中文     | "例子中文中"  |
- *------+-----+---------+--------------*/
+/*---------*
+ | results |
+ +---------+
+ | baaaa   |
+ *---------*/
 ```
 
 ```sql
-SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
-  STRUCT(b'abc' AS t, 5 AS len),
-  (b'abc', 2),
-  (b'\xab\xcd\xef', 4)
-]);
+SELECT RPAD('abc', 10, 'ghd') AS results
 
-/*-----------------+-----+------------------*
- | t               | len | RPAD             |
- +-----------------+-----+------------------+
- | b"abc"          | 5   | b"abc  "         |
- | b"abc"          | 2   | b"ab"            |
- | b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
- *-----------------+-----+------------------*/
+/*------------*
+ | results    |
+ +------------+
+ | abcghdghdg |
+ *------------*/
 ```
 
 ```sql
-SELECT
-  FORMAT('%T', t) AS t,
-  len,
-  FORMAT('%T', pattern) AS pattern,
-  FORMAT('%T', RPAD(t, len, pattern)) AS RPAD
-FROM UNNEST([
-  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
-  (b'abc', 5, b'-'),
-  (b'\xab\xcd\xef', 5, b'\x00')
-]);
+SELECT RPAD('abc', 2, 'd') AS results
 
-/*-----------------+-----+---------+-------------------------*
- | t               | len | pattern | RPAD                    |
- +-----------------+-----+---------+-------------------------+
- | b"abc"          | 8   | b"def"  | b"abcdefde"             |
- | b"abc"          | 5   | b"-"    | b"abc--"                |
- | b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
- *-----------------+-----+---------+-------------------------*/
+/*---------*
+ | results |
+ +---------+
+ | ab      |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
+
+/*---------------*
+ | results       |
+ +---------------+
+ | b"abcghdghdg" |
+ *---------------*/
 ```
 
 ### `RTRIM`
@@ -39331,47 +41611,22 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  RTRIM(item, '*') as example
-FROM items;
+SELECT RTRIM('***apple***', '*') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | ***apple  |
- | ***banana |
- | ***orange |
  *-----------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'applexxx' as item
-  UNION ALL
-  SELECT 'bananayyy' as item
-  UNION ALL
-  SELECT 'orangezzz' as item
-  UNION ALL
-  SELECT 'pearxyz' as item)
-
-SELECT
-  RTRIM(item, 'xyz') as example
-FROM items;
+SELECT RTRIM('applexxz', 'xyz') AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
- | pear    |
  *---------*/
 ```
 
@@ -39427,30 +41682,12 @@ non-Latin characters, an empty `STRING` is returned.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'Ashcraft' AS value UNION ALL
-  SELECT 'Raven' AS value UNION ALL
-  SELECT 'Ribbon' AS value UNION ALL
-  SELECT 'apple' AS value UNION ALL
-  SELECT 'Hello world!' AS value UNION ALL
-  SELECT '  H3##!@llo w00orld!' AS value UNION ALL
-  SELECT '#1' AS value UNION ALL
-  SELECT NULL AS value
-)
-SELECT value, SOUNDEX(value) AS soundex
-FROM example;
+SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 /*----------------------+---------*
  | value                | soundex |
  +----------------------+---------+
  | Ashcraft             | A261    |
- | Raven                | R150    |
- | Ribbon               | R150    |
- | apple                | a140    |
- | Hello world!         | H464    |
- |   H3##!@llo w00orld! | H464    |
- | #1                   |         |
- | NULL                 | NULL    |
  *----------------------+---------*/
 ```
 
@@ -39529,22 +41766,11 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'foo' as item
-  UNION ALL
-  SELECT 'bar' as item
-  UNION ALL
-  SELECT 'baz' as item)
-
-SELECT
-  STARTS_WITH(item, 'b') as example
-FROM items;
+SELECT STARTS_WITH('bar', 'b') AS example
 
 /*---------*
  | example |
  +---------+
- |   False |
- |    True |
  |    True |
  *---------*/
 ```
@@ -39571,30 +41797,12 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH email_addresses AS
-  (SELECT
-    'foo@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'foobar@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'foobarbaz@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'quxexample.com' AS email_address)
-
-SELECT
-  STRPOS(email_address, '@') AS example
-FROM email_addresses;
+SELECT STRPOS('foo@example.com', '@') AS example
 
 /*---------*
  | example |
  +---------+
  |       4 |
- |       7 |
- |      10 |
- |       0 |
  *---------*/
 ```
 
@@ -39637,127 +41845,61 @@ return.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 2) as example
-FROM items;
+SELECT SUBSTR('apple', 2) AS example
 
 /*---------*
  | example |
  +---------+
  | pple    |
- | anana   |
- | range   |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 2, 2) as example
-FROM items;
+SELECT SUBSTR('apple', 2, 2) AS example
 
 /*---------*
  | example |
  +---------+
  | pp      |
- | an      |
- | ra      |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, -2) as example
-FROM items;
+SELECT SUBSTR('apple', -2) AS example
 
 /*---------*
  | example |
  +---------+
  | le      |
- | na      |
- | ge      |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 1, 123) as example
-FROM items;
+SELECT SUBSTR('apple', 1, 123) AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 123) as example
-FROM items;
+SELECT SUBSTR('apple', 123) AS example
 
 /*---------*
  | example |
  +---------+
  |         |
- |         |
- |         |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 123, 5) as example
-FROM items;
+SELECT SUBSTR('apple', 123, 5) AS example
 
 /*---------*
  | example |
  +---------+
- |         |
- |         |
  |         |
  *---------*/
 ```
@@ -39880,41 +42022,101 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 
 **Examples**
 
-The following example gets the code points for each element in an array of
+The following examples get the code points for each element in an array of
 words.
 
 ```sql
-SELECT word, TO_CODE_POINTS(word) AS code_points
-FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word;
+SELECT
+  'foo' AS word,
+  TO_CODE_POINTS('foo') AS code_points
 
 /*---------+------------------------------------*
  | word    | code_points                        |
  +---------+------------------------------------+
  | foo     | [102, 111, 111]                    |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'bar' AS word,
+  TO_CODE_POINTS('bar') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | bar     | [98, 97, 114]                      |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'baz' AS word,
+  TO_CODE_POINTS('baz') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | baz     | [98, 97, 122]                      |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'giraffe' AS word,
+  TO_CODE_POINTS('giraffe') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | giraffe | [103, 105, 114, 97, 102, 102, 101] |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'llama' AS word,
+  TO_CODE_POINTS('llama') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | llama   | [108, 108, 97, 109, 97]            |
  *---------+------------------------------------*/
 ```
 
-The following example converts integer representations of `BYTES` to their
+The following examples convert integer representations of `BYTES` to their
 corresponding ASCII character values.
 
 ```sql
-SELECT word, TO_CODE_POINTS(word) AS bytes_value_as_integer
-FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word;
+SELECT
+  b'\x66\x6f\x6f' AS bytes_value,
+  TO_CODE_POINTS(b'\x66\x6f\x6f') AS bytes_value_as_integer
 
 /*------------------+------------------------*
- | word             | bytes_value_as_integer |
+ | bytes_value      | bytes_value_as_integer |
  +------------------+------------------------+
- | \x00\x01\x10\xff | [0, 1, 16, 255]        |
  | foo              | [102, 111, 111]        |
  *------------------+------------------------*/
 ```
 
+```sql
+SELECT
+  b'\x00\x01\x10\xff' AS bytes_value,
+  TO_CODE_POINTS(b'\x00\x01\x10\xff') AS bytes_value_as_integer
+
+/*------------------+------------------------*
+ | bytes_value      | bytes_value_as_integer |
+ +------------------+------------------------+
+ | \x00\x01\x10\xff | [0, 1, 16, 255]        |
+ *------------------+------------------------*/
+```
+
 The following example demonstrates the difference between a `BYTES` result and a
-`STRING` result.
+`STRING` result. Notice that the character `Ā` is represented as a two-byte
+Unicode sequence. As a result, the `BYTES` version of `TO_CODE_POINTS` returns
+an array with two elements, while the `STRING` version returns an array with a
+single element.
 
 ```sql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
@@ -39925,10 +42127,6 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
  | [196, 128] | [256]    |
  *------------+----------*/
 ```
-
-Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
-a result, the `BYTES` version of `TO_CODE_POINTS` returns an array with two
-elements, while the `STRING` version returns an array with a single element.
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
 
@@ -39956,18 +42154,14 @@ in the `STRING` as two hexadecimal characters in the range
 **Example**
 
 ```sql
-WITH Input AS (
-  SELECT b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_str UNION ALL
-  SELECT b'foobar'
-)
-SELECT byte_str, TO_HEX(byte_str) AS hex_str
-FROM Input;
+SELECT
+  b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_string,
+  TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF') AS hex_string
 
 /*----------------------------------+------------------*
  | byte_string                      | hex_string       |
  +----------------------------------+------------------+
  | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
- | foobar                           | 666f6f626172     |
  *----------------------------------+------------------*/
 ```
 
@@ -39999,22 +42193,13 @@ type, either `STRING` or `BYTES`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS
-  target_characters UNION ALL
-  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as
-  target_characters
-)
-SELECT expression, source_characters, target_characters, TRANSLATE(expression,
-source_characters, target_characters) AS translate
-FROM example;
+SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
-/*------------------+-------------------+-------------------+------------------*
- | expression       | source_characters | target_characters | translate        |
- +------------------+-------------------+-------------------+------------------+
- | This is a cookie | sco               | zku               | Thiz iz a kuukie |
- | A coaster        | co                | k                 | A kaster         |
- *------------------+-------------------+-------------------+------------------*/
+/*------------------*
+ | translate        |
+ +------------------+
+ | Thiz iz a kuukie |
+ *------------------*/
 ```
 
 ### `TRIM`
@@ -40047,74 +42232,38 @@ In the following example, all leading and trailing whitespace characters are
 removed from `item` because `set_of_characters_to_remove` is not specified.
 
 ```sql
-WITH items AS
-  (SELECT '   apple   ' as item
-  UNION ALL
-  SELECT '   banana   ' as item
-  UNION ALL
-  SELECT '   orange   ' as item)
-
-SELECT
-  CONCAT('#', TRIM(item), '#') as example
-FROM items;
+SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 
 /*----------*
  | example  |
  +----------+
  | #apple#  |
- | #banana# |
- | #orange# |
  *----------*/
 ```
 
 In the following example, all leading and trailing `*` characters are removed
-from `item`.
+from '***apple***'.
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  TRIM(item, '*') as example
-FROM items;
+SELECT TRIM('***apple***', '*') AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
  *---------*/
 ```
 
 In the following example, all leading and trailing `x`, `y`, and `z` characters
-are removed from `item`.
+are removed from 'xzxapplexxy'.
 
 ```sql
-WITH items AS
-  (SELECT 'xxxapplexxx' as item
-  UNION ALL
-  SELECT 'yyybananayyy' as item
-  UNION ALL
-  SELECT 'zzzorangezzz' as item
-  UNION ALL
-  SELECT 'xyzpearxyz' as item)
-
-SELECT
-  TRIM(item, 'xyz') as example
-FROM items;
+SELECT TRIM('xzxapplexxy', 'xyz') as example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
- | pear    |
  *---------*/
 ```
 
@@ -40128,7 +42277,7 @@ SELECT
   TRIM('abaW̊', 'Y̊') AS a,
   TRIM('W̊aba', 'Y̊') AS b,
   TRIM('abaŪ̊', 'Y̊') AS c,
-  TRIM('Ū̊aba', 'Y̊') AS d;
+  TRIM('Ū̊aba', 'Y̊') AS d
 
 /*------+------+------+------*
  | a    | b    | c    | d    |
@@ -40141,21 +42290,12 @@ In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
 bytes are removed from `item`.
 
 ```sql
-WITH items AS
-(
-  SELECT b'apple' as item UNION ALL
-  SELECT b'banana' as item UNION ALL
-  SELECT b'\xab\xcd\xef\xaa\xbb' as item
-)
-SELECT item, TRIM(item, b'na\xab') AS examples
-FROM items;
+SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 /*----------------------+------------------*
  | item                 | example          |
  +----------------------+------------------+
  | apple                | pple             |
- | banana               | b                |
- | \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
  *----------------------+------------------*/
 ```
 
@@ -40213,26 +42353,12 @@ greater than 127 left intact.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT
-    'foo' as item
-  UNION ALL
-  SELECT
-    'bar' as item
-  UNION ALL
-  SELECT
-    'baz' as item)
-
-SELECT
-  UPPER(item) AS example
-FROM items;
+SELECT UPPER('foo') AS example
 
 /*---------*
  | example |
  +---------+
  | FOO     |
- | BAR     |
- | BAZ     |
  *---------*/
 ```
 
@@ -40377,24 +42503,6 @@ SELECT CURRENT_TIME() as now;
  +----------------------------+
  | 15:31:38.776361            |
  *----------------------------*/
-```
-
-When a column named `current_time` is present, the column name and the function
-call without parentheses are ambiguous. To ensure the function call, add
-parentheses; to ensure the column name, qualify it with its
-[range variable][time-functions-link-to-range-variables]. For example, the
-following query will select the function in the `now` column and the table
-column in the `current_time` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_time`)
-SELECT current_time() as now, t.current_time FROM t;
-
-/*-----------------+--------------*
- | now             | current_time |
- +-----------------+--------------+
- | 15:31:38.776361 | column value |
- *-----------------+--------------*/
 ```
 
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -40654,8 +42762,9 @@ Gets the number of unit boundaries between two `TIME` values (`end_time` -
 
 +   `start_time`: The starting `TIME` value.
 +   `end_time`: The ending `TIME` value.
-+   `granularity`: The time part that represents the granularity.
-    This can be:
++   `granularity`: The time part that represents the granularity. If
+    you passed in `TIME` values for the first arguments, `granularity` can
+    be:
 
     
     + `NANOSECOND`
@@ -40672,6 +42781,10 @@ If `end_time` is earlier than `start_time`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `TIME` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `TIME_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -40737,21 +42850,32 @@ SELECT
 ### `TIME_TRUNC`
 
 ```sql
-TIME_TRUNC(time_expression, time_part)
+TIME_TRUNC(time_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
-is always rounded to the beginning of `time_part`, which can be one of the
-following:
+Truncates a `TIME` value at a particular time granularity. The `TIME` value
+is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
+**Definitions**
+
++ `time_expression`: The `TIME` value to truncate.
++ `granularity`: The time part that represents the granularity. If
+  you passed in a `TIME` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
 
 **Return Data Type**
 
@@ -41418,24 +43542,6 @@ SELECT CURRENT_TIMESTAMP() AS now;
  *---------------------------------------------*/
 ```
 
-When a column named `current_timestamp` is present, the column name and the
-function call without parentheses are ambiguous. To ensure the function call,
-add parentheses; to ensure the column name, qualify it with its
-[range variable][timestamp-functions-link-to-range-variables]. For example, the
-following query selects the function in the `now` column and the table
-column in the `current_timestamp` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_timestamp`)
-SELECT current_timestamp() AS now, t.current_timestamp FROM t;
-
-/*---------------------------------------------+-------------------*
- | now                                         | current_timestamp |
- +---------------------------------------------+-------------------+
- | 2020-06-02 17:00:53.110 America/Los_Angeles | column value      |
- *---------------------------------------------+-------------------*/
-```
-
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 ### `EXTRACT`
@@ -41500,11 +43606,15 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
 ```sql
-WITH Input AS (SELECT TIMESTAMP("2008-12-25 05:30:00+00") AS timestamp_value)
 SELECT
-  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "UTC") AS the_day_utc,
-  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles") AS the_day_california
-FROM Input
+  EXTRACT(
+    DAY
+    FROM TIMESTAMP('2008-12-25 05:30:00+00') AT TIME ZONE 'UTC')
+    AS the_day_utc,
+  EXTRACT(
+    DAY
+    FROM TIMESTAMP('2008-12-25 05:30:00+00') AT TIME ZONE 'America/Los_Angeles')
+    AS the_day_california
 
 /*-------------+--------------------*
  | the_day_utc | the_day_california |
@@ -41513,38 +43623,108 @@ FROM Input
  *-------------+--------------------*/
 ```
 
-In the following example, `EXTRACT` returns values corresponding to different
+In the following examples, `EXTRACT` returns values corresponding to different
 time parts from a column of type `TIMESTAMP`.
 
 ```sql
-WITH Timestamps AS (
-  SELECT TIMESTAMP("2005-01-03 12:34:56+00") AS timestamp_value UNION ALL
-  SELECT TIMESTAMP("2007-12-31 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2009-01-01 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2009-12-31 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2017-01-02 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2017-05-26 12:00:00+00")
-)
 SELECT
-  timestamp_value,
-  EXTRACT(ISOYEAR FROM timestamp_value) AS isoyear,
-  EXTRACT(ISOWEEK FROM timestamp_value) AS isoweek,
-  EXTRACT(YEAR FROM timestamp_value) AS year,
-  EXTRACT(WEEK FROM timestamp_value) AS week
-FROM Timestamps
-ORDER BY timestamp_value;
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS week
 
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------+---------+------+------*
- | timestamp_value                             | isoyear | isoweek | year | week |
- +---------------------------------------------+---------+---------+------+------+
- | 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
- | 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
- | 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
- | 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
- | 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
- | 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
- *---------------------------------------------+---------+---------+------+------*/
+-- Display of results may differ, depending upon the environment and
+-- time zone where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2005    | 1       | 2005 | 1    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2007-12-31 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2008    | 1       | 2007 | 52    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2009-01-01 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2009    | 1       | 2009 | 0    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2009-12-31 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2009    | 53      | 2009 | 52   |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2017-01-02 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2017    | 1       | 2017 | 1    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2017-05-26 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2017    | 21      | 2017 | 21   |
+ *---------+---------+------+------*/
 ```
 
 In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
@@ -41552,19 +43732,17 @@ calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT TIMESTAMP("2017-11-06 00:00:00+00") AS timestamp_value)
 SELECT
-  timestamp_value,
-  EXTRACT(WEEK(SUNDAY) FROM timestamp_value) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
-FROM table;
+  EXTRACT(WEEK(SUNDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_monday
 
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+-------------+---------------*
- | timestamp_value                             | week_sunday | week_monday   |
- +---------------------------------------------+-------------+---------------+
- | 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
- *---------------------------------------------+-------------+---------------*/
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*-------------+---------------*
+ | week_sunday | week_monday   |
+ +-------------+---------------+
+ | 45          | 44            |
+ *-------------+---------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -41888,8 +44066,9 @@ Gets the number of unit boundaries between two `TIMESTAMP` values
 
 +   `start_timestamp`: The starting `TIMESTAMP` value.
 +   `end_timestamp`: The ending `TIMESTAMP` value.
-+   `granularity`: The timestamp part that represents the granularity.
-    This can be:
++   `granularity`: The timestamp part that represents the granularity. If
+    you passed in `TIMESTAMP` values for the first arguments, `granularity` can
+    be:
 
     
     + `NANOSECOND`
@@ -41907,6 +44086,10 @@ If `end_timestamp` is earlier than `start_timestamp`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `TIMESTAMP` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `TIMESTAMP_DIFF(DATE, DATE, PART)`
+behaves like `DATE_DIFF(DATE, DATE, PART)`.
 
 **Return Data Type**
 
@@ -42181,44 +44364,63 @@ SELECT
 ### `TIMESTAMP_TRUNC`
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
+TIMESTAMP_TRUNC(timestamp_expression, granularity[, time_zone])
 ```
 
 **Description**
 
-Truncates a timestamp to the granularity of `date_time_part`.
-The timestamp is always rounded to the beginning of `date_time_part`,
-which can be one of the following:
+Truncates a `TIMESTAMP` value at a particular time granularity. The `TIMESTAMP`
+value is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `TIMESTAMP` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `TIMESTAMP` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `TIMESTAMP` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `TIMESTAMP` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `TIMESTAMP` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `TIMESTAMP` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `timestamp_expression`: The `TIMESTAMP` value to truncate.
++ `granularity`: The datetime part that represents the granularity. If
+  you passed in a `TIMESTAMP` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `TIMESTAMP` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `TIMESTAMP` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `TIMESTAMP` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `TIMESTAMP` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `TIMESTAMP` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `TIMESTAMP` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -42228,23 +44430,20 @@ which can be one of the following:
 
 <!-- mdlint on -->
 
-`TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
-parameter applies to the following `date_time_part`:
++ `time_zone`: Use this parameter if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation. This can be:
 
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`
-+ `WEEK(<WEEKDAY>)`
-+ `ISOWEEK`
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`
-
-Use this parameter if you want to use a time zone other than the
-default time zone, which is implementation defined, as part of the
-truncate operation.
+    + `MINUTE`
+    + `HOUR`
+    + `DAY`
+    + `WEEK`
+    + `WEEK(<WEEKDAY>)`
+    + `ISOWEEK`
+    + `MONTH`
+    + `QUARTER`
+    + `YEAR`
+    + `ISOYEAR`
 
 When truncating a timestamp to `MINUTE`
 or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the

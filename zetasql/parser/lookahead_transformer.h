@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PARSER_TOKEN_DISAMBIGUATOR_H_
-#define ZETASQL_PARSER_TOKEN_DISAMBIGUATOR_H_
+#ifndef ZETASQL_PARSER_LOOKAHEAD_TRANSFORMER_H_
+#define ZETASQL_PARSER_LOOKAHEAD_TRANSFORMER_H_
 
 #include <cstdint>
 #include <memory>
@@ -55,16 +55,16 @@ struct TokenWithOverrideError {
   // `lookback_token` and typically ignore `token.kind`.
   TokenKind lookback_override = kNoToken;
 
-  // The disambiguator may want to return an error directly. It does this by
-  // returning EOF to the bison parser, which then may or may not spew out its
-  // own error message. The BisonParser wrapper then grabs the error from here
-  // instead.
+  // The lookahead_transformer may want to return an error directly. It does
+  // this by returning EOF to the bison parser, which then may or may not spew
+  // out its own error message. The BisonParser wrapper then grabs the error
+  // from here instead.
   absl::Status error = absl::OkStatus();
 };
 
-class DisambiguatorLexer final {
+class LookaheadTransformer final {
  public:
-  static absl::StatusOr<std::unique_ptr<DisambiguatorLexer>> Create(
+  static absl::StatusOr<std::unique_ptr<LookaheadTransformer>> Create(
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_offset, const LanguageOptions& language_options,
       const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena);
@@ -93,7 +93,7 @@ class DisambiguatorLexer final {
   //
   // Output parameters:
   // - The output parameters are undefined if
-  //   - The disambiguator has been SetForceTerminate.
+  //   - The lookahead_transformer has been SetForceTerminate.
   //   - Or the returned token has an error.
   // - Otherwise, they will be updated with the text and location of the
   //   returned token.
@@ -163,9 +163,9 @@ class DisambiguatorLexer final {
   //
   // This context hint is not useful to affect the lexer's choice of token
   // for `expected_next_token` because in the case that the parser's LA(1)
-  // buffer if full, not only has the token already left the disambiguator,
-  // the parser may have acted on that token kind. This is useful for affecting
-  // subsequent tokens beyond `expected_next_token`.
+  // buffer if full, not only has the token already left the
+  // lookahead_transformer, the parser may have acted on that token kind. This
+  // is useful for affecting subsequent tokens beyond `expected_next_token`.
   absl::Status OverrideNextTokenLookback(bool parser_lookahead_is_empty,
                                          TokenKind expected_next_token,
                                          TokenKind lookback_token);
@@ -181,13 +181,13 @@ class DisambiguatorLexer final {
  private:
   using StateType = char;
 
-  DisambiguatorLexer(BisonParserMode mode,
-                     std::optional<macros::TokenWithLocation> start_token,
-                     const LanguageOptions& language_options,
-                     std::unique_ptr<macros::MacroExpanderBase> expander);
+  LookaheadTransformer(BisonParserMode mode,
+                       std::optional<macros::TokenWithLocation> start_token,
+                       const LanguageOptions& language_options,
+                       std::unique_ptr<macros::MacroExpanderBase> expander);
 
-  DisambiguatorLexer(const DisambiguatorLexer&) = delete;
-  DisambiguatorLexer& operator=(const DisambiguatorLexer&) = delete;
+  LookaheadTransformer(const LookaheadTransformer&) = delete;
+  LookaheadTransformer& operator=(const LookaheadTransformer&) = delete;
 
   // This friend is used by the unit test to help test internals.
   friend class TokenTestThief;
@@ -274,7 +274,8 @@ class DisambiguatorLexer final {
 
   const LanguageOptions& language_options_;
 
-  // The underlying macro expander which feeds tokens to this disambiguator.
+  // The underlying macro expander which feeds tokens to this
+  // lookahead_transformer.
   std::unique_ptr<macros::MacroExpanderBase> macro_expander_;
 
   // If this is set to true, the next token returned will be EOF, even if we're
@@ -301,18 +302,19 @@ class DisambiguatorLexer final {
   // `IsAdjacentPrecedingToken(current_token_, lookahead_1_)` returns true.
   void FuseLookahead1IntoCurrent(TokenKind fused_token_kind);
 
-  // Pushes a state onto the stack used by the disambiguator to handle
+  // Pushes a state onto the stack used by the lookahead_transformer to handle
   // paren-balancing operations. Typically, `state` is a character sort that
-  // is an "open" marker (e.g. '('). Internally, the disambiguator tracks
-  // opening and closing of chars that are typically balanced (e.g. '(' or '['
-  // but not '<' which is used unbalanced for comparison operators). Used in
-  // conjunction with `PopStateIfMatch` to find the matching close token.
+  // is an "open" marker (e.g. '('). Internally, the lookahead_transformer
+  // tracks opening and closing of chars that are typically balanced (e.g. '('
+  // or '[' but not '<' which is used unbalanced for comparison operators). Used
+  // in conjunction with `PopStateIfMatch` to find the matching close token.
   void PushState(StateType state);
 
   // Pops the top of the stack and returns true if the top of `state_stack_`
   // matches `target_state`. Otherwise does nothing and returns false.
   bool PopStateIfMatch(StateType target_state);
-  // Returns whether the disambiguator is in the `kInTemplatedType` state.
+  // Returns whether the lookahead_transformer is in the `kInTemplatedType`
+  // state.
   bool IsInTemplatedTypeState() const;
 
   // If the current token is an integer or float literal followed by an
@@ -341,8 +343,8 @@ class DisambiguatorLexer final {
   // point literal, i.e. "." or INTEGER_LITERAL.
   bool FuseExponentPartIntoFloatingPointLiteral();
 
-  // The token the disambiguator returned the last time when GetNextToken was
-  // called.
+  // The token the lookahead_transformer returned the last time when
+  // GetNextToken was called.
   std::optional<TokenWithOverrideError> current_token_;
 
   // The token returned before `current_token_`. TokenWithOverrideError is used
@@ -359,7 +361,8 @@ class DisambiguatorLexer final {
   // windows (e.g. no more than two or three lookaheads).
   //
   // Note the errors stored in the lookaheads should not be exposed. The
-  // disambiguator should only return the errors stored in `current_token_`.
+  // lookahead_transformer should only return the errors stored in
+  // `current_token_`.
   //
   // Invariants:
   // - If `current_token_` or a lookahead is Token::YYEOF, all further
@@ -378,11 +381,11 @@ class DisambiguatorLexer final {
   // Stores the special symbols that affect the token disambiguation behaviors.
   //
   // If the top of the stack stores:
-  // - `kInTemplatedType`: The disambiguator is processing tokens inside a
-  //   templated type, so for example it stops recognizing ">>" as
+  // - `kInTemplatedType`: The lookahead_transformer is processing tokens inside
+  //   a templated type, so for example it stops recognizing ">>" as
   //   KW_SHIFT_RIGHT but two ">"s.
-  // - '(' or ')': The disambiguator is processing tokens inside a pair of
-  //   parentheses or after an unpaired ')', mainly used to temporarily leave
+  // - '(' or ')': The lookahead_transformer is processing tokens inside a pair
+  //   of parentheses or after an unpaired ')', mainly used to temporarily leave
   //   the `kInTemplatedType` state.
   std::stack<StateType> state_stack_;
 };
@@ -390,4 +393,4 @@ class DisambiguatorLexer final {
 }  // namespace parser
 }  // namespace zetasql
 
-#endif  // ZETASQL_PARSER_TOKEN_DISAMBIGUATOR_H_
+#endif  // ZETASQL_PARSER_LOOKAHEAD_TRANSFORMER_H_

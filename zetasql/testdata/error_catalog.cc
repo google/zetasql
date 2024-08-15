@@ -19,8 +19,9 @@
 #include <memory>
 #include <string>
 
+#include "zetasql/public/catalog.h"
 #include "absl/status/status.h"
-#include "zetasql/base/source_location.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 

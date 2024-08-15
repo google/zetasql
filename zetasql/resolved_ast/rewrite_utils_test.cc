@@ -1510,6 +1510,94 @@ TEST_F(FunctionCallBuilderTest, ConcatEmptyArgList) {
       StatusIs(absl::StatusCode::kInternal, HasSubstr("!elements.empty() ")));
 }
 
+TEST_F(FunctionCallBuilderTest, IsNotNull) {
+  auto column =
+      MakeResolvedColumnRef(types::Int64Type(), ResolvedColumn(), false);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.IsNotNull(std::move(column)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
++-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+  +-ColumnRef(type=INT64, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArrayToString) {
+  const ArrayType* array_of_strings;
+  ZETASQL_ASSERT_OK(
+      type_factory_.MakeArrayType(types::StringType(), &array_of_strings));
+  auto array = MakeResolvedColumnRef(array_of_strings, ResolvedColumn(), false);
+  auto delimiter = MakeResolvedLiteral(Value::String("delimiter"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.ArrayToString(std::move(array), std::move(delimiter)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:array_to_string(ARRAY<STRING>, STRING) -> STRING)
++-ColumnRef(type=ARRAY<STRING>, column=.#-1)
++-Literal(type=STRING, value="delimiter")
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArrayAgg) {
+  auto element =
+      MakeResolvedColumnRef(types::StringType(), ResolvedColumn(), false);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.ArrayAgg(std::move(element), nullptr));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
++-ColumnRef(type=STRING, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, ArrayAggWithHaving) {
+  ResolvedColumn col;
+  auto element = MakeResolvedColumnRef(types::StringType(), col, false);
+  auto having = MakeResolvedColumnRef(types::StringType(), col, false);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.ArrayAgg(std::move(element), std::move(having),
+                           ResolvedAggregateHavingModifier::MAX));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+AggregateFunctionCall(ZetaSQL:array_agg(STRING) -> ARRAY<STRING>)
++-ColumnRef(type=STRING, column=.#-1)
++-having_modifier=
+  +-AggregateHavingModifier
+    +-kind=MAX
+    +-having_expr=
+      +-ColumnRef(type=STRING, column=.#-1)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, MakeNullIfEmptyArray) {
+  zetasql_base::SequenceNumber sequence;
+  ColumnFactory column_factory(10, &sequence);
+  const ArrayType* array_of_strings;
+  ZETASQL_ASSERT_OK(
+      type_factory_.MakeArrayType(types::StringType(), &array_of_strings));
+  auto array = MakeResolvedColumnRef(array_of_strings, ResolvedColumn(), false);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedExpr> function,
+      fn_builder_.MakeNullIfEmptyArray(column_factory, std::move(array)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+WithExpr
++-type=ARRAY<STRING>
++-assignment_list=
+| +-$out#11 := ColumnRef(type=ARRAY<STRING>, column=.#-1)
++-expr=
+  +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
+    | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    | | +-ColumnRef(type=ARRAY<STRING>, column=null_if_empty_array.$out#11)
+    | +-Literal(type=INT64, value=1)
+    +-ColumnRef(type=ARRAY<STRING>, column=null_if_empty_array.$out#11)
+    +-Literal(type=ARRAY<STRING>, value=NULL)
+)"));
+}
+
 class LikeAnyAllSubqueryScanBuilderTest
     : public ::testing::TestWithParam<ResolvedSubqueryExpr::SubqueryType> {
  public:

@@ -25,6 +25,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/value_representations.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -115,20 +116,9 @@ class ArrayType : public ListBackedType {
     return sizeof(*this);
   }
 
-  std::string GetFormatPrefix(
-      const ValueContent& value_content,
-      const Type::FormatValueContentOptions& options) const override;
-
-  char GetFormatClosingCharacter(
-      const Type::FormatValueContentOptions& options) const override;
-
-  const Type* GetElementType(int index) const override;
-
-  std::string GetFormatElementPrefix(
-      const int index, const bool is_null,
-      const FormatValueContentOptions& options) const override {
-    return "";
-  }
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
 
  private:
   ArrayType(const TypeFactory* factory, const Type* element_type);
@@ -163,6 +153,12 @@ class ArrayType : public ListBackedType {
                                      ValueProto* value_proto) const override;
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
+  void FormatValueContentDebugModeImpl(
+      const internal::ValueContentOrderedListRef* container_ref,
+      const FormatValueContentOptions& options, std::string* result) const;
+  void FormatValueContentSqlModeImpl(
+      const internal::ValueContentOrderedListRef* container_ref,
+      const FormatValueContentOptions& options, std::string* result) const;
 
   const Type* const element_type_;
 

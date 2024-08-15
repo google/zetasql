@@ -413,7 +413,14 @@ std::string MapType::FormatValueContent(
     return "Map printing not yet implemented.";
   }
 
-  std::string result = "{";
+  std::string result;
+
+  if (options.verbose) {
+    absl::StrAppend(&result, "Map{");
+  } else {
+    result = "{";
+  }
+
   internal::ValueContentMap* value_content_map =
       value.GetAs<internal::ValueContentMapRef*>()->value();
 
@@ -422,10 +429,12 @@ std::string MapType::FormatValueContent(
                    *value_content_map, ", ",
                    [options, this](std::string* out, const auto& map_entry) {
                      auto& [key, value] = map_entry;
-                     std::string key_str = FormatNullableValueContent(
-                         key, this->key_type_, options);
-                     std::string value_str = FormatNullableValueContent(
-                         value, this->value_type_, options);
+                     std::string key_str =
+                         DebugFormatNullableValueContentForContainer(
+                             key, this->key_type_, options);
+                     std::string value_str =
+                         DebugFormatNullableValueContentForContainer(
+                             value, this->value_type_, options);
                      absl::StrAppend(out, key_str, ": ", value_str);
                    }));
   absl::StrAppend(&result, "}");

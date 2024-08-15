@@ -1,0 +1,283 @@
+[default language_features=PIPES]
+from t
+|> TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10)
+|> TABLESAMPLE RESERVOIR (cast(100 as int32) ROWS) REPEATABLE(cast(10 as int32))
+|> TABLESAMPLE RESERVOIR (@param1 ROWS) REPEATABLE(@param2)
+|> TABLESAMPLE bernoulli (cast(@param1 as int32) ROWS)
+      REPEATABLE(cast(@param2 as string))
+--
+QueryStatement [0-295] [from t |>...as string))]
+  Query [0-295] [from t |>...as string))]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeTablesample [7-57] [|> TABLESAMPLE...EPEATABLE(10)]
+      SampleClause [10-57] [TABLESAMPLE...REPEATABLE(10)]
+        Identifier(RESERVOIR) [22-31] [RESERVOIR]
+        SampleSize [33-41] [100 ROWS]
+          IntLiteral(100) [33-36] [100]
+        SampleSuffix [43-57] [REPEATABLE(10)]
+          RepeatableClause [43-57] [REPEATABLE(10)]
+            IntLiteral(10) [54-56] [10]
+    PipeTablesample [58-138] [|> TABLESAMPLE...as int32))]
+      SampleClause [61-138] [TABLESAMPLE...as int32))]
+        Identifier(RESERVOIR) [73-82] [RESERVOIR]
+        SampleSize [84-107] [cast(100 as int32) ROWS]
+          CastExpression [84-102] [cast(100 as int32)]
+            IntLiteral(100) [89-92] [100]
+            SimpleType [96-101] [int32]
+              PathExpression [96-101] [int32]
+                Identifier(int32) [96-101] [int32]
+        SampleSuffix [109-138] [REPEATABLE(cast(10 as int32))]
+          RepeatableClause [109-138] [REPEATABLE(cast(10 as int32))]
+            CastExpression [120-137] [cast(10 as int32)]
+              IntLiteral(10) [125-127] [10]
+              SimpleType [131-136] [int32]
+                PathExpression [131-136] [int32]
+                  Identifier(int32) [131-136] [int32]
+    PipeTablesample [139-198] [|> TABLESAMPLE...ABLE(@param2)]
+      SampleClause [142-198] [TABLESAMPLE...EATABLE(@param2)]
+        Identifier(RESERVOIR) [154-163] [RESERVOIR]
+        SampleSize [165-177] [@param1 ROWS]
+          ParameterExpr [165-172] [@param1]
+            Identifier(param1) [166-172] [param1]
+        SampleSuffix [179-198] [REPEATABLE(@param2)]
+          RepeatableClause [179-198] [REPEATABLE(@param2)]
+            ParameterExpr [190-197] [@param2]
+              Identifier(param2) [191-197] [param2]
+    PipeTablesample [199-295] [|> TABLESAMPLE...as string))]
+      SampleClause [202-295] [TABLESAMPLE...as string))]
+        Identifier(bernoulli) [214-223] [bernoulli]
+        SampleSize [225-252] [cast(@param1 as int32) ROWS]
+          CastExpression [225-247] [cast(@param1 as int32)]
+            ParameterExpr [230-237] [@param1]
+              Identifier(param1) [231-237] [param1]
+            SimpleType [241-246] [int32]
+              PathExpression [241-246] [int32]
+                Identifier(int32) [241-246] [int32]
+        SampleSuffix [260-295] [REPEATABLE...as string))]
+          RepeatableClause [260-295] [REPEATABLE...as string))]
+            CastExpression [271-294] [cast(@param2 as string)]
+              ParameterExpr [276-283] [@param2]
+                Identifier(param2) [277-283] [param2]
+              SimpleType [287-293] [string]
+                PathExpression [287-293] [string]
+                  Identifier(string) [287-293] [string]
+--
+FROM
+  t
+|> TABLESAMPLE RESERVOIR(100 ROWS) REPEATABLE (10)
+|> TABLESAMPLE RESERVOIR(CAST(100 AS int32) ROWS) REPEATABLE (CAST(10 AS int32))
+|> TABLESAMPLE RESERVOIR(@param1 ROWS) REPEATABLE (@param2)
+|> TABLESAMPLE bernoulli(CAST(@param1 AS int32) ROWS) REPEATABLE (CAST(@param2 AS string))
+==
+
+from Users
+|> TABLESAMPLE abc (100 ROWS)
+|> TABLESAMPLE abc (0.1 PERCENT)
+|> TABLESAMPLE random (10 ROWS PARTITION BY state, zipcode)
+--
+QueryStatement [0-133] [from Users..., zipcode)]
+  Query [0-133] [from Users..., zipcode)]
+    FromQuery [0-10] [from Users]
+      FromClause [0-10] [from Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-40] [|> TABLESAMPLE abc (100 ROWS)]
+      SampleClause [14-40] [TABLESAMPLE abc (100 ROWS)]
+        Identifier(abc) [26-29] [abc]
+        SampleSize [31-39] [100 ROWS]
+          IntLiteral(100) [31-34] [100]
+    PipeTablesample [41-73] [|> TABLESAMPLE...1 PERCENT)]
+      SampleClause [44-73] [TABLESAMPLE abc (0.1 PERCENT)]
+        Identifier(abc) [56-59] [abc]
+        SampleSize [61-72] [0.1 PERCENT]
+          FloatLiteral(0.1) [61-64] [0.1]
+    PipeTablesample [74-133] [|> TABLESAMPLE..., zipcode)]
+      SampleClause [77-133] [TABLESAMPLE..., zipcode)]
+        Identifier(random) [89-95] [random]
+        SampleSize [97-132] [10 ROWS PARTITION...e, zipcode]
+          IntLiteral(10) [97-99] [10]
+          PartitionBy [105-132] [PARTITION BY state, zipcode]
+            PathExpression [118-123] [state]
+              Identifier(state) [118-123] [state]
+            PathExpression [125-132] [zipcode]
+              Identifier(zipcode) [125-132] [zipcode]
+--
+FROM
+  Users
+|> TABLESAMPLE abc(100 ROWS)
+|> TABLESAMPLE abc(0.1 PERCENT)
+|> TABLESAMPLE random(10 ROWS PARTITION BY state, zipcode)
+==
+
+FROM Users
+|> TABLESAMPLE RESERVOIR (1 ROWS)
+   WITH WEIGHT {{|weight|AS weight}} {{|REPEATABLE(1)}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-59] [FROM Users...WITH WEIGHT]
+  Query [0-59] [FROM Users...WITH WEIGHT]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-59] [|> TABLESAMPLE...WITH WEIGHT]
+      SampleClause [14-59] [TABLESAMPLE...WITH WEIGHT]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-59] [WITH WEIGHT]
+          WithWeight [48-59] [WITH WEIGHT]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT
+--
+ALTERNATION GROUP: REPEATABLE(1)
+--
+QueryStatement [0-74] [FROM Users...REPEATABLE(1)]
+  Query [0-74] [FROM Users...REPEATABLE(1)]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-74] [|> TABLESAMPLE...REPEATABLE(1)]
+      SampleClause [14-74] [TABLESAMPLE...REPEATABLE(1)]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-74] [WITH WEIGHT  REPEATABLE(1)]
+          WithWeight [48-74] [WITH WEIGHT  REPEATABLE(1)]
+          RepeatableClause [61-74] [REPEATABLE(1)]
+            IntLiteral(1) [72-73] [1]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT REPEATABLE (1)
+--
+ALTERNATION GROUP: weight,
+--
+QueryStatement [0-66] [FROM Users...WEIGHT weight]
+  Query [0-66] [FROM Users...WEIGHT weight]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-66] [|> TABLESAMPLE...WEIGHT weight]
+      SampleClause [14-66] [TABLESAMPLE...WEIGHT weight]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-66] [WITH WEIGHT weight]
+          WithWeight [48-66] [WITH WEIGHT weight]
+            Alias [60-66] [weight]
+              Identifier(weight) [60-66] [weight]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: weight,REPEATABLE(1)
+--
+QueryStatement [0-80] [FROM Users...REPEATABLE(1)]
+  Query [0-80] [FROM Users...REPEATABLE(1)]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-80] [|> TABLESAMPLE...REPEATABLE(1)]
+      SampleClause [14-80] [TABLESAMPLE...REPEATABLE(1)]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-80] [WITH WEIGHT...REPEATABLE(1)]
+          WithWeight [48-80] [WITH WEIGHT...REPEATABLE(1)]
+            Alias [60-66] [weight]
+              Identifier(weight) [60-66] [weight]
+          RepeatableClause [67-80] [REPEATABLE(1)]
+            IntLiteral(1) [78-79] [1]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight REPEATABLE (1)
+--
+ALTERNATION GROUP: AS weight,
+--
+QueryStatement [0-69] [FROM Users...AS weight]
+  Query [0-69] [FROM Users...AS weight]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-69] [|> TABLESAMPLE...AS weight]
+      SampleClause [14-69] [TABLESAMPLE...AS weight]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-69] [WITH WEIGHT AS weight]
+          WithWeight [48-69] [WITH WEIGHT AS weight]
+            Alias [60-69] [AS weight]
+              Identifier(weight) [63-69] [weight]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: AS weight,REPEATABLE(1)
+--
+QueryStatement [0-83] [FROM Users...REPEATABLE(1)]
+  Query [0-83] [FROM Users...REPEATABLE(1)]
+    FromQuery [0-10] [FROM Users]
+      FromClause [0-10] [FROM Users]
+        TablePathExpression [5-10] [Users]
+          PathExpression [5-10] [Users]
+            Identifier(Users) [5-10] [Users]
+    PipeTablesample [11-83] [|> TABLESAMPLE...REPEATABLE(1)]
+      SampleClause [14-83] [TABLESAMPLE...REPEATABLE(1)]
+        Identifier(RESERVOIR) [26-35] [RESERVOIR]
+        SampleSize [37-43] [1 ROWS]
+          IntLiteral(1) [37-38] [1]
+        SampleSuffix [48-83] [WITH WEIGHT...REPEATABLE(1)]
+          WithWeight [48-83] [WITH WEIGHT...REPEATABLE(1)]
+            Alias [60-69] [AS weight]
+              Identifier(weight) [63-69] [weight]
+          RepeatableClause [70-83] [REPEATABLE(1)]
+            IntLiteral(1) [81-82] [1]
+--
+FROM
+  Users
+|> TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight REPEATABLE (1)
+==
+
+FROM Users
+|> TABLESAMPLE
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:15]
+|> TABLESAMPLE
+              ^
+==
+
+FROM Users
+|> TABLESAMPLE random
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 2:22]
+|> TABLESAMPLE random
+                     ^
+==
+
+FROM Users
+|> TABLESAMPLE random()
+--
+ERROR: Syntax error: Unexpected ")" [at 2:23]
+|> TABLESAMPLE random()
+                      ^

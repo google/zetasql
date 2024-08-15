@@ -805,4 +805,25 @@ FunctionEnums::Volatility ResolvedCreateFunctionStmt::volatility() const {
   }
 }
 
+void ResolvedStaticDescribeScan::CollectDebugStringFields(
+    std::vector<DebugStringField>* fields) const {
+  SUPER::CollectDebugStringFields(fields);
+
+  if (!describe_text_.empty()) {
+    // Show describe_text contents directly, rather than the normal way
+    // strings get shown as quoted values on a single line, with
+    // escaped newlines.
+    fields->emplace_back(/*name=*/"describe_text", describe_text_,
+                         describe_text_accessed());
+  }
+  if (input_scan_ != nullptr) {
+    fields->emplace_back(/*name=*/"input_scan", input_scan_.get(),
+                         input_scan_accessed());
+  }
+}
+
+std::string ResolvedStaticDescribeScan::GetNameForDebugString() const {
+  return SUPER::GetNameForDebugString();
+}
+
 }  // namespace zetasql

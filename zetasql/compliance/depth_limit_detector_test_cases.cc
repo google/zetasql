@@ -478,6 +478,29 @@ AllDepthLimitDetectorTestCases() {
               .depth_limit_template = {"SELECT 1", R({"-1"}), " AS c"},
           },
           {
+              .depth_limit_test_case_name = "repeated_unary_plus",
+              .depth_limit_template = {"SELECT +", R({"+"}), "1 AS c"},
+          },
+          {
+              .depth_limit_test_case_name = "pipe_wheres",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> WHERE c > ", N()})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "pipe_joins",
+              .depth_limit_template = {"FROM (SELECT 1 c)",
+                                       R({"|> JOIN (SELECT 2 d", N(), ") ON d",
+                                          N(), " = c"})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_PIPES,
+                  },
+          },
+          {
               .depth_limit_test_case_name = "with_joins",
               .depth_limit_template = {"WITH ",
                                        R({"t", N(), " AS (SELECT 1 AS c),"}),

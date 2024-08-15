@@ -1386,3 +1386,56 @@ CREATE index i1 on TestTable UNNEST(KitchenSink.repeated_int32_val, mode => "PAD
 ERROR: UNNEST expression used with CREATE INDEX does not allow named arguments [at 1:69]
 ...on TestTable UNNEST(KitchenSink.repeated_int32_val, mode => "PAD") (repeat...
                                                        ^
+==
+
+# The language feature FEATURE_CREATE_INDEX_PARTITION_BY is not supported.
+CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY value options()
+--
+ERROR: CREATE INDEX with PARTITION BY is not supported. [at 1:45]
+CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY value options()
+                                            ^
+==
+
+[language_features=CREATE_INDEX_PARTITION_BY]
+CREATE INDEX index0 ON KeyValue(key) PARTITION BY value options()
+--
+ERROR: PARTITION BY is not supported for CREATE INDEX. [at 1:38]
+CREATE INDEX index0 ON KeyValue(key) PARTITION BY value options()
+                                     ^
+
+==
+
+[language_features=CREATE_INDEX_PARTITION_BY]
+CREATE SEARCH INDEX index0 ON KeyValue(key) PARTITION BY value options()
+--
+ERROR: PARTITION BY is not supported for CREATE SEARCH INDEX. [at 1:45]
+CREATE SEARCH INDEX index0 ON KeyValue(key) PARTITION BY value options()
+                                            ^
+
+==
+
+[language_features=CREATE_INDEX_PARTITION_BY]
+CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY value options()
+--
+CreateIndexStmt
++-name_path=index0
++-table_name_path=KeyValue
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-is_unique=FALSE
++-is_vector=TRUE
++-index_item_list=
+| +-IndexItem
+|   +-column_ref=
+|   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-descending=FALSE
++-partition_by_list=
+  +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+==
+
+[language_features=CREATE_INDEX_PARTITION_BY]
+CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY col_not_exist options()
+--
+ERROR: Unrecognized name: col_not_exist [at 1:58]
+CREATE VECTOR INDEX index0 ON KeyValue(key) PARTITION BY col_not_exist options()
+                                                         ^

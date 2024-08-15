@@ -19,12 +19,14 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 

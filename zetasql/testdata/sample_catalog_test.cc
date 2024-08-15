@@ -17,6 +17,12 @@
 #include "zetasql/testdata/sample_catalog.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/sql_view.h"
+#include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

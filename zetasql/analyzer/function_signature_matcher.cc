@@ -35,6 +35,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
@@ -80,7 +81,7 @@ class FunctionSignatureMatcher {
   // any internal errors.
   //
   // * <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
-  //   It's used to assist lambda arguments resolving.
+  //   It's used to extract additional details for named arguments and lambdas.
   // * <resolve_lambda_callback> is called to resolve lambda arguments if any.
   //   It can be set to nullptr if no lambda argument is expected.
   // * The resolved lambdas, if any, are put into <arg_overrides> if the
@@ -665,22 +666,23 @@ bool SignatureArgumentCountMatches(
     return false;
   }
 
-  const int num_repeated = signature.NumRepeatedArguments();
-  const int num_optional = signature.NumOptionalArguments();
+  const int signature_num_repeated = signature.NumRepeatedArguments();
+  const int signature_num_optional = signature.NumOptionalArguments();
 
   // Initially qualify the signature based on the number of arguments, taking
   // into account optional and repeated arguments.  Find x and y such that:
-  //   input_arguments_size = sig.num_required + x*sig.num_repeated + y
-  // where 0 < y <= sig.num_optional.
-  if (num_repeated > 0) {
+  //   input_arguments_size = signature_num_required +
+  //       x*signature_num_repeated + y
+  // where 0 < y <= signature_num_optional.
+  if (signature_num_repeated > 0) {
     while (input_arguments_size > signature_num_required +
-                                      *repetitions * num_repeated +
-                                      num_optional) {
+                                      *repetitions * signature_num_repeated +
+                                      signature_num_optional) {
       ++(*repetitions);
     }
   }
 
-  if (num_repeated == 0 &&
+  if (signature_num_repeated == 0 &&
       input_arguments_size > signature.arguments().size()) {
     const int sig_arguments_size =
         static_cast<int>(signature.arguments().size());
@@ -691,19 +693,35 @@ bool SignatureArgumentCountMatches(
     return false;
   }
 
-  const int opts = input_arguments_size - signature_num_required -
-                   *repetitions * num_repeated;
-  if (opts < 0 || opts > num_optional) {
-    // We do not have enough optionals to match the arguments size, and
-    // repeating the repeated block again would require too many arguments.
-    SET_MISMATCH_ERROR(
-        absl::StrCat(opts, " optional argument", optional_s(opts),
-                     " provided while signature has at most ", num_optional,
-                     " optional argument", optional_s(num_optional)));
+  const int input_remainder_size = input_arguments_size -
+                                   signature_num_required -
+                                   *repetitions * signature_num_repeated;
+  if (input_remainder_size < 0) {
+    // We have calculated too many repetitions. Since the repetitions takes
+    // optionals into account, this means the number of repeated arguments
+    // provided isn't a multiple of the number of repeated arguments in the
+    // signature.
+    const int num_repeated_actual =
+        *repetitions * signature_num_repeated + input_remainder_size;
+    SET_MISMATCH_ERROR(absl::StrCat(
+        "Wrong number of repeated arguments provided. Expected a multiple of ",
+        signature_num_repeated, " but got ", num_repeated_actual,
+        " repeated argument", optional_s(num_repeated_actual)));
     return false;
   }
 
-  *optionals = opts;
+  if (input_remainder_size > signature_num_optional) {
+    // We do not have enough optionals to match the arguments size, and
+    // repeating the repeated block again would require too many arguments.
+    SET_MISMATCH_ERROR(absl::StrCat(
+        input_remainder_size, " optional argument",
+        optional_s(input_remainder_size),
+        " provided while signature has at most ", signature_num_optional,
+        " optional argument", optional_s(signature_num_optional)));
+    return false;
+  }
+
+  *optionals = input_remainder_size;
   return true;
 }
 
@@ -778,11 +796,9 @@ bool FunctionSignatureMatcher::
         zetasql_base::FindOrNull(*templated_argument_map, sig_arg_type.kind());
     // FunctionSignature::IsValid() guarantees that a templated argument of
     // lambda must have been seen before the lambda argument.
-    ABSL_DCHECK_NE(param_typeset, nullptr);
     if (param_typeset == nullptr) {
-      SET_MISMATCH_ERROR_WITH_INDEX(absl::StrFormat(
-          "failed to infer type for %dth argument (%s) of lambda",
-          sig_arg_idx + 1, arg_names[sig_arg_idx].ToString()));
+      SET_MISMATCH_ERROR(absl::StrFormat("Failed to infer type %s",
+                                         sig_arg_type.DebugString()));
       return false;
     }
     // Untyped arguments get their types after all templated args are
@@ -1514,9 +1530,10 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
                            types::Int64ArrayType());
           break;
         case SignatureArgumentKindTypeSet::TYPED_ARGUMENTS: {
-          const Type* common_supertype =
-              coercer_.GetCommonSuperType(type_set.typed_arguments());
-          if (common_supertype == nullptr) {
+          const Type* common_supertype = nullptr;
+          absl::Status status = coercer_.GetCommonSuperType(
+              type_set.typed_arguments(), &common_supertype);
+          if (!status.ok() || common_supertype == nullptr) {
             SET_MISMATCH_ERROR(absl::Substitute(
                 "Unable to find common supertype for templated argument $0\n"
                 "  Input types for $0: $1",
@@ -1595,6 +1612,7 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     // message.
     return false;
   }
+  ZETASQL_RET_CHECK_GE(input_arguments.size(), arg_ast_nodes.size());
 
   concrete_result_signature->reset();
 

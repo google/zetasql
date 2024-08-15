@@ -1,0 +1,126 @@
+[default language_features=PIPES]
+
+from t
+|> assert x+1 = 5
+|> assert (select true)
+|> assert false, 'hello'
+|> assert x=y, concat(a,b), 17, "xxxx"
+--
+QueryStatement [0-112] [from t |>...17, "xxxx"]
+  Query [0-112] [from t |>...17, "xxxx"]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAssert [7-24] [|> assert x+1 = 5]
+      BinaryExpression(=) [17-24] [x+1 = 5]
+        BinaryExpression(+) [17-20] [x+1]
+          PathExpression [17-18] [x]
+            Identifier(x) [17-18] [x]
+          IntLiteral(1) [19-20] [1]
+        IntLiteral(5) [23-24] [5]
+    PipeAssert [25-48] [|> assert (select true)]
+      ExpressionSubquery [35-48] [(select true)]
+        Query [36-47] [select true]
+          Select [36-47] [select true]
+            SelectList [43-47] [true]
+              SelectColumn [43-47] [true]
+                BooleanLiteral(true) [43-47] [true]
+    PipeAssert [49-73] [|> assert false, 'hello']
+      BooleanLiteral(false) [59-64] [false]
+      StringLiteral [66-73] ['hello']
+        StringLiteralComponent('hello') [66-73] ['hello']
+    PipeAssert [74-112] [|> assert...17, "xxxx"]
+      BinaryExpression(=) [84-87] [x=y]
+        PathExpression [84-85] [x]
+          Identifier(x) [84-85] [x]
+        PathExpression [86-87] [y]
+          Identifier(y) [86-87] [y]
+      FunctionCall [89-100] [concat(a,b)]
+        PathExpression [89-95] [concat]
+          Identifier(concat) [89-95] [concat]
+        PathExpression [96-97] [a]
+          Identifier(a) [96-97] [a]
+        PathExpression [98-99] [b]
+          Identifier(b) [98-99] [b]
+      IntLiteral(17) [102-104] [17]
+      StringLiteral [106-112] ["xxxx"]
+        StringLiteralComponent("xxxx") [106-112] ["xxxx"]
+--
+FROM
+  t
+|> ASSERT x + 1 = 5
+|> ASSERT(
+     SELECT
+       true
+   )
+|> ASSERT false, 'hello'
+|> ASSERT x = y, concat(a, b), 17, "xxxx"
+==
+
+from t
+|> @{hint=1} assert true
+--
+ERROR: Syntax error: Expected keyword JOIN but got "@" [at 2:4]
+|> @{hint=1} assert true
+   ^
+==
+
+from t
+|> assert
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:10]
+|> assert
+         ^
+==
+
+from t
+|> assert x,
+|> assert x,y,
+|> assert x,y,z,
+--
+QueryStatement [0-51] [from t |>...assert x,y,z,]
+  Query [0-51] [from t |>...assert x,y,z,]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeAssert [7-19] [|> assert x,]
+      PathExpression [17-18] [x]
+        Identifier(x) [17-18] [x]
+    PipeAssert [20-34] [|> assert x,y,]
+      PathExpression [30-31] [x]
+        Identifier(x) [30-31] [x]
+      PathExpression [32-33] [y]
+        Identifier(y) [32-33] [y]
+    PipeAssert [35-51] [|> assert x,y,z,]
+      PathExpression [45-46] [x]
+        Identifier(x) [45-46] [x]
+      PathExpression [47-48] [y]
+        Identifier(y) [47-48] [y]
+      PathExpression [49-50] [z]
+        Identifier(z) [49-50] [z]
+--
+FROM
+  t
+|> ASSERT x
+|> ASSERT x, y
+|> ASSERT x, y, z
+==
+
+from t
+|> assert ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:11]
+|> assert ,
+          ^
+==
+
+from t
+|> assert true,,
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:16]
+|> assert true,,
+               ^

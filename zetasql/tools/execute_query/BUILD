@@ -49,6 +49,7 @@ cc_test(
     srcs = ["execute_query_tool_test.cc"],
     data = [
         "testdata/KitchenSinkPB.textproto",
+        "testdata/execute_query_tool.test",
         "testdata/test.csv",
     ],
     deps = [
@@ -59,6 +60,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public/types",
@@ -73,6 +75,8 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@com_google_file_based_test_driver//file_based_test_driver",
+        "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -110,6 +114,7 @@ cc_binary(
         ":execute_query_loop",
         ":execute_query_prompt",
         ":execute_query_tool",
+        ":execute_query_web",
         ":execute_query_writer",
         ":homedir",
         "//zetasql/base",
@@ -121,6 +126,7 @@ cc_binary(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/log:initialize",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -332,6 +338,35 @@ cc_test(
 )
 
 cc_library(
+    name = "selectable_catalog",
+    srcs = ["selectable_catalog.cc"],
+    hdrs = ["selectable_catalog.h"],
+    deps = [
+        "//zetasql/base:status",
+        "//zetasql/examples/tpch/catalog",
+        "//zetasql/public:builtin_function_options",
+        "//zetasql/public:catalog",
+        "//zetasql/public:language_options",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/testdata:sample_catalog_impl",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "selectable_catalog_test",
+    srcs = ["selectable_catalog_test.cc"],
+    deps = [
+        ":selectable_catalog",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:catalog",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "execute_query_tool",
     srcs = [
         "execute_query_internal_binproto.cc",
@@ -344,6 +379,7 @@ cc_library(
     deps = [
         ":execute_query_proto_writer",
         ":execute_query_writer",
+        ":selectable_catalog",
         ":simple_proto_evaluator_table_iterator",
         ":string_error_collector",
         "//zetasql/base",
@@ -361,9 +397,15 @@ cc_library(
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
+        "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
+        "//zetasql/public:error_helpers",
         "//zetasql/public:evaluator",
         "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:function",
+        "//zetasql/public:multi_catalog",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:simple_catalog_util",
         "//zetasql/public:sql_formatter",
@@ -425,5 +467,74 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "execute_query_web_server",
+    hdrs = ["execute_query_web_server.h"],
+)
+
+cc_library(
+    name = "execute_query_web_handler",
+    srcs = [
+        "execute_query_web_handler.cc",
+        "execute_query_web_writer.cc",
+    ],
+    hdrs = [
+        "execute_query_web_handler.h",
+        "execute_query_web_writer.h",
+    ],
+    deps = [
+        ":execute_query_tool",
+        ":execute_query_writer",
+        ":output_query_result",
+        ":selectable_catalog",
+        "//zetasql/base:status",
+        "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:value",
+        "//zetasql/resolved_ast",
+        "//zetasql/tools/execute_query/web:embedded_resources",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:span",
+        "@mstch",
+    ],
+)
+
+cc_test(
+    name = "execute_query_web_handler_test",
+    srcs = ["execute_query_web_handler_test.cc"],
+    deps = [
+        ":execute_query_web_handler",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/tools/execute_query/web:embedded_resources",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "execute_query_web",
+    srcs = ["execute_query_web.cc"],
+    hdrs = ["execute_query_web.h"],
+    deps = [
+        ":execute_query_web_handler",
+        ":execute_query_web_server",
+        "//zetasql/tools/execute_query/web:embedded_resources",
+        "@civetweb",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/synchronization",
     ],
 )

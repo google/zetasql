@@ -155,18 +155,35 @@ std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
 }
 
 std::string InputArgumentType::DebugString(bool verbose) const {
-  if (is_lambda()) {
-    return "LAMBDA";
+  switch (category_) {
+    case kRelation:
+      return absl::StrCat(
+          "RELATION", (is_pipe_input_table_ ? "(is_pipe_input_table)" : ""));
+    case kModel:
+      return "MODEL";
+    case kConnection:
+      return "CONNECTION";
+    case kDescriptor:
+      return "DESCRIPTOR";
+    case kLambda:
+      return "LAMBDA";
+    case kSequence:
+      return "SEQUENCE";
+    case kUntypedNull:
+      return absl::StrCat(verbose ? "untyped" : "", "NULL");
+    case kUntypedEmptyArray:
+      return absl::StrCat(verbose ? "untyped" : "", "empty array");
+
+    case kTypedExpression:
+    case kTypedLiteral:
+    case kTypedParameter:
+    case kUntypedParameter:
+      // These expression types are handled below.
+      break;
   }
 
   std::string prefix;
-  if (is_untyped_null()) {
-    absl::StrAppend(&prefix, verbose ? "untyped" : "", "NULL");
-    return prefix;
-  } else if (is_untyped_empty_array()) {
-    absl::StrAppend(&prefix, verbose ? "untyped" : "", "empty array");
-    return prefix;
-  } else if (literal_value_.has_value()) {
+  if (literal_value_.has_value()) {
     if (literal_value_.value().is_null()) {
       absl::StrAppend(&prefix, "null ");
     } else if (type()->IsSimpleType()) {
@@ -200,7 +217,10 @@ std::string InputArgumentType::ArgumentsToString(
       argument_names.remove_prefix(1);
     }
 
+    // Mark pipe input table arguments to try to make error messages clearer
+    // when a pipe input table is inserted somewhere in the argument list.
     absl::StrAppend(&arguments_string, (first ? "" : ", "),
+                    argument.is_pipe_input_table() ? "pipe_input:" : "",
                     !argument_name.empty() ? argument_name : "",
                     !argument_name.empty() ? " => " : "",
                     argument.UserFacingName(product_mode));
@@ -217,10 +237,11 @@ std::string InputArgumentType::ArgumentsToString(
 
 // static
 InputArgumentType InputArgumentType::RelationInputArgumentType(
-    const TVFRelation& relation_input_schema) {
+    const TVFRelation& relation_input_schema, bool is_pipe_input_table) {
   InputArgumentType type;
   type.category_ = kRelation;
   type.relation_input_schema_.reset(new TVFRelation(relation_input_schema));
+  type.is_pipe_input_table_ = is_pipe_input_table;
   return type;
 }
 

@@ -17,6 +17,7 @@
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -44,9 +45,11 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
@@ -427,6 +430,13 @@ FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::IsNotNull(std::unique_ptr<const ResolvedExpr> arg) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> is_null,
+                   IsNull(std::move(arg)));
+  return Not(std::move(is_null));
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::AnyIsNull(
     std::vector<std::unique_ptr<const ResolvedExpr>> args) {
   std::vector<std::unique_ptr<const ResolvedExpr>> is_nulls;
@@ -503,7 +513,8 @@ FunctionCallBuilder::Error(std::unique_ptr<const ResolvedExpr> error_expr,
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::MakeArray(
     const Type* element_type,
-    std::vector<std::unique_ptr<const ResolvedExpr>> elements) {
+    std::vector<std::unique_ptr<const ResolvedExpr>> elements,
+    bool cast_elements_if_needed) {
   ZETASQL_RET_CHECK(element_type != nullptr);
   const Function* make_array_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$make_array", &make_array_fn));
@@ -527,9 +538,19 @@ FunctionCallBuilder::MakeArray(
                                          catalog_signature->context_id(),
                                          catalog_signature->options());
 
+  std::vector<std::unique_ptr<const ResolvedExpr>> cast_elements;
+  for (auto& element : elements) {
+    const bool cast_needed =
+        cast_elements_if_needed && !element->type()->Equals(element_type);
+    cast_elements.push_back(
+        cast_needed ? MakeResolvedCast(element_type, std::move(element),
+                                       /*return_null_on_error=*/false)
+                    : std::move(element));
+  }
+
   std::unique_ptr<ResolvedFunctionCall> resolved_function =
       MakeResolvedFunctionCall(array_type, make_array_fn, make_array_signature,
-                               std::move(elements),
+                               std::move(cast_elements),
                                ResolvedFunctionCall::DEFAULT_ERROR_MODE);
   ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
       /*error_node=*/nullptr, resolved_function.get()));
@@ -1058,6 +1079,35 @@ FunctionCallBuilder::Concat(
   return resolved_function;
 }
 
+absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
+FunctionCallBuilder::MakeNullIfEmptyArray(
+    ColumnFactory& column_factory,
+    std::unique_ptr<const ResolvedExpr> array_expr) {
+  ZETASQL_RET_CHECK(array_expr != nullptr);
+  const Type* array_type = array_expr->type();
+  ZETASQL_RET_CHECK(array_type->IsArray());
+  // TODO: We should support DeferredComputedColumns here.
+  ResolvedColumn out_column =
+      column_factory.MakeCol("null_if_empty_array", "$out", array_type);
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedExpr> array_length,
+      ArrayLength(MakeResolvedColumnRef(out_column.type(), out_column,
+                                        /*is_correlated=*/false)));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_non_empty,
+                   GreaterOrEqual(std::move(array_length),
+                                  MakeResolvedLiteral(Value::Int64(1))));
+  return ResolvedWithExprBuilder()
+      .add_assignment_list(ResolvedComputedColumnBuilder()
+                               .set_column(out_column)
+                               .set_expr(std::move(array_expr)))
+      .set_expr(If(std::move(array_non_empty),
+                   MakeResolvedColumnRef(out_column.type(), out_column,
+                                         /*is_correlated=*/false),
+                   MakeResolvedLiteral(Value::Null(array_type))))
+      .set_type(array_type)
+      .Build();
+}
+
 namespace {
 absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
     const Function* function, const Type* left_expr_type,
@@ -1080,7 +1130,12 @@ absl::StatusOr<FunctionSignature> GetBinaryFunctionSignatureFromArgumentTypes(
     }
     if (left_expr_type->Equals(function_argument_type_list[0].type()) &&
         right_expr_type->Equals(function_argument_type_list[1].type())) {
-      return signature;
+      // If left and right have types, we make them concrete by setting
+      // `num_occurrences` to 1.
+      return FunctionSignature({signature.result_type().type(), 1},
+                               {{function_argument_type_list[0].type(), 1},
+                                {function_argument_type_list[1].type(), 1}},
+                               signature.context_id(), signature.options());
     }
   }
   ZETASQL_RET_CHECK_FAIL() << "No builtin function with name " << function->Name()
@@ -1261,10 +1316,46 @@ FunctionCallBuilder::NaryLogic(
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
-FunctionCallBuilder::Int64Add(
+FunctionCallBuilder::NestedBinaryOp(
+    absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
+    std::vector<std::unique_ptr<const ResolvedExpr>> expressions,
+    const Type* expr_type) {
+  ZETASQL_RET_CHECK_GE(expressions.size(), 2);
+  ZETASQL_RET_CHECK(absl::c_all_of(expressions, [expr_type](const auto& expr) {
+    return expr->type()->Equals(expr_type);
+  }));
+
+  const Function* fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog(op_catalog_name, &fn));
+
+  FunctionSignature signature(
+      {expr_type, 1},
+      {{expr_type, FunctionArgumentType::REPEATED, /*num_occurrences=*/2}},
+      op_function_id);
+  std::unique_ptr<const ResolvedExpr> result = std::move(expressions[0]);
+  auto function_call_info = std::make_shared<ResolvedFunctionCallInfo>();
+  for (size_t i = 1; i < expressions.size(); ++i) {
+    std::vector<std::unique_ptr<const ResolvedExpr>> args(2);
+    args[0] = std::move(result);
+    args[1] = std::move(expressions[i]);
+    ZETASQL_ASSIGN_OR_RETURN(
+        result, ResolvedFunctionCallBuilder()
+                    .set_type(expr_type)
+                    .set_function(fn)
+                    .set_signature(signature)
+                    .set_argument_list(std::move(args))
+                    .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+                    .set_function_call_info(function_call_info)
+                    .Build());
+  }
+  return absl::WrapUnique(result.release()->GetAs<ResolvedFunctionCall>());
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::NestedBinaryInt64Add(
     std::vector<std::unique_ptr<const ResolvedExpr>> expressions) {
-  return NaryLogic("$add", FN_ADD_INT64, std::move(expressions),
-                   types::Int64Type());
+  return NestedBinaryOp("$add", FN_ADD_INT64, std::move(expressions),
+                        types::Int64Type());
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
@@ -1380,6 +1471,68 @@ FunctionCallBuilder::ArrayAtOffset(
       ResolvedFunctionCallBuilder()
           .set_type(result_type.type())
           .set_function(array_at_offset_fn)
+          .set_signature(concrete_signature)
+          .set_argument_list(std::move(args))
+          .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+          .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+          .Build());
+
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
+      /*error_node=*/nullptr,
+      const_cast<ResolvedFunctionCall*>(resolved_function.get())));
+  return resolved_function;
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::ArrayToString(
+    std::unique_ptr<const ResolvedExpr> array_expr,
+    std::unique_ptr<const ResolvedExpr> delimiter_expr) {
+  ZETASQL_RET_CHECK(array_expr != nullptr);
+  ZETASQL_RET_CHECK(delimiter_expr != nullptr);
+  ZETASQL_RET_CHECK(array_expr->type()->IsArray());
+  ZETASQL_RET_CHECK(delimiter_expr->type()->IsString() ||
+            delimiter_expr->type()->IsBytes());
+  ZETASQL_RET_CHECK_EQ(array_expr->type()->AsArray()->element_type(),
+               delimiter_expr->type());
+
+  const Function* array_to_string_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(
+      GetBuiltinFunctionFromCatalog("array_to_string", &array_to_string_fn));
+
+  ZETASQL_RET_CHECK_EQ(array_to_string_fn->signatures().size(), 2);
+  const FunctionSignature* catalog_signature = nullptr;
+  for (const FunctionSignature& signature : array_to_string_fn->signatures()) {
+    if (signature.result_type().type() == delimiter_expr->type()) {
+      catalog_signature = &signature;
+      break;
+    }
+  }
+  ZETASQL_RET_CHECK(catalog_signature != nullptr);
+  ZETASQL_RET_CHECK_EQ(catalog_signature->arguments().size(), 3);
+
+  FunctionArgumentType result_type(
+      array_expr->type()->AsArray()->element_type(),
+      catalog_signature->result_type().options(),
+      /*num_occurrences=*/1);
+  FunctionArgumentType array_arg(array_expr->type(),
+                                 catalog_signature->argument(0).options(),
+                                 /*num_occurrences=*/1);
+  FunctionArgumentType delimiter_arg(delimiter_expr->type(),
+                                     catalog_signature->argument(1).options(),
+                                     /*num_occurrences=*/1);
+
+  FunctionSignature concrete_signature(result_type, {array_arg, delimiter_arg},
+                                       catalog_signature->context_id(),
+                                       catalog_signature->options());
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.push_back(std::move(array_expr));
+  args.push_back(std::move(delimiter_expr));
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedFunctionCall> resolved_function,
+      ResolvedFunctionCallBuilder()
+          .set_type(result_type.type())
+          .set_function(array_to_string_fn)
           .set_signature(concrete_signature)
           .set_argument_list(std::move(args))
           .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
@@ -1563,6 +1716,42 @@ FunctionCallBuilder::AnyValue(
       .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
       .set_having_modifier(std::move(resolved_having))
       .Build();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+FunctionCallBuilder::ArrayAgg(
+    std::unique_ptr<const ResolvedExpr> input_expr,
+    std::unique_ptr<const ResolvedExpr> having_expr,
+    ResolvedAggregateHavingModifier::HavingModifierKind having_kind) {
+  ZETASQL_RET_CHECK(input_expr != nullptr);
+  const Type* input_type = input_expr->type();
+  const ArrayType* array_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory_.MakeArrayType(input_type, &array_type));
+  const Function* array_agg_fn = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("array_agg", &array_agg_fn));
+  ZETASQL_RET_CHECK_EQ(array_agg_fn->signatures().size(), 1);
+  const FunctionSignature* signature = array_agg_fn->GetSignature(0);
+  FunctionArgumentTypeList args_types;
+  args_types.emplace_back(input_type, signature->argument(0).options(),
+                          /*num_occurrences=*/1);
+  FunctionSignature array_agg_fn_sig(
+      /*result_type=*/FunctionArgumentType(array_type,
+                                           signature->result_type().options(),
+                                           /*num_occurrences=*/1),
+      args_types, FN_ARRAY_AGG);
+
+  auto builder = ResolvedAggregateFunctionCallBuilder()
+                     .set_type(array_type)
+                     .set_function(array_agg_fn)
+                     .set_signature(array_agg_fn_sig)
+                     .add_argument_list(std::move(input_expr))
+                     .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  if (having_expr != nullptr) {
+    builder.set_having_modifier(ResolvedAggregateHavingModifierBuilder()
+                                    .set_having_expr(std::move(having_expr))
+                                    .set_kind(having_kind));
+  }
+  return std::move(builder).Build();
 }
 
 absl::StatusOr<bool> CatalogSupportsBuiltinFunction(

@@ -31,7 +31,6 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
-#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -202,8 +201,6 @@ absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
     const TestTable& test_table = t.second;
     AddTable(table_name, test_table);
   }
-
-  // Add functions to the catalog.
   return absl::OkStatus();
 }
 

@@ -88,27 +88,9 @@ class RangeType : public ListBackedType {
     return sizeof(*this);
   }
 
-  std::string GetFormatPrefix(
-      const ValueContent& value_content,
-      const Type::FormatValueContentOptions& options) const override {
-    if (options.mode == Type::FormatValueContentOptions::Mode::kDebug) {
-      return "Range(";
-    }
-    return absl::StrCat(TypeName(options.product_mode), "[");
-  }
-
-  char GetFormatClosingCharacter(
-      const Type::FormatValueContentOptions& options) const override {
-    return ')';
-  }
-
-  const Type* GetElementType(int index) const override;
-
-  std::string GetFormatElementPrefix(
-      const int index, const bool is_null,
-      const FormatValueContentOptions& options) const override {
-    return "";
-  }
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
 
  private:
   RangeType(const TypeFactory* factory, const Type* element_type);
@@ -150,9 +132,6 @@ class RangeType : public ListBackedType {
   std::string FormatNullableValueContent(
       const internal::NullableValueContent& element,
       const Type::FormatValueContentOptions& options) const;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
   bool ValueContentEquals(
       const ValueContent& x, const ValueContent& y,
       const ValueEqualityCheckOptions& options) const override;

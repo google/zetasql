@@ -26,8 +26,10 @@
 #include <variant>
 #include <vector>
 
+#include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -35,6 +37,7 @@
 #include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "zetasql/base/case.h"
+#include "absl/base/macros.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
@@ -69,8 +72,8 @@ class ParsedScript {
   // - ASTVariableDeclaration
   // - ASTForInStatement
   using VariableCreationMap =
-      absl::flat_hash_map<IdString, const ASTScriptStatement*,
-                          IdStringCaseHash, IdStringCaseEqualFunc>;
+      absl::flat_hash_map<IdString, const ASTScriptStatement*, IdStringCaseHash,
+                          IdStringCaseEqualFunc>;
 
   // Mapping of argument name to zetasql Type.
   using ArgumentTypeMap =
@@ -105,22 +108,37 @@ class ParsedScript {
   // All results are stored in the returned ParsedScript object.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> Create(
       absl::string_view script_string, const ParserOptions& parser_options,
-      ErrorMessageMode error_message_mode,
+      ErrorMessageOptions error_message_options,
       const ParsedScriptOptions& options = {});
+
+  ABSL_DEPRECATED("Inline me!")
+  static absl::StatusOr<std::unique_ptr<ParsedScript>> Create(
+      absl::string_view script_string, const ParserOptions& parser_options,
+      ErrorMessageMode error_message_mode,
+      const ParsedScriptOptions& options = {}) {
+    return Create(script_string, parser_options,
+                  ErrorMessageOptions{
+                      .mode = error_message_mode,
+                      .attach_error_location_payload =
+                          (error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD),
+                      .stability = GetDefaultErrorMessageStability()},
+                  options);
+  }
 
   // Similar to the above function, but uses an existing, externally-owned
   // AST instead of parsing the script.  <ast_script> must be kept alive for
   // the lifetime of the returned ParsedScript.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> Create(
       absl::string_view script_string, const ASTScript* ast_script,
-      ErrorMessageMode error_message_mode,
+      ErrorMessageOptions error_message_options,
       const ParsedScriptOptions& options = {});
 
   // Similar to above function, but also passes arguments for a routine, i.e. a
   // function or stored procedure whose body is a script.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateForRoutine(
       absl::string_view script_string, const ParserOptions& parser_options,
-      ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+      ErrorMessageOptions error_message_options,
+      ArgumentTypeMap routine_arguments,
       const ParsedScriptOptions& options = {});
 
   // Similar to the above functions, but allows the caller to provide an AST
@@ -128,12 +146,15 @@ class ParsedScript {
   // a CREATE PROCEDURE statement.
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateForRoutine(
       absl::string_view script_string, const ASTScript* ast_script,
-      ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+      ErrorMessageOptions error_message_options,
+      ArgumentTypeMap routine_arguments,
       const ParsedScriptOptions& options = {});
 
   const ASTScript* script() const { return ast_script_; }
   absl::string_view script_text() const { return script_string_; }
-  ErrorMessageMode error_message_mode() const { return error_message_mode_; }
+  ErrorMessageOptions error_message_options() const {
+    return error_message_options_;
+  }
   const ArgumentTypeMap& routine_arguments() const {
     return routine_arguments_;
   }
@@ -161,7 +182,7 @@ class ParsedScript {
   // Returns a map of all variables in scope immediately prior to the execution
   // of <node>.
   absl::StatusOr<VariableCreationMap> GetVariablesInScopeAtNode(
-      const ControlFlowNode * node) const;
+      const ControlFlowNode* node) const;
 
   // Validates the query parameters (e.g. no missing ones, not mixing named and
   // positional parameters).
@@ -172,8 +193,9 @@ class ParsedScript {
  private:
   static absl::StatusOr<std::unique_ptr<ParsedScript>> CreateInternal(
       absl::string_view script_string, const ParserOptions& parser_options,
-      ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-      bool is_procedure, const ParsedScriptOptions& options);
+      ErrorMessageOptions error_message_options,
+      ArgumentTypeMap routine_arguments, bool is_procedure,
+      const ParsedScriptOptions& options);
 
   // script_string: The string of the entire script for which parse locations
   //   within <ast_script> are based off of. Owned externally.
@@ -193,7 +215,7 @@ class ParsedScript {
   //   <ast_script> represents a top-level script, this should be empty.
   ParsedScript(absl::string_view script_string, const ASTScript* ast_script,
                std::unique_ptr<ParserOutput> parser_output,
-               ErrorMessageMode error_message_mode,
+               ErrorMessageOptions error_message_options,
                ArgumentTypeMap routine_arguments, bool is_procedure);
 
   // Called from Create() to walk the parse tree and perform non-trivial work
@@ -228,7 +250,7 @@ class ParsedScript {
   absl::string_view script_string_;
 
   // How to report error messages in GatherInformationAndRunChecks().
-  ErrorMessageMode error_message_mode_;
+  ErrorMessageOptions error_message_options_;
 
   // Routine arguments existing from the beginning the script.
   ArgumentTypeMap routine_arguments_;

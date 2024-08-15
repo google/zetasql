@@ -134,6 +134,12 @@ class ValidFieldInfoMap {
   bool LookupNamePathList(const ResolvedColumn& column,
                           const ValidNamePathList** valid_name_path_list) const;
 
+  // Returns true if `column_to_valid_name_paths_map_` contains `column`, and
+  // some prefix of `name_path` exists in the valid name paths for `column`.
+  // The target column in `name_path` is ignored.
+  bool ContainsColumnAndNamePathPrefix(const ResolvedColumn& column,
+                                       const ValidNamePath& name_path) const;
+
   void Clear();
 
   // Find the entry in `name_path_list` whose name path is the
@@ -952,6 +958,9 @@ class NameList {
   absl::Status AddAmbiguousColumn_Test(IdString name);
 
   // Options to customize behavior of NameList::MergeFrom.
+  //
+  // `excluded_field_names`, `columns_to_rename` and `columns_to_rename` are
+  // mutually exclusive.
   struct MergeOptions {
     // If non-NULL, names in this list will be excluded.
     // Range variables with matching names are also excluded.
@@ -965,11 +974,23 @@ class NameList {
     // columns, pseudo-columns, range variables, ambiguous names, etc)
     // will be removed, and replaced by one new entry pointing at the column.
     // This also acts like `excluded_field_names` for other occurrences of
-    // replaced name.  `excluded_field_names` cannot be set at the same time.
+    // replaced name.
     typedef absl::flat_hash_map<IdString, ResolvedColumn, IdStringCaseHash,
                                 IdStringCaseEqualFunc>
         ColumnsToReplaceMap;
     ColumnsToReplaceMap* columns_to_replace = nullptr;
+
+    // If non-NULL, names in this map will be renamed to the map entry's value.
+    // All matching names in the NameList will be renamed.
+    // A matching name in the scope will be renamed (possibly resulting
+    // in an ambiguous name if it collides with another name).
+    // All renames are applied simultaneously, so swaps will work.
+    // If this is present, `flatten_to_table` and `rename_value_table_to_name`
+    // are not allowed.
+    using ColumnsToRenameMap =
+        absl::flat_hash_map<IdString, IdString, IdStringCaseHash,
+                            IdStringCaseEqualFunc>;
+    ColumnsToRenameMap* columns_to_rename = nullptr;
 
     // If true, the copied names are converted to be just a flat table.
     // Range variables are dropped, and value tables are converted to

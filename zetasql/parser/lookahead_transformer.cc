@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/parser/token_disambiguator.h"
+#include "zetasql/parser/lookahead_transformer.h"
 
 #include <cstdint>
 #include <memory>
@@ -49,34 +49,34 @@ namespace zetasql {
 // lookup on every token.
 namespace parser_internal {
 using zetasql::parser::BisonParserMode;
-using zetasql::parser::DisambiguatorLexer;
+using zetasql::parser::LookaheadTransformer;
 using TokenKind = int;
 
-void SetForceTerminate(DisambiguatorLexer* disambiguator, int* end_offset) {
-  return disambiguator->SetForceTerminate(end_offset);
+void SetForceTerminate(LookaheadTransformer* lookahead_transformer,
+                       int* end_offset) {
+  return lookahead_transformer->SetForceTerminate(end_offset);
 }
-void PushBisonParserMode(DisambiguatorLexer* disambiguator,
+void PushBisonParserMode(LookaheadTransformer* lookahead_transformer,
                          BisonParserMode mode) {
-  return disambiguator->PushBisonParserMode(mode);
+  return lookahead_transformer->PushBisonParserMode(mode);
 }
-void PopBisonParserMode(DisambiguatorLexer* disambiguator) {
-  return disambiguator->PopBisonParserMode();
+void PopBisonParserMode(LookaheadTransformer* lookahead_transformer) {
+  return lookahead_transformer->PopBisonParserMode();
 }
-int GetNextToken(DisambiguatorLexer* disambiguator, absl::string_view* text,
-                 ParseLocationRange* location) {
-  return disambiguator->GetNextToken(text, location);
+int GetNextToken(LookaheadTransformer* lookahead_transformer,
+                 absl::string_view* text, ParseLocationRange* location) {
+  return lookahead_transformer->GetNextToken(text, location);
 }
-absl::Status OverrideNextTokenLookback(DisambiguatorLexer* disambiguator,
-                                       bool parser_lookahead_is_empty,
-                                       TokenKind expected_next_token,
-                                       TokenKind lookback_token) {
-  return disambiguator->OverrideNextTokenLookback(
+absl::Status OverrideNextTokenLookback(
+    LookaheadTransformer* lookahead_transformer, bool parser_lookahead_is_empty,
+    TokenKind expected_next_token, TokenKind lookback_token) {
+  return lookahead_transformer->OverrideNextTokenLookback(
       parser_lookahead_is_empty, expected_next_token, lookback_token);
 }
 
-absl::Status OverrideCurrentTokenLookback(DisambiguatorLexer* disambiguator,
-                                          TokenKind new_token_kind) {
-  return disambiguator->OverrideCurrentTokenLookback(new_token_kind);
+absl::Status OverrideCurrentTokenLookback(
+    LookaheadTransformer* lookahead_transformer, TokenKind new_token_kind) {
+  return lookahead_transformer->OverrideCurrentTokenLookback(new_token_kind);
 }
 }  // namespace parser_internal
 
@@ -206,7 +206,7 @@ static bool IsValidPreviousTokenToSqlStatement(TokenKind token) {
 // - The token is followed by a colon, and the followed by one of the tokens in
 //   [BEGIN, WHILE, LOOP, REPEAT, FOR].
 //
-// `previous_token`: the token the disambiguator sees before
+// `previous_token`: the token the lookahead_transformer sees before
 // `token_with_location`.
 static bool IsScriptLabel(TokenKind lookback,
                           const TokenWithLocation& token_with_location,
@@ -233,11 +233,16 @@ static bool IsScriptLabel(TokenKind lookback,
   }
 }
 
-void DisambiguatorLexer::ApplyConditionallyReservedKeywords(TokenKind& kind) {
+void LookaheadTransformer::ApplyConditionallyReservedKeywords(TokenKind& kind) {
   switch (kind) {
     case Token::KW_QUALIFY_NONRESERVED:
       if (language_options_.IsReservedKeyword("QUALIFY")) {
         kind = Token::KW_QUALIFY_RESERVED;
+      }
+      break;
+    case Token::KW_MATCH_RECOGNIZE_NONRESERVED:
+      if (language_options_.IsReservedKeyword("MATCH_RECOGNIZE")) {
+        kind = Token::KW_MATCH_RECOGNIZE_RESERVED;
       }
       break;
     default:
@@ -245,7 +250,7 @@ void DisambiguatorLexer::ApplyConditionallyReservedKeywords(TokenKind& kind) {
   }
 }
 
-void DisambiguatorLexer::FetchNextToken(
+void LookaheadTransformer::FetchNextToken(
     const std::optional<TokenWithOverrideError>& current,
     std::optional<TokenWithOverrideError>& next) {
   if (current.has_value() && current->token.kind == Token::YYEOF) {
@@ -262,6 +267,12 @@ void DisambiguatorLexer::FetchNextToken(
   next.emplace();
   absl::StatusOr<TokenWithLocation> next_token =
       macro_expander_->GetNextToken();
+  if (mode_ != BisonParserMode::kTokenizerPreserveComments) {
+    // Skip comment tokens if we do not need to preserve comments.
+    while (next_token.ok() && next_token->kind == Token::COMMENT) {
+      next_token = macro_expander_->GetNextToken();
+    }
+  }
   if (next_token.ok()) {
     next->token = *next_token;
     ApplyConditionallyReservedKeywords(next->token.kind);
@@ -316,7 +327,8 @@ static TokenWithLocation FuseTokensIntoTokenKind(
   };
 }
 
-void DisambiguatorLexer::FuseLookahead1IntoCurrent(TokenKind fused_token_kind) {
+void LookaheadTransformer::FuseLookahead1IntoCurrent(
+    TokenKind fused_token_kind) {
   ABSL_DCHECK(current_token_.has_value());
   ABSL_DCHECK(IsAdjacentPrecedingToken(current_token_, lookahead_1_));
   current_token_->token = FuseTokensIntoTokenKind(
@@ -377,7 +389,7 @@ static bool IsLiteralBeforeAdjacentUnquotedIdentifier(
 // accept the sequence of tokens are identified to verify that changing the kind
 // of `token` does not break any unanticipated cases where that sequence would
 // currently be accepted.
-TokenKind DisambiguatorLexer::ApplyTokenDisambiguation(
+TokenKind LookaheadTransformer::ApplyTokenDisambiguation(
     const TokenWithLocation& token_with_location) {
   const TokenKind token = token_with_location.kind;
   const Location& location = token_with_location.location;
@@ -676,7 +688,7 @@ TokenKind DisambiguatorLexer::ApplyTokenDisambiguation(
   return token;
 }
 
-absl::Status DisambiguatorLexer::OverrideNextTokenLookback(
+absl::Status LookaheadTransformer::OverrideNextTokenLookback(
     bool parser_lookahead_is_empty, TokenKind expected_next_token,
     TokenKind lookback_token) {
   ZETASQL_RET_CHECK(current_token_.has_value()) << "current_token_ not populated.";
@@ -689,7 +701,7 @@ absl::Status DisambiguatorLexer::OverrideNextTokenLookback(
   return absl::OkStatus();
 }
 
-bool DisambiguatorLexer::LookbackTokenCanBeBeforeDotInPathExpression(
+bool LookaheadTransformer::LookbackTokenCanBeBeforeDotInPathExpression(
     TokenKind token_kind) const {
   ABSL_DCHECK(token_kind != Token::EXP_IN_FLOAT_NO_SIGN);
   ABSL_DCHECK(token_kind != Token::STANDALONE_EXPONENT_SIGN);
@@ -709,7 +721,7 @@ static bool IsPlusOrMinus(TokenKind token_kind) {
   return token_kind == '+' || token_kind == '-';
 }
 
-bool DisambiguatorLexer::FuseExponentPartIntoFloatingPointLiteral() {
+bool LookaheadTransformer::FuseExponentPartIntoFloatingPointLiteral() {
   if (!IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
     return false;
   }
@@ -744,7 +756,7 @@ bool DisambiguatorLexer::FuseExponentPartIntoFloatingPointLiteral() {
   }
 }
 
-TokenKind DisambiguatorLexer::TransformDotSymbol() {
+TokenKind LookaheadTransformer::TransformDotSymbol() {
   if (LookbackTokenCanBeBeforeDotInPathExpression(Lookback1())) {
     // This dot is part of a path expression, return '.' directly.
     current_token_->lookback_override = Token::LB_DOT_IN_PATH_EXPRESSION;
@@ -762,7 +774,7 @@ TokenKind DisambiguatorLexer::TransformDotSymbol() {
   return '.';
 }
 
-void DisambiguatorLexer::TransformIntegerLiteral() {
+void LookaheadTransformer::TransformIntegerLiteral() {
   TokenKind initial_kind = current_token_->token.kind;
   ABSL_DCHECK(initial_kind == Token::DECIMAL_INTEGER_LITERAL ||
          initial_kind == Token::HEX_INTEGER_LITERAL);
@@ -812,7 +824,7 @@ void DisambiguatorLexer::TransformIntegerLiteral() {
   }
 }
 
-TokenKind DisambiguatorLexer::SetOverrideErrorAndReturnEof(
+TokenKind LookaheadTransformer::SetOverrideErrorAndReturnEof(
     absl::string_view error_message, const Location& error_location) {
   if (!current_token_.has_value()) {
     current_token_.emplace();
@@ -839,19 +851,19 @@ class NoOpExpander : public MacroExpanderBase {
 };
 }  // namespace
 
-TokenKind DisambiguatorLexer::Lookahead1() const {
+TokenKind LookaheadTransformer::Lookahead1() const {
   return lookahead_1_->token.kind;
 }
 
-TokenKind DisambiguatorLexer::Lookahead2() const {
+TokenKind LookaheadTransformer::Lookahead2() const {
   return lookahead_2_->token.kind;
 }
 
-TokenKind DisambiguatorLexer::Lookahead3() const {
+TokenKind LookaheadTransformer::Lookahead3() const {
   return lookahead_3_->token.kind;
 }
 
-void DisambiguatorLexer::PopulateLookaheads() {
+void LookaheadTransformer::PopulateLookaheads() {
   if (!lookahead_1_.has_value()) {
     FetchNextToken(current_token_, lookahead_1_);
   }
@@ -863,7 +875,7 @@ void DisambiguatorLexer::PopulateLookaheads() {
   }
 }
 
-TokenKind DisambiguatorLexer::Lookback1() const {
+TokenKind LookaheadTransformer::Lookback1() const {
   if (lookback_1_.has_value()) {
     if (lookback_1_->lookback_override != kNoToken) {
       return lookback_1_->lookback_override;
@@ -874,7 +886,7 @@ TokenKind DisambiguatorLexer::Lookback1() const {
   return kNoToken;
 }
 
-TokenKind DisambiguatorLexer::Lookback2() const {
+TokenKind LookaheadTransformer::Lookback2() const {
   if (lookback_2_.has_value()) {
     if (lookback_2_->lookback_override != kNoToken) {
       return lookback_2_->lookback_override;
@@ -885,8 +897,8 @@ TokenKind DisambiguatorLexer::Lookback2() const {
   return kNoToken;
 }
 
-TokenKind DisambiguatorLexer::GetNextToken(absl::string_view* text,
-                                           Location* yylloc) {
+TokenKind LookaheadTransformer::GetNextToken(absl::string_view* text,
+                                             Location* yylloc) {
   // Advance the token buffers.
   lookback_2_.swap(lookback_1_);
   lookback_1_.swap(current_token_);
@@ -965,15 +977,15 @@ static std::optional<TokenWithLocation> MakeStartModeToken(
   }
 }
 
-absl::StatusOr<std::unique_ptr<DisambiguatorLexer>> DisambiguatorLexer::Create(
-    BisonParserMode mode, absl::string_view filename, absl::string_view input,
-    int start_offset, const LanguageOptions& language_options,
-    const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
+absl::StatusOr<std::unique_ptr<LookaheadTransformer>>
+LookaheadTransformer::Create(BisonParserMode mode, absl::string_view filename,
+                             absl::string_view input, int start_offset,
+                             const LanguageOptions& language_options,
+                             const macros::MacroCatalog* macro_catalog,
+                             zetasql_base::UnsafeArena* arena) {
   // TODO: take the token_provider as an injected dependency.
   auto token_provider = std::make_unique<FlexTokenProvider>(
-      filename, input,
-      /*preserve_comments=*/mode == BisonParserMode::kTokenizerPreserveComments,
-      start_offset, /*end_offset=*/std::nullopt);
+      filename, input, start_offset, /*end_offset=*/std::nullopt);
 
   std::unique_ptr<MacroExpanderBase> macro_expander;
   if (language_options.LanguageFeatureEnabled(FEATURE_V_1_4_SQL_MACROS)) {
@@ -988,12 +1000,12 @@ absl::StatusOr<std::unique_ptr<DisambiguatorLexer>> DisambiguatorLexer::Create(
     ZETASQL_RET_CHECK(macro_catalog == nullptr);
     macro_expander = std::make_unique<NoOpExpander>(std::move(token_provider));
   }
-  return absl::WrapUnique(new DisambiguatorLexer(
+  return absl::WrapUnique(new LookaheadTransformer(
       mode, MakeStartModeToken(mode, filename, start_offset), language_options,
       std::move(macro_expander)));
 }
 
-DisambiguatorLexer::DisambiguatorLexer(
+LookaheadTransformer::LookaheadTransformer(
     BisonParserMode mode, std::optional<TokenWithLocation> start_token,
     const LanguageOptions& language_options,
     std::unique_ptr<MacroExpanderBase> expander)
@@ -1008,7 +1020,7 @@ DisambiguatorLexer::DisambiguatorLexer(
   PopulateLookaheads();
 }
 
-int64_t DisambiguatorLexer::num_lexical_tokens() const {
+int64_t LookaheadTransformer::num_lexical_tokens() const {
   return num_inserted_tokens_ +
          macro_expander_->num_unexpanded_tokens_consumed();
 }
@@ -1016,14 +1028,14 @@ int64_t DisambiguatorLexer::num_lexical_tokens() const {
 // TODO: this overload should also be updated to return the image, and
 // all callers should be updated. In fact, all callers should simply use
 // TokenWithLocation, and maybe have the image attached there.
-absl::Status DisambiguatorLexer::GetNextToken(ParseLocationRange* location,
-                                              TokenKind* token) {
+absl::Status LookaheadTransformer::GetNextToken(ParseLocationRange* location,
+                                                TokenKind* token) {
   absl::string_view image;
   *token = GetNextToken(&image, location);
   return GetOverrideError();
 }
 
-void DisambiguatorLexer::SetForceTerminate(int* end_byte_offset) {
+void LookaheadTransformer::SetForceTerminate(int* end_byte_offset) {
   if (end_byte_offset != nullptr) {
     if (!current_token_.has_value()) {
       // If no tokens have been returned, set `end_byte_offset` to 0 to indicate
@@ -1057,25 +1069,25 @@ void DisambiguatorLexer::SetForceTerminate(int* end_byte_offset) {
   ResetToEof(template_token, lookahead_3_);
 }
 
-void DisambiguatorLexer::ResetToEof(
+void LookaheadTransformer::ResetToEof(
     const TokenWithOverrideError& template_token,
     std::optional<TokenWithOverrideError>& lookahead) const {
   lookahead = template_token;
   lookahead->token.kind = Token::YYEOF;
 }
 
-void DisambiguatorLexer::PushBisonParserMode(BisonParserMode mode) {
+void LookaheadTransformer::PushBisonParserMode(BisonParserMode mode) {
   restore_modes_.push(mode_);
   mode_ = mode;
 }
 
-void DisambiguatorLexer::PopBisonParserMode() {
+void LookaheadTransformer::PopBisonParserMode() {
   ABSL_DCHECK(!restore_modes_.empty());
   mode_ = restore_modes_.top();
   restore_modes_.pop();
 }
 
-bool DisambiguatorLexer::Lookahead1IsRealEndOfInput() const {
+bool LookaheadTransformer::Lookahead1IsRealEndOfInput() const {
   if (lookahead_1_->token.kind != Token::YYEOF) {
     return false;
   }
@@ -1095,18 +1107,18 @@ bool DisambiguatorLexer::Lookahead1IsRealEndOfInput() const {
   return true;
 }
 
-absl::Status DisambiguatorLexer::OverrideCurrentTokenLookback(
+absl::Status LookaheadTransformer::OverrideCurrentTokenLookback(
     TokenKind new_token_kind) {
   ZETASQL_RET_CHECK(current_token_.has_value());
   current_token_->lookback_override = new_token_kind;
   return absl::OkStatus();
 }
 
-void DisambiguatorLexer::PushState(StateType state) {
+void LookaheadTransformer::PushState(StateType state) {
   state_stack_.push(state);
 }
 
-bool DisambiguatorLexer::PopStateIfMatch(StateType target_state) {
+bool LookaheadTransformer::PopStateIfMatch(StateType target_state) {
   if (state_stack_.empty() || state_stack_.top() != target_state) {
     return false;
   }
@@ -1114,12 +1126,12 @@ bool DisambiguatorLexer::PopStateIfMatch(StateType target_state) {
   return true;
 }
 
-bool DisambiguatorLexer::IsInTemplatedTypeState() const {
+bool LookaheadTransformer::IsInTemplatedTypeState() const {
   return !state_stack_.empty() && state_stack_.top() == kInTemplatedType;
 }
 
 TokenKind
-DisambiguatorLexer::EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable() {
+LookaheadTransformer::EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable() {
   ABSL_DCHECK(current_token_.has_value());
   TokenKind token = current_token_->token.kind;
   if (token != Token::INTEGER_LITERAL &&

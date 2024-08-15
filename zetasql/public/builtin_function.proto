@@ -40,7 +40,7 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls    (NextId: 310)
-  // 1000-1099 String functions               (NextId: 1083)
+  // 1000-1099 String functions               (NextId: 1084)
   // 1100-1199 Control flow functions         (NextId: 1108)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
@@ -54,8 +54,8 @@ enum FunctionSignatureId {
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric, more math & distances (NextId: 2388)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2661)
-  // 2700-2799 Aggregate functions II         (NextId: 2773)
+  // 2600-2699 More misc functions.           (NextId: 2675)
+  // 2700-2799 Aggregate functions II         (NextId: 2780)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2921)
   // 3000-3100 Map functions                  (NextId: 3001)
@@ -322,6 +322,8 @@ enum FunctionSignatureId {
       1079;  // regex_instr(string, string[, int64[, int64[, int64]]])
   FN_REGEXP_INSTR_BYTES =
       1080;  // regex_instr(bytes, bytes[, int64[, int64[, int64]]])
+  FN_SPLIT_SUBSTR =
+      1083;  // split_substr(string, string, int64[, int64]) -> string
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -1529,6 +1531,10 @@ enum FunctionSignatureId {
   FN_MAP_VALUES_SORTED = 3009;       // map_values_sorted(map<K, V>) -> array<V>
   FN_MAP_VALUES_UNSORTED = 3010;     // map_values_unsorted(map<K, V>)
                                      // -> array<V>
-  // map_values_sorted_by_key(map<K, V>) -> array<V>
-  FN_MAP_VALUES_SORTED_BY_KEY = 3011;
+  FN_MAP_VALUES_SORTED_BY_KEY = 3011;  // map_values_sorted_by_key(map<K, V>)
+                                       // -> array<V>
+  FN_MAP_EMPTY = 3012;                 // map_empty(map<K, V>) -> bool
+  FN_MAP_INSERT = 3013;  // map_insert(map<K, V>, K, V[, K, V, ...]) -> bool
+  // map_insert_or_replace(map<K, V>, K, V[, K, V, ...]) -> bool
+  FN_MAP_INSERT_OR_REPLACE = 3014;
 }

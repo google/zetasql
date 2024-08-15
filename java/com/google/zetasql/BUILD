@@ -63,6 +63,7 @@ BUILTIN_PROTO_DEPS = [
     "//zetasql/public/functions:normalize_mode_java_proto",
     "//zetasql/public/functions:range_sessionize_mode_java_proto",
     "//zetasql/public/functions:rounding_mode_java_proto",
+    "//zetasql/public/functions:unsupported_fields_java_proto",
     "//zetasql/public:function_java_proto",
     "//zetasql/public:type_proto_java_proto",
     "//zetasql/public:value_java_proto",

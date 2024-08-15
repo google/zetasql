@@ -39,6 +39,7 @@
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"

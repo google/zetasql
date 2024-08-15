@@ -458,7 +458,8 @@ static absl::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
                                      EvaluationContext* context,
                                      absl::Span<const Value> args = {}) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> accumulator,
-                   agg.CreateAccumulator(args, /*collator_list=*/{}, context));
+                   agg.CreateAccumulator(args, /*params=*/{},
+                                         /*collator_list=*/{}, context));
   bool stop_accumulation;
   absl::Status status;
   for (const Value& value : values) {
@@ -754,7 +755,7 @@ TEST(CreateIteratorTest, AggregateAll) {
   ASSERT_EQ(data.size(), 1);
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(), "<c1:4,c2:2,c3:4>");
   // Check for the extra slot.
-  EXPECT_EQ(data[0].num_slots(), 7);
+  EXPECT_EQ(data[0].num_slots(), 4);
 
   // Do it again with cancellation before reading the only output tuple.
   context.ClearDeadlineAndCancellationState();
@@ -779,7 +780,7 @@ TEST(CreateIteratorTest, AggregateAll) {
   ASSERT_EQ(data.size(), 1);
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(), "<c1:4,c2:2,c3:4>");
   // Check for the extra slot.
-  EXPECT_EQ(data[0].num_slots(), 7);
+  EXPECT_EQ(data[0].num_slots(), 4);
 
   // Check that if the memory bound is too low, we get an error.
   EvaluationContext memory_context(GetIntermediateMemoryEvaluationOptions(
@@ -1060,8 +1061,8 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
             "j:[NULL, 10],"
             "l:[\"c\", \"b\", \"a\", NULL]>");
   // Check for the extra slot.
-  EXPECT_EQ(data[0].num_slots(), 18);
-  EXPECT_EQ(data[1].num_slots(), 18);
+  EXPECT_EQ(data[0].num_slots(), 10);
+  EXPECT_EQ(data[1].num_slots(), 10);
 
   // Do it again with cancellation.
   context.ClearDeadlineAndCancellationState();
@@ -1085,8 +1086,8 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   ASSERT_EQ(data.size(), 2);
-  EXPECT_EQ(data[0].num_slots(), 18);
-  EXPECT_EQ(data[1].num_slots(), 18);
+  EXPECT_EQ(data[0].num_slots(), 10);
+  EXPECT_EQ(data[1].num_slots(), 10);
 
   // Check that if the memory bound is too low, we get an error.
   EvaluationContext memory_context(GetIntermediateMemoryEvaluationOptions(
@@ -1344,8 +1345,8 @@ TEST(CreateIteratorTest, AggregateLimit) {
             "h:[\"c\", \"b\"],"
             "i:[\"c\", \"b\", \"a\", NULL]>");
   // Check for the extra slot.
-  EXPECT_EQ(data[0].num_slots(), 14);
-  EXPECT_EQ(data[1].num_slots(), 14);
+  EXPECT_EQ(data[0].num_slots(), 8);
+  EXPECT_EQ(data[1].num_slots(), 8);
 
   // Do it again with cancellation.
   context.ClearDeadlineAndCancellationState();
@@ -1369,8 +1370,8 @@ TEST(CreateIteratorTest, AggregateLimit) {
   EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   ASSERT_EQ(data.size(), 2);
-  EXPECT_EQ(data[0].num_slots(), 14);
-  EXPECT_EQ(data[1].num_slots(), 14);
+  EXPECT_EQ(data[0].num_slots(), 8);
+  EXPECT_EQ(data[1].num_slots(), 8);
 
   // Check that if the memory bound is too low, we get an error.
   EvaluationContext memory_context(GetIntermediateMemoryEvaluationOptions(
@@ -1473,8 +1474,8 @@ TEST(CreateIteratorTest, AggregateHaving) {
   EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(),
             "<k:1,d:[\"c\", \"b\"],e:[\"n\"]>");
   // Check for the extra slot.
-  EXPECT_EQ(data[0].num_slots(), 6);
-  EXPECT_EQ(data[1].num_slots(), 6);
+  EXPECT_EQ(data[0].num_slots(), 4);
+  EXPECT_EQ(data[1].num_slots(), 4);
 
   // Do it again with cancellation.
   context.ClearDeadlineAndCancellationState();
@@ -1498,8 +1499,8 @@ TEST(CreateIteratorTest, AggregateHaving) {
   EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   ASSERT_EQ(data.size(), 2);
-  EXPECT_EQ(data[0].num_slots(), 6);
-  EXPECT_EQ(data[1].num_slots(), 6);
+  EXPECT_EQ(data[0].num_slots(), 4);
+  EXPECT_EQ(data[1].num_slots(), 4);
 
   // Check that if the memory bound is too low, we get an error.
   EvaluationContext memory_context(GetIntermediateMemoryEvaluationOptions(

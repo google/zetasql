@@ -29,6 +29,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
@@ -575,7 +576,9 @@ class ScriptExecutorOptions {
     parsed_script_options_ = std::move(options);
   }
 
-  ErrorMessageMode error_message_mode() const { return error_message_mode_; }
+  ErrorMessageOptions error_message_options() const {
+    return error_message_options_;
+  }
 
   const MemoryLimitOptions& variable_size_limit_options() const {
     return variable_size_limit_options_;
@@ -598,7 +601,7 @@ class ScriptExecutorOptions {
   SystemVariablesMap engine_owned_system_variables_;
   ParsedScript::QueryParameters query_parameters_;
   ParsedScriptOptions parsed_script_options_;
-  ErrorMessageMode error_message_mode_ = ERROR_MESSAGE_ONE_LINE;
+  ErrorMessageOptions error_message_options_{.mode = ERROR_MESSAGE_ONE_LINE};
 
   MemoryLimitOptions variable_size_limit_options_ =
       MemoryLimitOptions::Unlimited();

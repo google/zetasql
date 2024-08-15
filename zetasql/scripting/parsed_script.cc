@@ -43,6 +43,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
@@ -248,7 +249,7 @@ class ValidateVariableDeclarationsVisitor
         ConvertInternalErrorLocationToExternal(
             MakeSqlErrorAtPoint(source_location) << source_message,
             script_text),
-        parsed_script_->error_message_mode(), script_text);
+        parsed_script_->error_message_options().mode, script_text);
     return MakeSqlError().AttachPayload(location) << error_message;
   }
 
@@ -260,7 +261,7 @@ class ValidateVariableDeclarationsVisitor
         MakeInternalErrorLocation(node),
         ConvertInternalErrorLocationToExternal(MakeSqlError() << source_message,
                                                script_text),
-        parsed_script_->error_message_mode(), script_text);
+        parsed_script_->error_message_options().mode, script_text);
     return MakeSqlError().AttachPayload(location) << error_message;
   }
 
@@ -296,10 +297,16 @@ class ValidateVariableDeclarationsVisitor
 
   bool IsAllowedBeforeDeclare(const ASTStatement* node) {
     const auto* assignment = node->GetAsOrNull<ASTSystemVariableAssignment>();
-    return assignment != nullptr &&
-           absl::c_linear_search(
+    if (assignment == nullptr) {
+      return false;
+    }
+    const std::string identifier =
+        assignment->system_variable()->path()->ToIdentifierPathString();
+    return absl::c_find_if(
                options_.system_variables_allowed_before_declare,
-               assignment->system_variable()->path()->ToIdentifierPathString());
+               [&](absl::string_view system_variable) {
+                 return zetasql_base::CaseEqual(system_variable, identifier);
+               }) != options_.system_variables_allowed_before_declare.end();
   }
 
   // Associates each active variable with the location of its declaration.
@@ -461,67 +468,63 @@ absl::Status ParsedScript::GatherInformationAndRunChecksInternal(
 absl::Status ParsedScript::GatherInformationAndRunChecks(
     const ParsedScriptOptions& options) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      ErrorMessageOptions{
-          .mode = error_message_mode(),
-          .attach_error_location_payload =
-              (error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD),
-          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
-      script_text(), GatherInformationAndRunChecksInternal(options));
+      error_message_options_, script_text(),
+      GatherInformationAndRunChecksInternal(options));
 }
 
 ParsedScript::ParsedScript(absl::string_view script_string,
                            const ASTScript* ast_script,
                            std::unique_ptr<ParserOutput> parser_output,
-                           ErrorMessageMode error_message_mode,
+                           ErrorMessageOptions error_message_options,
                            ArgumentTypeMap routine_arguments, bool is_procedure)
     : parser_output_(std::move(parser_output)),
       ast_script_(ast_script),
       script_string_(script_string),
-      error_message_mode_(error_message_mode),
+      error_message_options_(error_message_options),
       routine_arguments_(std::move(routine_arguments)),
       is_procedure_(is_procedure) {}
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateInternal(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    bool is_procedure, const ParsedScriptOptions& options) {
+    ErrorMessageOptions error_message_options,
+    ArgumentTypeMap routine_arguments, bool is_procedure,
+    const ParsedScriptOptions& options) {
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options, error_message_mode,
-                              /*keep_error_location_payload=*/
-                              error_message_mode == ERROR_MESSAGE_WITH_PAYLOAD,
-                              &parser_output));
+  ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options,
+                              error_message_options, &parser_output));
   const ASTScript* ast_script = parser_output->script();
   std::unique_ptr<ParsedScript> parsed_script =
       absl::WrapUnique(new ParsedScript(
           script_string, ast_script, std::move(parser_output),
-          error_message_mode, std::move(routine_arguments), is_procedure));
+          error_message_options, std::move(routine_arguments), is_procedure));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode, const ParsedScriptOptions& options) {
-  return CreateInternal(script_string, parser_options, error_message_mode, {},
-                        false, options);
+    ErrorMessageOptions error_message_options,
+    const ParsedScriptOptions& options) {
+  return CreateInternal(script_string, parser_options, error_message_options,
+                        {}, false, options);
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    const ParsedScriptOptions& options) {
-  return CreateInternal(script_string, parser_options, error_message_mode,
+    ErrorMessageOptions error_message_options,
+    ArgumentTypeMap routine_arguments, const ParsedScriptOptions& options) {
+  return CreateInternal(script_string, parser_options, error_message_options,
                         std::move(routine_arguments),
                         /*is_procedure=*/true, options);
 }
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ASTScript* ast_script,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
-    const ParsedScriptOptions& options) {
+    ErrorMessageOptions error_message_options,
+    ArgumentTypeMap routine_arguments, const ParsedScriptOptions& options) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
-                       error_message_mode, std::move(routine_arguments),
+                       error_message_options, std::move(routine_arguments),
                        /*is_procedure=*/true));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
@@ -529,10 +532,11 @@ absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
 
 absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ASTScript* ast_script,
-    ErrorMessageMode error_message_mode, const ParsedScriptOptions& options) {
+    ErrorMessageOptions error_message_options,
+    const ParsedScriptOptions& options) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
-                       error_message_mode, {}, /*is_procedure=*/false));
+                       error_message_options, {}, /*is_procedure=*/false));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks(options));
   return parsed_script;
 }
@@ -615,12 +619,8 @@ ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
 absl::Status ParsedScript::CheckQueryParameters(
     const ParsedScript::QueryParameters& parameters) const {
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      ErrorMessageOptions{
-          .mode = error_message_mode(),
-          .attach_error_location_payload =
-              (error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD),
-          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
-      script_text(), CheckQueryParametersInternal(parameters));
+      error_message_options_, script_text(),
+      CheckQueryParametersInternal(parameters));
 }
 
 absl::Status ParsedScript::CheckQueryParametersInternal(

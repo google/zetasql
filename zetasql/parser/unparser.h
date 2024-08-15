@@ -53,6 +53,20 @@ class Formatter {
     Formatter* formatter_;
   };
 
+  // This prints a newline and the pipe symbol, and then indents.
+  // It's used as a scoped object inside each pipe operator unparse method.
+  class PipeAndIndent {
+   public:
+    explicit PipeAndIndent(Formatter* formatter);
+    ~PipeAndIndent();
+
+    PipeAndIndent(const PipeAndIndent&) = delete;
+    PipeAndIndent& operator=(const PipeAndIndent&) = delete;
+
+   private:
+    Formatter* formatter_;
+  };
+
   explicit Formatter(std::string* unparsed) : unparsed_(unparsed) {}
   Formatter(const Formatter&) = delete;
   Formatter& operator=(const Formatter&) = delete;
@@ -168,6 +182,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTTVFSchema(const ASTTVFSchema* node, void* data) override;
   void visitASTTVFSchemaColumn(const ASTTVFSchemaColumn* node,
                                void* data) override;
+  void visitASTCreateConnectionStatement(
+      const ASTCreateConnectionStatement* node, void* data) override;
+  void visitASTAlterConnectionStatement(const ASTAlterConnectionStatement* node,
+                                        void* data) override;
   void visitASTCreateConstantStatement(const ASTCreateConstantStatement* node,
                                        void* data) override;
   void visitASTCreateDatabaseStatement(const ASTCreateDatabaseStatement* node,
@@ -294,6 +312,44 @@ class Unparser : public ParseTreeVisitor {
                                void* data) override;
   void visitASTWithClause(const ASTWithClause* node, void* data) override;
   void visitASTQuery(const ASTQuery* node, void* data) override;
+  void visitASTAliasedQueryExpression(const ASTAliasedQueryExpression* node,
+                                      void* data) override;
+  void visitASTFromQuery(const ASTFromQuery* node, void* data) override;
+  void visitASTPipeWhere(const ASTPipeWhere* node, void* data) override;
+  void visitASTPipeSelect(const ASTPipeSelect* node, void* data) override;
+  void visitASTPipeLimitOffset(const ASTPipeLimitOffset* node,
+                               void* data) override;
+  void visitASTPipeOrderBy(const ASTPipeOrderBy* node, void* data) override;
+  void visitASTPipeExtend(const ASTPipeExtend* node, void* data) override;
+  void visitASTPipeRenameItem(const ASTPipeRenameItem* node,
+                              void* data) override;
+  void visitASTPipeRename(const ASTPipeRename* node, void* data) override;
+  void visitASTPipeAggregate(const ASTPipeAggregate* node, void* data) override;
+  void visitASTPipeSetOperation(const ASTPipeSetOperation* node,
+                                void* data) override;
+  void visitASTPipeJoin(const ASTPipeJoin* node, void* data) override;
+  void visitASTPipeJoinLhsPlaceholder(const ASTPipeJoinLhsPlaceholder* node,
+                                      void* data) override;
+  void visitASTPipeCall(const ASTPipeCall* node, void* data) override;
+  void visitASTPipeWindow(const ASTPipeWindow* node, void* data) override;
+  void visitASTPipeDistinct(const ASTPipeDistinct* node, void* data) override;
+  void visitASTPipeTablesample(const ASTPipeTablesample* node,
+                               void* data) override;
+  void visitASTPipeAs(const ASTPipeAs* node, void* data) override;
+  void visitASTPipeStaticDescribe(const ASTPipeStaticDescribe* node,
+                                  void* data) override;
+  void visitASTPipeAssert(const ASTPipeAssert* node, void* data) override;
+  void visitASTPipeDrop(const ASTPipeDrop* node, void* data) override;
+  void visitASTPipeSetItem(const ASTPipeSetItem* node, void* data) override;
+  void visitASTPipeSet(const ASTPipeSet* node, void* data) override;
+  void visitASTPipePivot(const ASTPipePivot* node, void* data) override;
+  void visitASTPipeUnpivot(const ASTPipeUnpivot* node, void* data) override;
+  void visitASTMatchRecognizeClause(const ASTMatchRecognizeClause* node,
+                                    void* data) override;
+  void visitASTRowPatternVariable(const ASTRowPatternVariable* node,
+                                  void* data) override;
+  void visitASTRowPatternOperation(const ASTRowPatternOperation* node,
+                                   void* data) override;
   void visitASTSetOperation(const ASTSetOperation* node, void* data) override;
   void visitASTSelect(const ASTSelect* node, void* data) override;
   void visitASTSelectAs(const ASTSelectAs* node, void* data) override;
@@ -348,6 +404,8 @@ class Unparser : public ParseTreeVisitor {
                                       void* data) override;
   void visitASTIdentityColumnMinValue(const ASTIdentityColumnMinValue* node,
                                       void* data) override;
+  void visitASTGroupingItemOrder(const ASTGroupingItemOrder* node,
+                                 void* data) override;
   void visitASTGroupingItem(const ASTGroupingItem* node, void* data) override;
   void visitASTGroupingSet(const ASTGroupingSet* node, void* data) override;
   void visitASTGroupingSetList(const ASTGroupingSetList* node,

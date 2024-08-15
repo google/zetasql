@@ -1,0 +1,252 @@
+# This file has tests for GROUP BY with aliases in pipe AGGREGATE.
+# After the tests with pipe syntax, it has tests for GROUP BY with aliases in
+# regular syntax, with FEATURE_PIPES turned on and off.
+
+[default language_features=PIPES]
+# GROUP BY supports aliases with AS.
+select 1
+|> AGGREGATE count(*) as x, count(*) z
+   GROUP BY x AS y, z, 1 AS one, x+y AS xy
+--
+QueryStatement [37-127] [select 1 |...x+y AS xy]
+  Query [37-127] [select 1 |...x+y AS xy]
+    Select [37-45] [select 1]
+      SelectList [44-45] [1]
+        SelectColumn [44-45] [1]
+          IntLiteral(1) [44-45] [1]
+    PipeAggregate [46-127] [|> AGGREGATE...x+y AS xy]
+      Select [49-127] [AGGREGATE...x+y AS xy]
+        SelectList [59-84] [count(*) as x, count(*) z]
+          SelectColumn [59-72] [count(*) as x]
+            FunctionCall [59-67] [count(*)]
+              PathExpression [59-64] [count]
+                Identifier(count) [59-64] [count]
+              Star(*) [65-66] [*]
+            Alias [68-72] [as x]
+              Identifier(x) [71-72] [x]
+          SelectColumn [74-84] [count(*) z]
+            FunctionCall [74-82] [count(*)]
+              PathExpression [74-79] [count]
+                Identifier(count) [74-79] [count]
+              Star(*) [80-81] [*]
+            Alias [83-84] [z]
+              Identifier(z) [83-84] [z]
+        GroupBy [88-127] [GROUP BY x...x+y AS xy]
+          GroupingItem [97-103] [x AS y]
+            PathExpression [97-98] [x]
+              Identifier(x) [97-98] [x]
+            Alias [99-103] [AS y]
+              Identifier(y) [102-103] [y]
+          GroupingItem [105-106] [z]
+            PathExpression [105-106] [z]
+              Identifier(z) [105-106] [z]
+          GroupingItem [108-116] [1 AS one]
+            IntLiteral(1) [108-109] [1]
+            Alias [110-116] [AS one]
+              Identifier(one) [113-116] [one]
+          GroupingItem [118-127] [x+y AS xy]
+            BinaryExpression(+) [118-121] [x+y]
+              PathExpression [118-119] [x]
+                Identifier(x) [118-119] [x]
+              PathExpression [120-121] [y]
+                Identifier(y) [120-121] [y]
+            Alias [122-127] [AS xy]
+              Identifier(xy) [125-127] [xy]
+--
+SELECT
+  1
+|> AGGREGATE
+     count(*) AS x,
+     count(*) AS z
+   GROUP BY x AS y, z, 1 AS one, x + y AS xy
+==
+
+# GROUP BY aliases without AS.
+select 1
+|> AGGREGATE count(*) as x, count(*) z
+   GROUP BY x y, x+y xy
+--
+ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:15]
+   GROUP BY x y, x+y xy
+              ^
+==
+
+# GROUP BY doesn't support aliases without AS
+select 1
+|> AGGREGATE count(*)
+   GROUP BY x y
+--
+ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:15]
+   GROUP BY x y
+              ^
+==
+
+# GROUPING_SETS, etc, don't support aliases.
+select 1
+|> AGGREGATE count(*) GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(x,y) AS z
+--
+ALTERNATION GROUP: ROLLUP
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 2:44]
+|> AGGREGATE count(*) GROUP BY ROLLUP(x,y) AS z
+                                           ^
+--
+ALTERNATION GROUP: CUBE
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 2:42]
+|> AGGREGATE count(*) GROUP BY CUBE(x,y) AS z
+                                         ^
+--
+ALTERNATION GROUP: GROUPING SETS
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 2:51]
+|> AGGREGATE count(*) GROUP BY GROUPING SETS(x,y) AS z
+                                                  ^
+==
+
+# GROUP BY () doesn't support aliases.
+select 1
+|> AGGREGATE count(*) GROUP BY () AS z
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 2:35]
+|> AGGREGATE count(*) GROUP BY () AS z
+                                  ^
+==
+
+# Aliases inside ROLLUP not allowed.
+select 1
+|> AGGREGATE count(*) GROUP BY ROLLUP(x, x+1 AS y)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 2:46]
+|> AGGREGATE count(*) GROUP BY ROLLUP(x, x+1 AS y)
+                                             ^
+==
+
+# Aliases inside GROUPING SETS not allowed.
+select 1
+|> AGGREGATE count(*)
+   GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:34]
+   GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+                                 ^
+==
+
+# Now we replicate the same tests as above, in regular SQL syntax,
+# with FEATURE_PIPES turned on or off.  With the feature off, these are
+# rejected immediately in the grammar production.  With the feature on,
+# one case makes it through the parse, but will be rejected during analysis.
+# These tests are also in aggregation.test, without referencing FEATURE_PIPES.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY x AS y
+--
+ALTERNATION GROUP: PIPES
+--
+QueryStatement [0-38] [select COUNT...BY x AS y]
+  Query [0-38] [select COUNT...BY x AS y]
+    Select [0-38] [select COUNT...BY x AS y]
+      SelectList [7-15] [COUNT(*)]
+        SelectColumn [7-15] [COUNT(*)]
+          FunctionCall [7-15] [COUNT(*)]
+            PathExpression [7-12] [COUNT]
+              Identifier(COUNT) [7-12] [COUNT]
+            Star(*) [13-14] [*]
+      FromClause [16-22] [from t]
+        TablePathExpression [21-22] [t]
+          PathExpression [21-22] [t]
+            Identifier(t) [21-22] [t]
+      GroupBy [23-38] [GROUP BY x AS y]
+        GroupingItem [32-38] [x AS y]
+          PathExpression [32-33] [x]
+            Identifier(x) [32-33] [x]
+          Alias [34-38] [AS y]
+            Identifier(y) [37-38] [y]
+--
+SELECT
+  COUNT(*)
+FROM
+  t
+GROUP BY x AS y
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: GROUP BY does not support aliases [at 3:12]
+GROUP BY x AS y
+           ^
+==
+
+# GROUP BY aliases without AS.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY x y
+--
+ERROR: Syntax error: Expected end of input but got identifier "y" [at 3:12]
+GROUP BY x y
+           ^
+==
+
+# GROUPING_SETS, etc, don't support aliases.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY {{ROLLUP|CUBE|GROUPING SETS}}(x,y) AS z
+--
+ALTERNATION GROUPS:
+    PIPES,ROLLUP
+    ROLLUP
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:22]
+GROUP BY ROLLUP(x,y) AS z
+                     ^
+--
+ALTERNATION GROUPS:
+    PIPES,CUBE
+    CUBE
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:20]
+GROUP BY CUBE(x,y) AS z
+                   ^
+--
+ALTERNATION GROUPS:
+    PIPES,GROUPING SETS
+    GROUPING SETS
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:29]
+GROUP BY GROUPING SETS(x,y) AS z
+                            ^
+==
+
+# GROUP BY () doesn't support aliases.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY () AS z
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:13]
+GROUP BY () AS z
+            ^
+==
+
+# Aliases inside ROLLUP not allowed.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY ROLLUP(x, x+1 AS y)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:24]
+GROUP BY ROLLUP(x, x+1 AS y)
+                       ^
+==
+
+# Aliases inside GROUPING SETS not allowed.
+[language_features={{PIPES|}}]
+select COUNT(*)
+from t
+GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 3:31]
+GROUP BY GROUPING SETS(x, x+1 AS y, ROLLUP(x AS y), CUBE(z AS zz))
+                              ^

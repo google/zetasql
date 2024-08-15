@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION]
+[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION,V_1_1_ORDER_BY_IN_AGGREGATE]
 [default no_java]
 
 SELECT {{*|a|b}} FROM NullarySelect();
@@ -297,6 +297,7 @@ QueryStmt
         |         |           |       +-Literal(type=INT64, value=1)
         |         |           +-order_by_item_list=
         |         |             +-OrderByItem
+        |         |               +-parse_location=231-234
         |         |               +-column_ref=
         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
         |         +-input_scan=
@@ -3837,3 +3838,135 @@ QueryStmt
                 |     +-ColumnRef(type=INT64, column=arg_table.value#7)
                 +-has_using=TRUE
 
+==
+
+# Skip unparser because of b/224585752
+[no_run_unparser]
+# Make sure order by in aggregate is not mangled by ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
+SELECT * FROM UnaryTableArgAggregatedWithOrderBy((SELECT a FROM abTable));
+--
+QueryStmt
++-output_column_list=
+| +-UnaryTableArgAggregatedWithOrderBy.arr#3 AS arr [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+        +-tvf=UnaryTableArgAggregatedWithOrderBy((TABLE<a INT64> arg0) -> TABLE<arr ARRAY<INT64>>)
+        +-signature=(TABLE<a INT64>) -> TABLE<arr ARRAY<INT64>>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[abTable.a#1]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=[abTable.a#1], table=abTable, column_index_list=[0])
+        |   +-argument_column_list=[abTable.a#1]
+        +-column_index_list=[0]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryTableArgAggregatedWithOrderBy.arr#3 AS arr [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[abTable.a#1]
+        |       +-input_scan=
+        |         +-TableScan(column_list=[abTable.a#1], table=abTable, column_index_list=[0])
+        +-query=
+          +-WithScan
+            +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=[$aggregate.arr#4]
+            |       +-input_scan=
+            |         +-ProjectScan
+            |           +-column_list=[$aggregate.arr#4]
+            |           +-expr_list=
+            |           | +-arr#4 :=
+            |           |   +-SubqueryExpr
+            |           |     +-type=ARRAY<INT64>
+            |           |     +-subquery_type=SCALAR
+            |           |     +-parameter_list=
+            |           |     | +-ColumnRef(type=ARRAY<STRUCT<a_0 INT64>>, column=$agg_rewriter.$array#7)
+            |           |     +-subquery=
+            |           |       +-ProjectScan
+            |           |         +-column_list=[$with_expr.injected#10]
+            |           |         +-expr_list=
+            |           |         | +-injected#10 :=
+            |           |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+            |           |         |     +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
+            |           |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+            |           |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=null_if_empty_array.$out#9)
+            |           |         |     | +-Literal(type=INT64, value=1)
+            |           |         |     +-ColumnRef(type=ARRAY<INT64>, column=null_if_empty_array.$out#9)
+            |           |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+            |           |         +-input_scan=
+            |           |           +-ProjectScan
+            |           |             +-column_list=[null_if_empty_array.$out#9]
+            |           |             +-expr_list=
+            |           |             | +-$out#9 :=
+            |           |             |   +-SubqueryExpr
+            |           |             |     +-type=ARRAY<INT64>
+            |           |             |     +-subquery_type=ARRAY
+            |           |             |     +-parameter_list=
+            |           |             |     | +-ColumnRef(type=ARRAY<STRUCT<a_0 INT64>>, column=$agg_rewriter.$array#7, is_correlated=TRUE)
+            |           |             |     +-subquery=
+            |           |             |       +-OrderByScan
+            |           |             |         +-column_list=[$agg_rewriter.a#6]
+            |           |             |         +-is_ordered=TRUE
+            |           |             |         +-input_scan=
+            |           |             |         | +-ProjectScan
+            |           |             |         |   +-column_list=[$agg_rewriter.a#6]
+            |           |             |         |   +-expr_list=
+            |           |             |         |   | +-a#6 :=
+            |           |             |         |   |   +-GetStructField
+            |           |             |         |   |     +-type=INT64
+            |           |             |         |   |     +-expr=
+            |           |             |         |   |     | +-ColumnRef(type=STRUCT<a_0 INT64>, column=$agg_rewriter.$struct#8)
+            |           |             |         |   |     +-field_idx=0
+            |           |             |         |   +-input_scan=
+            |           |             |         |     +-ArrayScan
+            |           |             |         |       +-column_list=[$agg_rewriter.$struct#8]
+            |           |             |         |       +-array_expr_list=
+            |           |             |         |       | +-ColumnRef(type=ARRAY<STRUCT<a_0 INT64>>, column=$agg_rewriter.$array#7, is_correlated=TRUE)
+            |           |             |         |       +-element_column_list=[$agg_rewriter.$struct#8]
+            |           |             |         +-order_by_item_list=
+            |           |             |           +-OrderByItem
+            |           |             |             +-parse_location=155-156
+            |           |             |             +-column_ref=
+            |           |             |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#6)
+            |           |             +-input_scan=
+            |           |               +-SingleRowScan
+            |           +-input_scan=
+            |             +-AggregateScan
+            |               +-column_list=[$agg_rewriter.$array#7]
+            |               +-input_scan=
+            |               | +-WithRefScan(column_list=[arg0.a#5], with_query_name="arg0")
+            |               +-aggregate_list=
+            |                 +-$array#7 :=
+            |                   +-AggregateFunctionCall(ZetaSQL:array_agg(STRUCT<a_0 INT64>) -> ARRAY<STRUCT<a_0 INT64>>)
+            |                     +-MakeStruct
+            |                       +-type=STRUCT<a_0 INT64>
+            |                       +-field_list=
+            |                         +-ColumnRef(type=INT64, column=arg0.a#5)
+            +-query=
+              +-ProjectScan
+                +-column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3]
+                +-input_scan=
+                  +-WithRefScan(column_list=[UnaryTableArgAggregatedWithOrderBy.arr#3], with_query_name="t")

@@ -257,7 +257,8 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
   if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
       !Equivalent(types::DatePartEnumType()) &&
       !Equivalent(types::NormalizeModeEnumType()) &&
-      !Equivalent(types::RoundingModeEnumType())) {
+      !Equivalent(types::RoundingModeEnumType()) &&
+      !Equivalent(types::UnsupportedFieldsEnumType())) {
     return false;
   }
 

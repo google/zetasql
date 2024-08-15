@@ -496,11 +496,17 @@ public final class TVFSignature implements Serializable {
       if (type.getKind() == TypeKind.TYPE_UNKNOWN && (value == null || value.isNull())) {
         return Category.UNTYPED_NULL;
       }
-      if (type.isArray()) {
-        if (value == null || value.isNull()) {
+      if (type.isArray() && value != null) {
+        if (value.isNull()) {
           return Category.UNTYPED_EMPTY_ARRAY;
         }
         return Category.TYPED_LITERAL;
+      }
+      // When value is null (Java null, NOT value with isNull=true),
+      // ValueWithType is used to carry the type information.
+      // This is used in cases like: TVFArgumentType.
+      if (!type.getKind().equals(TypeKind.TYPE_UNKNOWN) && value == null) {
+        return Category.TYPED_EXPRESSION;
       }
       return Category.UNTYPED_NULL;
     }

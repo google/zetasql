@@ -1338,6 +1338,7 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
+    |         |               +-parse_location=221-224
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
@@ -1436,6 +1437,7 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
+    |         |               +-parse_location=221-224
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
@@ -1535,6 +1537,7 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
+    |         |               +-parse_location=221-224
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
@@ -1617,3 +1620,81 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ARRAY_FILTER
     Argument 2: lambda requires 2 arguments but 1 is provided [at 1:8]
 SELECT fn_array_filter([1], e -> LENGTH(fn_array_filter([e], e->e > "")) > 0);
        ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+  MAP_FROM_ARRAY([('a', 1)]), e -> 1);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(sample_functions:fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(MAP<STRING, INT64>, FUNCTION<STRING->INT64>) -> BOOL)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+  MAP_FROM_ARRAY([(1, "a")]), e -> 1);
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: MAP<INT64, STRING>, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 1:8]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
+  Argument types: MAP<INT64, STRING>, LAMBDA
+  Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)
+    Argument 2: failed to resolve lambda body, error: Lambda should return type STRING, but returns INT64 [at 1:8]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+       ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+  MAP_FROM_ARRAY([('a', 1)]), e -> CONCAT(e, 'a'));
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: MAP<STRING, INT64>, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 1:8]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
+  Argument types: MAP<STRING, INT64>, LAMBDA
+  Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)
+    Argument 2: failed to resolve lambda body, error: Lambda should return type INT64, but returns STRING [at 1:8]
+SELECT fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(
+       ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
+--
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL for argument types: NULL, LAMBDA. Supported signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP, FUNCTION<ANY->ANY>) [at 2:3]
+  fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL
+  Argument types: NULL, LAMBDA
+  Signature: FN_MAP_TYPE_ANY_1_2_LAMBDA_ANY_1_ANY_2_RETURN_BOOL(MAP<T1, T2>, FUNCTION<T1->T2>)
+    Failed to infer type <T1> [at 2:3]
+  fn_map_type_any_1_2_lambda_any_1_any_2_return_bool(NULL, e -> CONCAT(e, 'a'));
+  ^

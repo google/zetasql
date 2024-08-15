@@ -54,6 +54,7 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedFunctionCallBase;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedMakeProtoField;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOption;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOutputColumn;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStaticDescribeScan;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedSystemVariable;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrame;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrameExpr;
@@ -466,6 +467,20 @@ class DebugStrings {
 
     fields.add(new DebugStringField("", String.join(".", pathParts)));
     fields.add(new DebugStringField("type", node.getType().toString()));
+  }
+
+  static void collectDebugStringFields(
+      ResolvedStaticDescribeScan node, List<DebugStringField> fields) {
+    if (!node.getDescribeText().isEmpty()) {
+      fields.add(new DebugStringField("describe_text", node.getDescribeText()));
+    }
+    if (node.getInputScan() != null) {
+      fields.add(new DebugStringField("input_scan", node.getInputScan()));
+    }
+  }
+
+  static String getNameForDebugString(ResolvedStaticDescribeScan node) {
+    return node.nodeKindString();
   }
 
   static String getNameForDebugString(ResolvedComputedColumn node) {

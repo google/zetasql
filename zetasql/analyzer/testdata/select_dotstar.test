@@ -1302,6 +1302,7 @@ QueryStmt
                           +-ColumnRef(type=DATE, column=my_table.modified_date#6)
                       +-order_by_item_list=
                       | +-OrderByItem
+                      |   +-parse_location=130-148
                       |   +-column_ref=
                       |   | +-ColumnRef(type=DATE, column=my_table.modified_date#6)
                       |   +-is_descending=TRUE
@@ -1751,9 +1752,11 @@ QueryStmt
         |                 +-ColumnRef(type=INT64, column=my_table.key#4)
         +-order_by_item_list=
           +-OrderByItem
+          | +-parse_location=175-176
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$query.k#10)
           +-OrderByItem
+            +-parse_location=178-179
             +-column_ref=
               +-ColumnRef(type=STRING, column=$query.value#11)
 ==
@@ -1842,9 +1845,11 @@ QueryStmt
         |     +-value#13 := ColumnRef(type=STRING, column=$query.value#11)
         +-order_by_item_list=
           +-OrderByItem
+          | +-parse_location=184-185
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.k#12)
           +-OrderByItem
+            +-parse_location=187-188
             +-column_ref=
               +-ColumnRef(type=STRING, column=$distinct.value#13)
 ==
@@ -2565,6 +2570,7 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=62-78
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
 ==
@@ -2649,6 +2655,7 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=123-137
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#8)
 ==
@@ -2775,6 +2782,7 @@ QueryStmt
         |                         +-ColumnRef(type=INT64, column=Perf_Accounts_D.region#15)
         |                     +-order_by_item_list=
         |                       +-OrderByItem
+        |                         +-parse_location=352-362
         |                         +-column_ref=
         |                         | +-ColumnRef(type=INT64, column=Perf_Accounts_D.ratio#16)
         |                         +-is_descending=TRUE
@@ -3141,6 +3149,7 @@ QueryStmt
     |     +-x#4 := ColumnRef(type=INT64, column=$pre_groupby.x#3)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=86-87
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.x#4)
 ==
@@ -3310,9 +3319,11 @@ QueryStmt
     |     +-c#6 := ColumnRef(type=STRING, column=$pre_groupby.c#4)
     +-order_by_item_list=
       +-OrderByItem
+      | +-parse_location=77-78
       | +-column_ref=
       |   +-ColumnRef(type=INT32, column=$groupby.b#5)
       +-OrderByItem
+        +-parse_location=80-81
         +-column_ref=
           +-ColumnRef(type=STRING, column=$groupby.c#6)
 ==

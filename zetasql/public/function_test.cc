@@ -50,6 +50,7 @@
 #include "zetasql/base/check.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/case.h"
 
 // Note - test coverage for the 'Function' class interface is primarily
@@ -390,8 +391,8 @@ class FunctionSerializationTests : public ::testing::Test {
   }
 
   static void ExpectEqualsIgnoringCallbacks(
-      const std::vector<FunctionSignature>& list1,
-      const std::vector<FunctionSignature>& list2) {
+      absl::Span<const FunctionSignature> list1,
+      absl::Span<const FunctionSignature> list2) {
     EXPECT_EQ(list1.size(), list2.size());
     for (int i = 0; i < list1.size(); ++i) {
       ExpectEqualsIgnoringCallbacks(list1[i], list2[i]);

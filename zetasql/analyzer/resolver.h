@@ -89,6 +89,7 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -127,6 +128,7 @@ class Resolver {
 
   enum class OrderBySimpleMode {
     kNormal,
+    kPipes,
   };
 
   struct GeneratedColumnIndexAndResolvedId {
@@ -174,7 +176,7 @@ class Resolver {
   //     directly and deprecate this one.
   absl::Status ResolveExprWithFunctionArguments(
       absl::string_view sql, const ASTExpression* ast_expr,
-      IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>>*
+      const IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>>&
           function_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* output);
@@ -1138,6 +1140,11 @@ class Resolver {
       const ASTCreateModelStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  // Resolve a CREATE CONNECTION statement.
+  absl::Status ResolveCreateConnectionStatement(
+      const ASTCreateConnectionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   // Resolve a CREATE DATABASE statement.
   absl::Status ResolveCreateDatabaseStatement(
       const ASTCreateDatabaseStatement* ast_statement,
@@ -1475,6 +1482,10 @@ class Resolver {
       const ASTRevokeStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveAlterConnectionStatement(
+      const ASTAlterConnectionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveAlterPrivilegeRestrictionStatement(
       const ASTAlterPrivilegeRestrictionStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
@@ -1660,6 +1671,11 @@ class Resolver {
                             std::shared_ptr<const NameList>* output_name_list,
                             const Type* inferred_type_for_query = nullptr);
 
+  absl::Status ResolveFromQuery(
+      const ASTFromQuery* from_query, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list);
+
   // Resolves a WITH entry.
   // <recursive> is true only when a WITH entry is actually recursive, as
   // opposed to merely belonging to a WITH clause with the RECURSIVE keyword.
@@ -1702,6 +1718,12 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list,
       const Type* inferred_type_for_query = nullptr);
+
+  absl::Status ResolveAliasedQueryExpression(
+      const ASTAliasedQueryExpression* aliased_query, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list,
+      const Type* inferred_type_for_query);
 
   // If the query contains a WITH clause, resolves all WITH entries and returns
   // them. Otherwise, just returns an empty vector.
@@ -2682,6 +2704,8 @@ class Resolver {
   // value nullptr.
   absl::Status ResolveGroupingItemExpression(
       const ASTExpression* ast_group_by_expr,
+      const ASTAlias* ast_alias,
+      const ASTGroupingItemOrder* ast_grouping_item_order,
       const NameScope* from_clause_scope, bool from_grouping_set,
       QueryResolutionInfo* query_resolution_info,
       ResolvedComputedColumnList* column_list = nullptr);
@@ -2781,6 +2805,7 @@ class Resolver {
 
   // Resolves a standalone ORDER BY outside the context of a SELECT.
   // A ResolvedOrderByScan will be added to `scan`.
+  // This is used for ORDER BY after set operations and for pipe ORDER BY.
   absl::Status ResolveOrderBySimple(const ASTOrderBy* order_by,
                                     const NameScope* scope,
                                     const char* clause_name,
@@ -2849,6 +2874,99 @@ class Resolver {
       const ASTHavingModifier* ast_having_modifier,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedAggregateHavingModifier>* resolved_having);
+
+  absl::Status ResolvePipeOperatorList(
+      const ASTQuery* query, const NameScope* outer_scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list,
+      const Type* inferred_type_for_query);
+
+  absl::Status ResolvePipeWhere(
+      const ASTPipeWhere* where, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
+  absl::Status ResolvePipeLimitOffset(
+      const ASTPipeLimitOffset* limit_offset, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
+  absl::Status ResolvePipeTablesample(
+      const ASTPipeTablesample* tablesample, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeSelect(
+      const ASTPipeSelect* select, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list,
+      const Type* inferred_type_for_pipe);
+
+  absl::Status ResolvePipeExtend(
+      const ASTPipeExtend* extend, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeAggregate(
+      const ASTPipeAggregate* aggregate, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeOrderBy(
+      const ASTPipeOrderBy* order_by, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
+  absl::Status ResolvePipeCall(
+      const ASTPipeCall* call, const NameScope* outer_scope,
+      const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeWindow(
+      const ASTPipeWindow* window, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeJoin(
+      const ASTPipeJoin* join, const NameScope* outer_scope,
+      const NameScope* scope, std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeAs(
+      const ASTPipeAs* pipe_as, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeStaticDescribe(
+      const ASTPipeStaticDescribe* pipe_static_describe, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeAssert(
+      const ASTPipeAssert* pipe_assert, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
+  absl::Status ResolvePipeDrop(
+      const ASTPipeDrop* pipe_drop, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeRename(
+      const ASTPipeRename* pipe_rename, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeSet(
+      const ASTPipeSet* pipe_set, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipePivot(
+      const ASTPipePivot* pipe_pivot, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
+
+  absl::Status ResolvePipeUnpivot(
+      const ASTPipeUnpivot* pipe_unpivot, const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* current_scan,
+      std::shared_ptr<const NameList>* current_name_list);
 
   // Add a ProjectScan if necessary to make sure that `scan` produces columns
   // with the desired types.
@@ -3061,9 +3179,9 @@ class Resolver {
   // This returns a new ResolvedTVFScan which contains the name of the function
   // to call and the scalar and table-valued arguments to pass into the call.
   //
-  // Initial arguments can be passed in through `resolved_tvf_args`.  These
-  // will be treated as the leftmost positional arguments, preceding the
-  // arguments in the `ast_tvf`.
+  // An initial `pipe_input_arg` of table type can optionally be passed in and
+  // will be treated as the pipe input for pipe CALL, and will be matched
+  // against the first table argument in the signature.
   //
   // The steps of resolving this function call proceed in the following order:
   //
@@ -3092,7 +3210,7 @@ class Resolver {
   absl::Status ResolveTVF(const ASTTVF* ast_tvf,
                           const NameScope* external_scope,
                           const NameScope* local_scope,
-                          std::vector<ResolvedTVFArg>* resolved_tvf_args,
+                          ResolvedTVFArg* pipe_input_arg,
                           std::unique_ptr<const ResolvedScan>* output,
                           std::shared_ptr<const NameList>* output_name_list);
 
@@ -3242,6 +3360,7 @@ class Resolver {
   absl::Status ResolveOrderByItems(
       const std::vector<ResolvedColumn>& output_column_list,
       const OrderByItemInfoVectorList& order_by_info_lists,
+      bool is_pipe_order_by,
       std::vector<std::unique_ptr<const ResolvedOrderByItem>>*
           resolved_order_by_items);
 
@@ -3252,7 +3371,7 @@ class Resolver {
       const ASTHint* order_by_hint,
       const std::vector<ResolvedColumn>& output_column_list,
       const OrderByItemInfoVectorList& order_by_info_lists,
-      std::unique_ptr<const ResolvedScan>* scan);
+      bool is_pipe_order_by, std::unique_ptr<const ResolvedScan>* scan);
 
   // Make a ResolvedColumnRef for <column>.  Caller owns the returned object.
   // Has side-effect of calling RecordColumnAccess on <column>, so that
@@ -3388,10 +3507,15 @@ class Resolver {
 
   absl::Status ResolveConnection(
       const ASTExpression* path_expr_or_default,
-      std::unique_ptr<const ResolvedConnection>* resolved_connection);
+      std::unique_ptr<const ResolvedConnection>* resolved_connection,
+      bool is_default_connection_allowed = false);
 
   absl::Status ResolveConnectionPath(
       const ASTPathExpression* path_expr,
+      std::unique_ptr<const ResolvedConnection>* resolved_connection);
+
+  absl::Status ResolveDefaultConnection(
+      const ASTDefaultLiteral* default_literal,
       std::unique_ptr<const ResolvedConnection>* resolved_connection);
 
   absl::Status ResolveSequence(
@@ -3666,14 +3790,13 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
-  // Resolve GROUP BY modifiers for aggregate functions. Note that the GROUP
+  // Resolve a GROUP BY modifier for an aggregate function. Note that the GROUP
   // BY modifiers are different from the GROUP BY clause; they occur directly
   // within the body of an aggregate function call (e.g. SUM(AVG(X) GROUP BY Y))
-  absl::Status ResolveAggregateFunctionGroupingModifiers(
-      const ASTFunctionCall* ast_function,
+  absl::Status ResolveAggregateFunctionGroupByModifier(
+      const ASTGroupingItem* group_by_modifier,
       ExprResolutionInfo* expr_resolution_info,
-      std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>*
-          resolved_grouping_modifiers);
+      std::unique_ptr<const ResolvedComputedColumnBase>* resolved_group_by);
 
   // Resolve aggregate function for the first pass. This function also resolves
   // GROUP_ROWS clause if it is present.
@@ -4787,12 +4910,11 @@ class Resolver {
   // it should always be 0 because this method is using the first signature to
   // match input arguments; if it doesn't match, this method return a non-OK
   // status.
-  // `arg_locations` and `resolved_tvf_args` may be non-empty to pass in
-  // initial positional arguments.
+  // <pipe_input_arg> if present is the pipe input argument in pipe CALL.
   absl::StatusOr<int> MatchTVFSignature(
       const ASTTVF* ast_tvf, const TableValuedFunction* tvf_catalog_entry,
       const NameScope* external_scope, const NameScope* local_scope,
-      const FunctionResolver& function_resolver,
+      const FunctionResolver& function_resolver, ResolvedTVFArg* pipe_input_arg,
       std::unique_ptr<FunctionSignature>* result_signature,
       std::vector<const ASTNode*>* arg_locations,
       std::vector<ResolvedTVFArg>* resolved_tvf_args,
@@ -4802,12 +4924,12 @@ class Resolver {
   // Prepares a list of TVF input arguments and a result signature. This
   // includes adding necessary casts and coercions, and wrapping the resolved
   // input arguments with TVFInputArgumentType as appropriate.
-  // `resolved_tvf_args` may be non-empty to pass in initial positional
-  // arguments that will precede the arguments from `ast_tvf`.
+  // <pipe_input_arg> if present is the pipe input argument in pipe CALL.
   absl::Status PrepareTVFInputArguments(
       absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
       const TableValuedFunction* tvf_catalog_entry,
       const NameScope* external_scope, const NameScope* local_scope,
+      ResolvedTVFArg* pipe_input_arg,
       std::unique_ptr<FunctionSignature>* result_signature,
       std::vector<ResolvedTVFArg>* resolved_tvf_args,
       std::vector<TVFInputArgumentType>* tvf_input_arguments);

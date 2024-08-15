@@ -8,6 +8,127 @@ SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
                                      ^
 ==
 
+[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# 2 UNNESTs
+SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$array.k#1 AS k [STRING]
+| +-$array.Value#2 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$array.[k#1, Value#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=$array.[k#1, Value#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.k#1]
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b"])
+        |   +-element_column_list=[$array.k#1]
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#2]
+
+
+DEPRECATION WARNING:
+PIVOT is not allowed with array scans. This will become an error [at 2:63]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
+                                                   ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: PIVOT is not allowed with array scans [at 2:63]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
+                                                   ^
+==
+
+[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# Table with UNNEST
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$array.Value#3 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.Value#3]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.Value#3]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#3]
+
+
+DEPRECATION WARNING:
+PIVOT is not allowed with array scans. This will become an error [at 2:48]
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
+                                               ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: PIVOT is not allowed with array scans [at 2:48]
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN ...
+                                               ^
+==
+
+[language_features=V_1_3_PIVOT{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# Table with 2 UNNESTs
+SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$array.k#3 AS k [STRING]
+| +-$array.Value#4 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3, $array.Value#4]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3, $array.Value#4]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b"])
+        |   +-element_column_list=[$array.k#3]
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#4]
+
+
+DEPRECATION WARNING:
+PIVOT is not allowed with array scans. This will become an error [at 2:73]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
+                                                   ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: PIVOT is not allowed with array scans [at 2:73]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key...
+                                                   ^
+==
+
 [language_features={{|V_1_3_PIVOT,V_1_3_IS_DISTINCT}}]
 [enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
@@ -5108,9 +5229,11 @@ QueryStmt
         |   +-null_handling_modifier=IGNORE_NULLS
         |   +-order_by_item_list=
         |     +-OrderByItem
+        |     | +-parse_location=88-101
         |     | +-column_ref=
         |     |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
         |     +-OrderByItem
+        |       +-parse_location=103-109
         |       +-column_ref=
         |       | +-ColumnRef(type=INT64, column=$subquery1.z#3)
         |       +-is_descending=TRUE
@@ -5801,168 +5924,6 @@ QueryStmt
             | +-Literal(type=INT64, value=2, preserve_in_literal_remover=TRUE)
             +-pivot_column_list=
               +-PivotColumn(column=$pivot._2#11, pivot_expr_index=0, pivot_value_index=0)
-==
-
-# The PIVOT rewriter depends on aggregate functions ignoring nulls, so it
-# disallows PIVOT expressions which use default NULL-handling with functions
-# whose default NULL-handling behavior is unknown.
-# The `DISABLE_PIVOT_REWRITER_UDA_ERRORS` feature disables this check.
-# Reference: b/307599486
-[language_features=V_1_3_PIVOT{{|,DISABLE_PIVOT_REWRITER_UDA_ERRORS}}]
-[enabled_ast_rewrites=DEFAULTS]
-SELECT *
-FROM
-  (SELECT 'x' AS signal, 1 AS num)
-  PIVOT(
-      SumOfAggregateArgs(num) AS uda_result
-      FOR signal IN ('x')
-  );
---
-ALTERNATION GROUP: <empty>
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$pivot.uda_result_x#4 AS uda_result_x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$pivot.uda_result_x#4]
-    +-input_scan=
-      +-PivotScan
-        +-column_list=[$pivot.uda_result_x#4]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=$subquery1.[signal#1, num#2]
-        |   +-expr_list=
-        |   | +-signal#1 := Literal(type=STRING, value="x")
-        |   | +-num#2 := Literal(type=INT64, value=1)
-        |   +-input_scan=
-        |     +-SingleRowScan
-        +-pivot_expr_list=
-        | +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
-        |   +-parse_location=64-101
-        |   +-ColumnRef(type=INT64, column=$subquery1.num#2)
-        +-for_expr=
-        | +-ColumnRef(parse_location=112-118, type=STRING, column=$subquery1.signal#1)
-        +-pivot_value_list=
-        | +-Literal(type=STRING, value="x", preserve_in_literal_remover=TRUE)
-        +-pivot_column_list=
-          +-PivotColumn(column=$pivot.uda_result_x#4, pivot_expr_index=0, pivot_value_index=0)
-
-Rewrite ERROR: generic::unimplemented: Use of aggregate function Lazy_resolution_function:SumOfAggregateArgs as PIVOT expression is not supported [at 5:7]
-      SumOfAggregateArgs(num) AS uda_result
-      ^
-
---
-ALTERNATION GROUP: ,DISABLE_PIVOT_REWRITER_UDA_ERRORS
---
-QueryStmt
-+-output_column_list=
-| +-$pivot.uda_result_x#4 AS uda_result_x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$pivot.uda_result_x#4]
-    +-input_scan=
-      +-PivotScan
-        +-column_list=[$pivot.uda_result_x#4]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=$subquery1.[signal#1, num#2]
-        |   +-expr_list=
-        |   | +-signal#1 := Literal(type=STRING, value="x")
-        |   | +-num#2 := Literal(type=INT64, value=1)
-        |   +-input_scan=
-        |     +-SingleRowScan
-        +-pivot_expr_list=
-        | +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
-        |   +-parse_location=64-101
-        |   +-ColumnRef(type=INT64, column=$subquery1.num#2)
-        +-for_expr=
-        | +-ColumnRef(parse_location=112-118, type=STRING, column=$subquery1.signal#1)
-        +-pivot_value_list=
-        | +-Literal(type=STRING, value="x", preserve_in_literal_remover=TRUE)
-        +-pivot_column_list=
-          +-PivotColumn(column=$pivot.uda_result_x#4, pivot_expr_index=0, pivot_value_index=0)
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$pivot.uda_result_x#4 AS uda_result_x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$pivot.uda_result_x#4]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$pivot.uda_result_x#4]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[$subquery1.signal#1, $subquery1.num#2, $pivot.$pivot_value#5, $pivot.$pivot_expr_arg#6]
-        |   +-expr_list=
-        |   | +-$pivot_value#5 := ColumnRef(parse_location=112-118, type=STRING, column=$subquery1.signal#1)
-        |   | +-$pivot_expr_arg#6 := ColumnRef(type=INT64, column=$subquery1.num#2)
-        |   +-input_scan=
-        |     +-ProjectScan
-        |       +-column_list=$subquery1.[signal#1, num#2]
-        |       +-expr_list=
-        |       | +-signal#1 := Literal(type=STRING, value="x")
-        |       | +-num#2 := Literal(type=INT64, value=1)
-        |       +-input_scan=
-        |         +-SingleRowScan
-        +-aggregate_list=
-          +-uda_result_x#4 :=
-            +-AggregateFunctionCall(Lazy_resolution_function:SumOfAggregateArgs(INT64 agg_arg) -> INT64)
-              +-SubqueryExpr
-                +-type=INT64
-                +-subquery_type=SCALAR
-                +-parameter_list=
-                | +-ColumnRef(type=STRING, column=$pivot.$pivot_value#5)
-                | +-ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#6)
-                +-subquery=
-                  +-ProjectScan
-                    +-column_list=[$expr_subquery.$col1#13]
-                    +-expr_list=
-                    | +-$col1#13 :=
-                    |   +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
-                    |     +-SubqueryExpr
-                    |     | +-type=BOOL
-                    |     | +-subquery_type=EXISTS
-                    |     | +-parameter_list=
-                    |     | | +-ColumnRef(type=STRING, column=$subquery1.pivot_column#8)
-                    |     | | +-ColumnRef(type=STRING, column=$subquery1.pivot_value#9)
-                    |     | +-subquery=
-                    |     |   +-SetOperationScan
-                    |     |     +-column_list=[$intersect_all.pivot_column#12]
-                    |     |     +-op_type=INTERSECT_ALL
-                    |     |     +-input_item_list=
-                    |     |       +-SetOperationItem
-                    |     |       | +-scan=
-                    |     |       | | +-ProjectScan
-                    |     |       | |   +-column_list=[$intersect_all1.pivot_column#10]
-                    |     |       | |   +-expr_list=
-                    |     |       | |   | +-pivot_column#10 := ColumnRef(type=STRING, column=$subquery1.pivot_column#8, is_correlated=TRUE)
-                    |     |       | |   +-input_scan=
-                    |     |       | |     +-SingleRowScan
-                    |     |       | +-output_column_list=[$intersect_all1.pivot_column#10]
-                    |     |       +-SetOperationItem
-                    |     |         +-scan=
-                    |     |         | +-ProjectScan
-                    |     |         |   +-column_list=[$intersect_all2.pivot_value#11]
-                    |     |         |   +-expr_list=
-                    |     |         |   | +-pivot_value#11 := ColumnRef(type=STRING, column=$subquery1.pivot_value#9, is_correlated=TRUE)
-                    |     |         |   +-input_scan=
-                    |     |         |     +-SingleRowScan
-                    |     |         +-output_column_list=[$intersect_all2.pivot_value#11]
-                    |     +-ColumnRef(type=INT64, column=$subquery1.orig_arg#7)
-                    |     +-Literal(type=INT64, value=NULL)
-                    +-input_scan=
-                      +-ProjectScan
-                        +-column_list=$subquery1.[orig_arg#7, pivot_column#8, pivot_value#9]
-                        +-expr_list=
-                        | +-orig_arg#7 := ColumnRef(type=INT64, column=$pivot.$pivot_expr_arg#6, is_correlated=TRUE)
-                        | +-pivot_column#8 := ColumnRef(type=STRING, column=$pivot.$pivot_value#5, is_correlated=TRUE)
-                        | +-pivot_value#9 := Literal(type=STRING, value="x", preserve_in_literal_remover=TRUE)
-                        +-input_scan=
-                          +-SingleRowScan
 ==
 
 # Regression test for b/309024915

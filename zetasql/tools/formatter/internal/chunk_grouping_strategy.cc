@@ -40,7 +40,8 @@ void AddBlockForTopLevelClause(ChunkBlock* const chunk_block,
       }
       Chunk* chunk = (*i)->Chunk();
       // Found an opening parenthesis -> indent inside parentheses.
-      if ((chunk->OpensParenBlock() && !chunk->HasMatchingClosingChunk()) ||
+      if ((chunk->OpensParenOrBracketBlock() &&
+           !chunk->HasMatchingClosingChunk()) ||
           // Sometimes, user omit parentheses after DEFINE MACRO, but we should
           // indent nevertheless.
           chunk->IsStartOfDefineMacroStatement()) {
@@ -50,12 +51,44 @@ void AddBlockForTopLevelClause(ChunkBlock* const chunk_block,
         // Found another top-level clause -> group together.
         t->AddChildChunk(top_level_chunk);
         return;
+      } else if (chunk->FirstKeyword() == "|>") {
+        // Pipe operator introduces indent of 3.
+        (*i)->AddIndentedChunk(top_level_chunk, /*offset=*/3);
+        return;
       }
     }
     t = t->Parent();
   }
 
   t->AddChildChunk(top_level_chunk);
+}
+
+void AddBlockForPipeOperator(ChunkBlock* const chunk_block, Chunk* pipe_chunk) {
+  ChunkBlock* t = chunk_block;
+
+  while (!t->IsTopLevel()) {
+    for (auto i = t->children().rbegin(); i != t->children().rend(); ++i) {
+      if (!(*i)->IsLeaf() || (*i)->Chunk()->Empty()) {
+        continue;
+      }
+      Chunk* chunk = (*i)->Chunk();
+      // Found an opening parenthesis -> indent inside parentheses.
+      if ((chunk->OpensParenBlock() && !chunk->HasMatchingClosingChunk()) ||
+          // Sometimes, users omit parentheses after DEFINE MACRO, but we should
+          // indent nevertheless.
+          chunk->IsStartOfDefineMacroStatement()) {
+        (*i)->AddIndentedChunk(pipe_chunk);
+        return;
+      } else if (chunk->FirstKeyword() == "|>") {
+        // Found another |> -> group together.
+        t->AddChildChunk(pipe_chunk);
+        return;
+      }
+    }
+    t = t->Parent();
+  }
+
+  t->AddChildChunk(pipe_chunk);
 }
 
 void AddBlockForSelectOrWith(Chunk* const previous_chunk,
@@ -927,6 +960,8 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       AddBlockForCreateOrExportIndentedClause(&previous_chunk, &chunk);
     } else if (chunk.IsTopLevelClauseChunk()) {
       AddBlockForTopLevelClause(chunk_block, &chunk);
+    } else if (chunk.FirstKeyword() == "|>") {
+      AddBlockForPipeOperator(chunk_block, &chunk);
     } else if (chunk.IsJoin()) {
       AddBlockForJoinClause(chunk_block, &chunk);
     } else if (chunk.FirstKeyword() == "ON" ||

@@ -11,7 +11,7 @@ RUN apt-get update && apt-get -qq install -y default-jre default-jdk
 RUN apt-get update && apt-get -qq install curl tar build-essential wget        \
     python python3 zip unzip
 
-ENV BAZEL_VERSION=6.2.0
+ENV BAZEL_VERSION=6.5.0
 
 # Install bazel from source
 RUN mkdir -p bazel                                                          && \
@@ -38,10 +38,31 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test                          && \
                         --slave   /usr/bin/g++ g++ /usr/bin/g++-11          && \
     update-alternatives --set gcc /usr/bin/gcc-11
 
+
+# To support fileNames with non-ascii characters
+RUN apt-get -qq install locales && locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+
 COPY . /zetasql
+
+# Create a new user zetasql to avoid running as root.
+RUN useradd -ms /bin/bash zetasql
+RUN chown -R zetasql:zetasql /zetasql
+USER zetasql
 
 ENV BAZEL_ARGS="--config=g++"
 
+# Pre-build the binary for execute_query so that users can try out zetasql
+# directly. Users can modify the target in the docker file or enter the
+# container and build other targets as needed.
 RUN cd zetasql                                                              && \
     CC=/usr/bin/gcc CXX=/usr/bin/g++                                           \
-    bazel build ${BAZEL_ARGS} ...
+    bazel build ${BAZEL_ARGS} -c opt //zetasql/tools/execute_query:execute_query
+
+# Create a shortcut for execute_query.
+ENV HOME=/home/zetasql
+RUN mkdir -p $HOME/bin
+RUN ln -s /zetasql/bazel-bin/zetasql/tools/execute_query/execute_query $HOME/bin/execute_query
+ENV PATH=$PATH:$HOME/bin
+
+WORKDIR /zetasql

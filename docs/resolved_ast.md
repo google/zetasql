@@ -164,6 +164,7 @@ See that file for comments on specific nodes and fields.
       <a href="#ResolvedDifferentialPrivacyAggregateScan">ResolvedDifferentialPrivacyAggregateScan</a>
     <a href="#ResolvedAnalyticScan">ResolvedAnalyticScan</a>
     <a href="#ResolvedArrayScan">ResolvedArrayScan</a>
+    <a href="#ResolvedAssertScan">ResolvedAssertScan</a>
     <a href="#ResolvedBarrierScan">ResolvedBarrierScan</a>
     <a href="#ResolvedExecuteAsRoleScan">ResolvedExecuteAsRoleScan</a>
     <a href="#ResolvedFilterScan">ResolvedFilterScan</a>
@@ -179,6 +180,7 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedSampleScan">ResolvedSampleScan</a>
     <a href="#ResolvedSetOperationScan">ResolvedSetOperationScan</a>
     <a href="#ResolvedSingleRowScan">ResolvedSingleRowScan</a>
+    <a href="#ResolvedStaticDescribeScan">ResolvedStaticDescribeScan</a>
     <a href="#ResolvedTVFScan">ResolvedTVFScan</a>
     <a href="#ResolvedTableScan">ResolvedTableScan</a>
     <a href="#ResolvedUnpivotScan">ResolvedUnpivotScan</a>
@@ -189,6 +191,7 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedAlterObjectStmt">ResolvedAlterObjectStmt</a>
       <a href="#ResolvedAlterAllRowAccessPoliciesStmt">ResolvedAlterAllRowAccessPoliciesStmt</a>
       <a href="#ResolvedAlterApproxViewStmt">ResolvedAlterApproxViewStmt</a>
+      <a href="#ResolvedAlterConnectionStmt">ResolvedAlterConnectionStmt</a>
       <a href="#ResolvedAlterDatabaseStmt">ResolvedAlterDatabaseStmt</a>
       <a href="#ResolvedAlterEntityStmt">ResolvedAlterEntityStmt</a>
       <a href="#ResolvedAlterExternalSchemaStmt">ResolvedAlterExternalSchemaStmt</a>
@@ -211,6 +214,7 @@ See that file for comments on specific nodes and fields.
     <a href="#ResolvedCreateDatabaseStmt">ResolvedCreateDatabaseStmt</a>
     <a href="#ResolvedCreateRowAccessPolicyStmt">ResolvedCreateRowAccessPolicyStmt</a>
     <a href="#ResolvedCreateStatement">ResolvedCreateStatement</a>
+      <a href="#ResolvedCreateConnectionStmt">ResolvedCreateConnectionStmt</a>
       <a href="#ResolvedCreateConstantStmt">ResolvedCreateConstantStmt</a>
       <a href="#ResolvedCreateEntityStmt">ResolvedCreateEntityStmt</a>
       <a href="#ResolvedCreateFunctionStmt">ResolvedCreateFunctionStmt</a>
@@ -3128,9 +3132,11 @@ class ResolvedUnnestItem : public <a href="#ResolvedArgument">ResolvedArgument</
 <font color="brown">// This statement:
 // CREATE [OR REPLACE] [UNIQUE] [SEARCH | VECTOR] INDEX [IF NOT EXISTS]
 //  &lt;index_name_path&gt; ON &lt;table_name_path&gt;
-// [STORING (Expression, ...)]
 // [UNNEST(path_expression) [[AS] alias] [WITH OFFSET [[AS] alias]], ...]
-// (path_expression [ASC|DESC], ...) [OPTIONS (name=value, ...)];
+// (path_expression [ASC|DESC], ...)
+// [STORING (Expression, ...)]
+// [PARTITION BY partition_expression, ...]
+// [OPTIONS (name=value, ...)];
 //
 // &lt;table_name_path&gt; is the name of table being indexed.
 // &lt;table_scan&gt; is a TableScan on the table being indexed.
@@ -3146,6 +3152,7 @@ class ResolvedUnnestItem : public <a href="#ResolvedArgument">ResolvedArgument</
 //                   to &#39;computed_columns_list&#39; entries or the columns of
 //                   &#39;table_scan&#39;.
 // &lt;storing_expression_list&gt; has the expressions in the storing clause.
+// &lt;partition_by_list&gt; has the expressions in the partition by clause.
 // &lt;option_list&gt; has engine-specific directives for how and where to
 //               materialize this index.
 // &lt;computed_columns_list&gt; has computed columns derived from the columns of
@@ -3178,6 +3185,10 @@ class ResolvedCreateIndexStmt : public <a href="#ResolvedCreateStatement">Resolv
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedExpr">ResolvedExpr</a>&gt;&gt;&amp; storing_expression_list() const;
   int storing_expression_list_size() const;
   const <a href="#ResolvedExpr">ResolvedExpr</a>* storing_expression_list(int i) const;
+
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedExpr">ResolvedExpr</a>&gt;&gt;&amp; partition_by_list() const;
+  int partition_by_list_size() const;
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* partition_by_list(int i) const;
 
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
   int option_list_size() const;
@@ -7659,6 +7670,52 @@ class ResolvedIdentityColumnInfo : public <a href="#ResolvedArgument">ResolvedAr
 };
 </code></pre></p>
 
+### ResolvedStaticDescribeScan
+<a id="ResolvedStaticDescribeScan"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This represents the pipe STATIC_DESCRIBE operator, which is controlled by
+// FEATURE_PIPE_STATIC_DESCRIBE.
+//
+// This scan is a no-op, that just stores the describe_text produced to show
+// the intermediate schema where this operator occurred.
+//
+// This describe_text is displayed in resolved AST DebugStrings (which is
+// used internally in analyzer tests), and is also meant to be displayed
+// through some engine-specific side-channel at query prepare time.</font>
+class ResolvedStaticDescribeScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_STATIC_DESCRIBE_SCAN;
+
+  const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
+
+  const std::string&amp; describe_text() const;
+};
+</code></pre></p>
+
+### ResolvedAssertScan
+<a id="ResolvedAssertScan"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This represents the pipe ASSERT operator, which is controlled by
+// FEATURE_PIPE_ASSERT.
+//
+// `condition` is a boolean expression.
+// `message` is a string expression.
+//
+// `condition` is computed for each row.  If it does not return true,
+// the assertion fails.  Then `message` is evaluated and used as part
+// of the error message, following something like &#34;Assert failed: &#34;.</font>
+class ResolvedAssertScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_ASSERT_SCAN;
+
+  const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* condition() const;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* message() const;
+};
+</code></pre></p>
+
 ### ResolvedBarrierScan
 <a id="ResolvedBarrierScan"></a>
 
@@ -7680,6 +7737,40 @@ class ResolvedBarrierScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_BARRIER_SCAN;
 
   const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
+};
+</code></pre></p>
+
+### ResolvedCreateConnectionStmt
+<a id="ResolvedCreateConnectionStmt"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This statement:
+// CREATE [OR REPLACE] [TEMP] CONNECTION
+// [IF NOT EXISTS] &lt;name&gt; [OPTIONS (name=value, ...)]
+//
+// builds a new connection based on the inputs provided via the
+// the OPTIONS field.
+//
+// &lt;name&gt; is the name of the fully qualified connection.
+// &lt;option_list&gt; is the list of options for the connection.</font>
+class ResolvedCreateConnectionStmt : public <a href="#ResolvedCreateStatement">ResolvedCreateStatement</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_CREATE_CONNECTION_STMT;
+
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOption">ResolvedOption</a>&gt;&gt;&amp; option_list() const;
+  int option_list_size() const;
+  const <a href="#ResolvedOption">ResolvedOption</a>* option_list(int i) const;
+};
+</code></pre></p>
+
+### ResolvedAlterConnectionStmt
+<a id="ResolvedAlterConnectionStmt"></a>
+
+<p><pre><code class="lang-c++">
+<font color="brown">// This statement:
+// ALTER CONNECTION [IF EXISTS] &lt;name_path&gt; SET OPTIONS(...)</font>
+class ResolvedAlterConnectionStmt : public <a href="#ResolvedAlterObjectStmt">ResolvedAlterObjectStmt</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_ALTER_CONNECTION_STMT;
+
 };
 </code></pre></p>
 

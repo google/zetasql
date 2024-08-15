@@ -32,8 +32,8 @@
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
+#include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/parser/macros/macro_catalog.h"
-#include "zetasql/parser/token_disambiguator.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -254,6 +254,10 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // precedence parsing.
   expectations_set.erase("$end");
 
+  // Avoid suggesting pipe characters since the syntax might not be enabled,
+  // and to avoid adding this on every error that looks for a ")" after a query.
+  expectations_set.erase("|>");
+
   // Avoid suggesting FROM every place a query might show up.
   // This is usually a bad suggestion anyway.
   expectations_set.erase("keyword FROM");
@@ -288,11 +292,11 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // start the tokenizer in kTokenizer mode because we don't need to get a bogus
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
-  ZETASQL_ASSIGN_OR_RETURN(
-      auto tokenizer,
-      DisambiguatorLexer::Create(BisonParserMode::kTokenizerPreserveComments,
-                                 error_location.filename(), input, start_offset,
-                                 language_options, macro_catalog, arena));
+  ZETASQL_ASSIGN_OR_RETURN(auto tokenizer,
+                   LookaheadTransformer::Create(
+                       BisonParserMode::kTokenizerPreserveComments,
+                       error_location.filename(), input, start_offset,
+                       language_options, macro_catalog, arena));
   ParseLocationRange token_location;
   int token = -1;
   while (token != 0) {
@@ -404,7 +408,7 @@ static absl::Status ParseWithBison(
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset, bool& format_error,
     int64_t& out_num_lexical_tokens) {
-  ZETASQL_ASSIGN_OR_RETURN(auto tokenizer, DisambiguatorLexer::Create(
+  ZETASQL_ASSIGN_OR_RETURN(auto tokenizer, LookaheadTransformer::Create(
                                        mode, filename, input, start_byte_offset,
                                        language_options, macro_catalog, arena));
 

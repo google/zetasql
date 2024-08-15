@@ -36,6 +36,7 @@
 #include "absl/base/port.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/compare.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_builder.h"
 
@@ -165,7 +166,9 @@ class NumericValue final {
   bool operator>(NumericValue rh) const;
   bool operator>=(NumericValue rh) const;
   bool operator<=(NumericValue rh) const;
-
+#ifdef __cpp_impl_three_way_comparison
+  std::strong_ordering operator<=>(NumericValue rh) const;
+#endif
   // Math functions.
   NumericValue Negate() const;
   NumericValue Abs() const;
@@ -670,7 +673,9 @@ class BigNumericValue final {
   bool operator>(const BigNumericValue& rh) const;
   bool operator>=(const BigNumericValue& rh) const;
   bool operator<=(const BigNumericValue& rh) const;
-
+#ifdef __cpp_impl_three_way_comparison
+  std::strong_ordering operator<=>(const BigNumericValue& rh) const;
+#endif
   // Math functions.
   absl::StatusOr<BigNumericValue> Negate() const;
   absl::StatusOr<BigNumericValue> Abs() const;
@@ -1168,6 +1173,12 @@ inline bool NumericValue::operator<=(NumericValue rh) const {
   return as_packed_int() <= rh.as_packed_int();
 }
 
+#ifdef __cpp_impl_three_way_comparison
+inline std::strong_ordering NumericValue::operator<=>(NumericValue rh) const {
+  return as_packed_int() <=> rh.as_packed_int();
+}
+#endif  // __cpp_impl_three_way_comparison
+
 inline std::string NumericValue::ToString() const {
   std::string result;
   AppendToString(&result);
@@ -1357,6 +1368,13 @@ inline bool BigNumericValue::operator>=(const BigNumericValue& rh) const {
 inline bool BigNumericValue::operator<=(const BigNumericValue& rh) const {
   return value_ <= rh.value_;
 }
+
+#ifdef __cpp_impl_three_way_comparison
+inline std::strong_ordering BigNumericValue::operator<=>(
+    const BigNumericValue& rh) const {
+  return value_ <=> rh.value_;
+}
+#endif
 
 inline absl::StatusOr<BigNumericValue> BigNumericValue::Negate() const {
   FixedInt<64, 4> result = value_;

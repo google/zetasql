@@ -49,8 +49,8 @@ struct FunctionArgumentOverride {
 
 // Contains information about the resolution of a particular argument
 // in a funtion call for a particular signature.
-// This is generally passed as a vector<ArgIndexEntry>, this generally
-// be some normalized list of ~1:1 with actual function call arguments, but
+// This is generally passed as a vector<ArgIndexEntry>. This will generally
+// be some normalized list ~1:1 with actual function call arguments, but
 // may be reordered (in the case of named arguments) or extended in the
 // case of optional arguments.
 struct ArgIndexEntry {
@@ -89,6 +89,8 @@ using ResolveLambdaCallback = std::function<absl::Status(
 //
 // <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
 // It's used to assist lambda and sequence argument resolving.
+// There may be more <input_arguments> than <arg_ast_nodes> when default
+// argument values have been added.
 // <resolve_lambda_callback> is called to resolve lambda arguments if any. It
 // can be set to nullptr if no lambda argument is expected.
 // The resolved lambda arguments, if any, are put into <arg_overrides> if the

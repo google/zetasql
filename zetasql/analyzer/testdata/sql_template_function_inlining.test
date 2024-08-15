@@ -72,6 +72,7 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
         +-OrderByItem
+          +-parse_location=181-192
           +-column_ref=
           | +-ColumnRef(type=INT64, column=$array_offset.offset#2)
           +-is_descending=TRUE
@@ -113,6 +114,7 @@ QueryStmt
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
     |                 +-OrderByItem
+    |                   +-parse_location=181-192
     |                   +-column_ref=
     |                   | +-ColumnRef(type=INT64, column=$array_offset.offset#3)
     |                   +-is_descending=TRUE
@@ -158,6 +160,7 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
         +-OrderByItem
+          +-parse_location=181-192
           +-column_ref=
           | +-ColumnRef(type=INT64, column=$array_offset.offset#2)
           +-is_descending=TRUE
@@ -199,6 +202,7 @@ QueryStmt
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
     |                 +-OrderByItem
+    |                   +-parse_location=181-192
     |                   +-column_ref=
     |                   | +-ColumnRef(type=INT64, column=$array_offset.offset#3)
     |                   +-is_descending=TRUE
@@ -244,6 +248,7 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
         +-OrderByItem
+          +-parse_location=181-192
           +-column_ref=
           | +-ColumnRef(type=INT64, column=$array_offset.offset#2)
           +-is_descending=TRUE
@@ -285,6 +290,7 @@ QueryStmt
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
     |                 +-OrderByItem
+    |                   +-parse_location=181-192
     |                   +-column_ref=
     |                   | +-ColumnRef(type=INT64, column=$array_offset.offset#3)
     |                   +-is_descending=TRUE
@@ -330,6 +336,7 @@ FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
       |     +-ColumnHolder(column=$array_offset.offset#2)
       +-order_by_item_list=
         +-OrderByItem
+          +-parse_location=181-192
           +-column_ref=
           | +-ColumnRef(type=INT64, column=$array_offset.offset#2)
           +-is_descending=TRUE
@@ -371,6 +378,7 @@ QueryStmt
     |               |     +-ColumnHolder(column=$array_offset.offset#3)
     |               +-order_by_item_list=
     |                 +-OrderByItem
+    |                   +-parse_location=181-192
     |                   +-column_ref=
     |                   | +-ColumnRef(type=INT64, column=$array_offset.offset#3)
     |                   +-is_descending=TRUE
@@ -559,6 +567,7 @@ QueryStmt
     |                 |   |       |           |         +-ColumnHolder(column=$array_offset.off#9)
     |                 |   |       |           +-order_by_item_list=
     |                 |   |       |             +-OrderByItem
+    |                 |   |       |               +-parse_location=216-219
     |                 |   |       |               +-column_ref=
     |                 |   |       |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |                 |   |       +-input_scan=

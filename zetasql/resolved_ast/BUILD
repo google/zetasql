@@ -15,6 +15,7 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+
 # Placeholder: load py_proto_library
 # Placeholder: load py_binary
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
@@ -29,12 +30,12 @@ py_binary(
     python_version = "PY3",
     deps = [
         ":resolved_ast_enums_py_pb2",
+        "//zetasql/parser:generator_utils",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/flags",
         "@io_abseil_py//absl/logging",
         "@jinja//:jinja2",
-        "@markupsafe//:markupsafe",
-        "//zetasql/parser:generator_utils",
+        "@markupsafe",
     ],
 )
 
@@ -325,13 +326,16 @@ cc_library(
         ":target_syntax",
         "//zetasql/analyzer:expr_matching_helpers",
         "//zetasql/analyzer:resolver",
+        "//zetasql/analyzer:set_operation_resolver_base",
         "//zetasql/base",
         "//zetasql/base:case",
         "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/base:stl_util",
         "//zetasql/common:thread_stack",
+        "//zetasql/parser:parse_tree",
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
@@ -347,7 +351,10 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/cleanup",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",

@@ -79,12 +79,14 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override {
+    ZETASQL_RETURN_IF_ERROR(VisitResolvedAggregateScanBasePrivate(node));
     applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
     return DefaultVisit(node);
   }
 
   absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* node) override {
+    ZETASQL_RETURN_IF_ERROR(VisitResolvedAggregateScanBasePrivate(node));
     applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
     return DefaultVisit(node);
   }
@@ -208,6 +210,12 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedAssertScan(
+      const ResolvedAssertScan* node) override {
+    applicable_rewrites_->insert(REWRITE_PIPE_ASSERT);
+    return DefaultVisit(node);
+  }
+
  private:
   absl::btree_set<ResolvedASTRewrite>* applicable_rewrites_;
 
@@ -231,6 +239,10 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       if (aggregate_func_call->function()->Is<SQLFunctionInterface>() ||
           aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
         applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
+      }
+      if (aggregate_func_call->order_by_item_list_size() > 0 ||
+          aggregate_func_call->limit() != nullptr) {
+        applicable_rewrites_->insert(REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE);
       }
     }
 

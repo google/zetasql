@@ -455,9 +455,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -626,9 +631,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -746,9 +756,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 
@@ -972,9 +987,14 @@ To learn more about the optional aggregate clauses that you can pass
 into this function, see
 [Aggregate function calls][aggregate-function-calls].
 
+This function can be used with the
+[`AGGREGATION_THRESHOLD` clause][agg-threshold-clause].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+[agg-threshold-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#agg_threshold_clause
 
 <!-- mdlint on -->
 

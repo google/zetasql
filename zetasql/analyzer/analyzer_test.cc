@@ -2171,8 +2171,11 @@ TEST(AnalyzerTest, AnalyzeStatementsOfScript) {
   SampleCatalog catalog;
   std::string script = "SELECT * FROM KeyValue;\nSELECT garbage;";
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(ParseScript(script, ParserOptions(), ERROR_MESSAGE_ONE_LINE,
-                        /*keep_error_location_payload=*/false, &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(script, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_ONE_LINE,
+                         .attach_error_location_payload = false,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
 
   AnalyzerOptions analyzer_options;

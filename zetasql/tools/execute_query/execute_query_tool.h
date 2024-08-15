@@ -21,6 +21,7 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -30,16 +31,22 @@
 #include "zetasql/common/options_utils.h"
 #include "zetasql/parser/macros/macro_expander.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -88,6 +95,58 @@ class ExecuteQueryConfig {
   bool has_tool_mode(ToolMode tool_mode) const {
     return tool_modes_.contains(tool_mode);
   }
+  const absl::flat_hash_set<ToolMode>& tool_modes() const {
+    return tool_modes_;
+  }
+  void set_tool_modes(const absl::flat_hash_set<ToolMode>& tool_modes) {
+    tool_modes_ = tool_modes;
+  }
+
+  // Returns the tool mode if the mode string matches one of the tool modes.
+  static std::optional<ToolMode> parse_tool_mode(absl::string_view mode) {
+    static const auto* tool_mode_map =
+        new absl::flat_hash_map<absl::string_view, ToolMode>({
+            {"parse", ToolMode::kParse},
+            {"parser", ToolMode::kParse},
+            {"unparse", ToolMode::kUnparse},
+            {"unparser", ToolMode::kUnparse},
+            {"resolve", ToolMode::kResolve},
+            {"resolver", ToolMode::kResolve},
+            {"analyze", ToolMode::kResolve},
+            {"analyzer", ToolMode::kResolve},
+            {"sql_builder", ToolMode::kUnAnalyze},
+            {"sqlbuilder", ToolMode::kUnAnalyze},
+            {"unanalyze", ToolMode::kUnAnalyze},
+            {"unanalyzer", ToolMode::kUnAnalyze},
+            {"unresolve", ToolMode::kUnAnalyze},
+            {"unresolver", ToolMode::kUnAnalyze},
+            {"explain", ToolMode::kExplain},
+            {"execute", ToolMode::kExecute},
+        });
+
+    std::string mode_lower{absl::AsciiStrToLower(mode)};
+    if (tool_mode_map->contains(mode_lower)) {
+      return tool_mode_map->at(mode_lower);
+    }
+    return std::nullopt;
+  }
+
+  // Returns the name of the tool mode.
+  static absl::string_view tool_mode_name(ToolMode tool_mode) {
+    static const auto* tool_mode_names =
+        new absl::flat_hash_map<ToolMode, absl::string_view>({
+            {ToolMode::kParse, "parse"},
+            {ToolMode::kUnparse, "unparse"},
+            {ToolMode::kResolve, "analyze"},
+            {ToolMode::kUnAnalyze, "unanalyze"},
+            {ToolMode::kExplain, "explain"},
+            {ToolMode::kExecute, "execute"},
+        });
+
+    ABSL_CHECK(tool_mode_names->contains(tool_mode))
+        << "Unknown tool mode: " << static_cast<int>(tool_mode);
+    return tool_mode_names->at(tool_mode);
+  }
 
   void set_sql_mode(SqlMode sql_mode) { sql_mode_ = sql_mode; }
   SqlMode sql_mode() const { return sql_mode_; }
@@ -108,9 +167,22 @@ class ExecuteQueryConfig {
     return query_parameter_values_;
   }
 
-  // Defaults matches SimpleCatalog("").
-  SimpleCatalog& mutable_catalog() { return catalog_; }
-  const SimpleCatalog& catalog() const { return catalog_; }
+  // This is the Catalog to use for lookups.  It's a MultiCatalog containing
+  // the wrapper_catalog, base_catalog and builtins_catalog.
+  Catalog* catalog() { return catalog_.get(); }
+
+  // Set the base catalog, which is used to find tables, custom functions, etc.
+  // It doesn't need to include builtin functions since those are provided by
+  // the builtins_catalog.
+  // nullptr is allowed if there is no base catalog.
+  void SetBaseCatalog(Catalog* catalog);
+
+  Catalog* base_catalog() { return base_catalog_; }
+  SimpleCatalog* builtins_catalog() { return &builtins_catalog_; }
+  SimpleCatalog* wrapper_catalog() { return &wrapper_catalog_; }
+
+  // A TypeFactory that can be used for creating tables for this request.
+  TypeFactory* type_factory() { return &type_factory_; }
 
   using ExamineResolvedASTCallback =
       std::function<absl::Status(const ResolvedNode* node)>;
@@ -125,6 +197,8 @@ class ExecuteQueryConfig {
   void set_examine_resolved_ast_callback(ExamineResolvedASTCallback callback) {
     examine_resolved_ast_callback_ = std::move(callback);
   }
+
+  absl::Status SetCatalogFromString(const std::string& value);
 
   // Set the google::protobuf::DescriptorPool to use when resolving types.
   // The DescriptorPool can only be set once and cannot be changed.
@@ -147,9 +221,10 @@ class ExecuteQueryConfig {
   const std::list<std::string>& macro_sources() const { return macro_sources_; }
   std::list<std::string>& mutable_macro_sources() { return macro_sources_; }
 
-  void AddFunctionArtifacts(
-      std::unique_ptr<const AnalyzerOutput> function_artifact) {
-    function_artifacts_.push_back(std::move(function_artifact));
+  void AddArtifacts(std::unique_ptr<const ParserOutput> parser_output,
+                    std::unique_ptr<const AnalyzerOutput> analyzer_output) {
+    parser_artifacts_.push_back(std::move(parser_output));
+    analyzer_artifacts_.push_back(std::move(analyzer_output));
   }
 
  private:
@@ -158,7 +233,19 @@ class ExecuteQueryConfig {
   absl::flat_hash_set<ToolMode> tool_modes_ = {ToolMode::kExecute};
   SqlMode sql_mode_ = SqlMode::kQuery;
   AnalyzerOptions analyzer_options_;
-  SimpleCatalog catalog_;
+
+  // The effective Catalog is a MultiCatalog with
+  //   wrapper_catalog  - any tables or types added based on flags
+  //   base_catalog     - the Catalog of tables, etc from SelectableCatalogs.
+  //   builtins_catalog - the Catalog providing built-in functions, set up
+  //                      based on LanguageOptions inferred from config.
+  SimpleCatalog builtins_catalog_;
+  Catalog* base_catalog_ = nullptr;  // Not owned, may be nullptr.
+  SimpleCatalog wrapper_catalog_;
+  std::unique_ptr<MultiCatalog> catalog_;
+
+  TypeFactory type_factory_;
+
   EvaluatorOptions evaluator_options_;
   ParameterValueMap query_parameter_values_;
   const google::protobuf::DescriptorPool* descriptor_pool_ = nullptr;
@@ -168,7 +255,9 @@ class ExecuteQueryConfig {
   // std::list, not a vector, because we need stability. The entries in
   // `macro_catalog_` have string_views into these sources.
   std::list<std::string> macro_sources_;
-  std::vector<std::unique_ptr<const AnalyzerOutput>> function_artifacts_;
+  // These are used to keep parsing and analysis artifacts alive.
+  std::vector<std::unique_ptr<const ParserOutput>> parser_artifacts_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> analyzer_artifacts_;
 };
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);
@@ -205,6 +294,9 @@ absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config);
 // Set query parameters in analyzer options as well as for use in the evaluator.
 absl::Status SetQueryParametersFromFlags(ExecuteQueryConfig& config);
 
+// Initialize an ExecuteQueryConfig with default values and values from flags.
+absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config);
+
 // Execute the query according to `config`. `config` is logically const, but due
 // to ZetaSQL calling conventions related to Catalog objects, must be
 // non-const.
@@ -218,7 +310,9 @@ ABSL_DECLARE_FLAG(std::vector<std::string>, mode);
 ABSL_DECLARE_FLAG(zetasql::internal::EnabledAstRewrites,
                   enabled_ast_rewrites);
 ABSL_DECLARE_FLAG(std::string, product_mode);
+ABSL_DECLARE_FLAG(std::string, catalog);
 ABSL_DECLARE_FLAG(bool, strict_name_resolution_mode);
+ABSL_DECLARE_FLAG(bool, fold_literal_cast);
 ABSL_DECLARE_FLAG(std::string, sql_mode);
 ABSL_DECLARE_FLAG(std::string, table_spec);
 ABSL_DECLARE_FLAG(std::string, descriptor_pool);

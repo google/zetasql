@@ -33,6 +33,7 @@
 
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/thread_stack.h"
+#include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
@@ -5231,52 +5232,195 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LoopOp::CreateIterator(
                                    lower_bound_val, upper_bound_val);
 }
 
-// -------------------------------------------------------
-// RootOp
-// -------------------------------------------------------
+namespace {
 
-absl::StatusOr<std::unique_ptr<RootOp>> RootOp::Create(
-    std::unique_ptr<RelationalOp> input, std::unique_ptr<RootData> root_data) {
-  return absl::WrapUnique(new RootOp(std::move(input), std::move(root_data)));
+// Iterates over the input from `input_iterator` and evaluates `condition` on
+// it. If `condition` is true, returns the current tuple. Otherwise, returns
+// nullptr and updates `status_` with an error.
+//
+// If `message` is not nullptr, it will be evaluated when the `condition` is
+// violated and its output will be included in the error message.
+class AssertTupleIterator : public TupleIterator {
+ public:
+  AssertTupleIterator(absl::Span<const TupleData* const> params,
+                      const ValueExpr* condition, const ValueExpr* message,
+                      std::unique_ptr<TupleIterator> input_iterator,
+                      EvaluationContext* context)
+      : params_(params.begin(), params.end()),
+        condition_(condition),
+        message_(message),
+        input_iterator_(std::move(input_iterator)),
+        context_(context) {}
+
+  AssertTupleIterator(const AssertTupleIterator&) = delete;
+  AssertTupleIterator& operator=(const AssertTupleIterator&) = delete;
+
+  const TupleSchema& Schema() const override {
+    return input_iterator_->Schema();
+  }
+
+  TupleData* Next() override {
+    TupleData* current = input_iterator_->Next();
+    if (current == nullptr) {
+      status_ = input_iterator_->Status();
+      return nullptr;
+    }
+
+    TupleSlot condition_slot;
+    if (!condition_->EvalSimple(
+            ConcatSpans(absl::Span<const TupleData* const>(params_), {current}),
+            context_, &condition_slot, &status_)) {
+      return nullptr;
+    }
+
+    if (!condition_slot.value().type()->IsBool()) {
+      status_ = absl::InternalError("`condition` should be of the type bool");
+      return nullptr;
+    }
+
+    if (!condition_slot.value().is_null() &&
+        condition_slot.value().bool_value()) {
+      // The assertion succeeds if and only if the condition is TRUE.
+      return current;
+    }
+
+    // The assertion failed. Report an error by evaluating the `message`
+    // expression.
+    //
+    // When the assertion fails, the output tends to be non-deterministic
+    // because it evaluates the `message` expression, which depends on input
+    // rows. Always marking the output as non-deterministic when an assertion
+    // fails, however, would be too broad and cause many test cases to be
+    // skipped.
+    //
+    // Here we choose to not mark the output non-deterministic, and require the
+    // test cases to be carefully designed so that the output is deterministic.
+    TupleSlot message_slot;
+    if (!message_->EvalSimple(
+            ConcatSpans(absl::Span<const TupleData* const>(params_), {current}),
+            context_, &message_slot, &status_)) {
+      return nullptr;
+    }
+    if (!message_slot.value().type()->IsString()) {
+      status_ = absl::InternalError("`message` should be of the type string");
+      return nullptr;
+    }
+    // The message should never be NULL because each payload is wrapped with an
+    // IFNULL function call except for non-NULL literals.
+    if (message_slot.value().is_null()) {
+      status_ = absl::InternalError("`message` should not be NULL");
+      return nullptr;
+    }
+    status_ = absl::OutOfRangeError(
+        absl::StrCat("Assert failed: ", message_slot.value().string_value()));
+    return nullptr;
+  }
+
+  // AssertScan does not preserve order.
+  bool PreservesOrder() const override { return false; }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return AssertOp::GetIteratorDebugString(input_iterator_->DebugString());
+  }
+
+ private:
+  const std::vector<const TupleData*> params_;
+  const ValueExpr* condition_;
+  const ValueExpr* message_;
+
+  std::unique_ptr<TupleIterator> input_iterator_;
+  absl::Status status_;
+  EvaluationContext* context_;
+};
+
+}  // namespace
+
+std::string AssertOp::GetIteratorDebugString(
+    absl::string_view input_iterator_debug_string) {
+  return absl::StrCat("AssertTupleIterator(", input_iterator_debug_string, ")");
 }
 
-absl::Status RootOp::SetSchemasForEvaluation(
+absl::StatusOr<std::unique_ptr<AssertOp>> AssertOp::Create(
+    std::unique_ptr<RelationalOp> input, std::unique_ptr<ValueExpr> condition,
+    std::unique_ptr<ValueExpr> message) {
+  return absl::WrapUnique(
+      new AssertOp(std::move(input), std::move(condition), std::move(message)));
+}
+
+absl::Status AssertOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  return mutable_input()->SetSchemasForEvaluation(params_schemas);
+  ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
+
+  // `message` and `condition` can access the columns of the input table.
+  std::vector<const TupleSchema*> all_schemas(params_schemas.begin(),
+                                              params_schemas.end());
+  std::unique_ptr<TupleSchema> input_schema = input()->CreateOutputSchema();
+  all_schemas.push_back(input_schema.get());
+
+  ZETASQL_RETURN_IF_ERROR(mutable_condition()->SetSchemasForEvaluation(all_schemas));
+  ZETASQL_RETURN_IF_ERROR(mutable_message()->SetSchemasForEvaluation(all_schemas));
+  return absl::OkStatus();
 }
 
-absl::StatusOr<std::unique_ptr<TupleIterator>> RootOp::CreateIterator(
+absl::StatusOr<std::unique_ptr<TupleIterator>> AssertOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
-  return input()->CreateIterator(params, num_extra_slots, context);
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
+                   input()->CreateIterator(params, num_extra_slots, context));
+  auto assert_iter = std::make_unique<AssertTupleIterator>(
+      params, condition(), message(), std::move(iter), context);
+  return MaybeReorder(std::move(assert_iter), context);
 }
 
-std::unique_ptr<TupleSchema> RootOp::CreateOutputSchema() const {
+std::unique_ptr<TupleSchema> AssertOp::CreateOutputSchema() const {
+  // The output schema of an AssertOp is the same as the input schema.
   return input()->CreateOutputSchema();
 }
 
-std::string RootOp::IteratorDebugString() const {
-  return input()->IteratorDebugString();
+std::string AssertOp::DebugInternal(const std::string& indent,
+                                    bool verbose) const {
+  return absl::StrCat("AssertOp(",
+                      ArgDebugString({"condition", "message", "input"},
+                                     {k1, k1, k1}, indent, verbose),
+                      ")");
 }
 
-std::string RootOp::DebugInternal(const std::string& indent,
-                                  bool verbose) const {
-  return absl::StrCat("RootOp(",
-                      ArgDebugString({"input"}, {k1}, indent, verbose), ")");
-}
-
-RootOp::RootOp(std::unique_ptr<RelationalOp> input,
-               std::unique_ptr<RootData> root_data)
-    : root_data_(std::move(root_data)) {
+AssertOp::AssertOp(std::unique_ptr<RelationalOp> input,
+                   std::unique_ptr<ValueExpr> condition,
+                   std::unique_ptr<ValueExpr> message) {
   SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kCondition, std::make_unique<ExprArg>(std::move(condition)));
+  SetArg(kMessage, std::make_unique<ExprArg>(std::move(message)));
 }
 
-const RelationalOp* RootOp::input() const {
+std::string AssertOp::IteratorDebugString() const {
+  return AssertOp::GetIteratorDebugString(input()->IteratorDebugString());
+}
+
+const RelationalOp* AssertOp::input() const {
   return GetArg(kInput)->node()->AsRelationalOp();
 }
 
-RelationalOp* RootOp::mutable_input() {
+RelationalOp* AssertOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
+}
+
+const ValueExpr* AssertOp::condition() const {
+  return GetArg(kCondition)->node()->AsValueExpr();
+}
+
+ValueExpr* AssertOp::mutable_condition() {
+  return GetMutableArg(kCondition)->mutable_node()->AsMutableValueExpr();
+}
+
+const ValueExpr* AssertOp::message() const {
+  return GetArg(kMessage)->node()->AsValueExpr();
+}
+
+ValueExpr* AssertOp::mutable_message() {
+  return GetMutableArg(kMessage)->mutable_node()->AsMutableValueExpr();
 }
 
 namespace {

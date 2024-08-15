@@ -34,7 +34,7 @@
 namespace zetasql {
 namespace parser {
 
-// Flex-based tokenizer for the ZetaSQL Bison parser.
+// Flex-based tokenizer for ZetaSQL.
 class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
  public:
   // Type aliases to improve readability of API.
@@ -43,7 +43,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // Constructs a wrapper around a flex generated tokenizer.
   // `filename`, `input` and `language_options` must outlive this object.
   ZetaSqlFlexTokenizer(absl::string_view filename, absl::string_view input,
-                         bool preserve_comments, int start_offset);
+                         int start_offset);
 
   ZetaSqlFlexTokenizer(const ZetaSqlFlexTokenizer&) = delete;
   ZetaSqlFlexTokenizer& operator=(const ZetaSqlFlexTokenizer&) = delete;
@@ -69,10 +69,6 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // An input stream over the input string (of size input_size_) plus the
   // sentinel.
   std::unique_ptr<std::istream> input_stream_;
-
-  // If set, comments are preserved. Used only in raw tokenization for the
-  // formatter.
-  bool preserve_comments_;
 
   // The Flex-generated tokenizer does not work with absl::StatusOr, so it
   // stores the error in this field. GetNextToken() grabs the status from here

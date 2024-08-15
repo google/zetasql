@@ -199,6 +199,72 @@ class DeferredResolutionFinder : public NonRecursiveParseTreeVisitor {
 
 }  // namespace
 
+absl::Status MultiLevelAggregateInfo::AddAggregateFunction(
+    const ASTFunctionCall* aggregate_function,
+    const ASTFunctionCall* enclosing_aggregate_function) {
+  ZETASQL_RET_CHECK(aggregate_function != nullptr);
+  // `enclosing_aggregate_function` can be nullptr if `aggregate_function` is
+  // a top-level aggregate function.
+  if (enclosing_aggregate_function != nullptr) {
+    ZETASQL_RET_CHECK(
+        directly_nested_aggregate_functions_map_[enclosing_aggregate_function]
+            .insert(aggregate_function)
+            .second);
+  }
+  // Only add grouping items for aggregate functions with GROUP BY modifiers.
+  if (aggregate_function->group_by() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(AddAllGroupingItems(aggregate_function));
+  }
+  return absl::OkStatus();
+};
+
+absl::Status MultiLevelAggregateInfo::AddAllGroupingItems(
+    const ASTFunctionCall* aggregate_function) {
+  ZETASQL_RETURN_IF_ERROR(
+      AddGroupingItemsFromAllEnclosingAggregateFunctions(aggregate_function));
+  for (const ASTGroupingItem* grouping_item :
+       aggregate_function->group_by()->grouping_items()) {
+    ZETASQL_RET_CHECK(aggregate_function_argument_grouping_keys_map_[aggregate_function]
+                  .insert({grouping_item, nullptr})
+                  .second);
+  }
+  return absl::OkStatus();
+}
+
+const ASTFunctionCall* MultiLevelAggregateInfo::GetEnclosingAggregateFunction(
+    const ASTFunctionCall* aggregate_function) const {
+  for (const auto& pair : directly_nested_aggregate_functions_map_) {
+    const ASTFunctionCall* enclosing_aggregate_function = pair.first;
+    const absl::flat_hash_set<const ASTFunctionCall*>&
+        nested_aggregate_functions = pair.second;
+    if (nested_aggregate_functions.contains(aggregate_function)) {
+      return enclosing_aggregate_function;
+    }
+  }
+  return nullptr;
+}
+
+absl::Status
+MultiLevelAggregateInfo::AddGroupingItemsFromAllEnclosingAggregateFunctions(
+    const ASTFunctionCall* aggregate_function) {
+  const ASTFunctionCall* enclosing_aggregate_function =
+      GetEnclosingAggregateFunction(aggregate_function);
+  if (enclosing_aggregate_function == nullptr ||
+      !aggregate_function_argument_grouping_keys_map_.contains(
+          enclosing_aggregate_function)) {
+    return absl::OkStatus();
+  }
+
+  for (const auto& pair : aggregate_function_argument_grouping_keys_map_.at(
+           enclosing_aggregate_function)) {
+    const ASTGroupingItem* grouping_item = pair.first;
+    ZETASQL_RET_CHECK(aggregate_function_argument_grouping_keys_map_[aggregate_function]
+                  .insert({grouping_item, nullptr})
+                  .second);
+  }
+  return absl::OkStatus();
+}
+
 void QueryGroupByAndAggregateInfo::Reset() {
   has_group_by = false;
   has_aggregation = false;
@@ -592,6 +658,12 @@ absl::Status QueryResolutionInfo::GetAndRemoveSelectListColumnsWithoutAnalytic(
 
 ResolvedColumnList QueryResolutionInfo::GetResolvedColumnList() const {
   ResolvedColumnList resolved_column_list;
+  resolved_column_list.reserve(
+      select_column_state_list_->select_column_state_list().size() +
+      pipe_extra_select_items_.size());
+  for (const PipeExtraSelectItem& item : pipe_extra_select_items_) {
+    resolved_column_list.push_back(item.column);
+  }
   for (const std::unique_ptr<SelectColumnState>& select_column_state :
        select_column_state_list_->select_column_state_list()) {
     resolved_column_list.push_back(select_column_state->resolved_select_column);
@@ -611,9 +683,23 @@ void QueryResolutionInfo::SetHasAggregation(bool value) {
   group_by_info_.has_aggregation = value;
 }
 
+// TODO: Rename to Operator.
+bool QueryResolutionInfo::IsPipeOp() const {
+  switch (select_form_) {
+    case SelectForm::kPipeSelect:
+    case SelectForm::kPipeExtend:
+    case SelectForm::kPipeAggregate:
+    case SelectForm::kPipeWindow:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool QueryResolutionInfo::SelectFormAllowsSelectStar() const {
   switch (select_form_) {
     case SelectForm::kClassic:
+    case SelectForm::kPipeSelect:
       return true;
     default:
       return false;
@@ -623,6 +709,7 @@ bool QueryResolutionInfo::SelectFormAllowsSelectStar() const {
 bool QueryResolutionInfo::SelectFormAllowsAggregation() const {
   switch (select_form_) {
     case SelectForm::kClassic:
+    case SelectForm::kPipeAggregate:
       return true;
     default:
       return false;
@@ -632,6 +719,9 @@ bool QueryResolutionInfo::SelectFormAllowsAggregation() const {
 bool QueryResolutionInfo::SelectFormAllowsAnalytic() const {
   switch (select_form_) {
     case SelectForm::kClassic:
+    case SelectForm::kPipeWindow:
+    case SelectForm::kPipeSelect:
+    case SelectForm::kPipeExtend:
       return true;
     default:
       return false;
@@ -644,6 +734,14 @@ const char* QueryResolutionInfo::SelectFormClauseName() const {
       return "SELECT";
     case SelectForm::kNoFrom:
       return "SELECT without FROM clause";
+    case SelectForm::kPipeSelect:
+      return "pipe SELECT";
+    case SelectForm::kPipeExtend:
+      return "pipe EXTEND";
+    case SelectForm::kPipeAggregate:
+      return "pipe AGGREGATE";
+    case SelectForm::kPipeWindow:
+      return "pipe WINDOW";
   }
 }
 

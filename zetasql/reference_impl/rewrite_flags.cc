@@ -48,15 +48,13 @@ absl::btree_set<ResolvedASTRewrite> MinimalRewritesForReference() {
       // and anonymization rewriter are updated to follow the correct pattern.
       REWRITE_AGGREGATION_THRESHOLD,
       REWRITE_INLINE_SQL_TVFS,
-      // TODO: Remove this after resolving memory leak in direct UDA eval.
-      REWRITE_INLINE_SQL_UDAS,
       REWRITE_INLINE_SQL_VIEWS,
       // (broken link) end
       // clang-format on
   };
 }
 
-static const RewriteSet& MinimalRewrites() {
+const RewriteSet& MinimalRewrites() {
   static const auto* minimal_rewrites =
       new RewriteSet({MinimalRewritesForReference()});
   return *minimal_rewrites;

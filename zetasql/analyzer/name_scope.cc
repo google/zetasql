@@ -109,6 +109,20 @@ bool ValidFieldInfoMap::LookupNamePathList(
   return (*valid_name_path_list != nullptr);
 }
 
+bool ValidFieldInfoMap::ContainsColumnAndNamePathPrefix(
+    const ResolvedColumn& column, const ValidNamePath& name_path) const {
+  const ValidNamePathList* valid_name_path_list;
+  if (!LookupNamePathList(column, &valid_name_path_list)) {
+    return false;
+  }
+
+  ResolvedColumn unused_target_column;
+  int unused_prefix_length;
+  return FindLongestMatchingPathIfAny(
+      *valid_name_path_list, name_path.name_path(), &unused_target_column,
+      &unused_prefix_length);
+}
+
 void ValidFieldInfoMap::Clear() {
   column_to_valid_name_paths_map_.clear();
 }
@@ -1412,16 +1426,36 @@ absl::Status NameList::MergeFrom(const NameList& other,
     ZETASQL_RET_CHECK(!options.flatten_to_table);
     ZETASQL_RET_CHECK(other.is_value_table());
   }
-  ZETASQL_RET_CHECK(!options.columns_to_replace || !options.excluded_field_names);
+  ZETASQL_RET_CHECK_LE((options.excluded_field_names ? 1 : 0) +
+                   (options.columns_to_replace ? 1 : 0) +
+                   (options.columns_to_rename ? 1 : 0),
+               1);
+  if (options.columns_to_replace != nullptr) {
+    ZETASQL_RET_CHECK(!options.flatten_to_table);
+    ZETASQL_RET_CHECK(!options.rename_value_table_to_name);
+  }
 
   const IdStringSetCase* excluded_field_names = options.excluded_field_names;
   const MergeOptions::ColumnsToReplaceMap* columns_to_replace =
       options.columns_to_replace;
+  const MergeOptions::ColumnsToRenameMap* columns_to_rename =
+      options.columns_to_rename;
 
   // Copy the columns vector, with exclusions.
   // We're not using AddColumn because we're going to copy the NameScope
   // maps directly below.
   for (const NamedColumn& named_column : other.columns()) {
+    IdString new_name = named_column.name();
+    bool renamed_column = false;
+    if (columns_to_rename != nullptr) {
+      const IdString* found_name =
+          zetasql_base::FindOrNull(*columns_to_rename, named_column.name());
+      if (found_name != nullptr) {
+        new_name = *found_name;
+        renamed_column = true;
+      }
+    }
+
     const ResolvedColumn* replacement_column = nullptr;
     if (columns_to_replace != nullptr) {
       replacement_column =
@@ -1429,7 +1463,7 @@ absl::Status NameList::MergeFrom(const NameList& other,
     }
 
     if (replacement_column != nullptr) {
-      columns_.push_back(NamedColumn(named_column.name(), *replacement_column,
+      columns_.push_back(NamedColumn(new_name, *replacement_column,
                                      /*is_explicit=*/true));
     } else if (excluded_field_names == nullptr ||
                !zetasql_base::ContainsKey(*excluded_field_names, named_column.name())) {
@@ -1461,7 +1495,6 @@ absl::Status NameList::MergeFrom(const NameList& other,
              true /* is_valid_to_access */,
              {} /* valid_field_info_map */});
 
-        IdString new_name = named_column.name();
         if (options.rename_value_table_to_name != nullptr) {
           new_name = *options.rename_value_table_to_name;
         }
@@ -1471,6 +1504,10 @@ absl::Status NameList::MergeFrom(const NameList& other,
         columns_.emplace_back(new_name, named_column.column(),
                               named_column.is_explicit(),
                               new_excluded_field_names);
+      } else if (renamed_column) {
+        columns_.push_back(NamedColumn(new_name, named_column.column(),
+                                       /*is_explicit=*/true,
+                                       named_column.excluded_field_names()));
       } else {
         columns_.push_back(named_column);
       }
@@ -1498,6 +1535,13 @@ absl::Status NameList::MergeFrom(const NameList& other,
         NameTarget new_target(*replacement_column, /*is_explicit=*/true);
         name_scope_.AddNameTarget(name, new_target);
         continue;
+      }
+    }
+
+    if (columns_to_rename != nullptr) {
+      const IdString* found_name = zetasql_base::FindOrNull(*columns_to_rename, name);
+      if (found_name != nullptr) {
+        name = *found_name;
       }
     }
 

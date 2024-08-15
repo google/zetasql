@@ -257,8 +257,6 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat();
 std::vector<FunctionTestCall> GetFunctionTestsFormatWithExternalModeFloatType();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();
-std::vector<FunctionTestCall> GetFunctionTestsBase2();
-std::vector<FunctionTestCall> GetFunctionTestsBase8();
 std::vector<FunctionTestCall> GetFunctionTestsBase32();
 std::vector<FunctionTestCall> GetFunctionTestsBase64();
 std::vector<FunctionTestCall> GetFunctionTestsHex();
@@ -353,6 +351,8 @@ std::vector<FunctionTestCall> GetFunctionTestsL1Norm();
 std::vector<FunctionTestCall> GetFunctionTestsL2Norm();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistance();
 std::vector<FunctionTestCall> GetFunctionTestsEditDistanceBytes();
+std::vector<FunctionTestCall> GetFunctionTestsSplitSubstr(
+    bool skip_collation = false);
 
 }  // namespace zetasql
 

@@ -66,9 +66,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
                   const std::vector<std::string>& arg_name_list,
                   const ParseResumeLocation& parse_resume_location,
                   TableValuedFunctionOptions tvf_options = {})
-      : TableValuedFunction(function_name_path,
-                            signature,
-                            tvf_options),
+      : TableValuedFunction(function_name_path, signature, tvf_options),
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
 
@@ -181,8 +179,20 @@ class TemplatedSQLTVFSignature : public TVFSignature {
 
   // This contains the fully-resolved function body in context of the actual
   // concrete types of the provided arguments to the function call.
+  //
+  // The returned pointer will be invalid after calling the
+  // `set_resolved_templated_query`.
   const ResolvedQueryStmt* resolved_templated_query() const {
     return resolved_templated_query_.get();
+  }
+
+  // Replaces the resolved function body.
+  //
+  // The returned pointer from `resolved_templated_query` will be invalid after
+  // calling this method.
+  void set_resolved_templated_query(
+      std::unique_ptr<const ResolvedQueryStmt> resolved_templated_query) {
+    resolved_templated_query_ = std::move(resolved_templated_query);
   }
 
   // The list of names of all the function arguments, in the same order that

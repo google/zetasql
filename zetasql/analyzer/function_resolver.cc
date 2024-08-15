@@ -223,7 +223,7 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
 
 absl::StatusOr<bool> FunctionResolver::SignatureMatches(
     const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
+    absl::Span<const InputArgumentType> input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
     const NameScope* name_scope,
     std::unique_ptr<FunctionSignature>* result_signature,
@@ -850,7 +850,7 @@ absl::StatusOr<const FunctionSignature*>
 FunctionResolver::FindMatchingSignature(
     const Function* function, const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
-    const std::vector<NamedArgumentInfo>& named_arguments,
+    absl::Span<const NamedArgumentInfo> named_arguments,
     const NameScope* name_scope,
     std::vector<InputArgumentType>* input_arguments,
     std::vector<FunctionArgumentOverride>* arg_overrides,
@@ -2118,43 +2118,30 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   // see the concatenation operator function in the ResolvedAST, and only
   // see the canonical CONCAT/ARRAY_CONCAT function call.
   if (function->Name() == "$concat_op") {
-    const Function* concat_op_function;
-    ResolvedFunctionCallBase::ErrorMode concat_op_error_mode;
     std::vector<std::string> function_name_path;
-    std::unique_ptr<const FunctionSignature> concat_op_result_signature;
     arg_reorder_index_mapping.clear();
 
     if (result_signature->result_type().type()->IsArray()) {
       function_name_path.push_back("array_concat");
-      ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
-          ast_location, function_name_path,
-          Resolver::FunctionNotFoundHandleMode::kReturnError,
-          &concat_op_function, &concat_op_error_mode));
-      ZETASQL_ASSIGN_OR_RETURN(
-          const FunctionSignature* matched_signature,
-          FindMatchingSignature(concat_op_function, ast_location,
-                                arg_locations_in, named_arguments,
-                                /*name_scope=*/nullptr, &input_argument_types,
-                                /*arg_overrides=*/nullptr,
-                                &arg_reorder_index_mapping,
-                                /*mismatch_errors=*/nullptr));
-      concat_op_result_signature.reset(matched_signature);
     } else {
       function_name_path.push_back("concat");
-      ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
-          ast_location, function_name_path,
-          Resolver::FunctionNotFoundHandleMode::kReturnError,
-          &concat_op_function, &concat_op_error_mode));
-      ZETASQL_ASSIGN_OR_RETURN(
-          const FunctionSignature* matched_signature,
-          FindMatchingSignature(concat_op_function, ast_location,
-                                arg_locations_in, named_arguments,
-                                /*name_scope=*/nullptr, &input_argument_types,
-                                /*arg_overrides=*/nullptr,
-                                &arg_reorder_index_mapping,
-                                /*mismatch_errors=*/nullptr));
-      concat_op_result_signature.reset(matched_signature);
     }
+    const Function* concat_op_function;
+    ResolvedFunctionCallBase::ErrorMode concat_op_error_mode;
+    ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
+        ast_location, function_name_path,
+        Resolver::FunctionNotFoundHandleMode::kReturnError, &concat_op_function,
+        &concat_op_error_mode));
+    ZETASQL_ASSIGN_OR_RETURN(
+        const FunctionSignature* matched_signature,
+        FindMatchingSignature(
+            concat_op_function, ast_location, arg_locations_in, named_arguments,
+            /*name_scope=*/nullptr, &input_argument_types,
+            /*arg_overrides=*/nullptr, &arg_reorder_index_mapping,
+            /*mismatch_errors=*/nullptr));
+    ZETASQL_RET_CHECK_NE(matched_signature, nullptr);
+    std::unique_ptr<const FunctionSignature> concat_op_result_signature(
+        matched_signature);
     *resolved_expr_out = MakeResolvedFunctionCall(
         concat_op_result_signature->result_type().type(), concat_op_function,
         *concat_op_result_signature, std::move(arguments),
@@ -2405,7 +2392,7 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
       function,
       resolver->ResolveExprWithFunctionArguments(
           function.GetParseResumeLocation().input(), expression,
-          &function_arguments, expr_resolution_info.get(), &resolved_sql_body),
+          function_arguments, expr_resolution_info.get(), &resolved_sql_body),
       analyzer_options.error_message_options()));
 
   if (function.IsAggregate()) {

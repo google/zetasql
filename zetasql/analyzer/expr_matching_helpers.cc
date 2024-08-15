@@ -440,25 +440,6 @@ static absl::StatusOr<bool> GetLongestProtoOrStructNamePathForPrefixMatching(
   return found;
 }
 
-// Returns true if the `valid_field_map` contains an entry of the `column`, and
-// a prefix of `name_path` exists in the value list of `column`.
-static bool FieldInfoMapContainsColumnAndNamePathPrefix(
-    const ValidFieldInfoMap& valid_field_map, const ResolvedColumn& column,
-    const ValidNamePath& name_path) {
-  const ValidNamePathList* valid_name_path_list;
-  bool has_name_path_list =
-      valid_field_map.LookupNamePathList(column, &valid_name_path_list);
-  if (!has_name_path_list) {
-    return false;
-  }
-
-  ResolvedColumn unused_target_column;
-  int unused_prefix_length;
-  return ValidFieldInfoMap::FindLongestMatchingPathIfAny(
-      *valid_name_path_list, name_path.name_path(), &unused_target_column,
-      &unused_prefix_length);
-}
-
 absl::StatusOr<bool> AllPathsInExprHaveExpectedPrefixes(
     const ResolvedExpr& expr, const ValidFieldInfoMap& expected_prefixes,
     IdStringPool* id_string_pool) {
@@ -507,8 +488,8 @@ absl::StatusOr<bool> AllPathsInExprHaveExpectedPrefixes(
       continue;
     }
 
-    if (!FieldInfoMapContainsColumnAndNamePathPrefix(
-            expected_prefixes, column_ref->column(), name_path)) {
+    if (!expected_prefixes.ContainsColumnAndNamePathPrefix(column_ref->column(),
+                                                           name_path)) {
       return false;
     }
   }

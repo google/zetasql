@@ -1971,12 +1971,11 @@ select kll_quantiles.init_uint64(@test_param_uint64) from SimpleTypes
        ^
 ==
 
-[product_mode={{|internal|external}}]
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
 select kll_quantiles.init_double(@test_param_double) from SimpleTypes
 --
-ALTERNATION GROUPS:
-    <empty>
-    internal
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -1994,11 +1993,64 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(0) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
 --
-ALTERNATION GROUP: external
+ALTERNATION GROUPS:
+    external
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.init_double [at 1:8]
 select kll_quantiles.init_double(@test_param_double) from SimpleTypes
        ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(0) INT64) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.init_float64(@test_param_double) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.init_float64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_float64(@test_param_double) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(0) INT64) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
 ==
 
 select kll_quantiles.init_int64(@test_param_int64, 100) from SimpleTypes
@@ -2021,7 +2073,10 @@ QueryStmt
               +-Literal(type=INT64, value=100)
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, 10000) from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -2039,24 +2094,106 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(1) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Literal(type=INT64, value=10000)
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(1) INT64) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Literal(type=INT64, value=10000)
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.init_float64(@test_param_double, 10000) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.init_float64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_float64(@test_param_double, 10000) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(1) INT64) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Literal(type=INT64, value=10000)
 ==
 
 select kll_quantiles.init_int64(@test_param_int64, 1) from SimpleTypes
 --
-ERROR: Argument 2 to KLL_QUANTILES.INIT_INT64 must be at least 2 [at 1:52]
-select kll_quantiles.init_int64(@test_param_int64, 1) from SimpleTypes
-                                                   ^
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_int64(INT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=1)
 ==
 
 select kll_quantiles.init_uint64(@test_param_uint64, 0) from SimpleTypes
 --
-ERROR: Argument 2 to KLL_QUANTILES.INIT_UINT64 must be at least 2 [at 1:54]
-select kll_quantiles.init_uint64(@test_param_uint64, 0) from SimpleTypes
-                                                     ^
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=UINT64, name="test_param_uint64")
+              +-Literal(type=INT64, value=0)
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, @test_param_int64)
 from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -2072,6 +2209,25 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#20 :=
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(1) INT64) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Parameter(type=INT64, name="test_param_int64")
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(1) INT64) -> BYTES)
               +-Parameter(type=DOUBLE, name="test_param_double")
               +-Parameter(type=INT64, name="test_param_int64")
 ==
@@ -2097,11 +2253,130 @@ select kll_quantiles.init_int64(@test_param_int64, null) from SimpleTypes
                                                    ^
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: Argument 2 to KLL_QUANTILES.INIT_DOUBLE must be non-NULL [at 1:54]
 select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
                                                      ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+ERROR: Argument 2 to KLL_QUANTILES.INIT_FLOAT64 must be non-NULL [at 1:54]
+select kll_quantiles.init_double(@test_param_double, null) from SimpleTypes
+                                                     ^
+==
+
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.init_double(@test_param_double, 100, weight => @test_param_int64 ) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    NAMED_ARGUMENTS,internal
+--
+ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.INIT_DOUBLE. Supported signature: KLL_QUANTILES.INIT_DOUBLE(DOUBLE, [INT64]) [at 1:8]
+select kll_quantiles.init_double(@test_param_double, 100, weight => @test_par...
+       ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for aggregate function KLL_QUANTILES.INIT_DOUBLE
+  Argument types: DOUBLE, INT64, weight => INT64
+  Signature: KLL_QUANTILES.INIT_DOUBLE(DOUBLE, [INT64])
+    Named argument `weight` does not exist in signature [at 1:8]
+select kll_quantiles.init_double(@test_param_double, 100, weight => @test_par...
+       ^
+--
+ALTERNATION GROUPS:
+    external
+    NAMED_ARGUMENTS,external
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,external
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+ERROR: Function not found: kll_quantiles.init_double [at 1:8]
+select kll_quantiles.init_double(@test_param_double, 100, weight => @test_par...
+       ^
+--
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_double(DOUBLE, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Literal(type=INT64, value=100)
+              +-Parameter(type=INT64, name="test_param_int64")
+--
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Literal(type=INT64, value=100)
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.init_float64(@test_param_double, 100, weight => @test_param_int64 ) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+    NAMED_ARGUMENTS,internal
+    NAMED_ARGUMENTS,external
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,internal
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,external
+--
+ERROR: Function not found: kll_quantiles.init_float64; Did you mean kll_quantiles.init_int64? [at 1:8]
+select kll_quantiles.init_float64(@test_param_double, 100, weight => @test_pa...
+       ^
+--
+ALTERNATION GROUPS:
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS,V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_float64(DOUBLE, optional(1) INT64, optional(1) INT64 weight) -> BYTES)
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Literal(type=INT64, value=100)
+              +-Parameter(type=INT64, name="test_param_int64")
 ==
 
 # INT32 widens to INT64
@@ -2244,12 +2519,11 @@ select kll_quantiles.merge_uint64(@test_param_bytes, 2) from SimpleTypes
        ^
 ==
 
-[product_mode={{|internal|external}}]
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
 select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
 --
-ALTERNATION GROUPS:
-    <empty>
-    internal
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -2268,11 +2542,66 @@ QueryStmt
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=INT64, value=50)
 --
-ALTERNATION GROUP: external
+ALTERNATION GROUPS:
+    external
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.merge_double [at 1:8]
 select kll_quantiles.merge_double(@test_param_bytes, 50) from SimpleTypes
        ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=50)
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.merge_float64(@test_param_bytes, 50) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.merge_float64; Did you mean kll_quantiles.merge_int64? [at 1:8]
+select kll_quantiles.merge_float64(@test_param_bytes, 50) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=50)
 ==
 
 select kll_quantiles.merge_int64(@test_param_bytes) from SimpleTypes
@@ -2295,13 +2624,34 @@ select kll_quantiles.merge_int64(@test_param_bytes, key) from KeyValue
 ERROR: Argument 2 to KLL_QUANTILES.MERGE_INT64 must be a literal or query parameter [at 1:53]
 select kll_quantiles.merge_int64(@test_param_bytes, key) from KeyValue
                                                     ^
+
+==
+
+select kll_quantiles.merge_int64(@test_param_bytes, 0) from SimpleTypes
+--
+ERROR: Argument 2 to KLL_QUANTILES.MERGE_INT64 must be at least 1 [at 1:53]
+select kll_quantiles.merge_int64(@test_param_bytes, 0) from SimpleTypes
+                                                    ^
 ==
 
 select kll_quantiles.merge_int64(@test_param_bytes, 1) from SimpleTypes
 --
-ERROR: Argument 2 to KLL_QUANTILES.MERGE_INT64 must be at least 2 [at 1:53]
-select kll_quantiles.merge_int64(@test_param_bytes, 1) from SimpleTypes
-                                                    ^
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_int64(BYTES, INT64) -> ARRAY<INT64>)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=INT64, value=1)
 ==
 
 [product_mode={{|internal|external}}]
@@ -2350,12 +2700,11 @@ select kll_quantiles.extract_uint64(@test_param_bytes, 20) from SimpleTypes
        ^
 ==
 
-[product_mode={{|internal|external}}]
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
 select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
 --
-ALTERNATION GROUPS:
-    <empty>
-    internal
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -2371,14 +2720,67 @@ QueryStmt
     +-input_scan=
       +-TableScan(table=SimpleTypes)
 --
-ALTERNATION GROUP: external
+ALTERNATION GROUPS:
+    external
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.extract_double [at 1:8]
 select kll_quantiles.extract_double(@test_param_bytes, 5) from SimpleTypes
        ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=5)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_float64(@test_param_bytes, 5) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.extract_float64; Did you mean kll_quantiles.extract_int64? [at 1:8]
+select kll_quantiles.extract_float64(@test_param_bytes, 5) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=5)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_double(@test_param_bytes, key) from KeyValue
+--
+ALTERNATION GROUP: <empty>
+
 --
 QueryStmt
 +-output_column_list=
@@ -2393,15 +2795,76 @@ QueryStmt
     |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
+--
+
+ALTERNATION GROUP: <empty>
+--
+ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_DOUBLE must be at least 1 [at 1:56]
+select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
+                                                       ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_FLOAT64 must be at least 1 [at 1:56]
+select kll_quantiles.extract_double(@test_param_bytes, 0) from SimpleTypes
+                                                       ^
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_double(@test_param_bytes, 1) from SimpleTypes
 --
 
-ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_DOUBLE must be at least 2 [at 1:56]
-select kll_quantiles.extract_double(@test_param_bytes, 1) from SimpleTypes
-                                                       ^
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_double(BYTES, INT64) -> ARRAY<DOUBLE>)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_float64(BYTES, INT64) -> ARRAY<DOUBLE>)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
 ==
 
 select kll_quantiles.extract_double(@test_param_bytes, NULL) from SimpleTypes
@@ -2409,6 +2872,27 @@ select kll_quantiles.extract_double(@test_param_bytes, NULL) from SimpleTypes
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_DOUBLE must be non-NULL [at 1:56]
 select kll_quantiles.extract_double(@test_param_bytes, NULL) from SimpleTypes
                                                        ^
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.extract_float64; Did you mean kll_quantiles.extract_int64? [at 1:8]
+select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_FLOAT64 must be non-NULL [at 1:57]
+select kll_quantiles.extract_float64(@test_param_bytes, NULL) from SimpleTypes
+                                                        ^
 ==
 
 [product_mode={{|internal|external}}]
@@ -2465,13 +2949,12 @@ select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5)
        ^
 ==
 
-[product_mode={{|internal|external}}]
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
 select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
 --
 
-ALTERNATION GROUPS:
-    <empty>
-    internal
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -2490,11 +2973,67 @@ QueryStmt
               +-Parameter(type=BYTES, name="test_param_bytes")
               +-Literal(type=DOUBLE, value=1)
 --
-ALTERNATION GROUP: external
+ALTERNATION GROUPS:
+    external
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
 --
 ERROR: Function not found: kll_quantiles.merge_point_double [at 1:8]
 select kll_quantiles.merge_point_double(@test_param_bytes, 1) from SimpleTypes
        ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_float64(BYTES, DOUBLE) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=DOUBLE, value=1)
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.merge_point_float64(@test_param_bytes, 1) from SimpleTypes
+--
+
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.merge_point_float64; Did you mean kll_quantiles.merge_point_int64? [at 1:8]
+select kll_quantiles.merge_point_float64(@test_param_bytes, 1) from SimpleTypes
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:kll_quantiles.merge_point_float64(BYTES, DOUBLE) -> DOUBLE)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Literal(type=DOUBLE, value=1)
 ==
 
 select kll_quantiles.merge_point_uint64(@test_param_bytes, 0.5+0.1) from SimpleTypes
@@ -2577,13 +3116,12 @@ select kll_quantiles.extract_point_uint64(@test_param_bytes, 0.75)
        ^
 ==
 
-[product_mode={{|internal|external}}]
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
 from SimpleTypes
 --
-ALTERNATION GROUPS:
-    <empty>
-    internal
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -2604,9 +3142,34 @@ ALTERNATION GROUP: external
 ERROR: Function not found: kll_quantiles.extract_point_double; Did you mean kll_quantiles.extract_point_int64? [at 1:8]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
        ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_float64(BYTES, DOUBLE) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Literal(type=DOUBLE, value=0.995)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+ERROR: Function not found: kll_quantiles.extract_point_double; Did you mean kll_quantiles.extract_point_float64? [at 1:8]
+select kll_quantiles.extract_point_double(@test_param_bytes, 0.995)
+       ^
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 0.5+0.1) from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -2623,9 +3186,30 @@ QueryStmt
     |       +-Literal(type=DOUBLE, value=0.1)
     +-input_scan=
       +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#20 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#20]
+    +-expr_list=
+    | +-$col1#20 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_float64(BYTES, DOUBLE) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |       +-Literal(type=DOUBLE, value=0.5)
+    |       +-Literal(type=DOUBLE, value=0.1)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, key) from KeyValue
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -2641,19 +3225,86 @@ QueryStmt
     |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_float64(BYTES, DOUBLE) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Cast(INT64 -> DOUBLE)
+    |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
+[product_mode={{internal|external}}]
+select kll_quantiles.extract_point_float64(@test_param_bytes, key) from KeyValue
+--
+ALTERNATION GROUPS:
+    internal
+    external
+--
+ERROR: Function not found: kll_quantiles.extract_point_float64; Did you mean kll_quantiles.extract_point_int64? [at 1:8]
+select kll_quantiles.extract_point_float64(@test_param_bytes, key) from KeyValue
+       ^
+--
+ALTERNATION GROUPS:
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,internal
+    V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS,external
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:kll_quantiles.extract_point_float64(BYTES, DOUBLE) -> DOUBLE)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    |     +-Cast(INT64 -> DOUBLE)
+    |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
 --
 
+ALTERNATION GROUP: <empty>
+--
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_DOUBLE must be between 0 and 1 [at 1:62]
+...extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
+                                           ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_FLOAT64 must be between 0 and 1 [at 1:62]
 ...extract_point_double(@test_param_bytes, 1.1) from SimpleTypes
                                            ^
 ==
 
+[language_features={{|V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS}}]
 select kll_quantiles.extract_point_double(@test_param_bytes, -1) from SimpleTypes
 --
+ALTERNATION GROUP: <empty>
+--
 ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_DOUBLE must be between 0 and 1 [at 1:62]
+...extract_point_double(@test_param_bytes, -1) from SimpleTypes
+                                           ^
+--
+ALTERNATION GROUP: V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS
+--
+ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_FLOAT64 must be between 0 and 1 [at 1:62]
 ...extract_point_double(@test_param_bytes, -1) from SimpleTypes
                                            ^
 ==

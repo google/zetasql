@@ -33,6 +33,7 @@
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -382,6 +383,96 @@ class MapValuesSortedByKeyFunction : public SimpleBuiltinScalarFunction {
   }
 };
 
+class MapEmptyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapEmptyFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    ZETASQL_RET_CHECK_EQ(args.size(), 1);
+    const Value& map = args[0];
+
+    if (map.is_null()) {
+      return Value::Null(output_type());
+    }
+
+    ZETASQL_RET_CHECK(map.type()->IsMap()) << map.type()->DebugString();
+    return Value::Bool(map.num_elements() == 0);
+  }
+};
+
+static inline absl::StatusOr<Value> MapInsertImpl(
+    const bool replace_existing_values, const Type* output_type,
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) {
+  ZETASQL_RET_CHECK(args.size() >= 3) << args.size();
+  ZETASQL_RET_CHECK(args.size() % 2 == 1)
+      << args.size()
+      << ": after the map argument, arguments should be provided in key/value "
+         "pairs.";
+  ZETASQL_RET_CHECK(args[0].type()->IsMap()) << args[0].type()->DebugString();
+  const Value& map = args[0];
+
+  if (map.is_null()) {
+    return Value::Null(output_type);
+  }
+
+  // (size - 1) because the first argument is the map, which we don't include.
+  const int num_entries = (args.size() - 1) / 2;
+
+  absl::flat_hash_set<Value> keys_to_insert;
+  keys_to_insert.reserve(num_entries);
+  std::vector<std::pair<Value, Value>> entries;
+  entries.reserve(num_entries);
+
+  // The ZETASQL_RET_CHECK above should catch any issue with unexpected size, but just
+  // to be safe, check (size - 1) here since the loop increments by 2.
+  for (int i = 1; i < args.size() - 1; i += 2) {
+    const auto& [unused, success] = keys_to_insert.emplace(args[i]);
+    if (!success) {
+      return MakeEvalError() << "Key provided more than once as argument: "
+                             << args[i].Format(/*print_top_level_type=*/false);
+    }
+    entries.push_back({args[i], args[i + 1]});
+  }
+
+  for (const auto& [key, value] : map.map_entries()) {
+    if (!keys_to_insert.contains(key)) {
+      entries.push_back({key, value});
+    } else if (!replace_existing_values) {
+      return MakeEvalError() << "Key already exists in map: "
+                             << key.Format(/*print_top_level_type=*/false);
+    }
+  }
+
+  return Value::MakeMap(args[0].type(), std::move(entries));
+}
+
+class MapInsertFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapInsertFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapInsertImpl(/*replace_existing_values=*/false, output_type(),
+                         params, args, context);
+  }
+};
+
+class MapInsertOrReplaceFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapInsertOrReplaceFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return MapInsertImpl(/*replace_existing_values=*/true, output_type(),
+                         params, args, context);
+  }
+};
+
 }  // namespace
 
 void RegisterBuiltinMapFunctions() {
@@ -438,6 +529,21 @@ void RegisterBuiltinMapFunctions() {
       {FunctionKind::kMapValuesSortedByKey},
       [](FunctionKind kind, const Type* output_type) {
         return new MapValuesSortedByKeyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapEmpty},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapEmptyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapInsert},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapInsertFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapInsertOrReplace},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapInsertOrReplaceFunction(kind, output_type);
       });
 }
 }  // namespace zetasql

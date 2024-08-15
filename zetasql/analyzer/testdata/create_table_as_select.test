@@ -1462,7 +1462,35 @@ create table tt
 with connection default
 as select 1 a, 2 b;
 --
-ERROR: CONNECTION DEFAULT is not supported [at 2:17]
+CreateTableAsSelectStmt
++-name_path=tt
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+| +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
++-connection=
+| +-Connection(connection=$connection_default)
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, b#2]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-b#2 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+
+[no_java]
+[use_database=SpecialCatalog]
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+create table tt
+with connection default
+as select 1 a, 2 b;
+--
+ERROR: Default connection not found [at 2:17]
 with connection default
                 ^
 ==

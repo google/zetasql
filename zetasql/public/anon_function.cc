@@ -26,11 +26,12 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
 static std::string AnonFunctionSQL(absl::string_view display_name,
-                                   const std::vector<std::string>& inputs) {
+                                   absl::Span<const std::string> inputs) {
   const std::string upper_case_display_name =
       absl::AsciiStrToUpper(display_name);
   if (upper_case_display_name == "ANON_PERCENTILE_CONT" ||

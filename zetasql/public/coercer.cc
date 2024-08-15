@@ -18,10 +18,8 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <functional>
 #include <iterator>
 #include <memory>
-#include <set>
 #include <stack>
 #include <string>
 #include <utility>
@@ -32,23 +30,24 @@
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -741,6 +740,12 @@ absl::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
   }
 
   for (const InputArgumentType& argument : argument_set.arguments()) {
+    // This method gets called somehow for non-expression arguments and
+    // relies on argument.type() being non-NULL, even though non-expression
+    // arguments shouldn't have types, and only do by accident because
+    // of code in the InputArgumentType factory methods.
+    ZETASQL_RET_CHECK(argument.type() != nullptr) << argument.DebugString();
+
     // There are dedicated methods for special cases.
     if (argument.type()->IsStruct()) {
       return GetCommonStructSuperType(argument_set);

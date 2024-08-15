@@ -1,0 +1,8 @@
+DESCRIBE Customer;
+DESCRIBE LineItem;
+DESCRIBE Nation;
+DESCRIBE Orders;
+DESCRIBE Part;
+DESCRIBE PartSupp;
+DESCRIBE Region;
+DESCRIBE Supplier;

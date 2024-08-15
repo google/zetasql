@@ -1,0 +1,103 @@
+CREATE CONNECTION foo
+--
+CreateConnectionStmt(name_path=foo)
+==
+
+CREATE CONNECTION foo OPTIONS()
+--
+CreateConnectionStmt(name_path=foo)
+==
+
+[disallow_duplicate_options]
+CREATE CONNECTION foo OPTIONS(x=1, x=5)
+--
+ERROR: Duplicate option specified for 'x' [at 1:36]
+CREATE CONNECTION foo OPTIONS(x=1, x=5)
+                                   ^
+==
+
+CREATE TEMP CONNECTION foo OPTIONS(x=1)
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword CONNECTION [at 1:13]
+CREATE TEMP CONNECTION foo OPTIONS(x=1)
+            ^
+==
+
+CREATE {{|OR REPLACE }} CONNECTION {{|IF NOT EXISTS}} foo.bar.baz OPTIONS (a=1, b=2)
+--
+ALTERNATION GROUP: <empty>
+--
+CreateConnectionStmt
++-name_path=foo.bar.baz
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: IF NOT EXISTS
+--
+CreateConnectionStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_IF_NOT_EXISTS
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: OR REPLACE ,
+--
+CreateConnectionStmt
++-name_path=foo.bar.baz
++-create_mode=CREATE_OR_REPLACE
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: OR REPLACE ,IF NOT EXISTS
+--
+ERROR: CREATE CONNECTION cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE  CONNECTION IF NOT EXISTS foo.bar.baz OPTIONS (a=1, b=2)
+^
+==
+
+CREATE TEMP CONNECTION foo OPTIONS(x=1)
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword CONNECTION [at 1:13]
+CREATE TEMP CONNECTION foo OPTIONS(x=1)
+            ^
+==
+
+[show_unparsed]
+CREATE CONNECTION foo OPTIONS(x=1)
+--
+CreateConnectionStmt
++-name_path=foo
++-option_list=
+  +-x := Literal(type=INT64, value=1)
+
+[UNPARSED_SQL]
+CREATE CONNECTION foo OPTIONS(x = 1);
+==
+
+[show_unparsed]
+CREATE OR REPLACE CONNECTION foo OPTIONS(x=1)
+--
+CreateConnectionStmt
++-name_path=foo
++-create_mode=CREATE_OR_REPLACE
++-option_list=
+  +-x := Literal(type=INT64, value=1)
+
+[UNPARSED_SQL]
+CREATE OR REPLACE CONNECTION foo OPTIONS(x = 1);
+==
+
+[show_unparsed]
+CREATE CONNECTION IF NOT EXISTS foo OPTIONS(x=1)
+--
+CreateConnectionStmt
++-name_path=foo
++-create_mode=CREATE_IF_NOT_EXISTS
++-option_list=
+  +-x := Literal(type=INT64, value=1)
+
+[UNPARSED_SQL]
+CREATE CONNECTION IF NOT EXISTS foo OPTIONS(x = 1);

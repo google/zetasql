@@ -478,9 +478,9 @@ CreateRowAccessPolicyStmt
 --
 ALTERNATION GROUP: access,grant to ("foo@google.com"),
 --
-ERROR: Expected keyword FILTER before USING [at 1:68]
-create row access policy p1 on KeyValue grant to ("foo@google.com")
-                                                                   ^
+ERROR: Expected keyword FILTER before USING [at 2:2]
+ using (key = 321);
+ ^
 --
 ALTERNATION GROUPS:
     access,to "foo@google.com",filter

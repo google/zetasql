@@ -151,7 +151,7 @@ absl::StatusOr<EnumOptionsEntry<LanguageFeature>> ParseEnabledLanguageFeatures(
        {"ALL", GetAllLanguageFeatures()},
        {"MAXIMUM", GetMaximumLanguageFeatures()},
        {"DEV", GetDevLanguageFeatures()}},
-      "FEATURE_", "Rewrite", options_str);
+      "FEATURE_", "Feature", options_str);
 }
 
 bool AbslParseFlag(absl::string_view text, EnabledLanguageFeatures* p,

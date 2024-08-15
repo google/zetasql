@@ -1,0 +1,121 @@
+    <div id="header"><a href="/">ZetaSQL Execute Query</a></div>
+
+    <main>
+      <form action="/" method="post">
+        <h2>Query</h2>
+        <textarea name="query" spellcheck=false
+          placeholder="Enter your query here...">{{query}}</textarea>
+
+        <div class="options">
+          <div>
+            <fieldset>
+              <legend>Mode</legend>
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="execute" id="mode-execute"
+                  {{#mode_execute}}checked{{/mode_execute}}>
+                <label for="mode-execute">Execute</label>
+              </span>
+
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="analyze" id="mode-analyze"
+                  {{#mode_analyze}}checked{{/mode_analyze}}>
+                <label for="mode-analyze">Analyze</label>
+              </span>
+
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="parse" id="mode-parse"
+                  {{#mode_parse}}checked{{/mode_parse}}>
+                <label for="mode-parse">Parse</label>
+              </span>
+
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="explain" id="mode-explain"
+                  {{#mode_explain}}checked{{/mode_explain}}>
+                <label for="mode-explain">Explain</label>
+              </span>
+
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="unanalyze" id="mode-unanalyze"
+                  {{#mode_unanalyze}}checked{{/mode_unanalyze}}>
+                <label for="mode-unanalyze">Unanalyze</label>
+              </span>
+
+              <span class="mode-option">
+                <input type="checkbox" name="mode" value="unparse" id="mode-unparse"
+                  {{#mode_unparse}}checked{{/mode_unparse}}>
+                <label for="mode-unparse">Unparse</label>
+              </span>
+            </fieldset>
+
+            <div>
+              <label for="catalog-select">Catalog:</label>
+              <select name="catalog" id="catalog-select">
+                {{#catalogs}}
+                <option value="{{name}}" {{selected}}>{{label}}</option>
+                {{/catalogs}}
+              </select>
+            </div>
+          </div>
+
+          <input type="submit" id="submit" value="Submit">
+        </div>
+      </form>
+
+      <div id="statements">
+        {{#statements}}
+        {{#result_or_error}}
+        <div class="result">
+          {{#error}}
+            <h2>Error</h2>
+            <pre id="error">{{error}}</pre>
+          {{/error}}
+          {{#result}}
+            <h2>Result</h2>
+
+            {{#result_executed}}
+            <h3>Execute</h3>
+              {{#result_executed_table}}
+                <pre class="output executed">{{> table}}</pre>
+              {{/result_executed_table}}
+              {{#result_executed_text}}
+                <pre class="output executed">{{result_executed_text}}</pre>
+              {{/result_executed_text}}
+            {{/result_executed}}
+
+            {{#result_analyzed}}
+            <h3>Analyze</h3>
+            <pre class="output analyzed"><code class="language-less">{{result_analyzed}}</code></pre>
+            {{/result_analyzed}}
+
+            {{#result_parsed}}
+            <h3>Parse</h3>
+            <pre class="output parsed"><code class="language-less">{{result_parsed}}</code></pre>
+            {{/result_parsed}}
+
+            {{#result_explained }}
+            <h3>Explain</h3>
+            <pre class="output explained"><code class="language-less">{{result_explained}}</code></pre>
+            {{/result_explained}}
+
+            {{#result_unanalyzed}}
+            <h3>Unanalyze</h3>
+            <pre class="output unanalyzed"><code class="language-sql">{{result_unanalyzed}}</code></pre>
+            {{/result_unanalyzed}}
+
+            {{#result_unparsed}}
+            <h3>Unparse</h3>
+            <pre class="output unparsed"><code class="language-sql">{{result_unparsed}}</code></pre>
+            {{/result_unparsed}}
+
+            {{#result_log}}
+            <h3>Log</h3>
+            <pre class="output log"><code class="language-sql">{{result_log}}</code></pre>
+            {{/result_log}}
+          {{/result}}
+        </div>
+        {{/result_or_error}}
+        {{#not_is_last}}<hr>{{/not_is_last}}
+        {{/statements}}
+      </div>
+
+    </main>

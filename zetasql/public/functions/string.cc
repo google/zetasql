@@ -51,6 +51,7 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -2373,6 +2374,74 @@ absl::Status ValidateFormat(absl::string_view format) {
                         absl::Substitute(kInvalidFormat, format));
   }
   return absl::OkStatus();
+}
+
+absl::Status SplitSubstrWithCount(absl::string_view text,
+                                  absl::string_view delimiter,
+                                  int64_t start_index, int64_t count,
+                                  std::string* out) {
+  if (delimiter.empty()) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Delimiter of SPLIT_SUBSTR function must be non-empty");
+  }
+
+  if (!IsWellFormedUTF8(text)) {
+    return absl::Status(
+        absl::StatusCode::kOutOfRange,
+        "Text input to SPLIT_SUBSTR function must be valid UTF-8");
+  }
+
+  if (!IsWellFormedUTF8(delimiter)) {
+    return absl::Status(
+        absl::StatusCode::kOutOfRange,
+        "Delimiter of SPLIT_SUBSTR function must be valid UTF-8");
+  }
+
+  if (count < 0) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Count of SPLIT_SUBSTR function must be non-negative");
+  }
+
+  if (count == 0 || text.empty()) {
+    *out = "";
+    return absl::OkStatus();
+  }
+
+  std::vector<std::string> splits = absl::StrSplit(text, delimiter);
+  int64_t num_splits = splits.size();
+
+  // Normalize positive start_index to 0-based indexing.
+  if (start_index >= 1) {
+    start_index -= 1;
+  }
+
+  // Normalize negative start_index.
+  if (start_index < 0 && start_index >= -num_splits) {
+    start_index = num_splits + start_index;
+  }
+
+  // Move start_index to first split if it is in the left of the first split.
+  if (start_index < 0) {
+    start_index = 0;
+  }
+
+  // Return empty string if start_index is in the right of the last split.
+  if (start_index >= num_splits) {
+    *out = "";
+    return absl::OkStatus();
+  }
+
+  // Normalize count.
+  count = std::min(count, num_splits - start_index);
+  *out = absl::StrJoin(splits.begin() + start_index,
+                       splits.begin() + start_index + count, delimiter);
+  return absl::OkStatus();
+}
+
+absl::Status SplitSubstr(absl::string_view text, absl::string_view delimiter,
+                         int64_t start_index, std::string* out) {
+  return SplitSubstrWithCount(text, delimiter, start_index,
+                              std::numeric_limits<int64_t>::max(), out);
 }
 
 }  // namespace functions

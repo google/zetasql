@@ -21,6 +21,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stack>
 #include <string>
 #include <utility>
@@ -40,6 +41,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/target_syntax.h"
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
@@ -50,6 +52,98 @@
 namespace zetasql {
 
 class QueryExpression;
+
+struct CopyableState {
+  // Stores the path used to access the resolved columns, keyed by column_id.
+  // This map needs to updated to reflect the path of the column in the current
+  // context (e.g. when inside or outside a join or subquery) as we visit nodes
+  // up the tree.
+  std::map<int /* column_id */, std::string> column_paths;
+
+  // Stores the unique alias we generate for the ResolvedComputedColumn.
+  // These aliases are mostly used to replace the internal column names assigned
+  // to these columns in the resolved tree. The key is column_id here.
+  std::map<int /* column_id */, std::string> computed_column_alias;
+
+  // Stores the unique scan_aliases assigned for the corresponding scan nodes.
+  absl::flat_hash_map<const ResolvedScan*, std::string> scan_alias_map;
+
+  // Stores the unique aliases assigned to tables.
+  absl::flat_hash_map<const Table*, std::string> table_alias_map;
+
+  // Stores the tables that have been used without an explicit alias.
+  // This is a map from the implicit alias to the identifier (as returned by
+  // TableToIdentifierLiteral).
+  // This is because if we have two tables in different nested catalogs S1.T
+  // and S2.T, they cannot both use the same implicit alias "t" and one of them
+  // needs to be explicitly aliased.
+  absl::flat_hash_map<std::string, std::string> tables_with_implicit_alias;
+
+  // Stores the sql text of the columns, keyed by column_id and populated in
+  // AggregateScan, AnalyticScan, and TVFScan. We refer to the sql text in its
+  // parent ProjectScan (while building the select_list) and in
+  // ResolvedColumnRef pointing to the column.
+  // NOTE: This map is cleared every time we visit a ProjectScan, once it has
+  // processed all the columns of its child scan.
+  std::map<int /* column_id */, std::string> pending_columns;
+
+  // Stores the sql text of pending columns that are used as parameters of sub
+  // expressions.
+  // NOTE: This map is initialized and cleared in each VisitResolvedSubqueryExpr
+  // call. Unlike pending_columns_ it is not cleared in every ProjectScan as
+  // correlated columns must be accessible to all scans inside the sub query.
+  std::map<int /* column_id */, std::string> correlated_pending_columns;
+
+  // Stores the WithScan corresponding to the with-query-name. Used in
+  // WithRefScan to extract the column aliases of the relevant WithScan.
+  std::map<std::string /* with_query_name */,
+           const ResolvedScan* /* with_subquery */>
+      with_query_name_to_scan;
+
+  // A stack of stacks. An element of an inner stack corresponds to a
+  // ResolvedUpdateItem node that is currently being processed, and stores the
+  // target SQL for that node and the array offset SQL (empty if not applicable)
+  // of the ResolvedUpdateArrayItem child currently being processed. We start a
+  // new stack just before we process a ResolvedUpdateItem node from a
+  // ResolvedUpdateStmt (as opposed to a ResolvedUpdateArrayItem).
+  //
+  // Stacks are added/removed in GetUpdateItemListSQL. Target SQL is set in
+  // VisitResolvedUpdateItem. Offset SQL is set in
+  // VisitResolvedUpdateArrayItem. An inner stack is used to construct a target
+  // in VisitResolvedUpdateItem when there are no ResolvedUpdateArrayItem
+  // children.
+  std::deque<std::deque<
+      std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
+      update_item_targets_and_offsets;
+
+  // A stack of dml target paths kept to parallel the nesting of dml statements.
+  // Populated in VisitResolvedUpdateItem and used in
+  // VisitResolved<DMLType>Statement to refer the corresponding target path.
+  std::deque<
+      std::pair<std::string /* target_path */, std::string /* target_alias */>>
+      nested_dml_targets;
+
+  // All column names referenced in the query.
+  absl::flat_hash_set<std::string> col_ref_names;
+
+  // True if we are unparsing the LHS of a SET statement.
+  bool in_set_lhs = false;
+
+  struct RecursiveQueryInfo {
+    // Text to be inserted into the generated query to refer to the recursive
+    // table being referenced. If backticks are needed, this should already be
+    // present in the query name.
+    std::string query_name;
+
+    // The recursive scan being referenced.
+    const ResolvedRecursiveScan* scan;
+  };
+
+  // Stack of names of recursive queries being defined. Any
+  // ResolvedRecursiveRefScan node must refer to the query at the top of the
+  // stack.
+  std::stack<RecursiveQueryInfo> recursive_query_info;
+};
 
 // SQLBuilder takes the ZetaSQL Resolved ASTs and generates its equivalent SQL
 // form.
@@ -154,14 +248,119 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Returns the sql string for the last visited ResolvedAST.
   std::string sql();
 
+  // Returns a map of column id to its path expression.
+  std::map</* column_id */ int, std::string>& mutable_column_paths() {
+    return state_.column_paths;
+  }
+  const std::map</* column_id */ int, std::string>& column_paths() const {
+    return state_.column_paths;
+  }
+
+  // Returns a map of column id to its alias.
+  std::map</* column_id */ int, std::string>& mutable_computed_column_alias() {
+    return state_.computed_column_alias;
+  }
+  const std::map</* column_id */ int, std::string>& computed_column_alias()
+      const {
+    return state_.computed_column_alias;
+  }
+
+  // Returns a set of all column names referenced in the query.
+  absl::flat_hash_set<std::string>& mutable_col_ref_names() {
+    return state_.col_ref_names;
+  }
+  const absl::flat_hash_set<std::string>& col_ref_names() const {
+    return state_.col_ref_names;
+  }
+
+  // Returns a map of scans to it unique aliases.
+  absl::flat_hash_map<const ResolvedScan*, std::string>&
+  mutable_scan_alias_map() {
+    return state_.scan_alias_map;
+  }
+  const absl::flat_hash_map<const ResolvedScan*, std::string>& scan_alias_map()
+      const {
+    return state_.scan_alias_map;
+  }
+
+  // Returns a map of tables to it unique aliases.
+  absl::flat_hash_map<const Table*, std::string>& mutable_table_alias_map() {
+    return state_.table_alias_map;
+  }
+  const absl::flat_hash_map<const Table*, std::string>& table_alias_map()
+      const {
+    return state_.table_alias_map;
+  }
+
+  // Returns a map of pending column id to SQL string.
+  std::map<int /* column_id */, std::string>& mutable_pending_columns() {
+    return state_.pending_columns;
+  }
+  const std::map<int /* column_id */, std::string>& pending_columns() const {
+    return state_.pending_columns;
+  }
+
+  // Returns a map of correlated pending column id to SQL string.
+  std::map<int /* column_id */, std::string>&
+  mutable_correlated_pending_columns() {
+    return state_.correlated_pending_columns;
+  }
+  const std::map<int /* column_id */, std::string>& correlated_pending_columns()
+      const {
+    return state_.correlated_pending_columns;
+  }
+
+  // Returns a map of implicit alias to the table identifier.
+  absl::flat_hash_map<std::string, std::string>&
+  mutable_tables_with_implicit_alias() {
+    return state_.tables_with_implicit_alias;
+  }
+  const absl::flat_hash_map<std::string, std::string>&
+  tables_with_implicit_alias() const {
+    return state_.tables_with_implicit_alias;
+  }
+
+  // Returns a deque of dml target path and alias.
+  std::deque<
+      std::pair</* target_path */ std::string, /* target_alias */ std::string>>&
+  mutable_nested_dml_targets() {
+    return state_.nested_dml_targets;
+  }
+  const std::deque<
+      std::pair</* target_path */ std::string, /* target_alias */ std::string>>&
+  nested_dml_targets() const {
+    return state_.nested_dml_targets;
+  }
+
+  // Returns a stack of stack of update item target path and alias.
+  std::deque<std::deque<
+      std::pair</* target_sql */ std::string, /* offset_sql */ std::string>>>&
+  mutable_update_item_targets_and_offsets() {
+    return state_.update_item_targets_and_offsets;
+  }
+  const std::deque<std::deque<
+      std::pair</* target_sql */ std::string, /* offset_sql */ std::string>>>&
+  update_item_targets_and_offsets() const {
+    return state_.update_item_targets_and_offsets;
+  }
+
+  // Set the max seen alias id.
+  void set_max_seen_alias_id(int max_seen_alias_id);
+
+  // Returns the max seen alias id.
+  int* mutable_max_seen_alias_id();
+  int max_seen_alias_id() const;
+
   // Visit methods for types of ResolvedStatement.
   absl::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
   absl::Status VisitResolvedExplainStmt(
       const ResolvedExplainStmt* node) override;
+  absl::Status VisitResolvedCreateConnectionStmt(
+      const ResolvedCreateConnectionStmt* node) override;
   absl::Status VisitResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* node) override;
   absl::Status VisitResolvedCreateIndexStmt(
-    const ResolvedCreateIndexStmt* node) override;
+      const ResolvedCreateIndexStmt* node) override;
   absl::Status VisitResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* node) override;
   absl::Status VisitResolvedCreateSchemaStmt(
@@ -211,8 +410,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDefineTableStmt* node) override;
   absl::Status VisitResolvedDescribeStmt(
       const ResolvedDescribeStmt* node) override;
-  absl::Status VisitResolvedShowStmt(
-      const ResolvedShowStmt* node) override;
+  absl::Status VisitResolvedShowStmt(const ResolvedShowStmt* node) override;
   absl::Status VisitResolvedBeginStmt(const ResolvedBeginStmt* node) override;
   absl::Status VisitResolvedSetTransactionStmt(
       const ResolvedSetTransactionStmt* node) override;
@@ -225,11 +423,9 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedRunBatchStmt* node) override;
   absl::Status VisitResolvedAbortBatchStmt(
       const ResolvedAbortBatchStmt* node) override;
-  absl::Status VisitResolvedDeleteStmt(
-      const ResolvedDeleteStmt* node) override;
+  absl::Status VisitResolvedDeleteStmt(const ResolvedDeleteStmt* node) override;
   absl::Status VisitResolvedUndropStmt(const ResolvedUndropStmt* node) override;
-  absl::Status VisitResolvedDropStmt(
-      const ResolvedDropStmt* node) override;
+  absl::Status VisitResolvedDropStmt(const ResolvedDropStmt* node) override;
   absl::Status VisitResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* node) override;
   absl::Status VisitResolvedDropTableFunctionStmt(
@@ -246,16 +442,14 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropIndexStmt* node) override;
   absl::Status VisitResolvedTruncateStmt(
       const ResolvedTruncateStmt* node) override;
-  absl::Status VisitResolvedUpdateStmt(
-      const ResolvedUpdateStmt* node) override;
-  absl::Status VisitResolvedInsertStmt(
-      const ResolvedInsertStmt* node) override;
+  absl::Status VisitResolvedUpdateStmt(const ResolvedUpdateStmt* node) override;
+  absl::Status VisitResolvedInsertStmt(const ResolvedInsertStmt* node) override;
   absl::Status VisitResolvedMergeStmt(const ResolvedMergeStmt* node) override;
   absl::Status VisitResolvedMergeWhen(const ResolvedMergeWhen* node) override;
-  absl::Status VisitResolvedGrantStmt(
-      const ResolvedGrantStmt* node) override;
-  absl::Status VisitResolvedRevokeStmt(
-      const ResolvedRevokeStmt* node) override;
+  absl::Status VisitResolvedGrantStmt(const ResolvedGrantStmt* node) override;
+  absl::Status VisitResolvedRevokeStmt(const ResolvedRevokeStmt* node) override;
+  absl::Status VisitResolvedAlterConnectionStmt(
+      const ResolvedAlterConnectionStmt* node) override;
   absl::Status VisitResolvedAlterDatabaseStmt(
       const ResolvedAlterDatabaseStmt* node) override;
   absl::Status VisitResolvedAlterPrivilegeRestrictionStmt(
@@ -280,8 +474,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterApproxViewStmt* node) override;
   absl::Status VisitResolvedAlterModelStmt(
       const ResolvedAlterModelStmt* node) override;
-  absl::Status VisitResolvedRenameStmt(
-      const ResolvedRenameStmt* node) override;
+  absl::Status VisitResolvedRenameStmt(const ResolvedRenameStmt* node) override;
   absl::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
   absl::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
   absl::Status VisitResolvedAnalyzeStmt(
@@ -397,8 +590,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedRecursionDepthModifier* node) override;
   absl::Status VisitResolvedWithRefScan(
       const ResolvedWithRefScan* node) override;
-  absl::Status VisitResolvedSampleScan(
-      const ResolvedSampleScan* node) override;
+  absl::Status VisitResolvedSampleScan(const ResolvedSampleScan* node) override;
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
@@ -406,6 +598,9 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedUnpivotScan* node) override;
   absl::Status VisitResolvedGroupRowsScan(
       const ResolvedGroupRowsScan* node) override;
+  absl::Status VisitResolvedStaticDescribeScan(
+      const ResolvedStaticDescribeScan* node) override;
+  absl::Status VisitResolvedAssertScan(const ResolvedAssertScan* node) override;
   absl::Status VisitResolvedBarrierScan(
       const ResolvedBarrierScan* node) override;
 
@@ -430,6 +625,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
  protected:
+  SQLBuilder(int* max_seen_alias_id_root_ptr, const SQLBuilderOptions& options,
+             const CopyableState& state);
+
   // Holds SQL text of nodes representing expressions/subqueries and
   // QueryExpression for scan nodes.
   struct QueryFragment {
@@ -535,9 +733,6 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Returns fully qualified path to access the column (in scope of the caller).
   // i.e. <scan_alias>.<column_alias>
   std::string GetColumnPath(const ResolvedColumn& column);
-
-  // Returns whether the column has an existing alias.
-  bool HasColumnAlias(const ResolvedColumn& column);
 
   // Returns the alias to be used to select the column.
   std::string GetColumnAlias(const ResolvedColumn& column);
@@ -804,51 +999,20 @@ class SQLBuilder : public ResolvedASTVisitor {
   // debugging purposes.
   std::deque<std::unique_ptr<QueryFragment>> query_fragments_;
 
-  // Stores the path used to access the resolved columns, keyed by column_id.
-  // This map needs to updated to reflect the path of the column in the current
-  // context (e.g. when inside or outside a join or subquery) as we visit nodes
-  // up the tree.
-  std::map<int /* column_id */, std::string> column_paths_;
+  // The maximum seen alias id so far. This number is used to generate unique
+  // alias ids.
+  int max_seen_alias_id_ = 0;
 
-  // Stores the unique alias we generate for the ResolvedComputedColumn.
-  // These aliases are mostly used to replace the internal column names assigned
-  // to these columns in the resolved tree. The key is column_id here.
-  std::map<int /* column_id */, std::string> computed_column_alias_;
-
-  // Stores the unique scan_aliases assigned for the corresponding scan nodes.
-  absl::flat_hash_map<const ResolvedScan*, std::string> scan_alias_map_;
-
-  // Stores the unique aliases assigned to tables.
-  absl::flat_hash_map<const Table*, std::string> table_alias_map_;
-
-  // Stores the tables that have been used without an explicit alias.
-  // This is a map from the implicit alias to the identifier (as returned by
-  // TableToIdentifierLiteral).
-  // This is because if we have two tables in different nested catalogs S1.T
-  // and S2.T, they cannot both use the same implicit alias "t" and one of them
-  // needs to be explicitly aliased.
-  absl::flat_hash_map<std::string, std::string> tables_with_implicit_alias_;
+  // Always points to `max_seen_alias_id_` of the root SQLBuilder.
+  // `max_seen_alias_id_root_ptr_` is nullptr only if it's the root SQLBuilder.
+  // Otherwise, it should never be nullptr.
+  int* max_seen_alias_id_root_ptr_ = nullptr;
 
   // Stores the target table alias for DML Returning statements.
   std::string returning_table_alias_;
 
   // Used to generate a unique alias id.
-  zetasql_base::SequenceNumber scan_id_sequence_;
-
-  // Stores the sql text of the columns, keyed by column_id and populated in
-  // AggregateScan, AnalyticScan, and TVFScan. We refer to the sql text in its
-  // parent ProjectScan (while building the select_list) and in
-  // ResolvedColumnRef pointing to the column.
-  // NOTE: This map is cleared every time we visit a ProjectScan, once it has
-  // processed all the columns of its child scan.
-  std::map<int /* column_id */, std::string> pending_columns_;
-
-  // Stores the sql text of pending columns that are used as parameters of sub
-  // expressions.
-  // NOTE: This map is initialized and cleared in each VisitResolvedSubqueryExpr
-  // call. Unlike pending_columns_ it is not cleared in every ProjectScan as
-  // correlated columns must be accessible to all scans inside the sub query.
-  std::map<int /* column_id */, std::string> correlated_pending_columns_;
+  zetasql_base::SequenceNumber alias_id_sequence_;
 
   // Holds sql text for node representing an analytic function.
   class AnalyticFunctionInfo;
@@ -870,62 +1034,19 @@ class SQLBuilder : public ResolvedASTVisitor {
   // parent node (i.e. AnalyticFunctionGroup).
   std::unique_ptr<AnalyticFunctionInfo> pending_analytic_function_;
 
-  // Stores the WithScan corresponding to the with-query-name. Used in
-  // WithRefScan to extract the column aliases of the relevant WithScan.
-  std::map<std::string /* with_query_name */,
-           const ResolvedScan* /* with_subquery */>
-      with_query_name_to_scan_;
-
-  // A stack of stacks. An element of an inner stack corresponds to a
-  // ResolvedUpdateItem node that is currently being processed, and stores the
-  // target SQL for that node and the array offset SQL (empty if not applicable)
-  // of the ResolvedUpdateArrayItem child currently being processed. We start a
-  // new stack just before we process a ResolvedUpdateItem node from a
-  // ResolvedUpdateStmt (as opposed to a ResolvedUpdateArrayItem).
-  //
-  // Stacks are added/removed in GetUpdateItemListSQL. Target SQL is set in
-  // VisitResolvedUpdateItem. Offset SQL is set in
-  // VisitResolvedUpdateArrayItem. An inner stack is used to construct a target
-  // in VisitResolvedUpdateItem when there are no ResolvedUpdateArrayItem
-  // children.
-  std::deque<std::deque<
-      std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
-      update_item_targets_and_offsets_;
-
-  // A stack of dml target paths kept to parallel the nesting of dml statements.
-  // Populated in VisitResolvedUpdateItem and used in
-  // VisitResolved<DMLType>Statement to refer the corresponding target path.
-  std::deque<
-      std::pair<std::string /* target_path */, std::string /* target_alias */>>
-      nested_dml_targets_;
-
-  // All column names referenced in the query.
-  absl::flat_hash_set<std::string> col_ref_names_;
-
   std::string sql_;
 
   // Options for building SQL.
   SQLBuilderOptions options_;
 
-  // True if we are unparsing the LHS of a SET statement.
-  bool in_set_lhs_ = false;
-
-  struct RecursiveQueryInfo {
-    // Text to be inserted into the generated query to refer to the recursive
-    // table being referenced. If backticks are needed, this should already be
-    // present in the query name.
-    std::string query_name;
-
-    // The recursive scan being referenced.
-    const ResolvedRecursiveScan* scan;
-  };
-
-  // Stack of names of recursive queries being defined. Any
-  // ResolvedRecursiveRefScan node must refer to the query at the top of the
-  // stack.
-  std::stack<RecursiveQueryInfo> recursive_query_info_;
+  // Returns the name alias for a table in VisitResolvedTableScan and appends to
+  // the <from> string if necessary.
+  virtual std::string GetTableAliasForVisitResolvedTableScan(
+      const ResolvedTableScan& node, std::string* from);
 
  private:
+  CopyableState state_;
+
   // Helper function to perform operation on value table's column for
   // ResolvedTableScan.
   virtual absl::Status AddValueTableAliasForVisitResolvedTableScan(
@@ -940,11 +1061,6 @@ class SQLBuilder : public ResolvedASTVisitor {
   // The output will be quoted (with backticks) and escaped if necessary.
   virtual std::string TableNameToIdentifierLiteral(
       absl::string_view table_name);
-
-  // Returns the name alias for a table in VisitResolvedTableScan and appends to
-  // the <from> string if necessary.
-  virtual std::string GetTableAliasForVisitResolvedTableScan(
-      const ResolvedTableScan& node, std::string* from);
 
   // Returns a new unique alias name. The default implementation generates the
   // name as "a_<id>".
@@ -987,6 +1103,23 @@ class SQLBuilder : public ResolvedASTVisitor {
   // unparsed SQL.
   absl::StatusOr<const ResolvedScan*> GetOriginalInputScanForCorresponding(
       const ResolvedScan* scan);
+
+  // Returns a QueryExpression that represents the input `pipe_sql` converted to
+  // a regular query by wrapping it in a SELECT statement. `pipe_query_node` is
+  // the ResolvedScan that corresponds to the `pipe_sql`.
+  //
+  // SqlBuilder currently cannot handle pipe operators in general, so we need to
+  // wrap pipe scans in a regular SQL like this:
+  //
+  // SELECT ...
+  // FROM (
+  //   <pipe_sql>
+  // ) AS assert_scan
+  //
+  // to allow the outer unparsing to work properly.
+  absl::StatusOr<std::unique_ptr<QueryExpression>>
+  ConvertPipeQueryToRegularQuery(const ResolvedScan& pipe_query_node,
+                                 absl::string_view pipe_sql);
 
   // When building function call which defines a side effects scope, we may need
   // to inline some column refs to input scans. This stack keeps track of the

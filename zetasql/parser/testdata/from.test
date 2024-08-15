@@ -1490,6 +1490,8 @@ select @{a=b} DISTINCT AS foo from t
                               ^
 ==
 
+# Standalone FROM is not supported with default options.
+# Tests with it enabled are in pipe_from_query.test.
 from Table
 --
 ERROR: Syntax error: Unexpected FROM [at 1:1]

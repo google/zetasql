@@ -753,9 +753,7 @@ std::string GetProtoFieldExpr::DebugInternal(const std::string& indent,
   const ProtoFieldInfo& field_info = field_reader_->access_info().field_info;
   return absl::StrCat(
       "GetProtoFieldExpr(", (field_info.get_has_bit ? "has_" : ""),
-      field_info.descriptor->name(), ", ", proto_expr()->DebugString(),
-      " [fid=", field_reader_->id(), " rid=", field_reader_->registry_id(),
-      "])");
+      field_info.descriptor->name(), ", ", proto_expr()->DebugString(), ")");
 }
 
 // -------------------------------------------------------
@@ -2096,7 +2094,7 @@ absl::StatusOr<Value> DMLValueExpr::GetColumnValue(const ResolvedColumn& column,
 }
 
 absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
-    const std::vector<std::vector<Value>>& original_rows,
+    absl::Span<const std::vector<Value>> original_rows,
     absl::string_view duplicate_primary_key_error_prefix,
     EvaluationContext* context, PrimaryKeyRowMap* row_map,
     bool* has_primary_key) const {
@@ -2278,7 +2276,7 @@ absl::Status DMLValueExpr::SetSchemasForColumnExprEvaluation() const {
 }
 
 absl::Status DMLValueExpr::EvalGeneratedColumnsByTopologicalOrder(
-    const std::vector<int>& topologically_sorted_generated_column_id_list,
+    absl::Span<const int> topologically_sorted_generated_column_id_list,
     const absl::flat_hash_map<int, size_t>& generated_columns_position_map,
     EvaluationContext* context, std::vector<Value>& row) const {
   for (int column_id : topologically_sorted_generated_column_id_list) {
@@ -3368,7 +3366,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
     const ResolvedUpdateStmt* nested_update,
     absl::Span<const TupleData* const> tuples_for_row,
     const ResolvedColumn& element_column,
-    const std::vector<Value>& original_elements, EvaluationContext* context,
+    absl::Span<const Value> original_elements, EvaluationContext* context,
     std::vector<UpdatedElement>* new_elements) const {
   ZETASQL_ASSIGN_OR_RETURN(
       const VariableId element_column_variable_id,
@@ -3450,7 +3448,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
 absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
     const ResolvedInsertStmt* nested_insert,
     absl::Span<const TupleData* const> tuples_for_row,
-    const std::vector<Value>& original_elements, EvaluationContext* context,
+    absl::Span<const Value> original_elements, EvaluationContext* context,
     std::vector<UpdatedElement>* new_elements) const {
   const int64_t original_size_of_new_elements = new_elements->size();
 
@@ -4043,48 +4041,6 @@ absl::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
 
   return DMLValueExpr::GetDMLOutputValue(num_rows_modified, dml_output_rows,
                                          dml_returning_rows, context);
-}
-
-// -------------------------------------------------------
-// RootExpr
-// -------------------------------------------------------
-
-absl::StatusOr<std::unique_ptr<RootExpr>> RootExpr::Create(
-    std::unique_ptr<ValueExpr> value_expr,
-    std::unique_ptr<RootData> root_data) {
-  return absl::WrapUnique(
-      new RootExpr(std::move(value_expr), std::move(root_data)));
-}
-
-absl::Status RootExpr::SetSchemasForEvaluation(
-    absl::Span<const TupleSchema* const> params_schemas) {
-  return mutable_value_expr()->SetSchemasForEvaluation(params_schemas);
-}
-
-bool RootExpr::Eval(absl::Span<const TupleData* const> params,
-                    EvaluationContext* context, VirtualTupleSlot* result,
-                    absl::Status* status) const {
-  return value_expr()->Eval(params, context, result, status);
-}
-
-std::string RootExpr::DebugInternal(const std::string& indent,
-                                    bool verbose) const {
-  return absl::StrCat("RootExpr(", value_expr()->DebugInternal(indent, verbose),
-                      ")");
-}
-
-RootExpr::RootExpr(std::unique_ptr<ValueExpr> value_expr,
-                   std::unique_ptr<RootData> root_data)
-    : ValueExpr(value_expr->output_type()), root_data_(std::move(root_data)) {
-  SetArg(kValueExpr, std::make_unique<ExprArg>(std::move(value_expr)));
-}
-
-const ValueExpr* RootExpr::value_expr() const {
-  return GetArg(kValueExpr)->node()->AsValueExpr();
-}
-
-ValueExpr* RootExpr::mutable_value_expr() {
-  return GetMutableArg(kValueExpr)->mutable_node()->AsMutableValueExpr();
 }
 
 }  // namespace zetasql

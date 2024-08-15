@@ -160,6 +160,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       "Invalid input to JSON_OBJECT: The number of keys and values must "
       "match"));
 
+  // We intentionally allow RQG to generate a small number of queries with
+  // failed assertions to test the ASSERT logic.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Assert failed:"));
+
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

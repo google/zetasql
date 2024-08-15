@@ -39,6 +39,7 @@
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/range_sessionize_mode.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
+#include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
@@ -1082,10 +1083,21 @@ static const EnumType* s_rounding_mode_enum_type() {
     const EnumType* enum_type;
     ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
         s_type_factory(), functions::RoundingMode_descriptor(), &enum_type,
-        {}));
+        /*catalog_name_path=*/{}));
     return enum_type;
   }();
   return s_rounding_mode_enum_type;
+}
+
+static const EnumType* s_unsupported_fields_enum_type() {
+  static const EnumType* s_unsupported_fields_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(), functions::UnsupportedFields_descriptor(), &enum_type,
+        /*catalog_name_path=*/{}));
+    return enum_type;
+  }();
+  return s_unsupported_fields_enum_type;
 }
 
 static const Type* s_uuid_type() {
@@ -1098,7 +1110,7 @@ static const EnumType* GetArrayFindModeEnumType() {
     const EnumType* enum_type;
     ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
         s_type_factory(), functions::ArrayFindEnums::ArrayFindMode_descriptor(),
-        &enum_type, {}));
+        &enum_type, /*catalog_name_path=*/{}));
     return enum_type;
   }();
   return s_array_find_mode_enum_type;
@@ -1110,7 +1122,7 @@ static const EnumType* GetDifferentialPrivacyReportFormatEnumType() {
     ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
         s_type_factory(),
         functions::DifferentialPrivacyEnums::ReportFormat_descriptor(),
-        &enum_type, {}));
+        &enum_type, /*catalog_name_path=*/{}));
     return enum_type;
   }();
   return s_differential_privacy_report_format_enum_type;
@@ -1124,7 +1136,7 @@ static const EnumType* GetDifferentialPrivacyGroupSelectionStrategyEnumType() {
             s_type_factory(),
             functions::DifferentialPrivacyEnums::
                 GroupSelectionStrategy_descriptor(),
-            &enum_type, {}));
+            &enum_type, /*catalog_name_path=*/{}));
         return enum_type;
       }();
   return s_differential_privacy_group_selection_strategy_enum_type;
@@ -1136,7 +1148,7 @@ static const EnumType* GetRangeSessionizeModeEnumType() {
     ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
         s_type_factory(),
         functions::RangeSessionizeEnums::RangeSessionizeMode_descriptor(),
-        &enum_type, {}));
+        &enum_type, /*catalog_name_path=*/{}));
     return enum_type;
   }();
   return s_range_sessionize_option_enum_type;
@@ -1324,6 +1336,9 @@ const EnumType* DifferentialPrivacyGroupSelectionStrategyEnumType() {
 }
 const EnumType* RangeSessionizeModeEnumType() {
   return GetRangeSessionizeModeEnumType();
+}
+const EnumType* UnsupportedFieldsEnumType() {
+  return s_unsupported_fields_enum_type();
 }
 const Type* UuidType() { return s_uuid_type(); }
 

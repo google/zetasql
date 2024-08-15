@@ -41,7 +41,8 @@ class FormatterOptions {
         capitalize_keywords_(true),
         preserve_line_breaks_(false),
         expand_format_ranges_(false),
-        enforce_single_quotes_(false) {}
+        enforce_single_quotes_(false),
+        format_structured_strings_(true) {}
 
   // Creates options overwriting defaults using the given proto. Not set fields
   // in the proto are ignored.
@@ -110,6 +111,15 @@ class FormatterOptions {
   }
   bool IsEnforcingSingleQuotes() const { return enforce_single_quotes_; }
 
+  // If true, formatter attempts to format the contents of annotated string
+  // literals with structured content. Supported annotations: /*sql*/.
+  void FormatStructuredStrings(bool format_structured_strings) {
+    format_structured_strings_ = format_structured_strings;
+  }
+  bool IsFormattingStructuredStrings() const {
+    return format_structured_strings_;
+  }
+
  private:
   std::string new_line_type_;
   int line_length_limit_;
@@ -120,6 +130,7 @@ class FormatterOptions {
   bool preserve_line_breaks_;
   bool expand_format_ranges_;
   bool enforce_single_quotes_;
+  bool format_structured_strings_;
 };
 
 // Represents a range in the input to be formatted. The range may be in byte

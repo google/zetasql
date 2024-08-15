@@ -36,6 +36,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -59,7 +60,7 @@ static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
 
 static std::string CheckApproximateDistanceFnProtoArguments(
     absl::string_view function_name, const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   ABSL_CHECK_EQ(arguments.size(), matched_signature.arguments().size());  // Crash OK
   if (arguments.size() > 2 &&
       matched_signature.argument(kOptionsArgIdx).type()->IsProto()) {
@@ -73,7 +74,7 @@ static std::string CheckApproximateDistanceFnProtoArguments(
 
 static std::string CheckApproximateDistanceFnJsonArguments(
     absl::string_view function_name, const FunctionSignature& matched_signature,
-    const std::vector<InputArgumentType>& arguments) {
+    absl::Span<const InputArgumentType> arguments) {
   ABSL_CHECK_EQ(arguments.size(), matched_signature.arguments().size());  // Crash OK
   if (arguments.size() > 2 &&
       matched_signature.argument(kOptionsArgIdx).type()->IsJson()) {

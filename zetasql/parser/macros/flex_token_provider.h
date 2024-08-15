@@ -39,8 +39,7 @@ namespace macros {
 class FlexTokenProvider : public TokenProviderBase {
  public:
   FlexTokenProvider(absl::string_view filename, absl::string_view input,
-                    bool preserve_comments, int start_offset,
-                    std::optional<int> end_offset);
+                    int start_offset, std::optional<int> end_offset);
 
   FlexTokenProvider(const FlexTokenProvider&) = delete;
   FlexTokenProvider& operator=(const FlexTokenProvider&) = delete;
@@ -70,10 +69,6 @@ class FlexTokenProvider : public TokenProviderBase {
 
   // The ZetaSQL tokenizer which gives us all the tokens.
   std::unique_ptr<ZetaSqlFlexTokenizer> tokenizer_;
-
-  // Whether the tokenizer should preserve comments. This is passed to the
-  // tokenizer and is only cached here for CreateNewInstance().
-  bool preserve_comments_;
 
   // Used as a buffer when we need a lookahead from the tokenizer.
   // Any tokens here are still unprocessed by the expander.

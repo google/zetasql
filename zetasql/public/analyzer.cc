@@ -42,6 +42,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
@@ -56,6 +57,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -255,13 +257,13 @@ static absl::Status AnalyzeStatementHelper(
 
     ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
     std::unique_ptr<const ResolvedStatement> resolved_statement;
-    Resolver resolver(catalog, type_factory, &options);
+    auto resolver = std::make_unique<Resolver>(catalog, type_factory, &options);
     absl::Status status = FinishResolveStatementImpl(
-        sql, ast_statement, &resolver, options, catalog, type_factory,
+        sql, ast_statement, resolver.get(), options, catalog, type_factory,
         &analyzer_runtime_info, &resolved_statement);
 
     const absl::StatusOr<QueryParametersMap>& type_assignments =
-        resolver.AssignTypesToUndeclaredParameters();
+        resolver->AssignTypesToUndeclaredParameters();
 
     internal::UpdateStatus(&status, type_assignments.status());
     if (!status.ok()) {
@@ -278,13 +280,13 @@ static absl::Status AnalyzeStatementHelper(
 
     *output = std::make_unique<AnalyzerOutput>(
         options.id_string_pool(), options.arena(),
-        std::move(resolved_statement), resolver.analyzer_output_properties(),
+        std::move(resolved_statement), resolver->analyzer_output_properties(),
         std::move(owned_parser_output),
         ConvertInternalErrorLocationsAndAdjustErrorStrings(
             options.error_message_options(), sql,
-            resolver.deprecation_warnings()),
-        *type_assignments, resolver.undeclared_positional_parameters(),
-        resolver.max_column_id()
+            resolver->deprecation_warnings()),
+        *type_assignments, resolver->undeclared_positional_parameters(),
+        resolver->max_column_id()
     );
     ZETASQL_RETURN_IF_ERROR(
         RewriteResolvedAstImpl(options, sql, catalog, type_factory, **output));
@@ -304,27 +306,27 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
     bool take_ownership_on_success, const AnalyzerOptions& options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<AnalyzerOutput>* output) {
-  AnalyzerOptions local_options = options;
+  auto local_options = std::make_unique<AnalyzerOptions>(options);
 
   // If the arena and IdStringPool are not set in <options>, use the
   // arena and IdStringPool from the parser output by default.
-  if (local_options.arena() == nullptr) {
+  if (local_options->arena() == nullptr) {
     ZETASQL_RET_CHECK((*statement_parser_output)->arena() != nullptr);
-    local_options.set_arena((*statement_parser_output)->arena());
+    local_options->set_arena((*statement_parser_output)->arena());
   }
-  if (local_options.id_string_pool() == nullptr) {
+  if (local_options->id_string_pool() == nullptr) {
     ZETASQL_RET_CHECK((*statement_parser_output)->id_string_pool() != nullptr);
-    local_options.set_id_string_pool(
+    local_options->set_id_string_pool(
         (*statement_parser_output)->id_string_pool());
   }
   CycleDetector owned_cycle_detector;
-  if (local_options.find_options().cycle_detector() == nullptr) {
-    local_options.mutable_find_options()->set_cycle_detector(
+  if (local_options->find_options().cycle_detector() == nullptr) {
+    local_options->mutable_find_options()->set_cycle_detector(
         &owned_cycle_detector);
   }
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();
-  return AnalyzeStatementHelper(*ast_statement, local_options, sql, catalog,
+  return AnalyzeStatementHelper(*ast_statement, *local_options, sql, catalog,
                                 type_factory, statement_parser_output,
                                 take_ownership_on_success, output);
 }

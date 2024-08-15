@@ -41,19 +41,12 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_set.h"
-#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-
-// This flag is an escape hatch to disable running the rewriter relevance
-// checker invoked by `FindRelevantRewriters`.
-ABSL_FLAG(bool, zetasql_disable_rewriter_checker, false,
-          "Disables post resolution detection of applicable ZetaSQL "
-          "rewriters.");
 
 namespace zetasql {
 
@@ -158,30 +151,10 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
                              absl::StrAppend(s, ResolvedASTRewrite_Name(r));
                            });
 
-  const absl::btree_set<ResolvedASTRewrite>& resolver_detected_rewrites =
-      output_mutator.mutable_output_properties().relevant_rewrites();
   const ResolvedNode* rewrite_input = NodeFromAnalyzerOutput(analyzer_output);
   ZETASQL_RET_CHECK(rewrite_input != nullptr);
-  absl::btree_set<ResolvedASTRewrite> checker_detected_rewrites;
-  if (ZETASQL_DEBUG_MODE || !absl::GetFlag(FLAGS_zetasql_disable_rewriter_checker)) {
-    ZETASQL_ASSIGN_OR_RETURN(checker_detected_rewrites,
-                     FindRelevantRewriters(rewrite_input));
-    // This check is trying to catch any cases where the resolver is updated to
-    // identify an applicable rewrite but FindRelevantRewriters is not. The
-    // resolver's output is used on the first rewrite pass, but
-    // FindRelevantRewriters is used on subsequent passes. If the logic diverges
-    // between those components, we could miss rewrites.
-    if (ZETASQL_DEBUG_MODE && !resolver_detected_rewrites.empty()) {
-      ZETASQL_RET_CHECK(
-          absl::c_equal(resolver_detected_rewrites, checker_detected_rewrites))
-          << "\nResolved: " << absl::StrJoin(resolver_detected_rewrites, ", ")
-          << "\nChecker: " << absl::StrJoin(checker_detected_rewrites, ", ");
-    }
-  }
-  const absl::btree_set<ResolvedASTRewrite>& detected_rewrites =
-      absl::GetFlag(FLAGS_zetasql_disable_rewriter_checker)
-          ? resolver_detected_rewrites
-          : checker_detected_rewrites;
+  ZETASQL_ASSIGN_OR_RETURN(absl::btree_set<ResolvedASTRewrite> detected_rewrites,
+                   FindRelevantRewriters(rewrite_input));
   if (detected_rewrites.empty() &&
       analyzer_options.leading_rewriters().empty() &&
       analyzer_options.trailing_rewriters().empty()) {

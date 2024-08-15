@@ -466,6 +466,18 @@ ARRAY<STRUCT<b ARRAY<>>>[
   {ARRAY<STRUCT<element INT64>>[unknown order:{2}, {1}, {3}]}
 ]
 ==
+[required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=array_agg_of_subquery_with_order_by]
+SELECT ARRAY_AGG((SELECT AS STRUCT a AS element) ORDER BY a) b
+FROM (
+  SELECT 1 AS a UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
+--
+ARRAY<STRUCT<b ARRAY<>>>[
+  {ARRAY<STRUCT<element INT64>>[known order:{1}, {2}, {3}]}
+]
+==
 [name=array_agg_of_struct_expr_anonymous_fields]
 SELECT ARRAY_AGG((a, b)) c
 FROM
@@ -1798,3 +1810,55 @@ ARRAY<STRUCT<
     2020-01-01 08:00:00+00,
     2020-12-31 08:00:00+00
   )}]
+==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[name=array_agg_distinct_subquery_with_limit]
+select array_agg(distinct (x in (select y from unnest([1,2,3]) as y)) limit 123)
+from unnest([1,2,3]) as x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
+==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=array_agg_distinct_subquery_with_limit_and_order_by]
+select array_agg(distinct array_includes([1,2,3], x) order by array_includes([1,2,3], x) limit 123)
+from unnest([1,2,3]) as x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[true]}]
+==
+[required_features=V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=array_agg_distinct_subquery_with_order_by_two_vars]
+select array_agg(distinct x+y order by x+y)
+from unnest([1,2,3]) as x, unnest([5,6,7]) as y
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:6, 7, 8, 9, 10]}]
+==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=array_agg_with_correlated_column_and_limit]
+select w from
+unnest([1,2,3]) as w
+where ((select array_agg(w ignore nulls limit 100) from (select 1)) is not null)
+order by w
+--
+ARRAY<STRUCT<w INT64>>[known order:{1}, {2}, {3}]
+==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE,V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=array_agg_with_correlated_column_and_limit_and_order_by]
+select w from
+unnest([1,2,3]) as w
+where ((select array_agg(w ignore nulls order by w limit 100) from (select 1)) is not null)
+order by w
+--
+ARRAY<STRUCT<w INT64>>[known order:{1}, {2}, {3}]
+==
+[parameters=1 as val]
+[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[name=array_agg_with_parameters_and_limit]
+select array_agg(@val limit 100) from (select 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
+==
+[required_features=V_1_1_LIMIT_IN_AGGREGATE]
+[name=array_agg_with_constants_and_limit]
+select array_agg(1 limit 100) from (select 1)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]

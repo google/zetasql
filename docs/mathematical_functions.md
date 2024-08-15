@@ -94,6 +94,9 @@ All mathematical functions have the following behaviors:
       </td>
       <td>
         
+        
+        
+        
         <a href="#cosine_distance"><code>COSINE_DISTANCE</code></a>&nbsp;&nbsp;
         <a href="#euclidean_distance"><code>EUCLIDEAN_DISTANCE</code></a>&nbsp;&nbsp;
       </td>
@@ -2852,7 +2855,7 @@ GROUP BY 1
 ### `ROUND`
 
 ```
-ROUND(X [, N])
+ROUND(X [, N [, rounding_mode]])
 ```
 
 **Description**
@@ -2861,6 +2864,18 @@ If only X is present, rounds X to the nearest integer. If N is present,
 rounds X to N decimal places after the decimal point. If N is negative,
 rounds off digits to the left of the decimal point. Rounds halfway cases
 away from zero. Generates an error if overflow occurs.
+
+If X is a `NUMERIC` or `BIGNUMERIC` type, then you can
+explicitly set `rounding_mode`
+to one of the following:
+
++   [`"ROUND_HALF_AWAY_FROM_ZERO"`][round-half-away-from-zero]: (Default) Rounds
+    halfway cases away from zero.
++   [`"ROUND_HALF_EVEN"`][round-half-even]: Rounds halfway cases
+    towards the nearest even digit.
+
+If you set the `rounding_mode` and X is not a `NUMERIC` or `BIGNUMERIC` type,
+then the function generates an error.
 
 <table>
   <thead>
@@ -2922,6 +2937,30 @@ away from zero. Generates an error if overflow occurs.
       <td><code>ROUND(1.235, 2)</code></td>
       <td>1.24</td>
     </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.25", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.2</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.35", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.4</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.251", 1, "ROUND_HALF_EVEN")</code></td>
+      <td>2.3</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "-2.5", 0, "ROUND_HALF_EVEN")</code></td>
+      <td>-2</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "2.5", 0, "ROUND_HALF_AWAY_FROM_ZERO")</code></td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NUMERIC "-2.5", 0, "ROUND_HALF_AWAY_FROM_ZERO")</code></td>
+      <td>-3</td>
+    </tr>
   </tbody>
 </table>
 
@@ -2939,6 +2978,10 @@ away from zero. Generates an error if overflow occurs.
 </tbody>
 
 </table>
+
+[round-half-away-from-zero]: https://en.wikipedia.org/wiki/Rounding#Rounding_half_away_from_zero
+
+[round-half-even]: https://en.wikipedia.org/wiki/Rounding#Rounding_half_to_even
 
 ### `SAFE_ADD`
 

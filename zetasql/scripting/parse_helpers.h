@@ -20,8 +20,10 @@
 #include <memory>
 
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/scripting/parsed_script.h"
+#include "absl/base/macros.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
@@ -33,9 +35,18 @@ namespace zetasql {
 //   the same block or any enclosing block.
 absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode,
+    ErrorMessageOptions error_message_options,
     const ParsedScriptOptions& parsed_script_options = {});
 
+ABSL_DEPRECATED("Inline me!")
+inline absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
+    absl::string_view script_string, const ParserOptions& parser_options,
+    ErrorMessageMode error_message_mode,
+    const ParsedScriptOptions& parsed_script_options = {}) {
+  return ParseAndValidateScript(script_string, parser_options,
+                                {.mode = error_message_mode},
+                                parsed_script_options);
+}
 }  // namespace zetasql
 
 #endif  // ZETASQL_SCRIPTING_PARSE_HELPERS_H_

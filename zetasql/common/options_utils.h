@@ -116,9 +116,9 @@ struct EnabledLanguageFeatures {
 
       values must be listed with 'FEATURE_' stripped
         Example:
-          --enabled_ast_rewrites='DEFAULT,-FLATTEN,+ANONYMIZATION'
-      Will enable all the default options plus ANONYMIZATION, but excluding
-      flatten)";
+          --enabled_language_features='MAXIMUM,-TABLESAMPLE,+ANONYMIZATION'
+      Will enable all the ideally enabled features plus ANONYMIZATION, but excluding
+      TABLESAMPLE)";
 };
 
 // Helper function to parse a flag using ParseEnabledLanguageFeatures. To Use:

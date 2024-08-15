@@ -313,26 +313,31 @@ must be coercible to a common [supertype][cond-exp-supertype].
 
 [Supertype][cond-exp-supertype] of `true_result` and `else_result`.
 
-**Example**
+**Examples**
 
 ```sql
-WITH Numbers AS (
-  SELECT 10 as A, 20 as B UNION ALL
-  SELECT 50, 30 UNION ALL
-  SELECT 60, 60
-)
 SELECT
-  A,
-  B,
-  IF(A < B, 'true', 'false') AS result
-FROM Numbers
+  10 AS A,
+  20 AS B,
+  IF(10 < 20, 'true', 'false') AS result
 
 /*------------------*
  | A  | B  | result |
  +------------------+
  | 10 | 20 | true   |
- | 50 | 30 | false  |
- | 60 | 60 | false  |
+ *------------------*/
+```
+
+```sql
+SELECT
+  30 AS A,
+  20 AS B,
+  IF(30 < 20, 'true', 'false') AS result
+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 30 | 20 | false  |
  *------------------*/
 ```
 

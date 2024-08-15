@@ -1645,6 +1645,7 @@ QueryStmt
         |       +-column_index_list=[0]
         +-order_by_item_list=
           +-OrderByItem
+            +-parse_location=157-177
             +-column_ref=
               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#5)
 

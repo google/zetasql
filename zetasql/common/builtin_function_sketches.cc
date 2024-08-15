@@ -15,7 +15,6 @@
 //
 
 #include <initializer_list>
-#include <string>
 #include <vector>
 
 #include "google/protobuf/timestamp.pb.h"
@@ -37,6 +36,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -223,14 +223,37 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
       FunctionOptions().set_allow_external_usage(false);
 
   // The optional second argument of 'init', the approximation precision or
-  // inverse epsilon ('inv_eps'), must be an integer >= 2 and cannot be NULL.
+  // inverse epsilon ('inv_eps'), must be an integer >= 1 and cannot be NULL.
   FunctionArgumentTypeOptions init_inv_eps_arg;
   init_inv_eps_arg.set_is_not_aggregate();
   init_inv_eps_arg.set_must_be_non_null();
   init_inv_eps_arg.set_cardinality(OPTIONAL);
-  init_inv_eps_arg.set_min_value(2);
 
-  // Init functions include a weight parameter only if NAMED_ARGUMENTS enabled.
+  bool use_float64_name = options.language_options.LanguageFeatureEnabled(
+      FEATURE_V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
+  auto make_function_name = [use_float64_name](absl::string_view name_prefix) {
+    return absl::StrCat(name_prefix, use_float64_name ? "_float64" : "_double");
+  };
+  bool is_internal_dialect =
+      options.language_options.product_mode() == PRODUCT_INTERNAL;
+  bool add_double_alias = use_float64_name && is_internal_dialect;
+  // Only enable external usage when float64 is the primary function name.
+  bool allow_external_usage = use_float64_name;
+  auto prepare_function_options = [add_double_alias, allow_external_usage](
+                                      FunctionOptions options,
+                                      absl::string_view name_prefix) {
+    if (add_double_alias) {
+      options.set_alias_name(absl::StrCat(name_prefix, "_double"));
+    }
+
+    if (allow_external_usage) {
+      options.set_allow_external_usage(true);
+    }
+    return options;
+  };
+
+  // Init functions include a weight parameter only if NAMED_ARGUMENTS
+  // enabled.
   if (options.language_options.LanguageFeatureEnabled(
           zetasql::FEATURE_V_1_3_KLL_WEIGHTS)) {
     // Explicitly set default value for precision (detailed in (broken link))
@@ -260,13 +283,16 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
           FN_KLL_QUANTILES_INIT_UINT64}},
         aggregate_analytic_function_options_and_not_allow_external_usage);
     InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_double", AGGREGATE,
+        functions, options, "kll_quantiles", make_function_name("init"),
+        AGGREGATE,
         {{bytes_type,
           {double_type,
            {int64_type, init_inv_eps_arg},
            {int64_type, init_weights_arg}},
           FN_KLL_QUANTILES_INIT_DOUBLE}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
+        prepare_function_options(
+            aggregate_analytic_function_options_and_not_allow_external_usage,
+            "init"));
   } else {
     // init functions with no weight parameter
     InsertNamespaceFunction(functions, options, "kll_quantiles", "init_int64",
@@ -282,11 +308,14 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
           FN_KLL_QUANTILES_INIT_UINT64}},
         aggregate_analytic_function_options_and_not_allow_external_usage);
     InsertNamespaceFunction(
-        functions, options, "kll_quantiles", "init_double", AGGREGATE,
+        functions, options, "kll_quantiles", make_function_name("init"),
+        AGGREGATE,
         {{bytes_type,
           {double_type, {int64_type, init_inv_eps_arg}},
           FN_KLL_QUANTILES_INIT_DOUBLE}},
-        aggregate_analytic_function_options_and_not_allow_external_usage);
+        prepare_function_options(
+            aggregate_analytic_function_options_and_not_allow_external_usage,
+            "init"));
   }
 
   // Merge_partial
@@ -297,11 +326,11 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
 
   // The second argument of aggregate function 'merge', the number of
   // equidistant quantiles that should be returned; must be a non-aggregate
-  //  integer >= 2 and cannot be NULL.
+  //  integer >= 1 and cannot be NULL.
   FunctionArgumentTypeOptions num_quantiles_merge_arg;
   num_quantiles_merge_arg.set_is_not_aggregate();
   num_quantiles_merge_arg.set_must_be_non_null();
-  num_quantiles_merge_arg.set_min_value(2);
+  num_quantiles_merge_arg.set_min_value(1);
 
   // Merge
   InsertNamespaceFunction(
@@ -320,18 +349,21 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
         FN_KLL_QUANTILES_MERGE_UINT64}},
       aggregate_analytic_function_options_and_not_allow_external_usage);
   InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_double", AGGREGATE,
+      functions, options, "kll_quantiles", make_function_name("merge"),
+      AGGREGATE,
       {{double_array_type,
         {bytes_type, {int64_type, num_quantiles_merge_arg}},
         FN_KLL_QUANTILES_MERGE_DOUBLE}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
+      prepare_function_options(
+          aggregate_analytic_function_options_and_not_allow_external_usage,
+          "merge"));
 
   // The second argument of scalar function 'extract', the number of
-  // equidistant quantiles that should be returned; must be an integer >= 2 and
+  // equidistant quantiles that should be returned; must be an integer >= 1 and
   // cannot be NULL.
   FunctionArgumentTypeOptions num_quantiles_extract_arg;
   num_quantiles_extract_arg.set_must_be_non_null();
-  num_quantiles_extract_arg.set_min_value(2);
+  num_quantiles_extract_arg.set_min_value(1);
 
   // Extract
   InsertNamespaceFunction(
@@ -347,11 +379,13 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
         FN_KLL_QUANTILES_EXTRACT_UINT64}},
       scalar_function_options_disallow_external_usage);
   InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "extract_double", SCALAR,
+      functions, options, "kll_quantiles", make_function_name("extract"),
+      SCALAR,
       {{double_array_type,
         {bytes_type, {int64_type, num_quantiles_extract_arg}},
         FN_KLL_QUANTILES_EXTRACT_DOUBLE}},
-      scalar_function_options_disallow_external_usage);
+      prepare_function_options(scalar_function_options_disallow_external_usage,
+                               "extract"));
 
   // The second argument of aggregate function 'merge_point', phi, must be a
   // non-aggregate double in [0, 1] and cannot be null.
@@ -375,11 +409,14 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
         FN_KLL_QUANTILES_MERGE_POINT_UINT64}},
       aggregate_analytic_function_options_and_not_allow_external_usage);
   InsertNamespaceFunction(
-      functions, options, "kll_quantiles", "merge_point_double", AGGREGATE,
+      functions, options, "kll_quantiles", make_function_name("merge_point"),
+      AGGREGATE,
       {{double_type,
         {bytes_type, {double_type, phi_merge_arg}},
         FN_KLL_QUANTILES_MERGE_POINT_DOUBLE}},
-      aggregate_analytic_function_options_and_not_allow_external_usage);
+      prepare_function_options(
+          aggregate_analytic_function_options_and_not_allow_external_usage,
+          "merge_point"));
 
   // The second argument of scalar function 'extract_point', phi, must be a
   // double in [0, 1] and cannot be null.
@@ -401,12 +438,14 @@ void GetKllQuantilesFunctions(TypeFactory* type_factory,
                             {bytes_type, {double_type, phi_extract_arg}},
                             FN_KLL_QUANTILES_EXTRACT_POINT_UINT64}},
                           scalar_function_options_disallow_external_usage);
-  InsertNamespaceFunction(functions, options, "kll_quantiles",
-                          "extract_point_double", SCALAR,
-                          {{double_type,
-                            {bytes_type, {double_type, phi_extract_arg}},
-                            FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE}},
-                          scalar_function_options_disallow_external_usage);
+  InsertNamespaceFunction(
+      functions, options, "kll_quantiles", make_function_name("extract_point"),
+      SCALAR,
+      {{double_type,
+        {bytes_type, {double_type, phi_extract_arg}},
+        FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE}},
+      prepare_function_options(scalar_function_options_disallow_external_usage,
+                               "extract_point"));
 }
 
 }  // namespace zetasql

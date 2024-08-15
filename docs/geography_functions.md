@@ -183,6 +183,17 @@ behavior:
     </tr>
     
     
+    <tr>
+      <td>S2 functions</td>
+      <td>
+        <a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a><br>
+        <a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a><br>
+      </td>
+      <td>
+        Functions for working with S2 cell coverings of GEOGRAPHY.
+      </td>
+    </tr>
+    
   </tbody>
 </table>
 
@@ -196,6 +207,24 @@ behavior:
     </tr>
   </thead>
   <tbody>
+
+<tr>
+  <td><a href="#s2_cellidfrompoint"><code>S2_CELLIDFROMPOINT</code></a>
+
+</td>
+  <td>
+    Gets the S2 cell ID covering a point <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#s2_coveringcellids"><code>S2_COVERINGCELLIDS</code></a>
+
+</td>
+  <td>
+    Gets an array of S2 cell IDs that cover a <code>GEOGRAPHY</code> value.
+  </td>
+</tr>
 
 <tr>
   <td><a href="#st_accum"><code>ST_ACCUM</code></a>
@@ -875,6 +904,135 @@ behavior:
 
   </tbody>
 </table>
+
+### `S2_CELLIDFROMPOINT`
+
+```sql
+S2_CELLIDFROMPOINT(point_geography[, level => cell_level])
+```
+
+**Description**
+
+Returns the [S2 cell ID][s2-cells-link] covering a point `GEOGRAPHY`.
+
++ The optional `INT64` parameter `level` specifies the S2 cell level for the
+  returned cell. Naming this argument is optional.
+
+This is advanced functionality for interoperability with systems utilizing the
+[S2 Geometry Library][s2-root-link].
+
+**Constraints**
+
++ Returns the cell ID as a signed `INT64` bit-equivalent to
+  [unsigned 64-bit integer representation][s2-cells-link].
++ Can return negative cell IDs.
++ Valid S2 cell levels are 0 to 30.
++ `level` defaults to 30 if not explicitly specified.
++ The function only supports a single point GEOGRAPHY. Use the `SAFE` prefix if
+  the input can be multipoint, linestring, polygon, or an empty `GEOGRAPHY`.
++ To compute the covering of a complex `GEOGRAPHY`, use
+  [S2_COVERINGCELLIDS][s2-coveringcellids].
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
+  UNION ALL
+  -- empty geography is not supported
+  SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
+  UNION ALL
+  -- only points are supported
+  SELECT 3 AS id, ST_GEOGFROMTEXT('LINESTRING(1 2, 3 4)') AS geo
+)
+SELECT id,
+       SAFE.S2_CELLIDFROMPOINT(geo) cell30,
+       SAFE.S2_CELLIDFROMPOINT(geo, level => 10) cell10
+FROM data;
+
+/*----+---------------------+---------------------*
+ | id | cell30              | cell10              |
+ +----+---------------------+---------------------+
+ | 1  | 6093613931972369317 | 6093613287902019584 |
+ | 2  | NULL                | NULL                |
+ | 3  | NULL                | NULL                |
+ *----+---------------------+---------------------*/
+```
+
+[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
+
+[s2-root-link]: https://s2geometry.io/
+
+[s2-coveringcellids]: #s2_coveringcellids
+
+### `S2_COVERINGCELLIDS`
+
+```sql
+S2_COVERINGCELLIDS(
+    geography
+    [, min_level => cell_level]
+    [, max_level => cell_level]
+    [, max_cells => max_cells]
+    [, buffer => buffer])
+```
+
+**Description**
+
+Returns an array of [S2 cell IDs][s2-cells-link] that cover the input
+`GEOGRAPHY`. The function returns at most `max_cells` cells. The optional
+arguments `min_level` and `max_level` specify minimum and maximum levels for
+returned S2 cells. The array size is limited by the optional `max_cells`
+argument. The optional `buffer` argument specifies a buffering factor in
+meters; the region being covered is expanded from the extent of the
+input geography by this amount.
+
+This is advanced functionality for interoperability with systems utilizing the
+[S2 Geometry Library][s2-root-link].
+
+**Constraints**
+
++ Returns the cell ID as a signed `INT64` bit-equivalent to
+  [unsigned 64-bit integer representation][s2-cells-link].
++ Can return negative cell IDs.
++ Valid S2 cell levels are 0 to 30.
++ `max_cells` defaults to 8 if not explicitly specified.
++ `buffer` should be nonnegative. It defaults to 0.0 meters if not explicitly
+  specified.
+
+**Return type**
+
+`ARRAY<INT64>`
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 AS id, ST_GEOGPOINT(-122, 47) AS geo
+  UNION ALL
+  SELECT 2 AS id, ST_GEOGFROMTEXT('POINT EMPTY') AS geo
+  UNION ALL
+  SELECT 3 AS id, ST_GEOGFROMTEXT('LINESTRING(-122.12 47.67, -122.19 47.69)') AS geo
+)
+SELECT id, S2_COVERINGCELLIDS(geo, min_level => 12) cells
+FROM data;
+
+/*----+--------------------------------------------------------------------------------------*
+ | id | cells                                                                                |
+ +----+--------------------------------------------------------------------------------------+
+ | 1  | [6093613931972369317]                                                                |
+ | 2  | []                                                                                   |
+ | 3  | [6093384954555662336, 6093390709811838976, 6093390735581642752, 6093390740145045504, |
+ |    |  6093390791416217600, 6093390812891054080, 6093390817187069952, 6093496378892222464] |
+ *----+--------------------------------------------------------------------------------------*/
+```
+
+[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
+
+[s2-root-link]: https://s2geometry.io/
 
 ### `ST_ACCUM`
 

@@ -23,6 +23,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
@@ -265,6 +266,34 @@ TEST(InputArgumentTypeTest, ArgumentAlias) {
   IdString alias = IdString::MakeGlobal("alias");
   input_argument_type.set_argument_alias(alias);
   EXPECT_THAT(input_argument_type.argument_alias(), Optional(alias));
+}
+
+TEST(InputArgumentTypeTest, Relation) {
+  TVFRelation relation(/*columns=*/{});
+  InputArgumentType arg =
+      InputArgumentType::RelationInputArgumentType(relation);
+  EXPECT_TRUE(arg.is_relation());
+  EXPECT_TRUE(arg.has_relation_input_schema());
+  EXPECT_EQ(arg.relation_input_schema(), relation);
+  EXPECT_FALSE(arg.is_pipe_input_table());
+  EXPECT_EQ(arg.DebugString(), "RELATION");
+  EXPECT_EQ(arg.UserFacingName(PRODUCT_EXTERNAL), "TABLE<>");
+
+  InputArgumentType arg2 = InputArgumentType::RelationInputArgumentType(
+      relation, /*is_pipe_input_table=*/true);
+  EXPECT_TRUE(arg2.is_relation());
+  EXPECT_TRUE(arg2.has_relation_input_schema());
+  EXPECT_EQ(arg2.relation_input_schema(), relation);
+  EXPECT_TRUE(arg2.is_pipe_input_table());
+  EXPECT_EQ(arg2.DebugString(), "RELATION(is_pipe_input_table)");
+  EXPECT_EQ(arg2.UserFacingName(PRODUCT_EXTERNAL), "TABLE<>");
+
+  EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg2}, PRODUCT_EXTERNAL,
+                                                 {"", ""}),
+            "TABLE<>, pipe_input:TABLE<>");
+  EXPECT_EQ(InputArgumentType::ArgumentsToString({arg, arg2}, PRODUCT_EXTERNAL,
+                                                 {"n1", "n2"}),
+            "n1 => TABLE<>, pipe_input:n2 => TABLE<>");
 }
 
 }  // namespace

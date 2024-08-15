@@ -31,6 +31,7 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/container/btree_map.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -158,7 +159,8 @@ class MacroExpander final : public MacroExpanderBase {
       DiagnosticOptions diagnostic_options, StackFrame* parent_location,
       absl::btree_map<size_t, Expansion>* location_map,
       std::vector<TokenWithLocation>& output_token_list,
-      WarningCollector& warning_collector, int* out_max_arg_ref_index);
+      WarningCollector& warning_collector, int* out_max_arg_ref_index,
+      bool drop_comments);
 
   class TokenBuffer {
    public:

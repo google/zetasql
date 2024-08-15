@@ -1355,3 +1355,128 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a" : [{"b" : [{"c": [1,2],"d": [3,4] } ]}, {"b" : [{"c" : [5,6],"d" : [7,8]},{"c" : [9,10],"d" : [11,12]}]}]}', "$.a[0].b[1].c")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=split_substr_with_null_arguments]
+SELECT split_substr(null, ".", 1) AS col1,
+split_substr("foo", null, 1) AS col2,
+split_substr("foo", ".", null) AS col3,
+split_substr("foo", ".", 1, null) AS col4;
+--
+ARRAY<STRUCT<col1 STRING, col2 STRING, col3 STRING, col4 STRING>>[
+  {NULL, NULL, NULL, NULL}
+]
+==
+[name=split_substr_with_no_matches]
+SELECT split_substr("www.abc.com", "#", 1) AS col1,
+split_substr("www.abc.com", "#", 1, 2) AS col2,
+split_substr("www.abc.com", "#", 2, 2) AS col3,
+split_substr("www.abc.com", "#", -1, 2) AS col4,
+split_substr("www.abc.com", "#", -2, 2) AS col5
+--
+ARRAY<STRUCT<col1 STRING, col2 STRING, col3 STRING, col4 STRING, col5 STRING>>[
+  {"www.abc.com", "www.abc.com", "", "www.abc.com", "www.abc.com"}
+]
+==
+[name=split_substr]
+SELECT split_substr("www.abc.com", ".", 1) AS col1,
+split_substr("www.abc.com", ".", 1, 2) AS col2,
+split_substr("www.abc.com", ".", 2, 2) AS col3,
+split_substr("www.abc.com", ".", 3, 2) AS col4,
+split_substr("www.abc.com", ".", 4, 1) AS col5,
+split_substr("www.abc.com", ".", 5, 1) AS col6
+--
+ARRAY<STRUCT<col1 STRING,
+             col2 STRING,
+             col3 STRING,
+             col4 STRING,
+             col5 STRING,
+             col6 STRING>>[
+  {"www.abc.com", "www.abc", "abc.com", "com", "", ""}
+]
+==
+[name=split_substr_with_zero_position]
+SELECT split_substr("www.abc.com", ".", 0) AS col1,
+split_substr("www.abc.com", ".", 0, 1) AS col2,
+split_substr("www.abc.com", ".", 0, 2) AS col3,
+split_substr("www.abc.com", ".", 0, 3) AS col4
+--
+ARRAY<STRUCT<col1 STRING, col2 STRING, col3 STRING, col4 STRING>>[
+  {"www.abc.com", "www", "www.abc", "www.abc.com"}
+]
+==
+[name=split_substr_with_negative_position]
+SELECT split_substr("www.abc.com", ".", 1) AS col1,
+split_substr("www.abc.com", ".", -1, 2) AS col2,
+split_substr("www.abc.com", ".", -2, 2) AS col3,
+split_substr("www.abc.com", ".", -3, 2) AS col4,
+split_substr("www.abc.com", ".", -4, 1) AS col5,
+split_substr("www.abc.com", ".", -5, 1) AS col6,
+--
+ARRAY<STRUCT<col1 STRING,
+             col2 STRING,
+             col3 STRING,
+             col4 STRING,
+             col5 STRING,
+             col6 STRING>>[
+  {"www.abc.com", "com", "abc.com", "www.abc", "www", "www"}
+]
+==
+[name=split_substr_with_delimiter_as_prefix]
+SELECT split_substr("##tagA##tagB", "##", 1, 2) AS col1,
+split_substr("##tagA##tagB", "##", 1, 1) AS col2,
+split_substr("##tagA##tagB", "##", 2, 1) AS col3,
+split_substr("##tagA##tagB", "##", 3, 1) AS col4,
+split_substr("##tagA##tagB", "##", -1, 1) AS col5,
+split_substr("##tagA##tagB", "##", -2, 1) AS col6,
+split_substr("##tagA##tagB", "##", -3, 1) AS col7
+--
+ARRAY<STRUCT<col1 STRING,
+             col2 STRING,
+             col3 STRING,
+             col4 STRING,
+             col5 STRING,
+             col6 STRING,
+             col7 STRING>>[{"##tagA", "", "tagA", "tagB", "tagB", "tagA", ""}]
+==
+[name=split_substr_with_delimiter_as_suffix]
+SELECT split_substr("tagA##tagB##", "##", 1, 2) AS col1,
+split_substr("tagA##tagB##", "##", 1, 1) AS col2,
+split_substr("tagA##tagB##", "##", 2, 1) AS col3,
+split_substr("tagA##tagB##", "##", 3, 1) AS col4,
+split_substr("tagA##tagB##", "##", -1, 1) AS col5,
+split_substr("tagA##tagB##", "##", -2, 1) AS col6,
+split_substr("tagA##tagB##", "##", -3, 1) AS col7
+--
+ARRAY<STRUCT<col1 STRING,
+             col2 STRING,
+             col3 STRING,
+             col4 STRING,
+             col5 STRING,
+             col6 STRING,
+             col7 STRING>>[
+  {"tagA##tagB", "tagA", "tagB", "", "", "tagB", "tagA"}
+]
+==
+[name=split_substr_with_overlapping_matches]
+SELECT split_substr("###tagA###tagB###tagC###", "##", 1, 2) AS col1,
+split_substr("###tagA###tagB###tagC###", "##", 1, 1) AS col2,
+split_substr("###tagA###tagB###tagC###", "##", 2, 1) AS col3,
+split_substr("###tagA###tagB###tagC###", "##", 3, 1) AS col4,
+split_substr("###tagA###tagB###tagC###", "##", -1, 1) AS col5,
+split_substr("###tagA###tagB###tagC###", "##", -2, 1) AS col6,
+split_substr("###tagA###tagB###tagC###", "##", -3, 1) AS col7
+--
+ARRAY<STRUCT<col1 STRING,
+             col2 STRING,
+             col3 STRING,
+             col4 STRING,
+             col5 STRING,
+             col6 STRING,
+             col7 STRING>>[
+  {"###tagA", "", "#tagA", "#tagB", "#", "#tagC", "#tagB"}
+]
+==
+[name=split_substr_with_overlapping_matches_with_negative_position]
+SELECT split_substr("###tagA###tagB###tagC###", "##", -2, 3)
+--
+ARRAY<STRUCT<STRING>>[{"#tagC###"}]

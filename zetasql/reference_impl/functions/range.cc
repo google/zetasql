@@ -270,8 +270,8 @@ absl::StatusOr<Value> RangeIntersectFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
   if (!DoTwoRangesOverlap(args[0], args[1])) {
     return MakeEvalError()
-           << "Provided RANGE inputs: " << args[0] << " and " << args[1]
-           << " do not overlap. "
+           << "Provided RANGE inputs: " << args[0].Format() << " and "
+           << args[1].Format() << " do not overlap. "
            << "Please check RANGE_OVERLAPS before calling RANGE_INTERSECT";
   }
 

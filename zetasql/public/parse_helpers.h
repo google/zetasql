@@ -136,6 +136,23 @@ absl::Status GetNextStatementProperties(
     const LanguageOptions& language_options,
     StatementProperties* statement_properties);
 
+// Returns the target table name of a DDL statement as an identifier path.
+//
+// `language_options` impacts parsing behavior. Returns an error if the
+// statement does not parse or is not a supported DDL statement kind.
+//
+// Currently the only supported DDL statement kind is CREATE TABLE.
+absl::StatusOr<std::vector<std::string> > GetTopLevelTableNameFromDDLStatement(
+    absl::string_view sql, const LanguageOptions& language_options);
+
+// Same as GetTopLevelTableNameFromDDLStatement, but determines the top level
+// table name for the next statement starting from `resume_location`.
+// If successful, updates both `at_end_of_input` and `resume_location`.
+absl::StatusOr<std::vector<std::string> >
+GetTopLevelTableNameFromNextDDLStatement(
+    absl::string_view sql, ParseResumeLocation& resume_location,
+    bool* at_end_of_input, const LanguageOptions& language_options);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_PARSE_HELPERS_H_

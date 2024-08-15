@@ -1,0 +1,295 @@
+# All supported ASTTVF argument forms work.
+select 1
+|> call f()
+|> call a.b.c(1, x.y, g(), named=>5)
+|> call f(TABLE t, (select 1))
+|> call f(DESCRIPTOR(col))
+|> call f(MODEL m, CONNECTION c)
+--
+QueryStatement [0-148] [select 1 |...CONNECTION c)]
+  Query [0-148] [select 1 |...CONNECTION c)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeCall [9-20] [|> call f()]
+      TVF [17-20] [f()]
+        PathExpression [17-18] [f]
+          Identifier(f) [17-18] [f]
+    PipeCall [21-57] [|> call a....named=>5)]
+      TVF [29-57] [a.b.c(1, x.y, g(), named=>5)]
+        PathExpression [29-34] [a.b.c]
+          Identifier(a) [29-30] [a]
+          Identifier(b) [31-32] [b]
+          Identifier(c) [33-34] [c]
+        TVFArgument [35-36] [1]
+          IntLiteral(1) [35-36] [1]
+        TVFArgument [38-41] [x.y]
+          PathExpression [38-41] [x.y]
+            Identifier(x) [38-39] [x]
+            Identifier(y) [40-41] [y]
+        TVFArgument [43-46] [g()]
+          FunctionCall [43-46] [g()]
+            PathExpression [43-44] [g]
+              Identifier(g) [43-44] [g]
+        TVFArgument [48-56] [named=>5]
+          NamedArgument [48-56] [named=>5]
+            Identifier(named) [48-53] [named]
+            IntLiteral(5) [55-56] [5]
+    PipeCall [58-88] [|> call f(TABLE t, (select 1))]
+      TVF [66-88] [f(TABLE t, (select 1))]
+        PathExpression [66-67] [f]
+          Identifier(f) [66-67] [f]
+        TVFArgument [68-75] [TABLE t]
+          TableClause [68-75] [TABLE t]
+            PathExpression [74-75] [t]
+              Identifier(t) [74-75] [t]
+        TVFArgument [77-87] [(select 1)]
+          ExpressionSubquery [77-87] [(select 1)]
+            Query [78-86] [select 1]
+              Select [78-86] [select 1]
+                SelectList [85-86] [1]
+                  SelectColumn [85-86] [1]
+                    IntLiteral(1) [85-86] [1]
+    PipeCall [89-115] [|> call f(DESCRIPTOR(col))]
+      TVF [97-115] [f(DESCRIPTOR(col))]
+        PathExpression [97-98] [f]
+          Identifier(f) [97-98] [f]
+        TVFArgument [99-114] [DESCRIPTOR(col)]
+          Descriptor [99-114] [DESCRIPTOR(col)]
+            DescriptorColumnList [110-113] [col]
+              DescriptorColumn [110-113] [col]
+                Identifier(col) [110-113] [col]
+    PipeCall [116-148] [|> call f(...CONNECTION c)]
+      TVF [124-148] [f(MODEL m, CONNECTION c)]
+        PathExpression [124-125] [f]
+          Identifier(f) [124-125] [f]
+        TVFArgument [126-133] [MODEL m]
+          ModelClause [126-133] [MODEL m]
+            PathExpression [132-133] [m]
+              Identifier(m) [132-133] [m]
+        TVFArgument [135-147] [CONNECTION c]
+          ConnectionClause [135-147] [CONNECTION c]
+            PathExpression [146-147] [c]
+              Identifier(c) [146-147] [c]
+--
+SELECT
+  1
+|> CALL f()
+|> CALL a.b.c(1, x.y, g(), named  => 5)
+|> CALL f(TABLE t, (
+     SELECT
+       1
+   ))
+|> CALL f(DESCRIPTOR(col))
+|> CALL f(MODEL m, CONNECTION c)
+==
+
+select 1
+|> call f()
+|> call f(MODEL m, CONNECTION DEFAULT)
+--
+QueryStatement [0-59] [select 1 |...NNECTION DEFAULT)]
+  Query [0-59] [select 1 |...NNECTION DEFAULT)]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeCall [9-20] [|> call f()]
+      TVF [17-20] [f()]
+        PathExpression [17-18] [f]
+          Identifier(f) [17-18] [f]
+    PipeCall [21-59] [|> call f(...NNECTION DEFAULT)]
+      TVF [29-59] [f(MODEL m, CONNECTION DEFAULT)]
+        PathExpression [29-30] [f]
+          Identifier(f) [29-30] [f]
+        TVFArgument [31-38] [MODEL m]
+          ModelClause [31-38] [MODEL m]
+            PathExpression [37-38] [m]
+              Identifier(m) [37-38] [m]
+        TVFArgument [40-58] [CONNECTION DEFAULT]
+          ConnectionClause [40-58] [CONNECTION DEFAULT]
+            DefaultLiteral [51-58] [DEFAULT]
+--
+SELECT
+  1
+|> CALL f()
+|> CALL f(MODEL m, CONNECTION DEFAULT)
+==
+
+# TVF hints work.
+select 1
+|> call f() @{hint=1}
+--
+QueryStatement [0-30] [select 1 |> call f() @{hint=1}]
+  Query [0-30] [select 1 |> call f() @{hint=1}]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeCall [9-30] [|> call f() @{hint=1}]
+      TVF [17-30] [f() @{hint=1}]
+        PathExpression [17-18] [f]
+          Identifier(f) [17-18] [f]
+        Hint [21-30] [@{hint=1}]
+          HintEntry [23-29] [hint=1]
+            Identifier(hint) [23-27] [hint]
+            IntLiteral(1) [28-29] [1]
+--
+SELECT
+  1
+|> CALL f() @{ hint = 1 }
+==
+
+select 1
+|> call @{hint=1} f()
+--
+ERROR: Syntax error: Unexpected "@" [at 2:9]
+|> call @{hint=1} f()
+        ^
+==
+
+# Helper errors from TVFs work here too.
+select 1
+|> call f(select 5)
+--
+ERROR: Syntax error: Each subquery argument for table-valued function calls must be enclosed in parentheses. To fix this, replace SELECT... with (SELECT...) [at 2:11]
+|> call f(select 5)
+          ^
+==
+
+select 1
+|> call(*)
+--
+ERROR: Syntax error: Unexpected "(" [at 2:8]
+|> call(*)
+       ^
+==
+
+select 1
+|> call
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:8]
+|> call
+       ^
+==
+
+select 1
+|> call f(), g()
+--
+ERROR: Syntax error: Unexpected "," [at 2:12]
+|> call f(), g()
+           ^
+==
+
+select 1
+|> call f(),
+--
+ERROR: Syntax error: Unexpected "," [at 2:12]
+|> call f(),
+           ^
+==
+
+select 1
+|> call f()+1
+--
+ERROR: Syntax error: Unexpected "+" [at 2:12]
+|> call f()+1
+           ^
+==
+
+# Aliases, with or without hints.
+select 1
+|> call f() AS x
+|> call g() y
+|> call h() @{hint=1} AS z
+|> call i() @{hint=2} zz
+--
+QueryStatement [0-91] [select 1 |...hint=2} zz]
+  Query [0-91] [select 1 |...hint=2} zz]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeCall [9-25] [|> call f() AS x]
+      TVF [17-25] [f() AS x]
+        PathExpression [17-18] [f]
+          Identifier(f) [17-18] [f]
+        Alias [21-25] [AS x]
+          Identifier(x) [24-25] [x]
+    PipeCall [26-39] [|> call g() y]
+      TVF [34-39] [g() y]
+        PathExpression [34-35] [g]
+          Identifier(g) [34-35] [g]
+        Alias [38-39] [y]
+          Identifier(y) [38-39] [y]
+    PipeCall [40-66] [|> call h() @{hint=1} AS z]
+      TVF [48-66] [h() @{hint=1} AS z]
+        PathExpression [48-49] [h]
+          Identifier(h) [48-49] [h]
+        Hint [52-61] [@{hint=1}]
+          HintEntry [54-60] [hint=1]
+            Identifier(hint) [54-58] [hint]
+            IntLiteral(1) [59-60] [1]
+        Alias [62-66] [AS z]
+          Identifier(z) [65-66] [z]
+    PipeCall [67-91] [|> call i() @{hint=2} zz]
+      TVF [75-91] [i() @{hint=2} zz]
+        PathExpression [75-76] [i]
+          Identifier(i) [75-76] [i]
+        Hint [79-88] [@{hint=2}]
+          HintEntry [81-87] [hint=2]
+            Identifier(hint) [81-85] [hint]
+            IntLiteral(2) [86-87] [2]
+        Alias [89-91] [zz]
+          Identifier(zz) [89-91] [zz]
+--
+SELECT
+  1
+|> CALL f() AS x
+|> CALL g() AS y
+|> CALL h() @{ hint = 1 } AS z
+|> CALL i() @{ hint = 2 } AS zz
+==
+
+select 1
+|> call f() OVER ()
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 2:13]
+|> call f() OVER ()
+            ^
+==
+
+# TVF TABLESAMPLE suffix is allowed in FROM but not here.
+select 1
+|> call f() TABLESAMPLE bernoulli(5 rows)
+--
+ERROR: Syntax error: Unexpected keyword TABLESAMPLE [at 2:13]
+|> call f() TABLESAMPLE bernoulli(5 rows)
+            ^
+==
+
+# TVF PIVOT suffix is allowed in FROM but not here.
+select 1
+|> call f() PIVOT(x FOR y IN (5))
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 2:18]
+|> call f() PIVOT(x FOR y IN (5))
+                 ^
+==
+
+# Extra modifiers from non-TVF function calls don't work.
+select 1
+|> call f(x LIMIT 5)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword LIMIT [at 2:13]
+|> call f(x LIMIT 5)
+            ^
+==
+
+select 1
+|> call f(x ORDER BY y)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword ORDER [at 2:13]
+|> call f(x ORDER BY y)
+            ^

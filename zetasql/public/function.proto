@@ -308,6 +308,8 @@ message FunctionEnums {
     // The argument can be passed as a positional argument only.
     // We can add names to positional-only arguments for documentation purposes,
     // including error messages, but they cannot be used in SQL.
+    // Positional-only is the default NamedArgumentKind for ZetaSQL built-in
+    // functions, unless otherwise specified.
     POSITIONAL_ONLY = 1;
 
     // The argument can be passed as either a positional or named argument.

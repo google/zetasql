@@ -1677,7 +1677,7 @@ class RowsForUdaOp : public RelationalOp {
       absl::string_view input_iter_debug_string);
 
   static std::unique_ptr<RowsForUdaOp> Create(
-      std::vector<std::string> argument_names);
+      std::vector<VariableId> arguments);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -1696,11 +1696,9 @@ class RowsForUdaOp : public RelationalOp {
                             bool verbose) const override;
 
  private:
-  explicit RowsForUdaOp(std::vector<std::string> argument_names);
+  explicit RowsForUdaOp(std::vector<VariableId> argument);
 
-  std::vector<std::string> argument_names() const;
-
-  std::vector<std::string> argument_names_;
+  std::vector<VariableId> arguments_;
 };
 
 // Partitions the input by <partition_keys>, and evaluates a number of analytic
@@ -2587,12 +2585,10 @@ class FieldValueExpr final : public ValueExpr {
 // ProtoFieldAccessInfo from a ProtoFieldRegistry.
 class ProtoFieldReader {
  public:
-  // 'id' is a unique identifier of this instance that is used for debug
-  // logging. Does not take ownership of 'registry'.
-  ProtoFieldReader(int id, const ProtoFieldAccessInfo& access_info,
+  // Does not take ownership of 'registry'.
+  ProtoFieldReader(const ProtoFieldAccessInfo& access_info,
                    ProtoFieldRegistry* registry)
-      : id_(id),
-        access_info_(access_info),
+      : access_info_(access_info),
         registry_(registry),
         access_info_registry_id_(registry->RegisterField(&access_info_)) {}
 
@@ -2612,12 +2608,7 @@ class ProtoFieldReader {
 
   const ProtoFieldAccessInfo& access_info() const { return access_info_; }
 
-  int id() const { return id_; }
-
-  int registry_id() const { return registry_->id(); }
-
  private:
-  const int id_;
   const ProtoFieldAccessInfo access_info_;
   const ProtoFieldRegistry* registry_;
   const int access_info_registry_id_;
@@ -2698,6 +2689,12 @@ class GetProtoFieldExpr final : public ValueExpr {
 
   const ProtoFieldReader* field_reader() const { return field_reader_; }
 
+  void set_owned_reader(std::unique_ptr<ProtoFieldReader> owned_reader,
+                        std::unique_ptr<ProtoFieldRegistry> owned_registry) {
+    owned_reader_ = std::move(owned_reader);
+    owned_registry_ = std::move(owned_registry);
+  }
+
  private:
   enum ArgKind { kProtoExpr };
 
@@ -2710,6 +2707,12 @@ class GetProtoFieldExpr final : public ValueExpr {
   ValueExpr* mutable_proto_expr();
 
   const ProtoFieldReader* field_reader_;
+
+  // Ownership of these objects is transferred to the first GetPRotoFieldExpr
+  // that uses them. Subsequent GetProtoFieldExprs get a raw pointer, but no
+  // ownership.
+  std::unique_ptr<ProtoFieldReader> owned_reader_;
+  std::unique_ptr<ProtoFieldRegistry> owned_registry_;
 };
 
 // Handles evaluating a flatten which merges the results over nested arrays.
@@ -3090,11 +3093,15 @@ class AggregateFunctionBody : public FunctionBody {
   const int num_input_fields() const { return num_input_fields_; }
   const Type* input_type() const { return input_type_; }
 
-  // <args> contains the constant arguments for the aggregation
-  // function (e.g., the delimeter for STRING_AGG). <collator_list> indicates
-  // the collations used for aggregate function.
+  // `args` contains the constant arguments for the aggregation function
+  // (e.g., the delimiter for STRING_AGG).
+  // `params` is the parameters needed for argument evaluation. (e.g. for SQL
+  //      UDAs which will evaluate NOT AGGREGATE arguments later.)
+  // `collator_list` indicates the collations used for aggregate function.
   virtual absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
-  CreateAccumulator(absl::Span<const Value> args, CollatorList collator_list,
+  CreateAccumulator(absl::Span<const Value> args,
+                    absl::Span<const TupleData* const> params,
+                    CollatorList collator_list,
                     EvaluationContext* context) const = 0;
 
  private:
@@ -3677,7 +3684,7 @@ class DMLValueExpr : public ValueExpr {
   // OUT_OF_RANGE and error message 'duplicate_primary_key_error_prefix' + ' ('
   // + <primary_key_value> + ')'.
   absl::Status PopulatePrimaryKeyRowMap(
-      const std::vector<std::vector<Value>>& original_rows,
+      absl::Span<const std::vector<Value>> original_rows,
       absl::string_view duplicate_primary_key_error_prefix,
       EvaluationContext* context, PrimaryKeyRowMap* row_map,
       bool* has_primary_key) const;
@@ -3725,7 +3732,7 @@ class DMLValueExpr : public ValueExpr {
   // need to have values of gen1 and data evaluated before gen2 value can be
   // evaluated.
   absl::Status EvalGeneratedColumnsByTopologicalOrder(
-      const std::vector<int>& topologically_sorted_generated_column_id_list,
+      absl::Span<const int> topologically_sorted_generated_column_id_list,
       const absl::flat_hash_map<int, size_t>& generated_columns_position_map,
       EvaluationContext* context, std::vector<Value>& row) const;
 
@@ -4152,7 +4159,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
       const ResolvedUpdateStmt* nested_update,
       absl::Span<const TupleData* const> tuples_for_row,
       const ResolvedColumn& element_column,
-      const std::vector<Value>& original_elements, EvaluationContext* context,
+      absl::Span<const Value> original_elements, EvaluationContext* context,
       std::vector<UpdatedElement>* new_elements) const;
 
   // Applies 'nested_insert' to a vector whose values were originally
@@ -4162,7 +4169,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
   absl::Status ProcessNestedInsert(
       const ResolvedInsertStmt* nested_insert,
       absl::Span<const TupleData* const> tuples_for_row,
-      const std::vector<Value>& original_elements, EvaluationContext* context,
+      absl::Span<const Value> original_elements, EvaluationContext* context,
       std::vector<UpdatedElement>* new_elements) const;
 };
 
@@ -4279,87 +4286,6 @@ class DMLInsertValueExpr final : public DMLValueExpr {
       int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
       const std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context) const;
-};
-
-// -------------------------------------------------------
-// Dummy root objects
-// -------------------------------------------------------
-
-// Shared objects in the tree whose ownership is managed by the dummy root node.
-struct RootData {
-  std::vector<std::unique_ptr<ProtoFieldRegistry>> registries;
-  std::vector<std::unique_ptr<ProtoFieldReader>> field_readers;
-};
-
-// A dummy root object that wraps up a RelationalOp along with ownership of
-// shared objects in the tree.
-class RootOp final : public RelationalOp {
- public:
-  RootOp(const RootOp&) = delete;
-  RootOp& operator=(const RootOp&) = delete;
-
-  static absl::StatusOr<std::unique_ptr<RootOp>> Create(
-      std::unique_ptr<RelationalOp> input, std::unique_ptr<RootData> root_data);
-
-  absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) override;
-
-  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const override;
-
-  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
-
-  std::string IteratorDebugString() const override;
-
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
- private:
-  enum ArgKind { kInput };
-
-  RootOp(std::unique_ptr<RelationalOp> input,
-         std::unique_ptr<RootData> root_data);
-
-  // Returns the RelationalOp passed to the constructor.
-  const RelationalOp* input() const;
-  RelationalOp* mutable_input();
-
-  std::unique_ptr<RootData> root_data_;
-};
-
-// A dummy root object that wraps up a ValueExpr along with ownership of
-// shared objects in the tree.
-class RootExpr final : public ValueExpr {
- public:
-  RootExpr(const RootExpr&) = delete;
-  RootExpr& operator=(const RootExpr&) = delete;
-
-  static absl::StatusOr<std::unique_ptr<RootExpr>> Create(
-      std::unique_ptr<ValueExpr> value_expr,
-      std::unique_ptr<RootData> root_data);
-
-  absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) override;
-
-  bool Eval(absl::Span<const TupleData* const> params,
-            EvaluationContext* context, VirtualTupleSlot* result,
-            absl::Status* status) const override;
-
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
- private:
-  enum ArgKind { kValueExpr };
-
-  RootExpr(std::unique_ptr<ValueExpr> value_expr,
-           std::unique_ptr<RootData> root_data);
-
-  // Returns the ValueExpr passed to the constructor.
-  const ValueExpr* value_expr() const;
-  ValueExpr* mutable_value_expr();
-
-  std::unique_ptr<RootData> root_data_;
 };
 }  // namespace zetasql
 

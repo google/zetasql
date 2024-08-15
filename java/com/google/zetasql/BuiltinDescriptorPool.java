@@ -35,6 +35,7 @@ import com.google.zetasql.functions.ZetaSQLDifferentialPrivacy;
 import com.google.zetasql.functions.ZetaSQLNormalizeMode.NormalizeMode;
 import com.google.zetasql.functions.ZetaSQLRangeSessionizeMode.RangeSessionizeEnums.RangeSessionizeMode;
 import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
+import com.google.zetasql.functions.ZetaSQLUnsupportedFields.UnsupportedFields;
 import com.google.type.Date;
 import com.google.type.LatLng;
 import com.google.type.TimeOfDay;
@@ -50,6 +51,7 @@ final class BuiltinDescriptorPool {
           .importFileDescriptor(DateTimestampPart.getDescriptor().getFile())
           .importFileDescriptor(NormalizeMode.getDescriptor().getFile())
           .importFileDescriptor(RoundingMode.getDescriptor().getFile())
+          .importFileDescriptor(UnsupportedFields.getDescriptor().getFile())
           .importFileDescriptor(ArrayFindMode.getDescriptor().getFile())
           .importFileDescriptor(Timestamp.getDescriptor().getFile())
           .importFileDescriptor(Date.getDescriptor().getFile())

@@ -52,6 +52,7 @@
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
+#include "zetasql/common/internal_analyzer_output_properties.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
@@ -106,6 +107,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/target_syntax.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/cleanup/cleanup.h"
@@ -1374,6 +1376,8 @@ absl::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
   ZETASQL_RET_CHECK_EQ(RESOLVED_COLUMN_REF, (*resolved_column_ref_expr)->node_kind());
   ABSL_DCHECK(query_resolution_info != nullptr);
   ABSL_DCHECK(query_resolution_info->HasGroupByOrAggregation());
+  // This function only runs for SELECT *.
+  ZETASQL_RET_CHECK(!query_resolution_info->IsPipeAggregate());
 
   const ResolvedColumnRef* resolved_column_ref =
       (*resolved_column_ref_expr)->GetAs<ResolvedColumnRef>();
@@ -1548,6 +1552,8 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
 
   ParseLocationRange path_parse_location = path_expr.GetParseLocationRange();
   IdString first_name = path_expr.GetFirstIdString();
+  const std::string lowercase_name =
+      absl::AsciiStrToLower(first_name.ToStringView());
   // The length of the longest prefix of <path_expr> that has been resolved
   // successfully. Often 1 after successful resolution and 0 if resolution
   // fails, but can be longer for name paths and named constants. 0 while
@@ -1570,6 +1576,10 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     const char* problem_string = NameScope::kDefaultProblemString;
     if (expr_resolution_info->is_post_distinct()) {
       problem_string = "not visible after SELECT DISTINCT";
+    }
+    if (expr_resolution_info->query_resolution_info != nullptr &&
+        expr_resolution_info->query_resolution_info->IsPipeAggregate()) {
+      problem_string = "not aggregated";
     }
     ZETASQL_RETURN_IF_ERROR(expr_resolution_info->name_scope->LookupNamePath(
         path_expr, expr_resolution_info->clause_name, problem_string,
@@ -1671,8 +1681,6 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     // expression column (for standalone expression evaluation only).
     // TODO: Move this to a separate function to handle this
     // case out of line.
-    const std::string lowercase_name =
-        absl::AsciiStrToLower(path_expr.GetFirstIdString().ToString());
     const Type* column_type = zetasql_base::FindPtrOrNull(
         analyzer_options_.expression_columns(), lowercase_name);
 
@@ -1713,20 +1721,20 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
         num_names_consumed = 1;
       }
     }
+  }
 
+  if (num_names_consumed == 0 &&
+      InternalAnalyzerOptions::GetLookupExpressionCallback(analyzer_options_) !=
+          nullptr) {
     // Lookup the column using the callback function if set.
-    if (num_names_consumed == 0 &&
-        InternalAnalyzerOptions::GetLookupExpressionCallback(
-            analyzer_options_) != nullptr) {
-      std::unique_ptr<const ResolvedExpr> expr;
-      ZETASQL_RETURN_IF_ERROR(InternalAnalyzerOptions::GetLookupExpressionCallback(
-          analyzer_options_)(lowercase_name, expr));
-      if (expr != nullptr) {
-        MaybeRecordParseLocation(path_expr.GetParseLocationRange(),
-                                 const_cast<ResolvedExpr*>(expr.get()));
-        resolved_expr = std::move(expr);
-        num_names_consumed = 1;
-      }
+    std::unique_ptr<const ResolvedExpr> expr;
+    ZETASQL_RETURN_IF_ERROR(InternalAnalyzerOptions::GetLookupExpressionCallback(
+        analyzer_options_)(lowercase_name, expr));
+    if (expr != nullptr) {
+      MaybeRecordParseLocation(path_expr.GetParseLocationRange(),
+                               const_cast<ResolvedExpr*>(expr.get()));
+      resolved_expr = std::move(expr);
+      num_names_consumed = 1;
     }
   }
 
@@ -4356,6 +4364,8 @@ absl::Status Resolver::ResolveIntervalArgument(
            << "INTERVAL argument only support single date part field.";
   }
 
+  ZETASQL_RET_CHECK(resolved_arguments_out->back() != nullptr);
+
   // Coerce the interval value argument to INT64 if necessary.
   if (!resolved_arguments_out->back()->type()->IsInt64()) {
     std::unique_ptr<const ResolvedExpr> resolved_interval_value_arg =
@@ -4925,33 +4935,38 @@ bool IsGroupingFunction(const Function* function) {
          function->signatures()[0].context_id() == FN_GROUPING &&
          function->IsZetaSQLBuiltin();
 }
-}  // namespace
 
-absl::Status Resolver::ResolveAggregateFunctionGroupingModifiers(
-    const ASTFunctionCall* ast_function,
-    ExprResolutionInfo* expr_resolution_info,
-    std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>*
-        resolved_grouping_modifiers) {
-  ZETASQL_RET_CHECK(resolved_grouping_modifiers->empty());
-  if (ast_function->group_by() == nullptr) {
-    return absl::OkStatus();
+absl::Status CheckNodeIsNull(const ASTNode* node,
+                             absl::string_view error_message) {
+  if (node != nullptr) {
+    return MakeSqlErrorAt(node) << error_message;
   }
+  return absl::OkStatus();
+}
 
-  auto sql_error_if_ast_node_present =
-      [](const ASTNode* node, absl::string_view error_message) -> absl::Status {
-    if (node != nullptr) {
-      return MakeSqlErrorAt(node) << error_message;
-    }
-    return absl::OkStatus();
-  };
-  const ASTGroupBy* group_by = ast_function->group_by();
-  ZETASQL_RETURN_IF_ERROR(sql_error_if_ast_node_present(
-      group_by->hint(),
-      "Hints are not supported inside an aggregate function."));
-  ZETASQL_RETURN_IF_ERROR(sql_error_if_ast_node_present(
+absl::Status ValidateAggregateFunctionGroupByClause(
+    const ASTGroupBy* group_by) {
+  ZETASQL_RET_CHECK_NE(group_by, nullptr);
+  ZETASQL_RET_CHECK(!group_by->grouping_items().empty());
+  ZETASQL_RETURN_IF_ERROR(
+      CheckNodeIsNull(group_by->hint(),
+                      "Hints are not supported inside an aggregate function."));
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(
       group_by->all(),
       "GROUP BY ALL is not supported inside an aggregate function."));
+  if (group_by->and_order_by()) {
+    return MakeSqlErrorAt(group_by)
+           << "GROUP AND ORDER BY is not supported outside pipe AGGREGATE.";
+  }
+  return absl::OkStatus();
+}
 
+}  // namespace
+
+absl::Status Resolver::ResolveAggregateFunctionGroupByModifier(
+    const ASTGroupingItem* group_by_modifier,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedComputedColumnBase>* resolved_group_by) {
   ZETASQL_RET_CHECK_NE(expr_resolution_info->query_resolution_info, nullptr);
 
   ExprResolutionInfo multi_level_agg_expr_resolution_info(
@@ -4963,51 +4978,52 @@ absl::Status Resolver::ResolveAggregateFunctionGroupingModifiers(
           .clause_name = "GROUP BY inside aggregate",
       });
 
-  for (const ASTGroupingItem* grouping_item : group_by->grouping_items()) {
-    ZETASQL_RET_CHECK_NE(grouping_item, nullptr);
-    ZETASQL_RETURN_IF_ERROR(sql_error_if_ast_node_present(
-        grouping_item->rollup(),
-        "GROUP BY ROLLUP is not supported inside an aggregate function."));
-    ZETASQL_RETURN_IF_ERROR(sql_error_if_ast_node_present(
-        grouping_item->cube(),
-        "GROUP BY CUBE is not supported inside an aggregate function."));
-    ZETASQL_RETURN_IF_ERROR(
-        sql_error_if_ast_node_present(grouping_item->grouping_set_list(),
-                                      "GROUP BY GROUPING SETS is not supported "
-                                      "inside an aggregate function."));
+  ZETASQL_RET_CHECK_NE(group_by_modifier, nullptr);
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(
+      group_by_modifier->rollup(),
+      "GROUP BY ROLLUP is not supported inside an aggregate function."));
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(
+      group_by_modifier->cube(),
+      "GROUP BY CUBE is not supported inside an aggregate function."));
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(group_by_modifier->grouping_set_list(),
+                                  "GROUP BY GROUPING SETS is not supported "
+                                  "inside an aggregate function."));
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(group_by_modifier->grouping_item_order(),
+                                  "GROUP BY does not support order "
+                                  "specification outside pipe AGGREGATE"));
+  ZETASQL_RETURN_IF_ERROR(CheckNodeIsNull(
+      group_by_modifier->alias(),
+      "GROUP BY expressions in an aggregate function cannot have aliases."));
 
-    std::unique_ptr<const ResolvedExpr> resolved_grouping_expr;
-    ZETASQL_RETURN_IF_ERROR(ResolveExpr(grouping_item->expression(),
-                                &multi_level_agg_expr_resolution_info,
-                                &resolved_grouping_expr));
+  std::unique_ptr<const ResolvedExpr> resolved_grouping_expr;
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(group_by_modifier->expression(),
+                              &multi_level_agg_expr_resolution_info,
+                              &resolved_grouping_expr));
 
-    std::string type_description;
-    if (!resolved_grouping_expr->type()->SupportsGrouping(language(),
-                                                          &type_description)) {
-      return MakeSqlErrorAt(grouping_item)
-             << "GROUP BY modifier has type " << type_description
-             << ", which is not groupable.";
-    }
-
-    // TODO: Refactor ordinal checking logic into a shared method.
-    if (resolved_grouping_expr->node_kind() == RESOLVED_LITERAL &&
-        !resolved_grouping_expr->GetAs<ResolvedLiteral>()
-             ->has_explicit_type()) {
-      const Value& value =
-          resolved_grouping_expr->GetAs<ResolvedLiteral>()->value();
-      if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
-        return MakeSqlErrorAt(grouping_item)
-               << "GROUP BY modifiers cannot specify ordinals.";
-      } else {
-        return MakeSqlErrorAt(grouping_item)
-               << "GROUP BY modifiers cannot be literal values.";
-      }
-    }
-    // TODO: Plumb the `resolved_grouping_expr` through the query
-    // resolution pipeline.
-    ZETASQL_RET_CHECK_FAIL() << "GROUP BY modifier is not yet supported.";
+  std::string type_description;
+  if (!resolved_grouping_expr->type()->SupportsGrouping(language(),
+                                                        &type_description)) {
+    return MakeSqlErrorAt(group_by_modifier)
+           << "GROUP BY modifier has type " << type_description
+           << ", which is not groupable.";
   }
-  return absl::OkStatus();
+
+  // TODO: Refactor ordinal checking logic into a shared method.
+  if (resolved_grouping_expr->node_kind() == RESOLVED_LITERAL &&
+      !resolved_grouping_expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
+    const Value& value =
+        resolved_grouping_expr->GetAs<ResolvedLiteral>()->value();
+    if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
+      return MakeSqlErrorAt(group_by_modifier)
+             << "GROUP BY modifiers cannot specify ordinals.";
+    } else {
+      return MakeSqlErrorAt(group_by_modifier)
+             << "GROUP BY modifiers cannot be literal values.";
+    }
+  }
+  // TODO: Plumb the `resolved_grouping_expr` through the query
+  // resolution pipeline.
+  ZETASQL_RET_CHECK_FAIL() << "GROUP BY modifier is not yet supported.";
 }
 
 absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
@@ -5019,8 +5035,28 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   std::vector<std::unique_ptr<const ResolvedComputedColumnBase>>
       resolved_grouping_modifiers;
-  ZETASQL_RETURN_IF_ERROR(ResolveAggregateFunctionGroupingModifiers(
-      ast_function, expr_resolution_info, &resolved_grouping_modifiers));
+  if (ast_function->group_by() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateAggregateFunctionGroupByClause(ast_function->group_by()));
+    for (const ASTGroupingItem* ast_group_by_modifier :
+         ast_function->group_by()->grouping_items()) {
+      std::unique_ptr<const ResolvedComputedColumnBase> resolved_group_by;
+      ZETASQL_RETURN_IF_ERROR(ResolveAggregateFunctionGroupByModifier(
+          ast_group_by_modifier, expr_resolution_info, &resolved_group_by));
+      resolved_grouping_modifiers.push_back(std::move(resolved_group_by));
+    }
+  }
+  // TODO: `MultiLevelAggregateInfo` should probably not be owned
+  // by `QueryResolutionInfo`.
+  if (expr_resolution_info->query_resolution_info != nullptr) {
+    ZETASQL_RET_CHECK_NE(expr_resolution_info->query_resolution_info, nullptr);
+    ZETASQL_RETURN_IF_ERROR(
+        expr_resolution_info->query_resolution_info
+            ->multi_level_aggregate_info()
+            ->AddAggregateFunction(
+                ast_function,
+                expr_resolution_info->enclosing_aggregate_function));
+  }
   std::unique_ptr<ExprResolutionInfo> local_expr_resolution_info;
   std::vector<std::unique_ptr<const ResolvedColumnRef>> correlated_columns;
   if (ast_function->with_group_rows() == nullptr) {
@@ -7720,7 +7756,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     }
     ZETASQL_RETURN_IF_ERROR(ResolveOrderByItems(
         /*output_column_list=*/{}, {order_by_info},
-        &resolved_order_by_items));
+        /*is_pipe_order_by=*/false, &resolved_order_by_items));
   }
   const ASTLimitOffset* limit_offset = ast_function_call->limit_offset();
   std::unique_ptr<const ResolvedExpr> limit_expr;
@@ -8668,6 +8704,15 @@ absl::Status Resolver::ResolveFunctionCallImpl(
                << " input expression must end with a proto field access";
       }
     }
+  }
+
+  // Keep track of the enclosing aggregate function for resolving multi-level
+  // aggregates.
+  if (function->IsAggregate()) {
+    ZETASQL_RET_CHECK(ast_location != nullptr);
+    ZETASQL_RET_CHECK(ast_location->Is<ASTFunctionCall>());
+    expr_resolution_info->enclosing_aggregate_function =
+        ast_location->GetAsOrDie<ASTFunctionCall>();
   }
 
   // Rather than resolved_arguments, resolve arguments into generic arguments?

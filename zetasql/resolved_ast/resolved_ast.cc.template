@@ -1138,6 +1138,12 @@ const ResolvedNodeKind {{node.name}}::TYPE;
 {{node.extra_enum_defs}}
 
 {{node.name}}::~{{node.name}}() {
+  {% set ns = namespace(has_vector_or_ptr=
+      (node.fields | selectattr('is_node_vector') | list | length > 0) or
+      (node.fields | selectattr('is_node_ptr') | list | length > 0)
+  ) %}
+  {% if ns.has_vector_or_ptr %}
+  {% endif %}
 }
 
 absl::Status {{node.name}}::SaveTo(

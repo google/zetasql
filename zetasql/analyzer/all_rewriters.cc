@@ -29,6 +29,8 @@
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/multiway_unnest_rewriter.h"
 #include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
+#include "zetasql/analyzer/rewriters/order_by_and_limit_in_aggregate_rewriter.h"
+#include "zetasql/analyzer/rewriters/pipe_assert_rewriter.h"
 #include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/sql_function_inliner.h"
@@ -90,6 +92,10 @@ void RegisterBuiltinRewriters() {
                GetInsertDmlValuesRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_MULTIWAY_UNNEST,
                GetMultiwayUnnestRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_PIPE_ASSERT,
+               GetPipeAssertRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_ORDER_BY_AND_LIMIT_IN_AGGREGATE,
+               GetOrderByAndLimitInAggregateRewriter());
 
     // This rewriter should typically be the last in the rewrite sequence
     // because it cleans up after several other rewriters add ResolvedWithExprs.

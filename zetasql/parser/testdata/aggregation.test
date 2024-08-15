@@ -2160,16 +2160,6 @@ FROM
   T
 ==
 
-# GROUP BY doesn't support aliases.
-select COUNT(*)
-from t
-GROUP BY x AS y
---
-ERROR: Syntax error: GROUP BY does not support aliases [at 3:12]
-GROUP BY x AS y
-           ^
-==
-
 # GROUP BY aliases without AS.
 select COUNT(*)
 from t

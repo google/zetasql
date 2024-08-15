@@ -359,14 +359,17 @@ void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
+  if (node->alias() != nullptr) {
+    node->alias()->Accept(this, data);
+  }
   if (node->pivot_clause() != nullptr) {
     node->pivot_clause()->Accept(this, data);
   }
   if (node->unpivot_clause() != nullptr) {
     node->unpivot_clause()->Accept(this, data);
   }
-  if (node->alias() != nullptr) {
-    node->alias()->Accept(this, data);
+  if (node->match_recognize_clause()) {
+    node->match_recognize_clause()->Accept(this, data);
   }
   if (node->sample() != nullptr) {
     node->sample()->Accept(this, data);
@@ -416,6 +419,22 @@ std::string Unparser::GetCreateStatementPrefix(
   absl::StrAppend(&output, " ", create_object_type);
   if (node->is_if_not_exists()) absl::StrAppend(&output, " IF NOT EXISTS");
   return output;
+}
+
+void Unparser::visitASTCreateConnectionStatement(
+    const ASTCreateConnectionStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, "CONNECTION"));
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTAlterConnectionStatement(
+    const ASTAlterConnectionStatement* node, void* data) {
+  print("ALTER CONNECTION");
+  VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTCreateConstantStatement(
@@ -1460,6 +1479,181 @@ void Unparser::visitASTQuery(const ASTQuery* node, void* data) {
   PrintCloseParenIfNeeded(node);
 }
 
+void Unparser::visitASTAliasedQueryExpression(
+    const ASTAliasedQueryExpression* node, void* data) {
+  println();
+  print("(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->query()->Accept(this, data);
+  }
+  println();
+  print(")");
+  node->alias()->Accept(this, data);
+}
+
+void Unparser::visitASTFromQuery(const ASTFromQuery* node, void* data) {
+  visitASTChildren(node, data);
+}
+
+Formatter::PipeAndIndent::PipeAndIndent(Formatter* formatter)
+    : formatter_(formatter) {
+  formatter_->FormatLine("");
+  formatter_->Format("|>");
+  // Several of the pipe operator unparsers call the regular operator
+  // unparser, like "WHERE" or "LIMIT", which call println, but we want
+  // to skip that newline after the pipe.
+  formatter_->SetSuppressNextNewline();
+
+  // Indent any extra lines inside this pipe operator so they line up.
+  formatter_->Indent(3);  // 3 is size of "|> ".
+}
+
+Formatter::PipeAndIndent::~PipeAndIndent() { formatter_->Dedent(3); }
+
+void Unparser::visitASTPipeWhere(const ASTPipeWhere* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeSelect(const ASTPipeSelect* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeLimitOffset(const ASTPipeLimitOffset* node,
+                                       void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeOrderBy(const ASTPipeOrderBy* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeExtend(const ASTPipeExtend* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("EXTEND");
+  // Only the SELECT should be present.  The ASTSelect visitor
+  // would print "SELECT" which we don't want, but visiting the children
+  // will find just the one clause that exists.
+  visitASTChildren(node->select(), data);
+}
+
+void Unparser::visitASTPipeRenameItem(const ASTPipeRenameItem* node,
+                                      void* data) {
+  node->old_name()->Accept(this, data);
+  print("AS");
+  node->new_name()->Accept(this, data);
+}
+
+void Unparser::visitASTPipeRename(const ASTPipeRename* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("RENAME");
+  UnparseVectorWithSeparator(node->rename_item_list(), data, ",");
+}
+
+void Unparser::visitASTPipeAggregate(const ASTPipeAggregate* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("AGGREGATE");
+  // Only the SELECT and GROUP BY should be present.  The ASTSelect visitor
+  // would print "SELECT" which we don't want, but we can visit all the
+  // other children the normal way, and we'll get the two clauses we want.
+  visitASTChildren(node->select(), data);
+}
+
+void Unparser::visitASTPipeSetOperation(const ASTPipeSetOperation* node,
+                                        void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  node->metadata()->Accept(this, data);
+  println();
+  UnparseVectorWithSeparator(node->inputs(), data, ",\n");
+}
+
+void Unparser::visitASTPipeJoin(const ASTPipeJoin* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeJoinLhsPlaceholder(
+    const ASTPipeJoinLhsPlaceholder* node, void* data) {
+  // Nothing to print.
+}
+
+void Unparser::visitASTPipeCall(const ASTPipeCall* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("CALL");
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeWindow(const ASTPipeWindow* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("WINDOW");
+  // Only the SELECT should be present.  The ASTSelect visitor
+  // would print "SELECT" which we don't want, but visiting the children
+  // will find just the one clause that exists.
+  visitASTChildren(node->select(), data);
+}
+
+void Unparser::visitASTPipeDistinct(const ASTPipeDistinct* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("DISTINCT");
+  // Don't visit children, because by definition, pipe DISTINCT doesn't have
+  // any children.
+}
+
+void Unparser::visitASTPipeTablesample(const ASTPipeTablesample* node,
+                                       void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeAs(const ASTPipeAs* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeStaticDescribe(const ASTPipeStaticDescribe* node,
+                                          void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("STATIC_DESCRIBE");
+}
+
+void Unparser::visitASTPipeAssert(const ASTPipeAssert* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("ASSERT");
+  UnparseChildrenWithSeparator(node, data, ",");
+}
+
+void Unparser::visitASTPipeDrop(const ASTPipeDrop* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("DROP");
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeSetItem(const ASTPipeSetItem* node, void* data) {
+  node->column()->Accept(this, data);
+  print("=");
+  node->expression()->Accept(this, data);
+}
+
+void Unparser::visitASTPipeSet(const ASTPipeSet* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  print("SET");
+  UnparseChildrenWithSeparator(node, data, ",");
+}
+
+void Unparser::visitASTPipePivot(const ASTPipePivot* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPipeUnpivot(const ASTPipeUnpivot* node, void* data) {
+  Formatter::PipeAndIndent pipe_and_indent(&formatter_);
+  visitASTChildren(node, data);
+}
+
 void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
   PrintOpenParenIfNeeded(node);
   if (node->metadata() == nullptr) {
@@ -1729,6 +1923,9 @@ void Unparser::visitASTParenthesizedJoin(const ASTParenthesizedJoin* node,
   println();
   print(")");
 
+  if (node->match_recognize_clause()) {
+    node->match_recognize_clause()->Accept(this, data);
+  }
   if (node->sample_clause() != nullptr) {
     node->sample_clause()->Accept(this, data);
   }
@@ -1810,6 +2007,21 @@ void Unparser::visitASTGroupingSetList(const ASTGroupingSetList* node,
   print(")");
 }
 
+void Unparser::visitASTGroupingItemOrder(const ASTGroupingItemOrder* node,
+                                         void* data) {
+  switch (node->ordering_spec()) {
+    case ASTOrderingExpression::ASC:
+      print("ASC");
+      break;
+    case ASTOrderingExpression::DESC:
+      print("DESC");
+      break;
+    default:
+      break;
+  }
+  visitASTChildren(node, data);
+}
+
 void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
   ABSL_DCHECK_LE((node->expression() != nullptr) + (node->rollup() != nullptr) +
                 (node->cube() != nullptr) +
@@ -1818,6 +2030,12 @@ void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
       << "At most one of expression, rollup, cube, and grouping_set_list exist";
   if (node->expression() != nullptr) {
     node->expression()->Accept(this, data);
+    if (node->alias() != nullptr) {
+      node->alias()->Accept(this, data);
+    }
+    if (node->grouping_item_order() != nullptr) {
+      node->grouping_item_order()->Accept(this, data);
+    }
   } else if (node->rollup() != nullptr) {
     node->rollup()->Accept(this, data);
   } else if (node->cube() != nullptr) {
@@ -1835,6 +2053,9 @@ void Unparser::visitASTGroupBy(const ASTGroupBy* node, void* data) {
   print("GROUP");
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
+  }
+  if (node->and_order_by()) {
+    print("AND ORDER");
   }
   print("BY");
   if (node->all() != nullptr) {
@@ -1895,6 +2116,10 @@ void Unparser::visitASTOrderingExpression(const ASTOrderingExpression* node,
     print("ASC");
   }
   if (node->null_order()) node->null_order()->Accept(this, data);
+  if (node->option_list()) {
+    print("OPTIONS");
+    node->option_list()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTLimitOffset(const ASTLimitOffset* node, void* data) {
@@ -2265,7 +2490,20 @@ void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node, void* data) {
 void Unparser::visitASTDotGeneralizedField(const ASTDotGeneralizedField* node,
                                            void* data) {
   PrintOpenParenIfNeeded(node);
+
+  // We need an inner paren to avoid the dot (.) binding tightly to the inner
+  // expression for numbers. E.g. `SELECT (1).(x)` should unparse as the same,
+  // and not as `SELECT 1.(x)`, which looks like a function call on a float
+  // literal.
+  bool print_inner_paren = node->expr()->node_kind() == AST_INT_LITERAL ||
+                           node->expr()->node_kind() == AST_FLOAT_LITERAL;
+  if (print_inner_paren) {
+    print("(");
+  }
   node->expr()->Accept(this, data);
+  if (print_inner_paren) {
+    print(")");
+  }
   print(".(");
   node->path()->Accept(this, data);
   print(")");
@@ -2303,6 +2541,11 @@ static bool IsPostfix(ASTUnaryExpression::Op op) {
 
 void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
                                        void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
+
   PrintOpenParenIfNeeded(node);
   if (IsPostfix(node->op())) {
     node->operand()->Accept(this, data);
@@ -2325,6 +2568,10 @@ void Unparser::visitASTFormatClause(const ASTFormatClause* node, void* data) {
 
 void Unparser::visitASTCastExpression(const ASTCastExpression* node,
                                       void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   print(node->is_safe_cast() ? "SAFE_CAST(" : "CAST(");
   node->expr()->Accept(this, data);
   print("AS");
@@ -3352,6 +3599,10 @@ void Unparser::visitASTReplaceFieldsArg(const ASTReplaceFieldsArg* node,
 
 void Unparser::visitASTReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* node, void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   print("REPLACE_FIELDS(");
   node->expr()->Accept(this, data);
   print(", ");
@@ -3450,6 +3701,86 @@ void Unparser::visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) {
 
   if (node->output_alias() != nullptr) {
     node->output_alias()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTMatchRecognizeClause(const ASTMatchRecognizeClause* node,
+                                            void* data) {
+  println("MATCH_RECOGNIZE(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    if (node->partition_by() != nullptr) {
+      node->partition_by()->Accept(this, data);
+      println();
+    }
+    ABSL_DCHECK(node->order_by() != nullptr);
+    node->order_by()->Accept(this, data);
+    println();
+
+    ABSL_DCHECK(node->measures() != nullptr);
+    print("MEASURES");
+    node->measures()->Accept(this, data);
+    println();
+
+    ABSL_DCHECK(node->pattern() != nullptr);
+    print("PATTERN (");
+    node->pattern()->Accept(this, data);
+    println(")");
+
+    ABSL_DCHECK(node->pattern_variable_definition_list() != nullptr);
+    print("DEFINE ");
+    bool is_first = true;
+    for (const auto& var :
+         node->pattern_variable_definition_list()->columns()) {
+      if (is_first) {
+        is_first = false;
+      } else {
+        print(", ");
+      }
+      // We accept the identifier here rather than alias to prevent "AS" from
+      // being incorrectly printed before the alias.
+      var->alias()->identifier()->Accept(this, data);
+      print("AS");
+      var->expression()->Accept(this, data);
+    }
+  }
+  println(")");
+  if (node->output_alias() != nullptr) {
+    node->output_alias()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTRowPatternVariable(const ASTRowPatternVariable* node,
+                                          void* data) {
+  node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTRowPatternOperation(const ASTRowPatternOperation* node,
+                                           void* data) {
+  if (node->parenthesized()) {
+    print("(");
+  }
+
+  switch (node->op_type()) {
+    case ASTRowPatternOperation::CONCAT:
+      ABSL_DCHECK_GE(node->inputs().size(), 2);
+      UnparseChildrenWithSeparator(node, data, " ");
+      break;
+    case ASTRowPatternOperation::ALTERNATE:
+      ABSL_DCHECK_GE(node->inputs().size(), 2);
+      UnparseChildrenWithSeparator(node, data, "|");
+      break;
+    case ASTRowPatternOperation::EXCLUDE:
+    case ASTRowPatternOperation::PERMUTE:
+      ABSL_LOG(ERROR) << "Row pattern operation not supported: " << node->op_type();
+      break;
+    case ASTRowPatternOperationEnums::OPERATION_TYPE_UNSPECIFIED:
+      ABSL_LOG(ERROR) << "Graph label operation type is not set";
+      break;
+  }
+
+  if (node->parenthesized()) {
+    print(")");
   }
 }
 
@@ -3835,6 +4166,10 @@ void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
     println();
     node->optional_index_storing_expressions()->Accept(this, data);
   }
+  if (node->optional_partition_by() != nullptr) {
+    println();
+    node->optional_partition_by()->Accept(this, data);
+  }
   if (node->options_list() != nullptr) {
     println();
     print("OPTIONS");
@@ -3949,6 +4284,10 @@ void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
 void Unparser::visitASTIndexAllColumns(const ASTIndexAllColumns* node,
                                        void* data) {
   UnparseLeafNode(node);
+  if (node->column_options()) {
+    print("WITH COLUMN OPTIONS");
+    node->column_options()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTIndexItemList(const ASTIndexItemList* node, void* data) {
@@ -4533,6 +4872,5 @@ void Unparser::visitASTMapType(const ASTMapType* node, void* data) {
   node->value_type()->Accept(this, data);
   print(">");
 }
-
 }  // namespace parser
 }  // namespace zetasql

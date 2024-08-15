@@ -21,6 +21,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
@@ -82,8 +83,6 @@ bool RangeType::IsSupportedType(const LanguageOptions& language_options) const {
   return IsValidElementType(element_type_) &&
          element_type_->IsSupportedType(language_options);
 }
-
-const Type* RangeType::GetElementType(int i) const { return element_type(); }
 
 RangeType::RangeType(const TypeFactory* factory, const Type* element_type)
     : ListBackedType(factory, TYPE_RANGE), element_type_(element_type) {
@@ -190,6 +189,10 @@ std::string RangeType::FormatNullableValueContent(
 std::string RangeType::FormatValueContent(
     const ValueContent& value,
     const Type::FormatValueContentOptions& options) const {
+  if (!ThreadHasEnoughStack()) {
+    return std::string(kFormatValueContentOutOfStackError);
+  }
+
   const internal::ValueContentOrderedList* container =
       value.GetAs<internal::ValueContentOrderedListRef*>()->value();
   const internal::NullableValueContent& start = container->element(0);
@@ -199,6 +202,10 @@ std::string RangeType::FormatValueContent(
       absl::StrCat("[", FormatNullableValueContent(start, options), ", ",
                    FormatNullableValueContent(end, options), ")");
   if (options.mode == Type::FormatValueContentOptions::Mode::kDebug) {
+    if (options.verbose) {
+      return absl::StrCat("Range", boundaries);
+    }
+
     return boundaries;
   }
   return absl::StrCat(TypeName(options.product_mode), " ",

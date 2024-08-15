@@ -17,10 +17,13 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_STRING_WITH_COLLATION_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_STRING_WITH_COLLATION_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/collator.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -97,6 +100,15 @@ absl::StatusOr<bool> LikeUtf8WithCollation(absl::string_view text,
 absl::StatusOr<bool> LikeUtf8WithCollationAllowUnderscore(
     absl::string_view text, absl::string_view pattern,
     const ZetaSqlCollator& collator);
+
+// Splits the `text` based on specified `delimiter` and returns the substring
+// from the `start_index` split, combining `count` number of splits.
+// (Proposal doc (broken link)).
+absl::Status SplitSubstrWithCollation(const ZetaSqlCollator& collator,
+                                      absl::string_view text,
+                                      absl::string_view delimiter,
+                                      int64_t start_index, int64_t count,
+                                      std::string* out);
 }  // namespace functions
 }  // namespace zetasql
 

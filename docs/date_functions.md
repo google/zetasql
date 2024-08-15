@@ -214,24 +214,6 @@ SELECT CURRENT_DATE AS the_date;
  *--------------*/
 ```
 
-When a column named `current_date` is present, the column name and the function
-call without parentheses are ambiguous. To ensure the function call, add
-parentheses; to ensure the column name, qualify it with its
-[range variable][date-range-variables]. For example, the
-following query will select the function in the `the_date` column and the table
-column in the `current_date` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_date`)
-SELECT current_date() AS the_date, t.current_date FROM t;
-
-/*------------+--------------*
- | the_date   | current_date |
- +------------+--------------+
- | 2016-12-25 | column value |
- *------------+--------------*/
-```
-
 [date-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
@@ -345,7 +327,9 @@ Gets the number of unit boundaries between two `DATE` values (`end_date` -
 
 +   `start_date`: The starting `DATE` value.
 +   `end_date`: The ending `DATE` value.
-+   `granularity`: The date part that represents the granularity. This can be:
++   `granularity`: The date part that represents the granularity. If
+    you have passed in `DATE` values for the first arguments, `granularity` can
+    be:
 
     +  `DAY`
     +  `WEEK` This date part begins on Sunday.
@@ -364,6 +348,10 @@ Gets the number of unit boundaries between two `DATE` values (`end_date` -
 **Details**
 
 If `end_date` is earlier than `start_date`, the output is negative.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `DATE_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -510,38 +498,51 @@ SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 ### `DATE_TRUNC`
 
 ```sql
-DATE_TRUNC(date_expression, date_part)
+DATE_TRUNC(date_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `DATE` value to the granularity of `date_part`. The `DATE` value
-is always rounded to the beginning of `date_part`, which can be one of the
-following:
+Truncates a `DATE` value at a particular time granularity. The `DATE` value
+is always rounded to the beginning of `granularity`.
 
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `DATE` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `DATE` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `DATE` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `DATE` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `DATE` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `DATE` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `date_expression`: The `DATE` value to truncate.
++ `granularity`: The date part that represents the granularity. If
+  you passed in a `DATE` value for the first argument, `granularity` can
+  be:
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `DATE` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `DATE` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `DATE` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `DATE` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `DATE` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `DATE` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -553,7 +554,7 @@ following:
 
 **Return Data Type**
 
-DATE
+`DATE`
 
 **Examples**
 

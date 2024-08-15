@@ -1375,12 +1375,21 @@ std::string FunctionSignature::GetSQLDeclaration(
 }
 
 namespace {
+inline bool IsRelatedToAny1(SignatureArgumentKind kind) {
+  return kind == ARG_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_1 ||
+         kind == ARG_MAP_TYPE_ANY_1_2 || kind == ARG_RANGE_TYPE_ANY_1;
+}
+
+inline bool IsRelatedToAny2(SignatureArgumentKind kind) {
+  return kind == ARG_TYPE_ANY_2 || kind == ARG_ARRAY_TYPE_ANY_2 ||
+         kind == ARG_MAP_TYPE_ANY_1_2;
+}
 
 // Returns true if `kind_1` is an ARRAY templated type of `kind_2`
 static inline bool TemplatedKindRelatedArrayType(
     const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
-  return (kind_1 == ARG_ARRAY_TYPE_ANY_1 && kind_2 == ARG_TYPE_ANY_1) ||
-         (kind_1 == ARG_ARRAY_TYPE_ANY_2 && kind_2 == ARG_TYPE_ANY_2) ||
+  return (kind_1 == ARG_ARRAY_TYPE_ANY_1 && IsRelatedToAny1(kind_2)) ||
+         (kind_1 == ARG_ARRAY_TYPE_ANY_2 && IsRelatedToAny2(kind_2)) ||
          (kind_1 == ARG_ARRAY_TYPE_ANY_3 && kind_2 == ARG_TYPE_ANY_3) ||
          (kind_1 == ARG_ARRAY_TYPE_ANY_4 && kind_2 == ARG_TYPE_ANY_4) ||
          (kind_1 == ARG_ARRAY_TYPE_ANY_5 && kind_2 == ARG_TYPE_ANY_5);
@@ -1396,14 +1405,14 @@ static inline bool TemplatedKindRelatedProtoMapType(
 // Returns true if `kind_1` is a RANGE templated type of `kind_2`
 static inline bool TemplatedKindRelatedRangeType(
     const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
-  return (kind_1 == ARG_RANGE_TYPE_ANY_1 && kind_2 == ARG_TYPE_ANY_1);
+  return (kind_1 == ARG_RANGE_TYPE_ANY_1 && IsRelatedToAny1(kind_2));
 }
 
 // Returns true if `kind_1` is a MAP templated type of `kind_2`
 static inline bool TemplatedKindRelatedMapType(
     const SignatureArgumentKind kind_1, const SignatureArgumentKind kind_2) {
-  return (kind_1 == ARG_MAP_TYPE_ANY_1_2 && kind_2 == ARG_TYPE_ANY_1) ||
-         (kind_1 == ARG_MAP_TYPE_ANY_1_2 && kind_2 == ARG_TYPE_ANY_2);
+  return (kind_1 == ARG_MAP_TYPE_ANY_1_2 && IsRelatedToAny1(kind_2)) ||
+         (kind_1 == ARG_MAP_TYPE_ANY_1_2 && IsRelatedToAny2(kind_2));
 }
 
 // Returns true if `kind_1` is a templated type containing `kind_2`
@@ -1420,6 +1429,9 @@ static inline bool TemplatedKindIsRelatedImpl(
 bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
     const {
   if (!IsTemplated()) {
+    return false;
+  }
+  if (kind_ == ARG_TYPE_ARBITRARY || kind == ARG_TYPE_ARBITRARY) {
     return false;
   }
   if (kind_ == kind) {
@@ -1459,11 +1471,11 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
     if (result_type_.kind() == ARG_MAP_TYPE_ANY_1_2) {
       const bool has_arg_type_any_1 =
           absl::c_find_if(arguments_, [](auto& arg) {
-            return arg.kind() == ARG_TYPE_ANY_1;
+            return arg.TemplatedKindIsRelated(ARG_TYPE_ANY_1);
           }) != arguments_.end();
       const bool has_arg_type_any_2 =
           absl::c_find_if(arguments_, [](auto& arg) {
-            return arg.kind() == ARG_TYPE_ANY_2;
+            return arg.TemplatedKindIsRelated(ARG_TYPE_ANY_2);
           }) != arguments_.end();
       if (!has_arg_type_any_1 || !has_arg_type_any_2) {
         return MakeSqlError()
@@ -1752,9 +1764,37 @@ FunctionSignature::GetArgumentsUserFacingTextWithCardinality(
     FunctionArgumentType::NamePrintingStyle print_style,
     bool print_template_details) const {
   std::vector<std::string> argument_texts;
-  for (const FunctionArgumentType& argument : arguments()) {
-    argument_texts.push_back(argument.UserFacingNameWithCardinality(
-        language_options.product_mode(), print_style, print_template_details));
+
+  const int first_repeated = FirstRepeatedArgumentIndex();
+  const int last_repeated = LastRepeatedArgumentIndex();
+  std::string repeated_arg_text;
+
+  for (int i = 0; i < arguments().size(); ++i) {
+    const FunctionArgumentType& argument = arguments()[i];
+
+    // If there are multiple repeated arguments, they are interpreted as a
+    // repeated tuple in the matcher, so they should be grouped together in the
+    // output. For example: [[T1, T2, T3], ...]
+    if (i >= first_repeated && i <= last_repeated) {
+      ABSL_DCHECK(argument.repeated());
+      if (i != first_repeated) {
+        absl::StrAppend(&repeated_arg_text, ", ");
+      }
+      absl::StrAppend(&repeated_arg_text,
+                      argument.UserFacingName(language_options.product_mode(),
+                                              print_template_details));
+      if (i == last_repeated) {
+        if (first_repeated != last_repeated) {
+          repeated_arg_text = absl::StrCat("[", repeated_arg_text, "]");
+        }
+        argument_texts.push_back(
+            absl::StrCat("[", repeated_arg_text, ", ...]"));
+      }
+    } else {
+      argument_texts.push_back(argument.UserFacingNameWithCardinality(
+          language_options.product_mode(), print_style,
+          print_template_details));
+    }
   }
   return argument_texts;
 }

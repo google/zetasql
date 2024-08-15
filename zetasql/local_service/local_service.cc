@@ -1519,9 +1519,9 @@ absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
           ? std::make_unique<LanguageOptions>(request.options())
           : std::make_unique<LanguageOptions>();
 
-  ParserOptions parser_options =
-      ParserOptions(/*id_string_pool=*/nullptr,
-                    /*arena=*/nullptr, language_options.get());
+  ParserOptions parser_options = ParserOptions(
+      /*id_string_pool=*/nullptr, /*arena=*/nullptr,
+      language_options.get() ? *language_options.get() : LanguageOptions());
 
   if (request.allow_script()) {
     return ParseScriptImpl(request, response, parser_options);

@@ -551,6 +551,10 @@ std::string JSONValueConstRef::GetString() const {
   return impl_->value.get<std::string>();
 }
 
+const std::string& JSONValueConstRef::GetStringRef() const {
+  return impl_->value.get_ref<const std::string&>();
+}
+
 bool JSONValueConstRef::GetBoolean() const { return impl_->value.get<bool>(); }
 
 size_t JSONValueConstRef::GetObjectSize() const {

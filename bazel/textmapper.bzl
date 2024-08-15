@@ -71,5 +71,4 @@ def tm_syntax(
         visibility = visibility,
         compatible_with = compatible_with,
         tools = [textmapper],
-        exec_compatible_with = ["@platforms//os:linux", "@platforms//os:macos"],
     )

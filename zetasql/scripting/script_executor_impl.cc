@@ -123,20 +123,19 @@ absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
   ZETASQL_RET_CHECK_GE(options.maximum_stack_depth(), 1) << absl::Substitute(
       "Maximum stack depth must be at least 1, $0 was provided",
       options.maximum_stack_depth());
-  ErrorMessageMode error_message_mode = options.error_message_mode();
-
   std::unique_ptr<const ParsedScript> parsed_script;
   if (ast_script != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(parsed_script, ParsedScript::Create(
-                                        script, ast_script, error_message_mode,
-                                        options.parsed_script_options()));
+    ZETASQL_ASSIGN_OR_RETURN(parsed_script,
+                     ParsedScript::Create(script, ast_script,
+                                          options.error_message_options(),
+                                          options.parsed_script_options()));
   } else {
     ParserOptions parser_options;
     parser_options.set_language_options(options.language_options());
-    ZETASQL_ASSIGN_OR_RETURN(
-        parsed_script,
-        ParsedScript::Create(script, parser_options, error_message_mode,
-                             options.parsed_script_options()));
+    ZETASQL_ASSIGN_OR_RETURN(parsed_script,
+                     ParsedScript::Create(script, parser_options,
+                                          options.error_message_options(),
+                                          options.parsed_script_options()));
   }
   if (!options.dry_run()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -416,12 +415,7 @@ bool ScriptExecutorImpl::IsComplete() const {
 absl::Status ScriptExecutorImpl::ExecuteNext() {
   absl::Status status = ExecuteNextImpl();
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      ErrorMessageOptions{
-          .mode = options_.error_message_mode(),
-          .attach_error_location_payload =
-              options_.error_message_mode() == ERROR_MESSAGE_WITH_PAYLOAD,
-          .stability = ERROR_MESSAGE_STABILITY_PRODUCTION},
-      CurrentScript()->script_text(), status);
+      options_.error_message_options(), CurrentScript()->script_text(), status);
 }
 
 absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
@@ -1435,7 +1429,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ParsedScript> parsed_script,
                    ParsedScript::CreateForRoutine(
                        procedure_definition->body(), GetParserOptions(),
-                       options_.error_message_mode(), arguments_map,
+                       options_.error_message_options(), arguments_map,
                        options_.parsed_script_options()));
   const ControlFlowNode* start_node =
       parsed_script->control_flow_graph().start_node();
@@ -1743,7 +1737,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
       std::make_unique<ProcedureDefinition>(signature, sql_string);
   absl::StatusOr<std::unique_ptr<ParsedScript>> parsed_script_or_error =
       ParsedScript::Create(procedure_definition->body(), GetParserOptions(),
-                           options_.error_message_mode(),
+                           options_.error_message_options(),
                            options_.parsed_script_options());
   if (!parsed_script_or_error.ok()) {
     return MakeScriptExceptionAt(execute_immediate_statement->sql())
@@ -1969,7 +1963,7 @@ absl::Status ScriptExecutorImpl::SetState(
       ZETASQL_ASSIGN_OR_RETURN(parsed_script,
                        ParsedScript::CreateForRoutine(
                            procedure_definition->body(), GetParserOptions(),
-                           options_.error_message_mode(), arguments_map,
+                           options_.error_message_options(), arguments_map,
                            options_.parsed_script_options()));
     } else {
       ZETASQL_RET_CHECK_EQ(new_callstack.size(), 0)

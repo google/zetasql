@@ -32,11 +32,22 @@
 
 namespace zetasql {
 
+// Information about a UDA argument.
+struct UdaArgumentInfo {
+  std::string argument_name;
+
+  // False if the argument is declared "NOT AGGREGATE".
+  bool is_aggregate;
+
+  // The expression evaluator for the argument is set when `!is_aggregate`,
+  // otherwise it is nullptr.
+  const ValueExpr* expr;
+};
+
 std::unique_ptr<AggregateFunctionEvaluator>
 MakeUserDefinedAggregateFunctionEvaluator(
     std::unique_ptr<RelationalOp> algebrized_tree,
-    std::vector<std::string> argument_names,
-    std::vector<bool> argument_is_aggregate);
+    std::vector<UdaArgumentInfo> argument_infos);
 
 }  // namespace zetasql
 

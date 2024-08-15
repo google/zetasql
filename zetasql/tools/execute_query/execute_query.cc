@@ -17,6 +17,7 @@
 // Tool for running a query against a Catalog constructed from various input
 // sources. Also serves as a demo of the PreparedQuery API.
 
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -33,10 +34,12 @@
 #include "zetasql/tools/execute_query/execute_query_loop.h"
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
+#include "zetasql/tools/execute_query/execute_query_web.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/functional/bind_front.h"
+#include "absl/log/initialize.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -55,40 +58,11 @@ ABSL_FLAG(
                     "the query history stored in ~/%s.",
                     kHistoryFileName));
 
+ABSL_FLAG(bool, web, false, "Run a local webserver to execute queries.");
+ABSL_FLAG(int32_t, port, 8080, "Port to run the local webserver on.");
+
 namespace zetasql {
 namespace {
-absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
-  // Prefer a default of maximum (this will be overwritten if an explicit
-  // flag value is passed).
-  config.mutable_analyzer_options()
-      .mutable_language()
-      ->EnableMaximumLanguageFeatures();
-  config.mutable_analyzer_options()
-      .mutable_language()
-      ->SetSupportsAllStatementKinds();
-
-  // Used to pretty print error message in tandem with
-  // ExecuteQueryLoopPrintErrorHandler.
-  config.mutable_analyzer_options().set_error_message_mode(
-      ERROR_MESSAGE_WITH_PAYLOAD);
-
-  config.mutable_analyzer_options()
-      .set_show_function_signature_mismatch_details(true);
-
-  ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetLanguageOptionsFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetAnalyzerOptionsFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetEvaluatorOptionsFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
-
-  ZETASQL_RETURN_IF_ERROR(config.mutable_catalog().AddBuiltinFunctionsAndTypes(
-      BuiltinFunctionOptions(config.analyzer_options().language())));
-  ZETASQL_RETURN_IF_ERROR(SetQueryParametersFromFlags(config));
-
-  return absl::OkStatus();
-}
 
 absl::Status RunTool(const std::vector<std::string>& args) {
   ExecuteQueryConfig config;
@@ -100,6 +74,10 @@ absl::Status RunTool(const std::vector<std::string>& args) {
 
   if (absl::GetFlag(FLAGS_interactive)) {
     ABSL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
+  }
+
+  if (absl::GetFlag(FLAGS_web)) {
+    return RunExecuteQueryWebServer(absl::GetFlag(FLAGS_port));
   }
 
   const std::string sql = absl::StrJoin(args, " ");
@@ -115,15 +93,20 @@ absl::Status RunTool(const std::vector<std::string>& args) {
 int main(int argc, char* argv[]) {
   const char kUsage[] =
       "Usage: execute_query [--table_spec=<table_spec>] "
-      "{ --interactive | <sql> }\n";
+      "{ --interactive | <sql> } { --web --port=<port> }\n";
+
   std::vector<std::string> args;
 
   {
     std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
     args.assign(remaining_args.cbegin() + 1, remaining_args.cend());
   }
+  absl::InitializeLog();
 
-  if (absl::GetFlag(FLAGS_interactive) != args.empty()) {
+  bool args_needed = !absl::GetFlag(FLAGS_interactive);
+  args_needed = args_needed && !absl::GetFlag(FLAGS_web);
+
+  if (args_needed && args.empty()) {
     ABSL_LOG(QFATAL) << "\n" << kUsage << "Pass --help for a full list of flags.\n";
   }
 

@@ -1,0 +1,372 @@
+# Most of these tests came from unpivot.test, with cases involving combinations
+# with JOIN, TVFs, subqueries, etc, removed as irrelevant.
+# After we remove copybara stripping, we might combine these back into the
+# main test file, with alternations on whether to add "|>".
+[default language_features=PIPES]
+
+FROM t
+|> UNPIVOT (a FOR c IN (x, y))
+--
+QueryStatement [0-37] [FROM t |>...IN (x, y))]
+  Query [0-37] [FROM t |>...IN (x, y))]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-37] [|> UNPIVOT (a FOR c IN (x, y))]
+      UnpivotClause [10-37] [UNPIVOT (a FOR c IN (x, y))]
+        PathExpressionList [19-20] [a]
+          PathExpression [19-20] [a]
+            Identifier(a) [19-20] [a]
+        PathExpression [25-26] [c]
+          Identifier(c) [25-26] [c]
+        UnpivotInItemList [30-36] [(x, y)]
+          UnpivotInItem [31-32] [x]
+            PathExpressionList [31-32] [x]
+              PathExpression [31-32] [x]
+                Identifier(x) [31-32] [x]
+          UnpivotInItem [34-35] [y]
+            PathExpressionList [34-35] [y]
+              PathExpression [34-35] [y]
+                Identifier(y) [34-35] [y]
+--
+FROM
+  t
+|> UNPIVOT(a FOR c IN ((x), (y)))
+==
+
+# Simple UNPIVOT with EXCLUDE NULLS
+# Output has alias without AS.
+FROM t
+|> UNPIVOT EXCLUDE NULLS (a FOR c IN (x, y)) unp
+--
+QueryStatement [0-55] [FROM t |>...x, y)) unp]
+  Query [0-55] [FROM t |>...x, y)) unp]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-55] [|> UNPIVOT...x, y)) unp]
+      UnpivotClause(EXCLUDE NULLS) [10-55] [UNPIVOT EXCLUDE...x, y)) unp]
+        PathExpressionList [33-34] [a]
+          PathExpression [33-34] [a]
+            Identifier(a) [33-34] [a]
+        PathExpression [39-40] [c]
+          Identifier(c) [39-40] [c]
+        UnpivotInItemList [44-50] [(x, y)]
+          UnpivotInItem [45-46] [x]
+            PathExpressionList [45-46] [x]
+              PathExpression [45-46] [x]
+                Identifier(x) [45-46] [x]
+          UnpivotInItem [48-49] [y]
+            PathExpressionList [48-49] [y]
+              PathExpression [48-49] [y]
+                Identifier(y) [48-49] [y]
+        Alias [52-55] [unp]
+          Identifier(unp) [52-55] [unp]
+--
+FROM
+  t
+|> UNPIVOT EXCLUDE NULLS (a FOR c IN ((x), (y))) AS unp
+==
+
+# Simple UNPIVOT with INCLUDE NULLS
+# Output has alias with AS.
+FROM t
+|> UNPIVOT INCLUDE NULLS (a FOR c IN (x, y)) AS unp
+--
+QueryStatement [0-58] [FROM t |>...y)) AS unp]
+  Query [0-58] [FROM t |>...y)) AS unp]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-58] [|> UNPIVOT...y)) AS unp]
+      UnpivotClause(INCLUDE NULLS) [10-58] [UNPIVOT INCLUDE...y)) AS unp]
+        PathExpressionList [33-34] [a]
+          PathExpression [33-34] [a]
+            Identifier(a) [33-34] [a]
+        PathExpression [39-40] [c]
+          Identifier(c) [39-40] [c]
+        UnpivotInItemList [44-50] [(x, y)]
+          UnpivotInItem [45-46] [x]
+            PathExpressionList [45-46] [x]
+              PathExpression [45-46] [x]
+                Identifier(x) [45-46] [x]
+          UnpivotInItem [48-49] [y]
+            PathExpressionList [48-49] [y]
+              PathExpression [48-49] [y]
+                Identifier(y) [48-49] [y]
+        Alias [52-58] [AS unp]
+          Identifier(unp) [55-58] [unp]
+--
+FROM
+  t
+|> UNPIVOT INCLUDE NULLS (a FOR c IN ((x), (y))) AS unp
+==
+
+# Simple UNPIVOT with typo in EXCLUDE NULLS
+FROM t
+|> UNPIVOT EXCLUDE NULL (a FOR c IN (x, y))
+--
+ERROR: Syntax error: Expected keyword NULLS but got keyword NULL [at 2:20]
+|> UNPIVOT EXCLUDE NULL (a FOR c IN (x, y))
+                   ^
+==
+
+# Simple UNPIVOT with single-element IN-list with parentheses.
+FROM t
+|> UNPIVOT((a) FOR b IN (x))
+--
+QueryStatement [0-35] [FROM t |>...b IN (x))]
+  Query [0-35] [FROM t |>...b IN (x))]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-35] [|> UNPIVOT((a) FOR b IN (x))]
+      UnpivotClause [10-35] [UNPIVOT((a) FOR b IN (x))]
+        PathExpressionList [19-20] [a]
+          PathExpression [19-20] [a]
+            Identifier(a) [19-20] [a]
+        PathExpression [26-27] [b]
+          Identifier(b) [26-27] [b]
+        UnpivotInItemList [31-34] [(x)]
+          UnpivotInItem [32-33] [x]
+            PathExpressionList [32-33] [x]
+              PathExpression [32-33] [x]
+                Identifier(x) [32-33] [x]
+--
+FROM
+  t
+|> UNPIVOT(a FOR b IN ((x)))
+==
+
+# Multiple path expressions on the input, string labels on the output.
+FROM t
+|> UNPIVOT((a, b.b) FOR a.b.c IN ((f), w AS '1', (x) '2', y "3"))
+--
+QueryStatement [0-72] [FROM t |>...', y "3"))]
+  Query [0-72] [FROM t |>...', y "3"))]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-72] [|> UNPIVOT...', y "3"))]
+      UnpivotClause [10-72] [UNPIVOT((a...', y "3"))]
+        PathExpressionList [19-25] [a, b.b]
+          PathExpression [19-20] [a]
+            Identifier(a) [19-20] [a]
+          PathExpression [22-25] [b.b]
+            Identifier(b) [22-23] [b]
+            Identifier(b) [24-25] [b]
+        PathExpression [31-36] [a.b.c]
+          Identifier(a) [31-32] [a]
+          Identifier(b) [33-34] [b]
+          Identifier(c) [35-36] [c]
+        UnpivotInItemList [40-71] [((f), w AS...2', y "3")]
+          UnpivotInItem [41-44] [(f)]
+            PathExpressionList [42-43] [f]
+              PathExpression [42-43] [f]
+                Identifier(f) [42-43] [f]
+          UnpivotInItem [46-54] [w AS '1']
+            PathExpressionList [46-47] [w]
+              PathExpression [46-47] [w]
+                Identifier(w) [46-47] [w]
+            UnpivotInItemLabel [48-54] [AS '1']
+              StringLiteral [51-54] ['1']
+                StringLiteralComponent('1') [51-54] ['1']
+          UnpivotInItem [56-63] [(x) '2']
+            PathExpressionList [57-58] [x]
+              PathExpression [57-58] [x]
+                Identifier(x) [57-58] [x]
+            UnpivotInItemLabel [60-63] ['2']
+              StringLiteral [60-63] ['2']
+                StringLiteralComponent('2') [60-63] ['2']
+          UnpivotInItem [65-70] [y "3"]
+            PathExpressionList [65-66] [y]
+              PathExpression [65-66] [y]
+                Identifier(y) [65-66] [y]
+            UnpivotInItemLabel [67-70] ["3"]
+              StringLiteral [67-70] ["3"]
+                StringLiteralComponent("3") [67-70] ["3"]
+--
+FROM
+  t
+|> UNPIVOT((a, b.b) FOR a.b.c IN ((f), (w) AS '1', (x) AS '2', (y) AS "3"))
+==
+
+# Column names with integer labels.
+FROM t
+|> UNPIVOT(a FOR e IN (w AS 1, x AS 2))
+--
+QueryStatement [0-46] [FROM t |>..., x AS 2))]
+  Query [0-46] [FROM t |>..., x AS 2))]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-46] [|> UNPIVOT..., x AS 2))]
+      UnpivotClause [10-46] [UNPIVOT(a..., x AS 2))]
+        PathExpressionList [18-19] [a]
+          PathExpression [18-19] [a]
+            Identifier(a) [18-19] [a]
+        PathExpression [24-25] [e]
+          Identifier(e) [24-25] [e]
+        UnpivotInItemList [29-45] [(w AS 1, x AS 2)]
+          UnpivotInItem [30-36] [w AS 1]
+            PathExpressionList [30-31] [w]
+              PathExpression [30-31] [w]
+                Identifier(w) [30-31] [w]
+            UnpivotInItemLabel [32-36] [AS 1]
+              IntLiteral(1) [35-36] [1]
+          UnpivotInItem [38-44] [x AS 2]
+            PathExpressionList [38-39] [x]
+              PathExpression [38-39] [x]
+                Identifier(x) [38-39] [x]
+            UnpivotInItemLabel [40-44] [AS 2]
+              IntLiteral(2) [43-44] [2]
+--
+FROM
+  t
+|> UNPIVOT(a FOR e IN ((w) AS 1, (x) AS 2))
+==
+
+# Columns with labels that are of type double (neither int or string)
+FROM t
+|> UNPIVOT(a FOR e IN (w AS 1.1))
+--
+ERROR: Syntax error: Expected integer literal or string literal but got floating point literal "1.1" [at 2:29]
+|> UNPIVOT(a FOR e IN (w AS 1.1))
+                            ^
+==
+
+# Unpivot labels with NULL values
+FROM t
+|> UNPIVOT(a FOR e IN (w AS null))
+--
+ERROR: Syntax error: Expected integer literal or string literal but got keyword NULL [at 2:29]
+|> UNPIVOT(a FOR e IN (w AS null))
+                            ^
+==
+
+# Unpivot with negative integer labels.
+FROM KeyValue
+|> UNPIVOT(a for b in (Key as -1))
+--
+ERROR: Syntax error: Expected integer literal or string literal but got "-" [at 2:31]
+|> UNPIVOT(a for b in (Key as -1))
+                              ^
+==
+
+FROM t
+|> UNPIVOT
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 2:11]
+|> UNPIVOT
+          ^
+==
+
+FROM t
+|> UNPIVOT()
+--
+ERROR: Syntax error: Unexpected ")" [at 2:12]
+|> UNPIVOT()
+           ^
+==
+
+FROM t
+|> UNPIVOT(x)
+--
+ERROR: Syntax error: Expected keyword FOR but got ")" [at 2:13]
+|> UNPIVOT(x)
+            ^
+==
+
+FROM t
+|> UNPIVOT(x FOR y)
+--
+ERROR: Syntax error: Expected "." or keyword IN but got ")" [at 2:19]
+|> UNPIVOT(x FOR y)
+                  ^
+==
+
+FROM t
+|> UNPIVOT(x FOR y IN ())
+--
+ERROR: Syntax error: Unexpected ")" [at 2:24]
+|> UNPIVOT(x FOR y IN ())
+                       ^
+==
+
+# ERROR: Trailing comma in IN-list
+FROM t
+|> UNPIVOT(x FOR y IN (a,))
+--
+ERROR: Syntax error: Unexpected ")" [at 2:26]
+|> UNPIVOT(x FOR y IN (a,))
+                         ^
+==
+
+# ERROR: Missing right-parenthesis
+FROM t
+|> UNPIVOT(x FOR y IN (a)
+--
+ERROR: Syntax error: Expected ")" but got end of statement [at 2:26]
+|> UNPIVOT(x FOR y IN (a)
+                         ^
+==
+
+# ERROR: Missing unpivot output columns
+FROM t
+|> UNPIVOT(FOR y IN (a))
+--
+ERROR: Syntax error: Unexpected keyword FOR [at 2:12]
+|> UNPIVOT(FOR y IN (a))
+           ^
+==
+
+# ERROR: Trailing comma after last unpivot output column
+FROM t
+|> UNPIVOT(x, y, FOR a IN (b))
+--
+ERROR: Syntax error: Expected keyword FOR but got "," [at 2:13]
+|> UNPIVOT(x, y, FOR a IN (b))
+            ^
+==
+
+# UNPIVOT as alias of table produced by a UNPIVOT clause.
+FROM t
+|> UNPIVOT(a FOR b IN (c)) UNPIVOT
+--
+QueryStatement [0-41] [FROM t |>...)) UNPIVOT]
+  Query [0-41] [FROM t |>...)) UNPIVOT]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeUnpivot [7-41] [|> UNPIVOT...)) UNPIVOT]
+      UnpivotClause [10-41] [UNPIVOT(a...)) UNPIVOT]
+        PathExpressionList [18-19] [a]
+          PathExpression [18-19] [a]
+            Identifier(a) [18-19] [a]
+        PathExpression [24-25] [b]
+          Identifier(b) [24-25] [b]
+        UnpivotInItemList [29-32] [(c)]
+          UnpivotInItem [30-31] [c]
+            PathExpressionList [30-31] [c]
+              PathExpression [30-31] [c]
+                Identifier(c) [30-31] [c]
+        Alias [34-41] [UNPIVOT]
+          Identifier(UNPIVOT) [34-41] [UNPIVOT]
+--
+FROM
+  t
+|> UNPIVOT(a FOR b IN ((c))) AS UNPIVOT

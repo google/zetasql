@@ -139,12 +139,22 @@ class TableNameResolver {
       const ASTQuery* query, const AliasSet& visible_aliases,
       AliasSet* new_aliases = std::make_unique<AliasSet>().get());
 
+  // If non-null, range variables this query exports will be added to
+  // 'new_aliases'.
+  absl::Status FindInFromQuery(const ASTFromQuery* from_query,
+                               const AliasSet& visible_aliases,
+                               AliasSet* new_aliases);
+
   // 'visible_aliases' are the aliases that can be resolved inside the query.
   // Range variables this query exports will be added to 'new_aliases'.
   absl::Status FindInQueryExpression(const ASTQueryExpression* query_expr,
                                      const ASTOrderBy* order_by,
                                      const AliasSet& visible_aliases,
                                      AliasSet* new_aliases);
+
+  absl::Status FindInAliasedQueryExpression(
+      const ASTAliasedQueryExpression* aliased_query,
+      const AliasSet& visible_aliases, AliasSet* new_aliases);
 
   absl::Status FindInSelect(const ASTSelect* select, const ASTOrderBy* order_by,
                             const AliasSet& orig_visible_aliases);
@@ -306,6 +316,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_CONNECTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_CONNECTION_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
     case AST_CREATE_DATABASE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_DATABASE_STMT)) {
@@ -786,6 +802,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_ALTER_CONNECTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_CONNECTION_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
     case AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT)) {
@@ -1247,6 +1269,26 @@ absl::Status TableNameResolver::FindInQuery(const ASTQuery* query,
       query->query_expr(), query->order_by(), visible_aliases,
       /*new_aliases=*/&local_visible_aliases));
 
+  // We need to handle any pipe operators that can include table references
+  // outside expressions.  Operators with just expressions are handled by
+  // the default case.
+  // TODO Will need to handle ASTPipeSetOperation here.
+  for (const ASTPipeOperator* pipe_operator : query->pipe_operator_list()) {
+    switch (pipe_operator->node_kind()) {
+      case AST_PIPE_CALL:
+        ZETASQL_RETURN_IF_ERROR(FindInTVF(pipe_operator->GetAs<ASTPipeCall>()->tvf(),
+                                  visible_aliases, &local_visible_aliases));
+        break;
+      case AST_PIPE_JOIN:
+        ZETASQL_RETURN_IF_ERROR(FindInJoin(pipe_operator->GetAs<ASTPipeJoin>()->join(),
+                                   visible_aliases, &local_visible_aliases));
+        break;
+      default:
+        ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(pipe_operator, visible_aliases));
+        break;
+    }
+  }
+
   new_aliases->insert(local_visible_aliases.begin(),
                       local_visible_aliases.end());
 
@@ -1277,6 +1319,15 @@ absl::Status TableNameResolver::FindInQueryExpression(
       ZETASQL_RETURN_IF_ERROR(
           FindInQuery(query_expr->GetAs<ASTQuery>(), visible_aliases));
       break;
+    case AST_ALIASED_QUERY_EXPRESSION:
+      ZETASQL_RETURN_IF_ERROR(FindInAliasedQueryExpression(
+          query_expr->GetAs<ASTAliasedQueryExpression>(), visible_aliases,
+          new_aliases));
+      break;
+    case AST_FROM_QUERY:
+      ZETASQL_RETURN_IF_ERROR(FindInFromQuery(query_expr->GetAs<ASTFromQuery>(),
+                                      visible_aliases, new_aliases));
+      break;
     default:
       return MakeSqlErrorAt(query_expr)
              << "Unhandled query_expr:\n" << query_expr->DebugString();
@@ -1285,6 +1336,36 @@ absl::Status TableNameResolver::FindInQueryExpression(
   if (query_expr->node_kind() != AST_SELECT) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(order_by, visible_aliases));
   }
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInAliasedQueryExpression(
+    const ASTAliasedQueryExpression* aliased_query,
+    const AliasSet& visible_aliases, AliasSet* new_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  // Ignore the new_aliases from the contained query.  Produce the
+  // assigned range variable instead.
+  ZETASQL_RETURN_IF_ERROR(FindInQuery(aliased_query->query(), visible_aliases));
+
+  new_aliases->insert(aliased_query->alias()->GetAsString());
+
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInFromQuery(const ASTFromQuery* from_query,
+                                                const AliasSet& visible_aliases,
+                                                AliasSet* new_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  const ASTFromClause* from_clause = from_query->from_clause();
+  ZETASQL_RET_CHECK(from_clause != nullptr);
+  ZETASQL_RET_CHECK(from_clause->table_expression() != nullptr);
+  AliasSet local_visible_aliases = visible_aliases;
+  ZETASQL_RETURN_IF_ERROR(FindInTableExpression(from_clause->table_expression(),
+                                        visible_aliases,
+                                        &local_visible_aliases));
+  new_aliases->insert(local_visible_aliases.begin(),
+                      local_visible_aliases.end());
   return absl::OkStatus();
 }
 
@@ -1348,6 +1429,8 @@ absl::Status TableNameResolver::FindInTableExpression(
     case AST_TVF:
       return FindInTVF(table_expr->GetAs<ASTTVF>(), external_visible_aliases,
                        local_visible_aliases);
+    case AST_PIPE_JOIN_LHS_PLACEHOLDER:
+      return absl::OkStatus();
     default:
       return MakeSqlErrorAt(table_expr)
              << "Unhandled node type in from clause: "

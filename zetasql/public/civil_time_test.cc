@@ -23,7 +23,9 @@
 
 #include "zetasql/base/logging.h"
 #include "gtest/gtest.h"
+#include "absl/hash/hash_testing.h"
 #include "absl/time/civil_time.h"
+#include "absl/types/compare.h"
 
 using zetasql::TimeValue;
 using zetasql::DatetimeValue;
@@ -556,6 +558,74 @@ TEST(CivilTimeValuesTest, DatetimeValueNormalizationTest) {
   datetime = DatetimeValue::FromYMDHMSAndMicrosNormalized(9999, 12, 31, 23, 59,
                                                           61, 123456);
   ASSERT_FALSE(datetime.IsValid());
+}
+
+TEST(CivilTimeValuesTest, HashConsistencyForDateTime) {
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly({
+      DatetimeValue(),  // 1970-01-01 00:00:00
+      // 0001-01-01 00:00:00
+      DatetimeValue::FromYMDHMSAndMicros(1, 1, 1, 0, 0, 0, 0),
+      // 9999-12-31 23:59:59.999999
+      DatetimeValue::FromYMDHMSAndMicros(9999, 12, 31, 23, 59, 59, 999999),
+      // 2006-01-02 03:04:05.654321
+      DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654321),
+      DatetimeValue::FromYMDHMSAndMicrosNormalized(2006, 1, 2, 3, 4, 5, 123456),
+      DatetimeValue::FromYMDHMSAndMicrosNormalized(10000, 0, 2, 3, 4, 5,
+                                                   123456),
+      // Invalid case
+      DatetimeValue::FromPacked64Micros(0x1EC8420F0000000),
+  }));
+}
+TEST(CivilTimeValuesTest, HashConsistencyForTime) {
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly({
+      TimeValue(),
+      TimeValue::FromHMSAndMicros(0, 0, 0, 0),
+      TimeValue::FromHMSAndMicros(23, 59, 59, 999999),
+      TimeValue::FromHMSAndMicros(12, 34, 56, 654321),
+      TimeValue::FromHMSAndMicrosNormalized(12, 34, 56, 123456),
+      // Invalid case
+      TimeValue::FromHMSAndMicros(23, 59, 59, -10),
+  }));
+}
+
+TEST(CivilTimeValuesTest, ComparisonOperatorsForDatetime) {
+#ifndef __cpp_impl_three_way_comparison
+  GTEST_SKIP() << "<=> operator not supported";
+#else
+  DatetimeValue invalid = DatetimeValue::FromPacked64Micros(0x1EC8420F0000000);
+
+  EXPECT_EQ(DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654321) <=>
+                DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654321),
+            std::partial_ordering::equivalent);
+  EXPECT_EQ(DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 6, 654321) <=>
+                DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654321),
+            std::partial_ordering::greater);
+  EXPECT_EQ(DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654320) <=>
+                DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 654321),
+            std::partial_ordering::less);
+  EXPECT_EQ(invalid <=> DatetimeValue(), std::partial_ordering::unordered);
+  EXPECT_EQ(DatetimeValue() <=> invalid, std::partial_ordering::unordered);
+#endif
+}
+
+TEST(CivilTimeValuesTest, ComparisonOperatorsForTime) {
+#ifndef __cpp_impl_three_way_comparison
+  GTEST_SKIP() << "<=> operator not supported";
+#else
+  TimeValue invalid = TimeValue::FromHMSAndMicros(23, 59, 60, 0);
+
+  EXPECT_EQ(TimeValue::FromHMSAndMicros(23, 59, 51, 7) <=>
+                TimeValue::FromHMSAndMicros(23, 59, 51, 7),
+            std::partial_ordering::equivalent);
+  EXPECT_EQ(TimeValue::FromHMSAndMicros(23, 59, 52, 7) <=>
+                TimeValue::FromHMSAndMicros(23, 59, 51, 7),
+            std::partial_ordering::greater);
+  EXPECT_EQ(TimeValue::FromHMSAndMicros(23, 59, 50, 7) <=>
+                TimeValue::FromHMSAndMicros(23, 59, 51, 7),
+            std::partial_ordering::less);
+  EXPECT_EQ(invalid <=> TimeValue(), std::partial_ordering::unordered);
+  EXPECT_EQ(TimeValue() <=> invalid, std::partial_ordering::unordered);
+#endif
 }
 
 }  // namespace

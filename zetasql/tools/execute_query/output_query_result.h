@@ -70,6 +70,9 @@ std::string OutputPrettyStyleQueryResult(
 std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result,
                                               bool include_box = true);
 
+// Converts 'value' to an output string and returns it.
+std::string ValueToOutputString(const Value& value, bool escape_strings);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_

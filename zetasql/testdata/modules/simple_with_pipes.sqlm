@@ -1,0 +1,5 @@
+module simple_module;
+
+CREATE PUBLIC TABLE FUNCTION MakeArray(low INT64, high INT64) AS
+  FROM UNNEST(GENERATE_ARRAY(low, high)) AS value
+  |> SELECT value;

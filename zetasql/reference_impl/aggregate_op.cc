@@ -16,6 +16,7 @@
 
 // This file contains the code for evaluating aggregate functions.
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -628,7 +629,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
           use_max_ ? FunctionKind::kMax : FunctionKind::kMin,
           having_value.type(), /*num_input_fields=*/1, having_value.type());
       auto status_or_accumulator = max_function.CreateAccumulator(
-          /*args=*/{}, /*collator_list=*/{}, context_);
+          /*args=*/{}, /*params=*/{}, /*collator_list=*/{}, context_);
       if (!status_or_accumulator.ok()) {
         *status = status_or_accumulator.status();
         return false;
@@ -1040,7 +1041,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<AggregateAccumulator> underlying_accumulator,
         aggregate_function()->function()->CreateAccumulator(
-            args, std::move(collator_list), context));
+            args, params, std::move(collator_list), context));
     // Adapt the underlying AggregateAccumulator to the
     // IntermediateAggregateAccumulator interface so that we can stack other
     // intermediate accumulators on top of it.
@@ -1777,9 +1778,15 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     AccumulatorList& accumulators = *group_value->mutable_accumulator_list();
 
     std::unique_ptr<TupleData> tuple = group_value->ConsumeKey();
-    tuple->AddSlots(2 * static_cast<int>(accumulators.size()) +
-                    num_extra_slots);
+    size_t num_slots_to_add = num_extra_slots + aggregators().size();
+    for (const auto& aggregator : aggregators()) {
+      if (aggregator->side_effects_variable().is_valid()) {
+        num_slots_to_add++;
+      }
+    }
+    tuple->AddSlots(static_cast<int>(num_slots_to_add));
 
+    int seen_side_effects_vars = 0;
     for (int i = 0; i < accumulators.size(); ++i) {
       AggregateArgAccumulator& accumulator = *accumulators[i].accumulator;
       absl::StatusOr<Value> value =
@@ -1787,14 +1794,18 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
               ? group_value->accumulator_error(i)
               : accumulator.GetFinalResult(
                     /*inputs_in_defined_order=*/false);
+      bool has_side_effects_variable =
+          aggregators()[i]->side_effects_variable().is_valid();
       if (value.ok()) {
         tuple->mutable_slot(grouping_key_size + i)->SetValue(value.value());
-        // No side effects, so set the side effect value to NULL.
-        tuple
-            ->mutable_slot(grouping_key_size +
-                           static_cast<int>(accumulators.size()) + i)
-            ->SetValue(Value::NullBytes());
-      } else if (!aggregators()[i]->side_effects_variable().is_valid() ||
+        if (has_side_effects_variable) {
+          int slot_index = grouping_key_size +
+                           static_cast<int>(accumulators.size()) +
+                           seen_side_effects_vars++;
+          // No side effects, so set the side effect value to NULL.
+          tuple->mutable_slot(slot_index)->SetValue(Value::NullBytes());
+        }
+      } else if (!has_side_effects_variable ||
                  !ShouldSuppressError(
                      value.status(),
                      ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
@@ -1809,9 +1820,10 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
         // does not have literals or values defined.
         ::google::rpc::Status status_proto;
         internal::SaveStatusToProto(value.status(), &status_proto);
-        tuple
-            ->mutable_slot(grouping_key_size +
-                           static_cast<int>(accumulators.size()) + i)
+        int slot_index = grouping_key_size +
+                         static_cast<int>(accumulators.size()) +
+                         seen_side_effects_vars++;
+        tuple->mutable_slot(slot_index)
             ->SetValue(Value::Bytes(status_proto.SerializeAsCord()));
       }
     }
@@ -2112,27 +2124,16 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
 }
 
 std::unique_ptr<RowsForUdaOp> RowsForUdaOp::Create(
-    std::vector<std::string> argument_names) {
-  // Using `new` here because make_unique cannot access the private
-  // constructor of `RowsForUdaOp`.
-  return absl::WrapUnique(new RowsForUdaOp(std::move(argument_names)));
+    std::vector<VariableId> arguments) {
+  return absl::WrapUnique(new RowsForUdaOp(std::move(arguments)));
 }
 
-RowsForUdaOp::RowsForUdaOp(std::vector<std::string> argument_names) {
-  argument_names_ = std::move(argument_names);
+RowsForUdaOp::RowsForUdaOp(std::vector<VariableId> arguments) {
+  arguments_ = std::move(arguments);
 }
 
 std::unique_ptr<TupleSchema> RowsForUdaOp::CreateOutputSchema() const {
-  std::vector<VariableId> vars;
-  vars.reserve(argument_names_.size());
-  for (const std::string& argument_name : argument_names_) {
-    vars.push_back(VariableId(argument_name));
-  }
-  return std::make_unique<TupleSchema>(vars);
-}
-
-std::vector<std::string> RowsForUdaOp::argument_names() const {
-  return argument_names_;
+  return std::make_unique<TupleSchema>(arguments_);
 }
 
 absl::Status RowsForUdaOp::SetSchemasForEvaluation(

@@ -54,7 +54,7 @@ void ScriptExecutorOptions::PopulateFromAnalyzerOptions(
   language_options_ = analyzer_options.language();
   engine_owned_system_variables_ = analyzer_options.system_variables();
   query_parameters_ = GetQueryParameters(analyzer_options);
-  error_message_mode_ = analyzer_options.error_message_mode();
+  error_message_options_ = analyzer_options.error_message_options();
 }
 
 absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutor::Create(

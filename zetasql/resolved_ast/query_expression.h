@@ -28,6 +28,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/map_util.h"
 
 namespace zetasql {
 
@@ -50,10 +51,7 @@ class QueryExpression {
   // internal state of the query expression is inconsistent.
   absl::StatusOr<QueryType> GetQueryType() const;
 
-  // Returns true if the clauses necessary to form a SQL query, i.e. select_list
-  // or set_op_scan_list, are filled in QueryExpression. Otherwise false.
-  bool CanFormSQLQuery() const;
-
+  // Returns the SQL query represented by this QueryExpression.
   std::string GetSQLQuery() const;
 
   // Mutates the QueryExpression, wrapping its previous form as a subquery in
@@ -82,9 +80,6 @@ class QueryExpression {
       absl::string_view group_by_hints,
       const std::vector<GroupingSetIds>& grouping_set_id_list,
       const std::vector<int>& rollup_column_id_list);
-  absl::Status SetGroupByAllClause(
-      const std::map<int, std::string>& group_by_list,
-      absl::string_view group_by_hints);
   bool TrySetOrderByClause(const std::vector<std::string>& order_by_list,
                            absl::string_view order_by_hints);
   bool TrySetLimitClause(absl::string_view limit);
@@ -92,6 +87,10 @@ class QueryExpression {
   bool TrySetWithAnonymizationClause(absl::string_view anonymization_options);
   bool TrySetPivotClause(absl::string_view pivot);
   bool TrySetUnpivotClause(absl::string_view unpivot);
+
+  // Returns true if the clauses necessary to form a SQL query, i.e. select_list
+  // or set_op_scan_list, are filled in QueryExpression. Otherwise false.
+  bool CanFormSQLQuery() const;
 
   // The below CanSet... methods return true if filling in the concerned clause
   // in the QueryExpression will succeed (without mutating it or wrapping it as
@@ -128,13 +127,23 @@ class QueryExpression {
     return !anonymization_options_.empty();
   }
 
-  void ResetSelectClause();
+  bool HasGroupByColumn(int column_id) const {
+    return zetasql_base::ContainsKey(group_by_list_, column_id);
+  }
 
-  const std::string FromClause() const { return from_; }
+  absl::string_view FromClause() const { return from_; }
 
   // Returns an immutable reference to select_list_. For QueryExpression built
   // from a SetOp scan, it returns the select_list_ of its first subquery.
   const std::vector<std::pair<std::string, std::string>>& SelectList() const;
+
+  const std::map<int, std::string>& GroupByList() const {
+    return group_by_list_;
+  }
+
+  std::string GetGroupByColumnOrDie(int column_id) const {
+    return zetasql_base::FindOrDie(group_by_list_, column_id);
+  }
 
   // Updates the aliases of the output columns if their indexes appear in
   // `aliases`. If this query_expression corresponds to a set operation with
@@ -149,26 +158,28 @@ class QueryExpression {
   // Set the AS modifier for the SELECT.  e.g. "AS VALUE".
   void SetSelectAsModifier(absl::string_view modifier);
 
-  // Returns a mutable pointer to the group_by_list_ of QueryExpression. Used
-  // mostly to update the sql text of the group_by columns to reflect the
-  // ordinal position of select clause.
-  std::map<int, std::string>* MutableGroupByList() { return &group_by_list_; }
+  void SetGroupByColumn(int column_id, std::string column_name) {
+    group_by_list_.insert_or_assign(column_id, column_name);
+  }
 
-  // Returns a mutable pointer to the from_ clause of QueryExpression. Used
-  // while building sql for a sample scan so as to rewrite the from_ clause to
-  // include the TABLESAMPLE clause.
-  std::string* MutableFromClause() { return &from_; }
+  absl::Status SetGroupByAllClause(
+      const std::map<int, std::string>& group_by_list,
+      absl::string_view group_by_hints);
 
-  // Returns a mutable pointer to the select_list_ of QueryExpression. Used
-  // while building sql for a sample scan that has a WITH WEIGHT clause.
-  std::vector<std::pair<std::string, std::string>>* MutableSelectList() {
-    return &select_list_;
+  void SetFromClause(std::string from) { from_ = from; }
+
+  void AppendSelectColumn(std::string column, std::string alias) {
+    select_list_.emplace_back(column, alias);
   }
 
   // Set the `corresponding_set_op_output_column_list` field for set operations
   // with column_match_mode = CORRESPONDING.
-  void set_corresponding_set_op_output_column_list(
-      std::vector<std::pair<std::string, std::string>> select_list);
+  void SetCorrespondingSetOpOutputColumnList(
+      std::vector<std::pair<std::string, std::string>> select_list) {
+    corresponding_set_op_output_column_list_ = std::move(select_list);
+  }
+
+  void ResetSelectClause() { select_list_.clear(); }
 
  private:
   void ClearAllClauses();

@@ -1181,6 +1181,9 @@ void TestComparisonOperators(
       EXPECT_EQ(values[i] > values[j], i > j);
       EXPECT_EQ(values[i] <= values[j], i <= j);
       EXPECT_EQ(values[i] >= values[j], i >= j);
+#ifdef __cpp_impl_three_way_comparison
+      EXPECT_EQ(values[i] <=> values[j], i <=> j);
+#endif
     }
   }
 }

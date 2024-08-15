@@ -31,7 +31,10 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -84,6 +87,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_CALL_STMT;
     case AST_CREATE_CONSTANT_STATEMENT:
       return RESOLVED_CREATE_CONSTANT_STMT;
+    case AST_CREATE_CONNECTION_STATEMENT:
+      return RESOLVED_CREATE_CONNECTION_STMT;
     case AST_CREATE_DATABASE_STATEMENT:
       return RESOLVED_CREATE_DATABASE_STMT;
     case AST_CREATE_FUNCTION_STATEMENT:
@@ -173,6 +178,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_GRANT_STMT;
     case AST_REVOKE_STATEMENT:
       return RESOLVED_REVOKE_STMT;
+    case AST_ALTER_CONNECTION_STATEMENT:
+      return RESOLVED_ALTER_CONNECTION_STMT;
     case AST_ALTER_DATABASE_STATEMENT:
       return RESOLVED_ALTER_DATABASE_STMT;
     case AST_ALTER_SCHEMA_STATEMENT:
@@ -276,6 +283,7 @@ absl::Status GetNextStatementProperties(
       statement_properties->statement_category = StatementProperties::SELECT;
       break;
     case AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+    case AST_ALTER_CONNECTION_STATEMENT:
     case AST_ALTER_DATABASE_STATEMENT:
     case AST_ALTER_ENTITY_STATEMENT:
     case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
@@ -293,6 +301,7 @@ absl::Status GetNextStatementProperties(
     case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
     case AST_CREATE_FUNCTION_STATEMENT:
     case AST_CREATE_INDEX_STATEMENT:
+    case AST_CREATE_CONNECTION_STATEMENT:
     case AST_CREATE_MATERIALIZED_VIEW_STATEMENT:
     case AST_CREATE_APPROX_VIEW_STATEMENT:
     case AST_CREATE_MODEL_STATEMENT:
@@ -386,6 +395,40 @@ absl::Status GetNextStatementProperties(
       statement_properties->statement_level_hints);
 
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::vector<std::string>> GetTopLevelTableNameFromDDLStatement(
+    absl::string_view sql, const LanguageOptions& language_options) {
+  bool unused_at_end_of_input;
+  ParseResumeLocation resume_location =
+      ParseResumeLocation::FromStringView(sql);
+  return GetTopLevelTableNameFromNextDDLStatement(
+      sql, resume_location, &unused_at_end_of_input, language_options);
+}
+
+absl::StatusOr<std::vector<std::string>>
+GetTopLevelTableNameFromNextDDLStatement(
+    absl::string_view sql, ParseResumeLocation& resume_location,
+    bool* at_end_of_input, const LanguageOptions& language_options) {
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_RETURN_IF_ERROR(ParseNextStatement(&resume_location,
+                                     ParserOptions(language_options),
+                                     &parser_output, at_end_of_input));
+  ZETASQL_RET_CHECK(parser_output != nullptr);
+  ZETASQL_RET_CHECK(parser_output->statement() != nullptr);
+  const ASTStatement* statement = parser_output->statement();
+  switch (statement->node_kind()) {
+    case AST_CREATE_TABLE_STATEMENT:
+      return statement->GetAsOrDie<ASTCreateTableStatement>()
+          ->name()
+          ->ToIdentifierVector();
+    default:
+      return zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported AST node type in "
+                "GetTopLevelTableNameFromNextDDLStatement: "
+             << ASTNode::NodeKindToString(statement->node_kind());
+      break;
+  }
 }
 
 }  // namespace zetasql

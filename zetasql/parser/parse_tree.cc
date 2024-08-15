@@ -325,6 +325,19 @@ std::string ASTSelectAs::SingleNodeDebugString() const {
   }
 }
 
+std::string ASTGroupBy::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      and_order_by() ? "(and_order_by=true)" : "");
+}
+
+std::string ASTGroupingItemOrder::SingleNodeDebugString() const {
+  // There is no UNSPECIFIED case in this node.
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      ordering_spec_ == ASTOrderingExpression::UNSPECIFIED
+                          ? "(UNSPECIFIED)"
+                          : (descending() ? "(DESC)" : "(ASC)"));
+}
+
 std::string ASTAlias::GetAsString() const {
   return identifier()->GetAsString();
 }
@@ -1616,6 +1629,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "AGGREGATE FUNCTION";
     case SchemaObjectKind::kApproxView:
       return "APPROX VIEW";
+    case SchemaObjectKind::kConnection:
+      return "CONNECTION";
     case SchemaObjectKind::kConstant:
       return "CONSTANT";
     case SchemaObjectKind::kDatabase:

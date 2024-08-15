@@ -198,7 +198,7 @@ class ScriptValidationTest
 
     ParserOptions options;
     std::unique_ptr<ParsedScript> parsed =
-        ParsedScript::Create(script, options, ERROR_MESSAGE_ONE_LINE,
+        ParsedScript::Create(script, options, {.mode = ERROR_MESSAGE_ONE_LINE},
                              parsed_script_options_)
             .value();
     ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
@@ -232,7 +232,8 @@ class ScriptValidationTest
 
     ParserOptions options;
     absl::StatusOr<std::unique_ptr<ParsedScript>> status_or_parsed =
-        ParsedScript::Create(test_input.sql(), options, ERROR_MESSAGE_ONE_LINE,
+        ParsedScript::Create(test_input.sql(), options,
+                             {.mode = ERROR_MESSAGE_ONE_LINE},
                              parsed_script_options_);
     absl::Status status = status_or_parsed.status();
     std::unique_ptr<ParsedScript> parsed;
@@ -366,6 +367,11 @@ std::vector<std::variant<TestCase, TestInput>> GetScripts() {
   result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
     -- Variable declarations preceded by allowlisted system variable
     SET @@test_system_variable = "test";
+    DECLARE x INT64;
+  )"));
+  result.push_back(TestInput(zetasql_base::SourceLocation::current(), R"(
+    -- Variable declarations preceded by uppercase allowlisted system variable
+    SET @@TEST_SYSTEM_VARIABLE = "test";
     DECLARE x INT64;
   )"));
   result.push_back(

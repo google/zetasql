@@ -1,0 +1,213 @@
+# Tests for pipe UNPIVOT include a subset of tests from unpivot.test.
+#
+# The resolver code is all shared so this doesn't duplicate exhaustive tests
+# for the full behavior.
+# Since Resolved ASTs are the same, this also doesn't include rewriter output.
+# See unpivot.test for those details.
+#
+# Unlike standard UNPIVOT, here it is unnecessary to test all combinations with
+# tables, subqueries, TVFs, UNNEST, etc, since pipe operators are orthogonal
+# and independent of where the input table came from.
+#
+# When UNPIVOT is used on a single table FROM clause, the behavior is identical
+# for the standard syntax suffix operator and the pipe operator.  Several tests
+# show this by using an alternation {{ | \|> }} that includes a pipe or not.
+[default language_features=PIPES,PIPE_STATIC_DESCRIBE,V_1_3_UNPIVOT,TABLE_VALUED_FUNCTIONS]
+# Output with or without an alias is the same, except for
+# whether the range variable appears.
+# Output includes the unmentioned column 'Value' plus the created
+# columns 'a' and 'b'.
+FROM KeyValue
+|> UNPIVOT(a for b in (Key)){{| AS unpivot}}
+|> STATIC_DESCRIBE
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$unpivot.Value#5 AS Value [STRING]
+| +-$unpivot.a#3 AS a [INT64]
+| +-$unpivot.b#4 AS b [STRING]
++-query=
+  +-StaticDescribeScan
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     Value STRING $unpivot.Value#5
+    |     a INT64 $unpivot.a#3
+    |     b STRING $unpivot.b#4
+    |   NameScope:
+    |     Names:
+    |       Value -> STRING ($unpivot.Value#5)
+    |       a -> INT64 ($unpivot.a#3)
+    |       b -> STRING ($unpivot.b#4)
+    |   """
+    +-input_scan=
+      +-UnpivotScan
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-value_column_list=[$unpivot.a#3]
+        +-label_column=$unpivot.b#4
+        +-label_list=
+        | +-Literal(type=STRING, value="Key")
+        +-unpivot_arg_list=
+        | +-UnpivotArg
+        |   +-column_list=
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-include_nulls=FALSE
+--
+ALTERNATION GROUP:  AS unpivot
+--
+QueryStmt
++-output_column_list=
+| +-$unpivot.Value#5 AS Value [STRING]
+| +-$unpivot.a#3 AS a [INT64]
+| +-$unpivot.b#4 AS b [STRING]
++-query=
+  +-StaticDescribeScan
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
+    +-describe_text=
+    |   """
+    |   NameList:
+    |     Value STRING $unpivot.Value#5
+    |     a INT64 $unpivot.a#3
+    |     b STRING $unpivot.b#4
+    |   NameScope:
+    |     Names:
+    |       Value -> STRING ($unpivot.Value#5)
+    |       a -> INT64 ($unpivot.a#3)
+    |       b -> STRING ($unpivot.b#4)
+    |     Range variables:
+    |       unpivot -> RANGE_VARIABLE<Value,a,b>
+    |   """
+    +-input_scan=
+      +-UnpivotScan
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-value_column_list=[$unpivot.a#3]
+        +-label_column=$unpivot.b#4
+        +-label_list=
+        | +-Literal(type=STRING, value="Key")
+        +-unpivot_arg_list=
+        | +-UnpivotArg
+        |   +-column_list=
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-include_nulls=FALSE
+==
+
+FROM KeyValue
+|> UNPIVOT(a for b in (Key)) AS unpivot
+|> SELECT *, a, unpivot.b, unpivot.value
+--
+QueryStmt
++-output_column_list=
+| +-$unpivot.Value#5 AS Value [STRING]
+| +-$unpivot.a#3 AS a [INT64]
+| +-$unpivot.b#4 AS b [STRING]
+| +-$unpivot.a#3 AS a [INT64]
+| +-$unpivot.b#4 AS b [STRING]
+| +-$unpivot.Value#5 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$unpivot.[Value#5, a#3, b#4, a#3, b#4, Value#5]
+    +-input_scan=
+      +-UnpivotScan
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-value_column_list=[$unpivot.a#3]
+        +-label_column=$unpivot.b#4
+        +-label_list=
+        | +-Literal(type=STRING, value="Key")
+        +-unpivot_arg_list=
+        | +-UnpivotArg
+        |   +-column_list=
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-include_nulls=FALSE
+==
+
+# UNPIVOT on a standard syntax query, feeding output into of a TVF.
+SELECT Key, Value
+FROM KeyValue
+GROUP BY Key, Value
+|> UNPIVOT(a for b in (Key))
+|> CALL tvf_one_relation_arg_output_schema_is_input_schema()
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_output_schema_is_input_schema.Value#8 AS Value [STRING]
+| +-tvf_one_relation_arg_output_schema_is_input_schema.a#9 AS a [INT64]
+| +-tvf_one_relation_arg_output_schema_is_input_schema.b#10 AS b [STRING]
++-query=
+  +-TVFScan
+    +-column_list=tvf_one_relation_arg_output_schema_is_input_schema.[Value#8, a#9, b#10]
+    +-tvf=tvf_one_relation_arg_output_schema_is_input_schema((ANY TABLE) -> ANY TABLE)
+    +-signature=(TABLE<Value STRING, a INT64, b STRING>) -> TABLE<Value STRING, a INT64, b STRING>
+    +-argument_list=
+    | +-FunctionArgument
+    |   +-scan=
+    |   | +-UnpivotScan
+    |   |   +-column_list=$unpivot.[Value#7, a#5, b#6]
+    |   |   +-input_scan=
+    |   |   | +-ProjectScan
+    |   |   |   +-column_list=$groupby.[Key#3, Value#4]
+    |   |   |   +-input_scan=
+    |   |   |     +-AggregateScan
+    |   |   |       +-column_list=$groupby.[Key#3, Value#4]
+    |   |   |       +-input_scan=
+    |   |   |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    |   |   |       +-group_by_list=
+    |   |   |         +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |   |         +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |   |   +-value_column_list=[$unpivot.a#5]
+    |   |   +-label_column=$unpivot.b#6
+    |   |   +-label_list=
+    |   |   | +-Literal(type=STRING, value="Key")
+    |   |   +-unpivot_arg_list=
+    |   |   | +-UnpivotArg
+    |   |   |   +-column_list=
+    |   |   |     +-ColumnRef(type=INT64, column=$groupby.Key#3)
+    |   |   +-projected_input_column_list=
+    |   |   | +-Value#7 := ColumnRef(type=STRING, column=$groupby.Value#4)
+    |   |   +-include_nulls=FALSE
+    |   +-argument_column_list=$unpivot.[Value#7, a#5, b#6]
+    +-column_index_list=[0, 1, 2]
+==
+
+# UNPIVOT query with all columns pruned.
+FROM KeyValue
+|> UNPIVOT(a for b in (Key))
+|> SELECT 123
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#6 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#6]
+    +-expr_list=
+    | +-$col1#6 := Literal(type=INT64, value=123)
+    +-input_scan=
+      +-UnpivotScan
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-value_column_list=[$unpivot.a#3]
+        +-label_column=$unpivot.b#4
+        +-label_list=
+        | +-Literal(type=STRING, value="Key")
+        +-unpivot_arg_list=
+        | +-UnpivotArg
+        |   +-column_list=
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-include_nulls=FALSE

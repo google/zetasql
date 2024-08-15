@@ -29,7 +29,7 @@
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/keywords.h"
-#include "zetasql/parser/token_disambiguator.h"
+#include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/parse_location.h"
@@ -255,7 +255,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/4096);
   ZETASQL_ASSIGN_OR_RETURN(
       auto tokenizer,
-      parser::DisambiguatorLexer::Create(
+      parser::LookaheadTransformer::Create(
           mode, resume_location->filename(), resume_location->input(),
           resume_location->byte_position(), options.language_options,
           /*macro_catalog=*/nullptr, arena.get()));

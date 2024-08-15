@@ -1,0 +1,144 @@
+select 1
+|> order by x
+|> order by 1, x, y, x+1, sum(x), x() OVER ()
+|> order @{hint=1} by y
+|> order by x ASC, y DESC
+|> order by x COLLATE "abc"
+|> order by x NULLS FIRST
+|> order by x COLLATE "abc" ASC NULLS LAST
+--
+QueryStatement [0-215] [select 1 |...NULLS LAST]
+  Query [0-215] [select 1 |...NULLS LAST]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeOrderBy [9-22] [|> order by x]
+      OrderBy [12-22] [order by x]
+        OrderingExpression(ASC) [21-22] [x]
+          PathExpression [21-22] [x]
+            Identifier(x) [21-22] [x]
+    PipeOrderBy [23-68] [|> order by...() OVER ()]
+      OrderBy [26-68] [order by 1...() OVER ()]
+        OrderingExpression(ASC) [35-36] [1]
+          IntLiteral(1) [35-36] [1]
+        OrderingExpression(ASC) [38-39] [x]
+          PathExpression [38-39] [x]
+            Identifier(x) [38-39] [x]
+        OrderingExpression(ASC) [41-42] [y]
+          PathExpression [41-42] [y]
+            Identifier(y) [41-42] [y]
+        OrderingExpression(ASC) [44-47] [x+1]
+          BinaryExpression(+) [44-47] [x+1]
+            PathExpression [44-45] [x]
+              Identifier(x) [44-45] [x]
+            IntLiteral(1) [46-47] [1]
+        OrderingExpression(ASC) [49-55] [sum(x)]
+          FunctionCall [49-55] [sum(x)]
+            PathExpression [49-52] [sum]
+              Identifier(sum) [49-52] [sum]
+            PathExpression [53-54] [x]
+              Identifier(x) [53-54] [x]
+        OrderingExpression(ASC) [57-68] [x() OVER ()]
+          AnalyticFunctionCall [57-68] [x() OVER ()]
+            FunctionCall [57-60] [x()]
+              PathExpression [57-58] [x]
+                Identifier(x) [57-58] [x]
+            WindowSpecification [66-68] [()]
+    PipeOrderBy [69-92] [|> order @{hint=1} by y]
+      OrderBy [72-92] [order @{hint=1} by y]
+        Hint [78-87] [@{hint=1}]
+          HintEntry [80-86] [hint=1]
+            Identifier(hint) [80-84] [hint]
+            IntLiteral(1) [85-86] [1]
+        OrderingExpression(ASC) [91-92] [y]
+          PathExpression [91-92] [y]
+            Identifier(y) [91-92] [y]
+    PipeOrderBy [93-118] [|> order by x ASC, y DESC]
+      OrderBy [96-118] [order by x ASC, y DESC]
+        OrderingExpression(ASC EXPLICITLY) [105-110] [x ASC]
+          PathExpression [105-106] [x]
+            Identifier(x) [105-106] [x]
+        OrderingExpression(DESC) [112-118] [y DESC]
+          PathExpression [112-113] [y]
+            Identifier(y) [112-113] [y]
+    PipeOrderBy [119-146] [|> order by x COLLATE "abc"]
+      OrderBy [122-146] [order by x COLLATE "abc"]
+        OrderingExpression(ASC) [131-146] [x COLLATE "abc"]
+          PathExpression [131-132] [x]
+            Identifier(x) [131-132] [x]
+          Collate [133-146] [COLLATE "abc"]
+            StringLiteral [141-146] ["abc"]
+              StringLiteralComponent("abc") [141-146] ["abc"]
+    PipeOrderBy [147-172] [|> order by x NULLS FIRST]
+      OrderBy [150-172] [order by x NULLS FIRST]
+        OrderingExpression(ASC) [159-172] [x NULLS FIRST]
+          PathExpression [159-160] [x]
+            Identifier(x) [159-160] [x]
+          NullOrder(NULLS FIRST) [161-172] [NULLS FIRST]
+    PipeOrderBy [173-215] [|> order by...NULLS LAST]
+      OrderBy [176-215] [order by x...NULLS LAST]
+        OrderingExpression(ASC EXPLICITLY) [185-215] [x COLLATE "abc" ASC NULLS LAST]
+          PathExpression [185-186] [x]
+            Identifier(x) [185-186] [x]
+          Collate [187-200] [COLLATE "abc"]
+            StringLiteral [195-200] ["abc"]
+              StringLiteralComponent("abc") [195-200] ["abc"]
+          NullOrder(NULLS LAST) [205-215] [NULLS LAST]
+--
+SELECT
+  1
+|> ORDER BY x
+|> ORDER BY 1, x, y, x + 1, sum(x), x() OVER ()
+|> ORDER @{ hint = 1 } BY y
+|> ORDER BY x ASC, y DESC
+|> ORDER BY x COLLATE "abc"
+|> ORDER BY x NULLS FIRST
+|> ORDER BY x COLLATE "abc" ASC NULLS LAST
+==
+
+select 1
+|> order by
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:12]
+|> order by
+           ^
+==
+
+# Trailing commas.
+select 1
+|> order by x,
+|> order by x, y,
+--
+QueryStatement [0-41] [select 1 |...order by x, y,]
+  Query [0-41] [select 1 |...order by x, y,]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeOrderBy [9-23] [|> order by x,]
+      OrderBy [12-23] [order by x,]
+        OrderingExpression(ASC) [21-22] [x]
+          PathExpression [21-22] [x]
+            Identifier(x) [21-22] [x]
+    PipeOrderBy [24-41] [|> order by x, y,]
+      OrderBy [27-41] [order by x, y,]
+        OrderingExpression(ASC) [36-37] [x]
+          PathExpression [36-37] [x]
+            Identifier(x) [36-37] [x]
+        OrderingExpression(ASC) [39-40] [y]
+          PathExpression [39-40] [y]
+            Identifier(y) [39-40] [y]
+--
+SELECT
+  1
+|> ORDER BY x
+|> ORDER BY x, y
+==
+
+select 1 x, 2 y
+|> order by ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:13]
+|> order by ,
+            ^

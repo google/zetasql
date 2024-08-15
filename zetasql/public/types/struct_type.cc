@@ -29,6 +29,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/common/unicode_utils.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -538,52 +539,73 @@ absl::Status StructType::DeserializeValueContent(const ValueProto& value_proto,
       "its value content is maintained in the Value class");
 }
 
-std::string StructType::GetFormatPrefix(
-    const ValueContent& value_content,
-    const Type::FormatValueContentOptions& options) const {
-  std::string prefix;
+void StructType::FormatValueContentDebugModeImpl(
+    const internal::ValueContentOrderedList* container,
+    const FormatValueContentOptions& options, std::string* result) const {
+  if (options.verbose) {
+    absl::StrAppend(result, CapitalizedName());
+  }
+  absl::StrAppend(result, "{");
+
+  for (int i = 0; i < container->num_elements(); ++i) {
+    const internal::NullableValueContent& field_value_content =
+        container->element(i);
+    if (i > 0) {
+      absl::StrAppend(result, ", ");
+    }
+
+    if (!field(i).name.empty()) {
+      absl::StrAppend(result, field(i).name);
+      absl::StrAppend(result, ":");
+    }
+    absl::StrAppend(result, DebugFormatNullableValueContentForContainer(
+                                field_value_content, field(i).type, options));
+  }
+  absl::StrAppend(result, "}");
+}
+
+void StructType::FormatValueContentSqlModeImpl(
+    const internal::ValueContentOrderedList* container,
+    const FormatValueContentOptions& options, std::string* result) const {
+  if (options.mode == Type::FormatValueContentOptions::Mode::kSQLExpression) {
+    absl::StrAppend(
+        result, TypeName(options.product_mode, options.use_external_float32));
+  } else if (num_fields() <= 1) {
+    absl::StrAppend(result, "STRUCT");
+  }
+  absl::StrAppend(result, "(");
+
+  for (int i = 0; i < container->num_elements(); ++i) {
+    const internal::NullableValueContent& field_value_content =
+        container->element(i);
+    if (i > 0) {
+      absl::StrAppend(result, ", ");
+    }
+    absl::StrAppend(result, FormatNullableValueContent(field_value_content,
+                                                       field(i).type, options));
+  }
+  absl::StrAppend(result, ")");
+}
+
+std::string StructType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  if (!ThreadHasEnoughStack()) {
+    return std::string(kFormatValueContentOutOfStackError);
+  }
+
+  const internal::ValueContentOrderedList* container =
+      value.GetAs<internal::ValueContentOrderedListRef*>()->value();
+  std::string result;
+
   switch (options.mode) {
     case Type::FormatValueContentOptions::Mode::kDebug:
-      if (options.verbose) {
-        prefix.append(CapitalizedName());
-      }
-      prefix.push_back('{');
-      break;
+      FormatValueContentDebugModeImpl(container, options, &result);
+      return result;
     case Type::FormatValueContentOptions::Mode::kSQLLiteral:
-      if (num_fields() <= 1) {
-        prefix.append("STRUCT");
-      }
-      prefix.push_back('(');
-      break;
     case Type::FormatValueContentOptions::Mode::kSQLExpression:
-      prefix.append(
-          TypeName(options.product_mode, options.use_external_float32));
-      prefix.push_back('(');
-      break;
+      FormatValueContentSqlModeImpl(container, options, &result);
+      return result;
   }
-  return prefix;
-}
-
-char StructType::GetFormatClosingCharacter(
-    const Type::FormatValueContentOptions& options) const {
-  return options.mode == Type::FormatValueContentOptions::Mode::kDebug ? '}'
-                                                                       : ')';
-}
-
-const Type* StructType::GetElementType(int index) const {
-  return fields()[index].type;
-}
-
-std::string StructType::GetFormatElementPrefix(
-    const int index, const bool is_null,
-    const FormatValueContentOptions& options) const {
-  if (options.mode == FormatValueContentOptions::Mode::kDebug) {
-    const std::string& field_name = fields()[index].name;
-    if (!field_name.empty()) {
-      return absl::StrCat(field_name, ":");
-    }
-  }
-  return "";
 }
 
 }  // namespace zetasql

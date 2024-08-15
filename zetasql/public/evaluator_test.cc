@@ -1174,8 +1174,7 @@ TEST(EvaluatorTest, ExplainAfterPrepare) {
   ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
-  EXPECT_THAT(expr.ExplainAfterPrepare(),
-              IsOkAndHolds("RootExpr(Add($param, $col))"));
+  EXPECT_THAT(expr.ExplainAfterPrepare(), IsOkAndHolds("Add($param, $col)"));
 }
 
 TEST(EvaluatorTest, GetReferencedParametersAsProperSubset) {

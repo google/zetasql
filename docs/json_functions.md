@@ -58,6 +58,8 @@ behavior:
         <a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a><br>
         
         
+        <a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a><br>
+        
         
         <a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a><br>
         
@@ -285,7 +287,7 @@ behavior:
   <td><a href="#bool_array_for_json"><code>BOOL</code></a>
 
 </td>
-  <td> Converts a JSON boolean to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
+  <td> Converts a JSON array of booleans to a SQL <code>ARRAY&lt;BOOL&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -308,7 +310,7 @@ behavior:
 
     
   </td>
-  <td> Converts a JSON number to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
+  <td> Converts a JSON array of numbers to a SQL <code>ARRAY&lt;DOUBLE&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -328,7 +330,7 @@ behavior:
 
     
   </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
+  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;FLOAT&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -360,7 +362,7 @@ behavior:
   <td><a href="#int64_array_for_json"><code>INT64_ARRAY</code></a>
 
 </td>
-  <td>Converts a JSON number to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
+  <td>Converts a JSON array of numbers to a SQL <code>ARRAY&lt;INT64&gt;</code> value.</td>
 </tr>
 
 <tr>
@@ -400,6 +402,21 @@ behavior:
 </tr>
 
 <tr>
+  <td><a href="#json_extract_array"><code>JSON_EXTRACT_ARRAY</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array and converts it to
+    a SQL <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+     or
+    <code>ARRAY&lt;JSON&gt;</code>
+    
+    value.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a>
 
 </td>
@@ -407,6 +424,17 @@ behavior:
     (Deprecated)
     Extracts a JSON scalar value and converts it to a SQL
     <code>STRING</code> value.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#json_extract_string_array"><code>JSON_EXTRACT_STRING_ARRAY</code></a>
+
+</td>
+  <td>
+    (Deprecated)
+    Extracts a JSON array of scalar values and converts it to a SQL
+    <code>ARRAY&lt;STRING&gt;</code> value.
   </td>
 </tr>
 
@@ -784,7 +812,7 @@ BOOL_ARRAY(json_expr)
 
 **Description**
 
-Converts a JSON boolean to a SQL `ARRAY<BOOL>` value.
+Converts a JSON array of booleans to a SQL `ARRAY<BOOL>` value.
 
 Arguments:
 
@@ -927,7 +955,7 @@ DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Converts a JSON number to a SQL `ARRAY<DOUBLE>` value.
+Converts a JSON array of numbers to a SQL `ARRAY<DOUBLE>` value.
 
 Arguments:
 
@@ -1107,7 +1135,7 @@ FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 
 **Description**
 
-Converts a JSON number to a SQL `ARRAY<FLOAT>` value.
+Converts a JSON array of numbers to a SQL `ARRAY<FLOAT>` value.
 
 Arguments:
 
@@ -1388,7 +1416,7 @@ INT64_ARRAY(json_expr)
 
 **Description**
 
-Converts a JSON number to a SQL `INT64_ARRAY` value.
+Converts a JSON array of numbers to a SQL `INT64_ARRAY` value.
 
 Arguments:
 
@@ -1459,18 +1487,6 @@ Arguments:
 
 **Examples**
 
-You can create an empty JSON array. For example:
-
-```sql
-SELECT JSON_ARRAY() AS json_data
-
-/*-----------*
- | json_data |
- +-----------+
- | []        |
- *-----------*/
-```
-
 The following query creates a JSON array with one value in it:
 
 ```sql
@@ -1533,6 +1549,18 @@ SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
  +-----------------+
  | [10,[20,"foo"]] |
  *-----------------*/
+```
+
+You can create an empty JSON array. For example:
+
+```sql
+SELECT JSON_ARRAY() AS json_data
+
+/*-----------*
+ | json_data |
+ +-----------+
+ | []        |
+ *-----------*/
 ```
 
 ### `JSON_ARRAY_APPEND`
@@ -1988,71 +2016,157 @@ In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$') AS json_text_string
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$') AS json_text_string;
 
 /*-----------------------------------------------------------*
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
  *-----------------------------------------------------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$.class.students[0]') AS first_student;
 
 /*-----------------*
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | NULL            |
+ *-----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | {"name":"John"} |
  *-----------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  '$.class.students[1].name') AS second_student;
 
 /*----------------*
  | second_student |
  +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | "Jamie"        |
  *----------------*/
 ```
 
 ```sql
-SELECT JSON_EXTRACT(json_text, "$.class['students']") AS student_names
-FROM UNNEST([
+SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+  "$.class['students']") AS student_names;
 
 /*------------------------------------*
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
+ *------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": []}}',
+  "$.class['students']") AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | []                                 |
+ *------------------------------------*/
+```
+
+```sql
+SELECT JSON_EXTRACT(
+  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+  "$.class['students']") AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
  *------------------------------------*/
 ```
@@ -2068,6 +2182,210 @@ SELECT JSON_EXTRACT(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 ```
 
 [json-query]: #json_query
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_EXTRACT_ARRAY`
+
+Note: This function is deprecated. Consider using
+[JSON_QUERY_ARRAY][json-query-array].
+
+```sql
+JSON_EXTRACT_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a JSON array and converts it to
+a SQL `ARRAY<JSON-formatted STRING>` or
+`ARRAY<JSON>` value.
+This function uses single quotes and brackets to escape invalid
+[JSONPath][JSONPath-format] characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '["a", "b", {"key": "c"}]'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["a", "b", {"key": "c"}]'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
++ `json_string_expr`: `ARRAY<JSON-formatted STRING>`
++ `json_expr`: `ARRAY<JSON>`
+
+**Examples**
+
+This extracts items in JSON to an array of `JSON` values:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY(
+  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  ) AS json_array;
+
+/*---------------------------------*
+ | json_array                      |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('[1,2,3]') AS string_array;
+
+/*--------------*
+ | string_array |
+ +--------------+
+ | [1, 2, 3]    |
+ *--------------*/
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_EXTRACT_ARRAY('[1,2,3]','$')
+  ) AS integer_element
+) AS integer_array;
+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
+```
+
+This extracts string values in a JSON-formatted string to an array:
+
+```sql
+-- Doesn't strip the double quotes
+SELECT JSON_EXTRACT_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+
+-- Strips the double quotes
+SELECT ARRAY(
+  SELECT JSON_EXTRACT_SCALAR(string_element, '$')
+  FROM UNNEST(JSON_EXTRACT_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
+) AS string_array;
+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+This extracts only the items in the `fruit` property to an array:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY(
+  '{"fruit": [{"apples": 5, "oranges": 10}, {"apples": 2, "oranges": 4}], "vegetables": [{"lettuce": 7, "kale": 8}]}',
+  '$.fruit'
+) AS string_array;
+
+/*-------------------------------------------------------*
+ | string_array                                          |
+ +-------------------------------------------------------+
+ | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
+ *-------------------------------------------------------*/
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
+
+SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
+
+-- The queries above produce the following result:
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
+
+/*-----------*
+ | hello     |
+ +-----------+
+ | ["world"] |
+ *-----------*/
+```
+
+The following examples explore how invalid requests and empty arrays are
+handled:
+
++  If a JSONPath is invalid, an error is thrown.
++  If a JSON-formatted string is invalid, the output is NULL.
++  It is okay to have empty arrays in the JSON-formatted string.
+
+```sql
+-- An error is thrown if you provide an invalid JSONPath.
+SELECT JSON_EXTRACT_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
+
+-- If the JSONPath does not refer to an array, then NULL is returned.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a key that does not exist is specified, then the result is NULL.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- Empty arrays in JSON-formatted strings are supported.
+SELECT JSON_EXTRACT_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
+```
+
+[json-query-array]: #json_query_array
 
 [JSONPath-format]: #JSONPath_format
 
@@ -2178,6 +2496,237 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 ```
 
 [json-value]: #json_value
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_EXTRACT_STRING_ARRAY`
+
+Note: This function is deprecated. Consider using
+[JSON_VALUE_ARRAY][json-value-array].
+
+```sql
+JSON_EXTRACT_STRING_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_STRING_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a JSON array of scalar values and converts it to a SQL `ARRAY<STRING>`
+value. In addition, this function:
+
++   Removes the outermost quotes and unescapes the values.
++   Returns a SQL `NULL` if the selected value is not an array or
+    not an array containing only scalar values.
++   Uses single quotes and brackets to escape invalid [JSONPath][JSONPath-format]
+    characters in JSON keys. For example: `['a.b']`.
+
+Arguments:
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '["apples", "oranges", "grapes"]'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '["apples", "oranges", "grapes"]'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+Caveats:
+
++ A JSON `null` in the input array produces a SQL `NULL` as the output for that
+  JSON `null`.
++ If a JSONPath matches an array that contains scalar objects and a JSON `null`,
+  then the output is an array of the scalar objects and a SQL `NULL`.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+This extracts items in JSON to a string array:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY(
+  JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
+  ) AS string_array;
+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+The following example compares how results are returned for the
+`JSON_EXTRACT_ARRAY` and `JSON_EXTRACT_STRING_ARRAY` functions.
+
+```sql
+SELECT JSON_EXTRACT_ARRAY('["apples", "oranges"]') AS json_array,
+JSON_EXTRACT_STRING_ARRAY('["apples", "oranges"]') AS string_array;
+
+/*-----------------------+-------------------*
+ | json_array            | string_array      |
+ +-----------------------+-------------------+
+ | ["apples", "oranges"] | [apples, oranges] |
+ *-----------------------+-------------------*/
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+-- Strips the double quotes
+SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
+
+/*-----------------*
+ | string_array    |
+ +-----------------+
+ | [foo, bar, baz] |
+ *-----------------*/
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_EXTRACT_STRING_ARRAY('[1, 2, 3]', '$')
+  ) AS integer_element
+) AS integer_array;
+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[fruits]') AS string_array;
+
+SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
+
+-- The queries above produce the following result:
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets: `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
+
+/*---------*
+ | hello   |
+ +---------+
+ | [world] |
+ *---------*/
+```
+
+The following examples explore how invalid requests and empty arrays are
+handled:
+
+```sql
+-- An error is thrown if you provide an invalid JSONPath.
+SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
+
+-- If the JSON formatted string is invalid, then NULL is returned.
+SELECT JSON_EXTRACT_STRING_ARRAY('}}', '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If the JSON document is NULL, then NULL is returned.
+SELECT JSON_EXTRACT_STRING_ARRAY(NULL, '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath does not match anything, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an object that is not an array, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo"}', '$') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [{"b": "foo", "c": 1}, {"b": "bar", "c":2}], "d": "baz"}', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an array of mixed scalar and non-scalar objects, then the output is NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [10, {"b": 20}]', '$.a') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
+
+-- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
+SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
+
+-- In the following query, the JSON null input is returned as a
+-- SQL NULL in the output.
+SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
+
+/*------------------*
+ | result           |
+ +------------------+
+ | [world, 1, NULL] |
+ *------------------*/
+
+```
+
+[json-value-array]: #json_value_array
 
 [JSONPath-format]: #JSONPath_format
 
@@ -2500,8 +3049,9 @@ In the following example, JSON data is extracted and returned as JSON.
 
 ```sql
 SELECT
-  JSON_QUERY(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
-  AS json_data;
+  JSON_QUERY(
+    JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}',
+    '$.class') AS json_data;
 
 /*-----------------------------------*
  | json_data                         |
@@ -2514,71 +3064,163 @@ In the following examples, JSON data is extracted and returned as
 JSON-formatted strings.
 
 ```sql
-SELECT JSON_QUERY(json_text, '$') AS json_text_string
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY('{"class": {"students": [{"name": "Jane"}]}}', '$') AS json_text_string;
 
 /*-----------------------------------------------------------*
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT JSON_QUERY('{"class": {"students": []}}', '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
+ *-----------------------------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"},{"name": "Jamie"}]}}',
+    '$') AS json_text_string;
+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
  *-----------------------------------------------------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class.students[0]') AS first_student;
 
 /*-----------------*
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
+ *-----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY('{"class": {"students": []}}', '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | NULL            |
+ *-----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class.students[0]') AS first_student;
+
+/*-----------------*
+ | first_student   |
+ +-----------------+
  | {"name":"John"} |
  *-----------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class.students[1].name') AS second_student;
 
 /*----------------*
  | second_student |
  +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": []}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | NULL           |
+ *----------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class.students[1].name') AS second_student;
+
+/*----------------*
+ | second_student |
+ +----------------+
  | "Jamie"        |
  *----------------*/
 ```
 
 ```sql
-SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
-FROM UNNEST([
-  '{"class": {"students": [{"name": "Jane"}]}}',
-  '{"class": {"students": []}}',
-  '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "Jane"}]}}',
+    '$.class."students"') AS student_names;
 
 /*------------------------------------*
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
+ *------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": []}}',
+    '$.class."students"') AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | []                                 |
+ *------------------------------------*/
+```
+
+```sql
+SELECT
+  JSON_QUERY(
+    '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
+    '$.class."students"') AS student_names;
+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
  *------------------------------------*/
 ```
@@ -2596,6 +3238,8 @@ SELECT JSON_QUERY(JSON '{"a": null}', "$.b"); -- Returns a SQL NULL
 [JSONPath-format]: #JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
+
+[JSONPath-mode]: #JSONPath_mode
 
 ### `JSON_QUERY_ARRAY`
 
@@ -2696,7 +3340,9 @@ SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
  *---------------------------------*/
+```
 
+```sql
 -- Strips the double quotes
 SELECT ARRAY(
   SELECT JSON_VALUE(string_element, '$')
@@ -7065,53 +7711,35 @@ A JSON-formatted `STRING`
 
 **Examples**
 
-Convert rows in a table to JSON-formatted strings.
+The following query converts a `STRUCT` value to a JSON-formatted string:
 
 ```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30, 40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50, 60] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
-FROM CoordinatesTable AS t;
+SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates)) AS json_data
 
-/*----+-------------+--------------------------------*
- | id | coordinates | json_data                      |
- +----+-------------+--------------------------------+
- | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
- | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
- | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
- *----+-------------+--------------------------------*/
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"id":1,"coordinates":[10,20]} |
+ *--------------------------------*/
 ```
 
-Convert rows in a table to JSON-formatted strings that are easy to read.
+The following query converts a `STRUCT` value to a JSON-formatted string that is
+easy to read:
 
 ```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10, 20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30, 40] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
-FROM CoordinatesTable AS t;
+SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_data
 
-/*----+-------------+--------------------*
- | id | coordinates | json_data          |
- +----+-------------+--------------------+
- | 1  | [10, 20]    | {                  |
- |    |             |   "id": 1,         |
- |    |             |   "coordinates": [ |
- |    |             |     10,            |
- |    |             |     20             |
- |    |             |   ]                |
- |    |             | }                  |
- +----+-------------+--------------------+
- | 2  | [30, 40]    | {                  |
- |    |             |   "id": 2,         |
- |    |             |   "coordinates": [ |
- |    |             |     30,            |
- |    |             |     40             |
- |    |             |   ]                |
- |    |             | }                  |
- *----+-------------+--------------------*/
+/*--------------------*
+ | json_data          |
+ +--------------------+
+ | {                  |
+ |   "id": 1,         |
+ |   "coordinates": [ |
+ |     10,            |
+ |     20             |
+ |   ]                |
+ | }                  |
+ *--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -7827,6 +8455,27 @@ The following SQL to JSON encodings are supported:
       </td>
     </tr>
     
+    
+    
+    <tr>
+      <td>RANGE</td>
+      <td>
+        <p>range</p>
+        <p>
+          Encoded as an object with a <code>start</code> and <code>end</code>
+          value. Any unbounded part of the range is represented as
+          <code>null</code>.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>RANGE&lt;DATE&gt; '[2024-07-24, 2024-07-25)'</code><br />
+        JSON output: <code>{"start":"2024-07-24","end":"2024-07-25"}</code><br />
+        <hr />
+        SQL input: <code>RANGE&lt;DATETIME&gt; '[2024-07-24 10:00:00, UNBOUNDED)'</code><br />
+        JSON output: <code>{"start":"2024-07-24T10:00:00","end":null}</code><br />
+      </td>
+    </tr>
+    
   </tbody>
 </table>
 
@@ -7834,8 +8483,19 @@ The following SQL to JSON encodings are supported:
 <a id="JSONPath_format"></a>
 
 With the JSONPath format, you can identify the values you want to
-obtain from a JSON-formatted string. The JSONPath format supports these
-operators:
+obtain from a JSON-formatted string.
+
+If a key in a JSON functions contains a JSON format operator, refer to each
+JSON function for how to escape them.
+
+A JSON function returns `NULL` if the JSONPath format does not match a value in
+a JSON-formatted string. If the selected value for a scalar function is not
+scalar, such as an object or an array, the function returns `NULL`. If the
+JSONPath format is invalid, an error is produced.
+
+#### Operators for JSONPath
+
+The JSONPath format supports these operators:
 
 <table>
   <thead>
@@ -7939,14 +8599,6 @@ operators:
   </tbody>
 </table>
 
-If a key in a JSON functions contains a JSON format operator, refer to each
-JSON function for how to escape them.
-
-A JSON function returns `NULL` if the JSONPath format does not match a value in
-a JSON-formatted string. If the selected value for a scalar function is not
-scalar, such as an object or an array, the function returns `NULL`. If the
-JSONPath format is invalid, an error is produced.
-
 ### Differences between the JSON and JSON-formatted STRING types 
 <a id="differences_json_and_string"></a>
 
@@ -8046,4 +8698,6 @@ FROM t;
 [JSONPath-format]: #JSONPath_format
 
 [JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
+
+[JSONPath-mode]: #JSONPath_mode
 

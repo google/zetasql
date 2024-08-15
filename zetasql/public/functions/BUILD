@@ -254,6 +254,7 @@ cc_test(
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:civil_time",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
@@ -262,6 +263,7 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -278,6 +280,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common/testing:testing_proto_util",
+        "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -658,9 +661,11 @@ cc_library(
         ":like",
         ":string",
         ":util",
+        "//zetasql/base:check",
         "//zetasql/base:status",
         "//zetasql/common:utf_util",
         "//zetasql/public:collator_lite",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -703,7 +708,6 @@ cc_test(
         ":normalize_mode_cc_proto",
         ":string",
         "//zetasql/base",
-        "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
@@ -711,6 +715,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -721,13 +726,15 @@ cc_test(
     srcs = ["string_with_collation_test.cc"],
     deps = [
         ":string_with_collation",
-        "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:collator",  # buildcleaner: keep
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -833,6 +840,21 @@ java_proto_library(
 cc_proto_library(
     name = "array_find_mode_cc_proto",
     deps = [":array_find_mode_proto"],
+)
+
+proto_library(
+    name = "unsupported_fields_proto",
+    srcs = ["unsupported_fields.proto"],
+)
+
+cc_proto_library(
+    name = "unsupported_fields_cc_proto",
+    deps = [":unsupported_fields_proto"],
+)
+
+java_proto_library(
+    name = "unsupported_fields_java_proto",
+    deps = [":unsupported_fields_proto"],
 )
 
 proto_library(
@@ -1160,6 +1182,7 @@ cc_library(
     hdrs = ["to_json.h"],
     deps = [
         ":json_format",
+        ":unsupported_fields_cc_proto",
         "//zetasql/base:logging",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -1175,6 +1198,7 @@ cc_library(
         "//zetasql/public/types",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -1184,6 +1208,7 @@ cc_test(
     srcs = ["to_json_test.cc"],
     deps = [
         ":to_json",
+        ":unsupported_fields_cc_proto",
         "//zetasql/base:map_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -1194,6 +1219,7 @@ cc_test(
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/status",

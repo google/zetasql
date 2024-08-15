@@ -224,8 +224,7 @@ pseudocolumns such as `ROWNUM`.
 
 In addition to standard SQL _tables_, ZetaSQL supports _value tables_.
 In a value table, rather than having rows made up of a list of columns, each row
-is a single value of
-a specific type, and there are no column names.
+is a single value of type `STRUCT`, and there are no column names.
 
 In the following example, a value table for a `STRUCT` is produced with the
 `SELECT AS VALUE` statement:
@@ -239,11 +238,6 @@ SELECT * FROM (SELECT AS VALUE STRUCT(123 AS a, FALSE AS b))
  | 123 | FALSE |
  *-----+-------*/
 ```
-
-Value tables are often but not exclusively used with compound data types.
-A value table can consist of any supported ZetaSQL data type,
-although value tables consisting of scalar types occur less frequently than
-structs or protocol buffers.
 
 Value tables are common when working with protocol buffers that may be stored in
 files instead of in the database.

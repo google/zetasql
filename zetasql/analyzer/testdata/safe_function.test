@@ -692,6 +692,7 @@ QueryStmt
     | |       |     |       |         +-ColumnHolder(column=$array_offset.off#12)
     | |       |     |       +-order_by_item_list=
     | |       |     |         +-OrderByItem
+    | |       |     |           +-parse_location=228-231
     | |       |     |           +-column_ref=
     | |       |     |             +-ColumnRef(type=INT64, column=$array_offset.off#12)
     | |       |     +-Literal(type=ARRAY<DOUBLE>, value=NULL, has_explicit_type=TRUE)
@@ -745,6 +746,7 @@ QueryStmt
     | |       |     |       |       +-Literal(type=DOUBLE, value=0)
     | |       |     |       +-order_by_item_list=
     | |       |     |         +-OrderByItem
+    | |       |     |           +-parse_location=243-246
     | |       |     |           +-column_ref=
     | |       |     |             +-ColumnRef(type=INT64, column=$array_offset.off#17)
     | |       |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)

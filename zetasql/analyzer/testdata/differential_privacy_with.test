@@ -2407,6 +2407,7 @@ QueryStmt
     |       |     +-TableScan(parse_location=36-67, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
     |       +-order_by_item_list=
     |         +-OrderByItem
+    |           +-parse_location=81-87
     |           +-column_ref=
     |             +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#13)
     +-query=

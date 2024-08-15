@@ -41,6 +41,8 @@ class RewriteSet : public absl::btree_set<ResolvedASTRewrite> {
 std::string AbslUnparseFlag(RewriteSet set);
 bool AbslParseFlag(absl::string_view text, RewriteSet* set, std::string* error);
 
+// RewriteSet that contains MinimalRewritesForReference()
+const RewriteSet& MinimalRewrites();
 }  // namespace zetasql
 
 // Command-line flag to indicate which rewriters should be enabled.

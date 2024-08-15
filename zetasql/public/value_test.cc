@@ -2431,6 +2431,73 @@ TEST_F(ValueTest, ArrayOfStructsOfStringsFormatting) {
       R"(ARRAY<STRUCT<a STRING, b STRING>>[STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), CAST(NULL AS STRUCT<a STRING, b STRING>)])");
 }
 
+TEST_F(ValueTest, NestedStructContainerStringFormatting) {
+  Value v = Array({Struct(
+      {{"a", Struct({{"q", Int64(1)}})},
+       {"b", Map({{Struct({{"a", Int64(1)}}),
+                   Array({Struct({{"r", Range(Date(1), Date(2))}})})}})}})});
+
+  EXPECT_EQ(v.DebugString(/*verbose=*/true),
+            "Array[Struct{a:Struct{q:Int64(1)}, b:Map{Struct{a:Int64(1)}: "
+            "Array[Struct{r:Range[Date(1970-01-02), Date(1970-01-03))}]}}]");
+  EXPECT_EQ(v.DebugString(),
+            R"([{a:{q:1}, b:{{a:1}: [{r:[1970-01-02, 1970-01-03)}]}}])");
+
+  EXPECT_EQ(v.Format(),
+            R"(ARRAY<STRUCT<
+        a STRUCT<q INT64>,
+        b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>
+      >>
+[{
+   {1},
+   {{a:1}: [{r:[1970-01-02, 1970-01-03)}]}
+ }])");
+  EXPECT_EQ(v.Format(/*print_top_level_type=*/false),
+            R"(ARRAY<STRUCT<
+        a STRUCT<q INT64>,
+        b MAP<STRUCT<a INT64>, ARRAY<STRUCT<r RANGE<DATE>>>>
+      >>
+[{
+   {1},
+   {{a:1}: [{r:[1970-01-02, 1970-01-03)}]}
+ }])");
+
+  // TODO: b/320552039 - Add test for GetSQLLiteral and GetSQL once MAP supports
+  // this.
+}
+
+TEST_F(ValueTest, NestedRangeContainerStringFormatting) {
+  const Type* date_range_type = MakeRangeType(DateType());
+  const auto* date_range_array_type = MakeArrayType(date_range_type);
+  const auto* struct_of_date_range_array_type = MakeStructType(
+      {{"a", date_range_array_type}, {"b", date_range_array_type}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value struct_of_date_range_array,
+                       Value::MakeStruct(struct_of_date_range_array_type,
+                                         {Array({Range(Date(1), Date(2))}),
+                                          Value::Null(date_range_array_type)}));
+  EXPECT_EQ(struct_of_date_range_array.DebugString(/*verbose=*/true),
+            "Struct{a:Array[Range[Date(1970-01-02), Date(1970-01-03))], "
+            "b:Array<RANGE<DATE>>(NULL)}");
+  EXPECT_EQ(struct_of_date_range_array.DebugString(),
+            R"({a:[[1970-01-02, 1970-01-03)], b:NULL})");
+  EXPECT_EQ(struct_of_date_range_array.Format(),
+            R"(STRUCT<a ARRAY<>, b ARRAY<>>{
+  ARRAY<RANGE<DATE>>[[1970-01-02, 1970-01-03)],
+  ARRAY<RANGE<DATE>>(NULL)
+})");
+  EXPECT_EQ(struct_of_date_range_array.Format(/*print_top_level_type=*/false),
+            R"({
+  ARRAY<RANGE<DATE>>[[1970-01-02, 1970-01-03)],
+  ARRAY<RANGE<DATE>>(NULL)
+})");
+  EXPECT_EQ(
+      struct_of_date_range_array.GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL),
+      R"raw(([RANGE<DATE> "[1970-01-02, 1970-01-03)"], NULL))raw");
+  EXPECT_EQ(
+      struct_of_date_range_array.GetSQL(ProductMode::PRODUCT_EXTERNAL),
+      R"raw(STRUCT<a ARRAY<RANGE<DATE>>, b ARRAY<RANGE<DATE>>>(ARRAY<RANGE<DATE>>[RANGE<DATE> "[1970-01-02, 1970-01-03)"], CAST(NULL AS ARRAY<RANGE<DATE>>)))raw");
+}
+
 TEST(MapValueTest, MapConstructionInitializerList) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
                        MakeMapType(Int64Type(), Int64Type()));
@@ -4218,7 +4285,7 @@ TEST_F(ValueTest, RangeOfDatesFormatting) {
   const Value range_d_regular = Range(Value::Date(300), Value::Date(301));
   // Regular range
   EXPECT_EQ(range_d_regular.DebugString(/*verbose=*/true),
-            R"([Date(1970-10-28), Date(1970-10-29)))");
+            "Range[Date(1970-10-28), Date(1970-10-29))");
   EXPECT_EQ(range_d_regular.DebugString(), R"([1970-10-28, 1970-10-29))");
   EXPECT_EQ(range_d_regular.Format(), R"(RANGE<DATE>[1970-10-28, 1970-10-29))");
   EXPECT_EQ(range_d_regular.Format(/*print_top_level_type=*/false),
@@ -4232,7 +4299,7 @@ TEST_F(ValueTest, RangeOfDatesFormatting) {
   const Value range_d_unbounded_start =
       Range(Value::UnboundedStartDate(), Value::Date(301));
   EXPECT_EQ(range_d_unbounded_start.DebugString(/*verbose=*/true),
-            R"([Date(NULL), Date(1970-10-29)))");
+            R"(Range[Date(NULL), Date(1970-10-29)))");
   EXPECT_EQ(range_d_unbounded_start.DebugString(), R"([NULL, 1970-10-29))");
   EXPECT_EQ(range_d_unbounded_start.Format(),
             R"(RANGE<DATE>[NULL, 1970-10-29))");
@@ -4247,7 +4314,7 @@ TEST_F(ValueTest, RangeOfDatesFormatting) {
   const Value range_d_unbounded_end =
       Range(Value::Date(300), Value::UnboundedEndDate());
   EXPECT_EQ(range_d_unbounded_end.DebugString(/*verbose=*/true),
-            R"([Date(1970-10-28), Date(NULL)))");
+            R"(Range[Date(1970-10-28), Date(NULL)))");
   EXPECT_EQ(range_d_unbounded_end.DebugString(), R"([1970-10-28, NULL))");
   EXPECT_EQ(range_d_unbounded_end.Format(), R"(RANGE<DATE>[1970-10-28, NULL))");
   EXPECT_EQ(range_d_unbounded_end.Format(/*print_top_level_type=*/false),
@@ -4261,7 +4328,7 @@ TEST_F(ValueTest, RangeOfDatesFormatting) {
   const Value range_d_unbounded_all =
       Range(Value::UnboundedStartDate(), Value::UnboundedEndDate());
   EXPECT_EQ(range_d_unbounded_all.DebugString(/*verbose=*/true),
-            R"([Date(NULL), Date(NULL)))");
+            R"(Range[Date(NULL), Date(NULL)))");
   EXPECT_EQ(range_d_unbounded_all.DebugString(), R"([NULL, NULL))");
   EXPECT_EQ(range_d_unbounded_all.Format(), R"(RANGE<DATE>[NULL, NULL))");
   EXPECT_EQ(range_d_unbounded_all.Format(/*print_top_level_type=*/false),
@@ -4280,9 +4347,9 @@ TEST_F(ValueTest, RangeOfDatetimesFormatting) {
                 DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 37, 11, 1)));
 
   // Regular range
-  EXPECT_EQ(
-      range_dt_regular.DebugString(/*verbose=*/true),
-      R"([Datetime(2022-09-13 16:36:11.000000001), Datetime(2022-09-13 16:37:11.000000001)))");
+  EXPECT_EQ(range_dt_regular.DebugString(/*verbose=*/true),
+            "Range[Datetime(2022-09-13 16:36:11.000000001), "
+            "Datetime(2022-09-13 16:37:11.000000001))");
   EXPECT_EQ(
       range_dt_regular.DebugString(),
       R"([2022-09-13 16:36:11.000000001, 2022-09-13 16:37:11.000000001))");
@@ -4309,7 +4376,7 @@ TEST_F(ValueTest, RangeOfDatetimesFormatting) {
             Value::Datetime(
                 DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 37, 11, 1)));
   EXPECT_EQ(range_dt_unbounded_start.DebugString(/*verbose=*/true),
-            R"([Datetime(NULL), Datetime(2022-09-13 16:37:11.000000001)))");
+            "Range[Datetime(NULL), Datetime(2022-09-13 16:37:11.000000001))");
   EXPECT_EQ(range_dt_unbounded_start.DebugString(),
             R"([NULL, 2022-09-13 16:37:11.000000001))");
   EXPECT_EQ(range_dt_unbounded_start.Format(),
@@ -4335,7 +4402,7 @@ TEST_F(ValueTest, RangeOfDatetimesFormatting) {
                 DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 36, 11, 1)),
             Value::UnboundedEndDatetime());
   EXPECT_EQ(range_dt_unbounded_end.DebugString(/*verbose=*/true),
-            R"([Datetime(2022-09-13 16:36:11.000000001), Datetime(NULL)))");
+            "Range[Datetime(2022-09-13 16:36:11.000000001), Datetime(NULL))");
   EXPECT_EQ(range_dt_unbounded_end.DebugString(),
             R"([2022-09-13 16:36:11.000000001, NULL))");
   EXPECT_EQ(range_dt_unbounded_end.Format(),
@@ -4359,7 +4426,7 @@ TEST_F(ValueTest, RangeOfDatetimesFormatting) {
   const Value range_dt_unbounded_all =
       Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime());
   EXPECT_EQ(range_dt_unbounded_all.DebugString(/*verbose=*/true),
-            R"([Datetime(NULL), Datetime(NULL)))");
+            "Range[Datetime(NULL), Datetime(NULL))");
   EXPECT_EQ(range_dt_unbounded_all.DebugString(), R"([NULL, NULL))");
   EXPECT_EQ(range_dt_unbounded_all.Format(), R"(RANGE<DATETIME>[NULL, NULL))");
   EXPECT_EQ(range_dt_unbounded_all.Format(/*print_top_level_type=*/false),
@@ -4381,9 +4448,9 @@ TEST_F(ValueTest, FormatRangeOfTimestamps) {
   // Regular range
   const Value range_ts_regular =
       Range(Value::Timestamp(tmin), Value::Timestamp(tmax));
-  EXPECT_EQ(
-      range_ts_regular.DebugString(/*verbose=*/true),
-      R"([Timestamp(0001-01-01 00:00:00+00), Timestamp(9999-12-31 23:59:59.999999999+00)))");
+  EXPECT_EQ(range_ts_regular.DebugString(/*verbose=*/true),
+            "Range[Timestamp(0001-01-01 00:00:00+00), Timestamp(9999-12-31 "
+            "23:59:59.999999999+00))");
   EXPECT_EQ(range_ts_regular.DebugString(),
             R"([0001-01-01 00:00:00+00, 9999-12-31 23:59:59.999999999+00))");
   EXPECT_EQ(range_ts_regular.Format(),
@@ -4408,7 +4475,7 @@ TEST_F(ValueTest, FormatRangeOfTimestamps) {
       Range(Value::UnboundedStartTimestamp(), Value::Timestamp(tmax));
   EXPECT_EQ(
       range_ts_unbounded_start.DebugString(/*verbose=*/true),
-      R"([Timestamp(NULL), Timestamp(9999-12-31 23:59:59.999999999+00)))");
+      "Range[Timestamp(NULL), Timestamp(9999-12-31 23:59:59.999999999+00))");
   EXPECT_EQ(range_ts_unbounded_start.DebugString(),
             R"([NULL, 9999-12-31 23:59:59.999999999+00))");
   EXPECT_EQ(range_ts_unbounded_start.Format(),
@@ -4432,7 +4499,7 @@ TEST_F(ValueTest, FormatRangeOfTimestamps) {
   const Value range_ts_unbounded_end =
       Range(Value::Timestamp(tmin), Value::UnboundedEndTimestamp());
   EXPECT_EQ(range_ts_unbounded_end.DebugString(/*verbose=*/true),
-            R"([Timestamp(0001-01-01 00:00:00+00), Timestamp(NULL)))");
+            "Range[Timestamp(0001-01-01 00:00:00+00), Timestamp(NULL))");
   EXPECT_EQ(range_ts_unbounded_end.DebugString(),
             R"([0001-01-01 00:00:00+00, NULL))");
   EXPECT_EQ(range_ts_unbounded_end.Format(),
@@ -4454,7 +4521,7 @@ TEST_F(ValueTest, FormatRangeOfTimestamps) {
   const Value range_ts_unbounded_all =
       Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp());
   EXPECT_EQ(range_ts_unbounded_all.DebugString(/*verbose=*/true),
-            R"([Timestamp(NULL), Timestamp(NULL)))");
+            "Range[Timestamp(NULL), Timestamp(NULL))");
   EXPECT_EQ(range_ts_unbounded_all.DebugString(), R"([NULL, NULL))");
   EXPECT_EQ(range_ts_unbounded_all.Format(), R"(RANGE<TIMESTAMP>[NULL, NULL))");
   EXPECT_EQ(range_ts_unbounded_all.Format(/*print_top_level_type=*/false),
@@ -4475,9 +4542,9 @@ TEST_F(ValueTest, FormatArrayOfRanges) {
       const Value array_of_ranges,
       Value::MakeArray(range_array_type,
                        {regular_range, range_unbounded_start, range_null}));
-  EXPECT_EQ(
-      array_of_ranges.DebugString(/*verbose=*/true),
-      R"(Array[Range<DATE>([Date(1970-10-28), Date(1970-10-29))), Range<DATE>([Date(NULL), Date(1970-01-23))), Range<DATE>(NULL)])");
+  EXPECT_EQ(array_of_ranges.DebugString(/*verbose=*/true),
+            "Array[Range[Date(1970-10-28), Date(1970-10-29)), "
+            "Range[Date(NULL), Date(1970-01-23)), Range<DATE>(NULL)]");
   EXPECT_EQ(array_of_ranges.DebugString(),
             R"([[1970-10-28, 1970-10-29), [NULL, 1970-01-23), NULL])");
   EXPECT_EQ(array_of_ranges.Format(), R"(ARRAY<RANGE<DATE>>[
@@ -4514,9 +4581,10 @@ TEST_F(ValueTest, FormatStructOfRanges) {
       const Value struct_of_ranges,
       Value::MakeStruct(range_struct_type, {range_of_dates, range_of_datetimes,
                                             range_of_timestamps}));
-  EXPECT_EQ(
-      struct_of_ranges.DebugString(/*verbose=*/true),
-      R"(Struct{d:Range<DATE>([Date(1970-10-28), Date(1970-10-29))), dt:Range<DATETIME>([Datetime(NULL), Datetime(2022-09-13 16:37:11.000000001))), t:Range<TIMESTAMP>(NULL)})");
+  EXPECT_EQ(struct_of_ranges.DebugString(/*verbose=*/true),
+            "Struct{d:Range[Date(1970-10-28), Date(1970-10-29)), "
+            "dt:Range[Datetime(NULL), Datetime(2022-09-13 "
+            "16:37:11.000000001)), t:Range<TIMESTAMP>(NULL)}");
   EXPECT_EQ(
       struct_of_ranges.DebugString(),
       R"({d:[1970-10-28, 1970-10-29), dt:[NULL, 2022-09-13 16:37:11.000000001), t:NULL})");
@@ -6112,7 +6180,7 @@ static void StackOverflowTest() {
     }
 
     (void)new_type->DebugString();
-    (void)new_array_type->DebugString(true /* detailed */);
+    (void)new_array_type->DebugString(/*details=*/true);
 
     v = values::Struct(new_type, {v});
     v = values::Array(new_array_type, {v});
@@ -6120,17 +6188,18 @@ static void StackOverflowTest() {
   }
   std::string s = v.DebugString();
   ABSL_LOG(INFO) << s;
-  EXPECT_GT(s.size(), 100) << s;
   if (ZETASQL_DEBUG_MODE) {
-    EXPECT_THAT(s, HasSubstr("[{field:[{field:[{field:[{field:5}]}]}]}]"));
+    EXPECT_THAT(s, AnyOf(HasSubstr("[{field:[{field:[{field:[{field:5}]}]}]}]"),
+                         HasSubstr("... <out of stack>")));
   }
 
-  s = v.DebugString(true /* verbose */);
+  s = v.DebugString(/*verbose=*/true);
   ABSL_LOG(INFO) << s;
-  EXPECT_GT(s.size(), 200) << s;
   if (ZETASQL_DEBUG_MODE) {
     EXPECT_THAT(
-        s, HasSubstr("Struct{field:Array[Struct{field:Int64(5)}]}]}]}]}]}"));
+        s,
+        AnyOf(HasSubstr("Struct{field:Array[Struct{field:Int64(5)}]}]}]}]}]}"),
+              HasSubstr("... <out of stack>")));
   }
 }
 

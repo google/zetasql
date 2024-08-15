@@ -17,28 +17,34 @@
 #include "zetasql/public/functions/string_with_collation.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/common/utf_util.h"
+#include "zetasql/public/collator.h"
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/util.h"
+#include "absl/base/optimization.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "unicode/coleitr.h"
 #include "unicode/errorcode.h"
 #include "unicode/stsearch.h"
 #include "unicode/tblcoll.h"
+#include "unicode/ucol.h"
 #include "unicode/unistr.h"
 #include "unicode/usearch.h"
 #include "unicode/ustring.h"
+#include "unicode/utypes.h"
 #include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
 
@@ -105,6 +111,105 @@ absl::StatusOr<bool> IsUnicodeStringEmpty(const ZetaSqlCollator& collator,
   return result == UCOL_EQUAL;
 }
 
+struct SplitPoint {
+  int start_pos;
+  int end_pos;
+};
+
+absl::Status GetSplitPoints(const ZetaSqlCollator& collator,
+                            absl::string_view text, absl::string_view delimiter,
+                            std::vector<SplitPoint>* out) {
+  out->clear();
+  icu::UnicodeString unicode_str = icu::UnicodeString::fromUTF8(text);
+  // This cast is necessary because the StringSearch API requires a non-const
+  // collator. The collator is not changed by the StringSearch methods used
+  // below which makes the cast here okay.
+  icu::RuleBasedCollator* icu_collator =
+      const_cast<icu::RuleBasedCollator*>(collator.GetIcuCollator());
+  icu::ErrorCode icu_error;
+  absl::Status status;
+  if (delimiter.empty()) {
+    // Splitting on an empty delimiter produces an array of collation elements.
+    std::unique_ptr<icu::CollationElementIterator> coll_iterator =
+        absl::WrapUnique(
+            icu_collator->createCollationElementIterator(unicode_str));
+    int32_t utf16_start = 0;
+    int32_t utf8_start = 0;
+    while (coll_iterator->next(icu_error) !=
+           icu::CollationElementIterator::NULLORDER) {
+      int32_t next_utf16_start = coll_iterator->getOffset();
+      // Some characters (e.g. "ä") expand to multiple collation elements.
+      // Without this check, there will be spurious empty strings in the result.
+      if (utf16_start == next_utf16_start) {
+        continue;
+      }
+      int32_t utf8_length;
+      if (!GetUtf8Length(unicode_str, utf16_start, next_utf16_start,
+                         &utf8_length, &status)) {
+        return status;
+      } else {
+        ZETASQL_DCHECK_OK(status);
+      }
+
+      out->push_back(
+          {.start_pos = utf8_start, .end_pos = utf8_start + utf8_length - 1});
+      utf16_start = next_utf16_start;
+      utf8_start += utf8_length;
+    }
+    if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+            icu_error, "Error when iterating through text", &status))) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  icu::UnicodeString unicode_delimiter =
+      icu::UnicodeString::fromUTF8(delimiter);
+  icu::StringSearch stsearch(unicode_delimiter, unicode_str, icu_collator,
+                             /*breakiter=*/nullptr, icu_error);
+
+  if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+          icu_error, "Error initializing StringSearch", &status))) {
+    return status;
+  }
+
+  int32_t utf16_pos = 0;
+  int32_t utf8_pos = 0;
+  while (true) {
+    int32_t utf16_match_index = stsearch.next(icu_error);
+    if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
+            icu_error, "Error in StringSearch operation", &status))) {
+      return status;
+    }
+
+    if (utf16_match_index == USEARCH_DONE) {
+      break;
+    }
+
+    int32_t unmatched_string_utf8_length;
+    if (!GetUtf8Length(unicode_str, utf16_pos, utf16_match_index,
+                       &unmatched_string_utf8_length, &status)) {
+      return status;
+    }
+    int32_t matched_string_utf8_length;
+    if (!GetUtf8Length(unicode_str, utf16_match_index,
+                       utf16_match_index + stsearch.getMatchedLength(),
+                       &matched_string_utf8_length, &status)) {
+      return status;
+    }
+
+    out->push_back({.start_pos = utf8_pos,
+                    .end_pos = utf8_pos + unmatched_string_utf8_length - 1});
+
+    utf16_pos = utf16_match_index + stsearch.getMatchedLength();
+    utf8_pos += unmatched_string_utf8_length + matched_string_utf8_length;
+  }
+
+  out->push_back(
+      {.start_pos = utf8_pos, .end_pos = static_cast<int>(text.size()) - 1});
+  return absl::OkStatus();
+}
+
 }  // anonymous namespace
 
 // REPLACE(COLLATOR, STRING, STRING, STRING) -> STRING
@@ -147,55 +252,33 @@ bool ReplaceUtf8WithCollation(const ZetaSqlCollator& collator,
     // not necessary. Use the non-collation version of REPLACE in this case.
     return ReplaceUtf8(str, oldsub, newsub, out, status);
   }
-  icu::ErrorCode icu_error;
-  icu::UnicodeString old_sequence = icu::UnicodeString::fromUTF8(oldsub);
-  icu::UnicodeString original = icu::UnicodeString::fromUTF8(str);
-  // This cast is necessary because the StringSearch API requires a non-const
-  // collator. The collator is not changed by the StringSearch methods used
-  // below which makes the cast here okay.
-  icu::RuleBasedCollator* icu_collator =
-      const_cast<icu::RuleBasedCollator*>(collator.GetIcuCollator());
-  icu::StringSearch stsearch(old_sequence, original, icu_collator, nullptr,
-                             icu_error);
-  if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
-          icu_error, "Error initializing StringSearch", status))) {
+
+  std::vector<SplitPoint> split_points;
+  absl::Status split_status =
+      GetSplitPoints(collator, str, oldsub, &split_points);
+  if (!split_status.ok()) {
+    internal::UpdateError(status, split_status.message());
     return false;
   }
 
-  int32_t utf16_pos = 0;
-  int32_t utf8_pos = 0;
-  while (true) {
-    int32_t utf16_match_index = stsearch.next(icu_error);
+  for (int64_t i = 0; i < split_points.size(); ++i) {
+    bool append_newsub = i < split_points.size() - 1;
+    int64_t append_size =
+        split_points[i].end_pos - split_points[i].start_pos + 1 +
+        (append_newsub ? static_cast<int64_t>(newsub.size()) : 0);
 
-    if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
-            icu_error, "Error in StringSearch operation", status))) {
-      return false;
-    }
-    if (utf16_match_index == USEARCH_DONE) {
-      break;
-    }
-    int32_t unmatched_string_utf8_length;
-    if (!GetUtf8Length(original, utf16_pos, utf16_match_index,
-                       &unmatched_string_utf8_length, status)) {
-      return false;
-    }
-    const size_t total_append_size =
-        unmatched_string_utf8_length + newsub.length();
-    if (out->size() + total_append_size > kMaxOutputSize) {
+    if (out->size() + append_size > kMaxOutputSize) {
       return internal::UpdateError(status, kExceededReplaceOutputSize);
     }
-    int32_t matched_string_utf8_length;
-    if (!GetUtf8Length(original, utf16_match_index,
-                       utf16_match_index + stsearch.getMatchedLength(),
-                       &matched_string_utf8_length, status)) {
-      return false;
-    }
 
-    out->append(str, utf8_pos, unmatched_string_utf8_length).append(newsub);
-    utf16_pos = utf16_match_index + stsearch.getMatchedLength();
-    utf8_pos += unmatched_string_utf8_length + matched_string_utf8_length;
+    out->append(
+        str.substr(split_points[i].start_pos,
+                   split_points[i].end_pos - split_points[i].start_pos + 1));
+    if (append_newsub) {
+      out->append(newsub);
+    }
   }
-  out->append(str, utf8_pos);
+
   return true;
 }
 
@@ -224,79 +307,20 @@ bool SplitUtf8WithCollationImpl(const ZetaSqlCollator& collator,
     out->push_back("");
     return true;
   }
-  icu::UnicodeString unicode_str = icu::UnicodeString::fromUTF8(str);
-  // This cast is necessary because the StringSearch API requires a non-const
-  // collator. The collator is not changed by the StringSearch methods used
-  // below which makes the cast here okay.
-  icu::RuleBasedCollator* icu_collator =
-      const_cast<icu::RuleBasedCollator*>(collator.GetIcuCollator());
-  icu::ErrorCode icu_error;
-  if (delimiter.empty()) {
-    // Splitting on an empty delimiter produces an array of collation elements.
-    std::unique_ptr<icu::CollationElementIterator> coll_iterator =
-        absl::WrapUnique(
-            icu_collator->createCollationElementIterator(unicode_str));
-    int32_t utf16_start = 0;
-    int32_t utf8_start = 0;
-    while (coll_iterator->next(icu_error) !=
-           icu::CollationElementIterator::NULLORDER) {
-      int32_t next_utf16_start = coll_iterator->getOffset();
-      // Some characters (e.g. "ä") expand to multiple collation elements.
-      // Without this check, there will be spurious empty strings in the result.
-      if (utf16_start == next_utf16_start) {
-        continue;
-      }
-      int32_t utf8_length;
-      if (!GetUtf8Length(unicode_str, utf16_start, next_utf16_start,
-                         &utf8_length, status)) {
-        return false;
-      }
-      out->push_back(str.substr(utf8_start, utf8_length));
-      utf16_start = next_utf16_start;
-      utf8_start += utf8_length;
-    }
-    if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
-            icu_error, "Error when iterating through a value in SPLIT",
-            status))) {
-      return false;
-    }
-    return true;
-  }
-  icu::UnicodeString unicode_delimiter =
-      icu::UnicodeString::fromUTF8(delimiter);
-  icu::StringSearch stsearch(unicode_delimiter, unicode_str, icu_collator,
-                             /*breakiter=*/nullptr, icu_error);
-  if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
-          icu_error, "Error initializing StringSearch", status))) {
+
+  std::vector<SplitPoint> split_points;
+  absl::Status split_status =
+      GetSplitPoints(collator, str, delimiter, &split_points);
+  if (!split_status.ok()) {
+    internal::UpdateError(status, split_status.message());
     return false;
   }
-  int32_t utf16_pos = 0;
-  int32_t utf8_pos = 0;
-  while (true) {
-    int32_t utf16_match_index = stsearch.next(icu_error);
-    if (ABSL_PREDICT_FALSE(!MoveIcuErrorIntoStatusAndReset(
-            icu_error, "Error in StringSearch operation", status))) {
-      return false;
-    }
-    if (utf16_match_index == USEARCH_DONE) {
-      break;
-    }
-    int32_t unmatched_string_utf8_length;
-    if (!GetUtf8Length(unicode_str, utf16_pos, utf16_match_index,
-                       &unmatched_string_utf8_length, status)) {
-      return false;
-    }
-    int32_t matched_string_utf8_length;
-    if (!GetUtf8Length(unicode_str, utf16_match_index,
-                       utf16_match_index + stsearch.getMatchedLength(),
-                       &matched_string_utf8_length, status)) {
-      return false;
-    }
-    out->push_back(str.substr(utf8_pos, unmatched_string_utf8_length));
-    utf16_pos = utf16_match_index + stsearch.getMatchedLength();
-    utf8_pos += unmatched_string_utf8_length + matched_string_utf8_length;
+
+  for (const auto& split_point : split_points) {
+    out->push_back(str.substr(split_point.start_pos,
+                              split_point.end_pos - split_point.start_pos + 1));
   }
-  out->push_back(str.substr(utf8_pos));
+
   return true;
 }
 
@@ -1052,6 +1076,76 @@ absl::StatusOr<bool> LikeUtf8WithCollationAllowUnderscore(
     current_chunk_index = next_chunk_index;
   }
   return true;
+}
+
+absl::Status SplitSubstrWithCollation(const ZetaSqlCollator& collator,
+                                      absl::string_view text,
+                                      absl::string_view delimiter,
+                                      int64_t start_index, int64_t count,
+                                      std::string* out) {
+  if (collator.IsBinaryComparison()) {
+    return SplitSubstrWithCount(text, delimiter, start_index, count, out);
+  }
+
+  if (delimiter.empty()) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Delimiter of SPLIT_SUBSTR function must be non-empty");
+  }
+
+  if (!IsWellFormedUTF8(text)) {
+    return absl::Status(
+        absl::StatusCode::kOutOfRange,
+        "Text input in SPLIT_SUBSTR function must be valid UTF-8");
+  }
+
+  if (!IsWellFormedUTF8(delimiter)) {
+    return absl::Status(
+        absl::StatusCode::kOutOfRange,
+        "Delimiter of SPLIT_SUBSTR function must be valid UTF-8");
+  }
+
+  if (count < 0) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Count of SPLIT_SUBSTR function must be non-negative");
+  }
+
+  if (count == 0 || text.empty()) {
+    *out = "";
+    return absl::OkStatus();
+  }
+
+  std::vector<SplitPoint> split_points;
+  ZETASQL_RETURN_IF_ERROR(GetSplitPoints(collator, text, delimiter, &split_points));
+
+  int64_t num_splits = split_points.size();
+  // Normalize positive start_index to 0-based indexing.
+  if (start_index >= 1) {
+    start_index -= 1;
+  }
+
+  // Normalize negative start_index.
+  if (start_index < 0 && start_index >= -num_splits) {
+    start_index = num_splits + start_index;
+  }
+
+  // Move start_index to first split if it is in the left of the first split.
+  if (start_index < 0) {
+    start_index = 0;
+  }
+
+  // Return empty string if start_index is in the right of the last split.
+  if (start_index >= num_splits) {
+    *out = "";
+    return absl::OkStatus();
+  }
+
+  // Normalize count.
+  count = std::min(count, num_splits - start_index);
+  int start_pos = split_points[start_index].start_pos;
+  int end_pos = split_points[start_index + count - 1].end_pos;
+
+  *out = text.substr(start_pos, end_pos - start_pos + 1);
+  return absl::OkStatus();
 }
 
 }  // namespace functions

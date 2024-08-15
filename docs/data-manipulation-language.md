@@ -533,8 +533,8 @@ inserted rows that include these parts:
 +   `WITH ACTION`: An optional clause that adds a `string` column called
     `ACTION` to the result row set. Each value in this column represents the
     type of action that was applied to the column during statement execution.
-    Values include `"INSERT"`, `"REPLACE"`, and `"UPDATE"`. The `ACTION` column
-    is appended as the last output column.
+    Values include `"INSERT"`, `"REPLACE"`,
+    and `"UPDATE"`. The `ACTION` column is appended as the last output column.
 +   `*`: Returns all columns.
 +   `expression.*`: Returns all columns from range variables, like a table or
     proto field. The dot star expression cannot be applied on other expressions,

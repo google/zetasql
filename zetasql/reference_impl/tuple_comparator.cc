@@ -145,6 +145,7 @@ bool TupleComparator::operator()(const TupleData& t1,
       }
     }
 
+    bool use_inequality_comparison = true;
     if (collator != nullptr) {
       ABSL_DCHECK(v1.type()->IsString());
       ABSL_DCHECK(v2.type()->IsString());
@@ -160,7 +161,7 @@ bool TupleComparator::operator()(const TupleData& t1,
         }
       }
     } else {
-      if (!v1.Equals(v2)) {
+      if (!v1.Equals(v2) && use_inequality_comparison) {
         if (key->is_descending()) {
           return v2.LessThan(v1);
         } else {
@@ -176,6 +177,7 @@ bool TupleComparator::operator()(const TupleData& t1,
     const Value& v1 = t1.slot(slot_idx).value();
     const Value& v2 = t2.slot(slot_idx).value();
 
+    bool use_inequality_comparison = true;
     if (v1.is_null() || v2.is_null()) {
       if (v1.is_null() && v2.is_null()) {  // NULLs are considered equal
         continue;
@@ -184,7 +186,7 @@ bool TupleComparator::operator()(const TupleData& t1,
       return !v2.is_null();
     }
     // ASC by default.
-    if (!v1.Equals(v2)) {
+    if (!v1.Equals(v2) && use_inequality_comparison) {
       return v1.LessThan(v2);
     }
   }

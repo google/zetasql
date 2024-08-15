@@ -1644,6 +1644,9 @@ TYPED_TEST(FixedIntGeneratedDataTest, Compare) {
     EXPECT_EQ(tx > ty, x > y) << x << " > " << y;
     EXPECT_EQ(tx <= ty, x <= y) << x << " <= " << y;
     EXPECT_EQ(tx >= ty, x >= y) << x << " >= " << y;
+#ifdef __cpp_impl_three_way_comparison
+    EXPECT_EQ(tx <=> ty, x <=> y) << x << " <=> " << y;
+#endif
   }
 }
 

@@ -967,11 +967,22 @@ remote with connection ``
 create model t1
 remote with connection default
 --
-ERROR: CONNECTION DEFAULT is not supported [at 2:24]
+CreateModelStmt
++-name_path=t1
++-is_remote=TRUE
++-connection=
+  +-Connection(connection=$connection_default)
+==
+
+[no_java]
+[use_database=SpecialCatalog]
+create model t1
+remote with connection default
+--
+ERROR: Default connection not found [at 2:24]
 remote with connection default
                        ^
 ==
-
 
 # All remote model clauses
 create model t1

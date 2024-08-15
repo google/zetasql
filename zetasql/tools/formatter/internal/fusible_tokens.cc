@@ -99,6 +99,10 @@ FusibleMatchVector FindLongestFusibleMatch(
         // like "(" are also keywords) - no match.
         continue;
       }
+    } else if (fused_keyword == FusibleTokens::kString) {
+      if (!tokens[match_pos]->IsStringLiteral()) {
+        continue;
+      }
     } else if (tokens[match_pos]->GetKeyword() != fused_keyword ||
                (next_group.type != Token::Type::UNKNOWN &&
                 !tokens[match_pos]->Is(next_group.type)) ||

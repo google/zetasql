@@ -291,3 +291,26 @@ from unnest(a.b).(c)
 ERROR: Syntax error: Generalized field access is not allowed in the FROM clause without UNNEST; Use UNNEST(<expression>) [at 2:18]
 from unnest(a.b).(c)
                  ^
+==
+
+# Regression test for b/331836328; int and float in Lhs need to maintain parens.
+select (1).(x), (1.).(x)
+--
+QueryStatement [0-24] [select (1).(x), (1.).(x)]
+  Query [0-24] [select (1).(x), (1.).(x)]
+    Select [0-24] [select (1).(x), (1.).(x)]
+      SelectList [7-24] [(1).(x), (1.).(x)]
+        SelectColumn [7-14] [(1).(x)]
+          DotGeneralizedField [7-14] [(1).(x)]
+            IntLiteral(1) [8-9] [1]
+            PathExpression [12-13] [x]
+              Identifier(x) [12-13] [x]
+        SelectColumn [16-24] [(1.).(x)]
+          DotGeneralizedField [16-24] [(1.).(x)]
+            FloatLiteral(1.) [17-19] [1.]
+            PathExpression [22-23] [x]
+              Identifier(x) [22-23] [x]
+--
+SELECT
+  (1).(x),
+  (1.).(x)

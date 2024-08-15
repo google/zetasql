@@ -28,20 +28,20 @@
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/status_payload.h"
 
 namespace zetasql {
 namespace testing {
@@ -169,11 +169,11 @@ TEST(ParseTreeTest, NodeKindCategories_IfStatement) {
   const std::string sql = "if true then select 5; end if";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                  /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   auto statement_list = parser_output->script()->statement_list();
   ASSERT_EQ(statement_list.size(), 1);
   const ASTStatement* statement = statement_list[0];
@@ -192,11 +192,11 @@ TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsCreateStatement) {
   const std::string sql = "create table t as select 1 x";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                  /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   auto statement_list = parser_output->script()->statement_list();
   ASSERT_EQ(statement_list.size(), 1);
   const ASTDdlStatement* statement =
@@ -211,11 +211,13 @@ TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsAlterStatement) {
   const std::string sql = "alter table t set options()";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                  /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload =
+                             (ERROR_MESSAGE_WITH_PAYLOAD ==
+                              ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD),
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   auto statement_list = parser_output->script()->statement_list();
   ASSERT_EQ(statement_list.size(), 1);
   const ASTDdlStatement* statement =
@@ -230,11 +232,11 @@ TEST(ParseTreeTest, NodeKindCategories_LoopStatement) {
   const std::string sql = "LOOP END LOOP;";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                  /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 1);
   const ASTStatement* statement = parser_output->script()->statement_list()[0];
 
@@ -252,11 +254,11 @@ TEST(ParseTreeTest, NodeKindCategories_WhileStatement) {
   const std::string sql = "WHILE TRUE DO END WHILE;";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(
-      ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                  /*keep_error_location_payload=*/ERROR_MESSAGE_WITH_PAYLOAD ==
-                      ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-                  &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 1);
   const ASTStatement* statement = parser_output->script()->statement_list()[0];
 

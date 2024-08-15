@@ -1,0 +1,184 @@
+select x
+|> SET x = 1+2 {{|,}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-23] [select x |> SET x = 1+2]
+  Query [0-23] [select x |> SET x = 1+2]
+    Select [0-8] [select x]
+      SelectList [7-8] [x]
+        SelectColumn [7-8] [x]
+          PathExpression [7-8] [x]
+            Identifier(x) [7-8] [x]
+    PipeSet [9-23] [|> SET x = 1+2]
+      PipeSetItem [16-23] [x = 1+2]
+        Identifier(x) [16-17] [x]
+        BinaryExpression(+) [20-23] [1+2]
+          IntLiteral(1) [20-21] [1]
+          IntLiteral(2) [22-23] [2]
+--
+SELECT
+  x
+|> SET x = 1 + 2
+--
+ALTERNATION GROUP: ,
+--
+QueryStatement [0-25] [select x |> SET x = 1+2 ,]
+  Query [0-25] [select x |> SET x = 1+2 ,]
+    Select [0-8] [select x]
+      SelectList [7-8] [x]
+        SelectColumn [7-8] [x]
+          PathExpression [7-8] [x]
+            Identifier(x) [7-8] [x]
+    PipeSet [9-25] [|> SET x = 1+2 ,]
+      PipeSetItem [16-23] [x = 1+2]
+        Identifier(x) [16-17] [x]
+        BinaryExpression(+) [20-23] [1+2]
+          IntLiteral(1) [20-21] [1]
+          IntLiteral(2) [22-23] [2]
+--
+SELECT
+  x
+|> SET x = 1 + 2
+==
+
+select x
+|> set x = 1+2, y = 3, z = z {{|,}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-37] [select x |...= 3, z = z]
+  Query [0-37] [select x |...= 3, z = z]
+    Select [0-8] [select x]
+      SelectList [7-8] [x]
+        SelectColumn [7-8] [x]
+          PathExpression [7-8] [x]
+            Identifier(x) [7-8] [x]
+    PipeSet [9-37] [|> set x = 1+2, y = 3, z = z]
+      PipeSetItem [16-23] [x = 1+2]
+        Identifier(x) [16-17] [x]
+        BinaryExpression(+) [20-23] [1+2]
+          IntLiteral(1) [20-21] [1]
+          IntLiteral(2) [22-23] [2]
+      PipeSetItem [25-30] [y = 3]
+        Identifier(y) [25-26] [y]
+        IntLiteral(3) [29-30] [3]
+      PipeSetItem [32-37] [z = z]
+        Identifier(z) [32-33] [z]
+        PathExpression [36-37] [z]
+          Identifier(z) [36-37] [z]
+--
+SELECT
+  x
+|> SET x = 1 + 2, y = 3, z = z
+--
+ALTERNATION GROUP: ,
+--
+QueryStatement [0-39] [select x |...3, z = z ,]
+  Query [0-39] [select x |...3, z = z ,]
+    Select [0-8] [select x]
+      SelectList [7-8] [x]
+        SelectColumn [7-8] [x]
+          PathExpression [7-8] [x]
+            Identifier(x) [7-8] [x]
+    PipeSet [9-39] [|> set x = 1+2, y = 3, z = z ,]
+      PipeSetItem [16-23] [x = 1+2]
+        Identifier(x) [16-17] [x]
+        BinaryExpression(+) [20-23] [1+2]
+          IntLiteral(1) [20-21] [1]
+          IntLiteral(2) [22-23] [2]
+      PipeSetItem [25-30] [y = 3]
+        Identifier(y) [25-26] [y]
+        IntLiteral(3) [29-30] [3]
+      PipeSetItem [32-37] [z = z]
+        Identifier(z) [32-33] [z]
+        PathExpression [36-37] [z]
+          Identifier(z) [36-37] [z]
+--
+SELECT
+  x
+|> SET x = 1 + 2, y = 3, z = z
+==
+
+select x
+|>{{| set}}{{|,}}
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword JOIN but got end of statement [at 2:3]
+|>
+  ^
+--
+ALTERNATION GROUP: ,
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 2:3]
+|>,
+  ^
+--
+ALTERNATION GROUP:  set,
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:7]
+|> set
+      ^
+--
+ALTERNATION GROUP:  set,,
+--
+ERROR: Syntax error: Unexpected "," [at 2:7]
+|> set,
+      ^
+==
+
+select x
+|> {{|set}} x
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword JOIN but got identifier "x" [at 2:5]
+|>  x
+    ^
+--
+ALTERNATION GROUP: set
+--
+ERROR: Syntax error: Expected "." or "=" but got end of statement [at 2:9]
+|> set x
+        ^
+==
+
+select x
+|> {{|set}} x y
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword JOIN but got identifier "x" [at 2:5]
+|>  x y
+    ^
+--
+ALTERNATION GROUP: set
+--
+ERROR: Syntax error: Expected "." or "=" but got identifier "y" [at 2:10]
+|> set x y
+         ^
+==
+
+select x
+|> {{|set}} x AS y
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected keyword JOIN but got identifier "x" [at 2:5]
+|>  x AS y
+    ^
+--
+ALTERNATION GROUP: set
+--
+ERROR: Syntax error: Expected "." or "=" but got keyword AS [at 2:10]
+|> set x AS y
+         ^
+==
+
+select x
+|> set t.y = x
+--
+ERROR: Syntax error: Pipe SET can only update columns by column name alone; Setting columns under table aliases or fields under paths is not supported [at 2:8]
+|> set t.y = x
+       ^

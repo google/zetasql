@@ -5656,3 +5656,12 @@ SELECT CAST(123 AS DATETIME)
 ERROR: Invalid cast from INT64 to DATETIME [at 1:13]
 SELECT CAST(123 AS DATETIME)
             ^
+==
+
+[language_features=PARAMETERIZED_TYPES]
+# Test very large type parameter
+select CAST("" as float(18446744073709551615));
+--
+ERROR: Integer type parameters must fall in the domain of INT64. Supplied value '18446744073709551615' is outside that range. Specific types typically have tighter bounds specific to that type. [at 2:25]
+select CAST("" as float(18446744073709551615));
+                        ^

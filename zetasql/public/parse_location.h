@@ -183,6 +183,12 @@ class ParseLocationRange {
   // Returns true if both start and end ParseLocationPoint are valid.
   bool IsValid() const { return start().IsValid() && end().IsValid(); }
 
+  // Returns true if the range is empty.
+  bool IsEmpty() const {
+    ABSL_DCHECK(IsValid());
+    return start() == end();
+  }
+
   // Identify whether `following_location` immediately follows this range
   // with no space (white space, comment, another token) in between.
   bool IsAdjacentlyFollowedBy(

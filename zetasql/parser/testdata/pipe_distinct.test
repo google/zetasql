@@ -1,0 +1,97 @@
+SELECT 1 x
+|> DISTINCT
+--
+QueryStatement [0-22] [SELECT 1 x |> DISTINCT]
+  Query [0-22] [SELECT 1 x |> DISTINCT]
+    Select [0-10] [SELECT 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeDistinct [11-22] [|> DISTINCT]
+--
+SELECT
+  1 AS x
+|> DISTINCT
+==
+
+SELECT 1 x
+|> DISTINCT *
+--
+ERROR: Syntax error: Expected end of input but got "*" [at 2:13]
+|> DISTINCT *
+            ^
+==
+
+# "DISTINCT" as the start of a query is not allowed.
+distinct
+|> select *;
+--
+ERROR: Syntax error: Unexpected keyword DISTINCT [at 1:1]
+distinct
+^
+==
+
+CREATE TEMP TABLE t
+AS (SELECT 1 AS a |> DISTINCT);
+--
+CreateTableStatement(is_temp) [0-50] [CREATE TEMP...DISTINCT)]
+  PathExpression [18-19] [t]
+    Identifier(t) [18-19] [t]
+  Query [24-49] [SELECT 1 AS a |> DISTINCT]
+    Select [24-37] [SELECT 1 AS a]
+      SelectList [31-37] [1 AS a]
+        SelectColumn [31-37] [1 AS a]
+          IntLiteral(1) [31-32] [1]
+          Alias [33-37] [AS a]
+            Identifier(a) [36-37] [a]
+    PipeDistinct [38-49] [|> DISTINCT]
+--
+CREATE TEMP TABLE t AS
+(
+SELECT
+  1 AS a
+|> DISTINCT)
+==
+
+SELECT (SELECT 1 AS a |> DISTINCT);
+--
+QueryStatement [0-34] [SELECT (SELECT...DISTINCT)]
+  Query [0-34] [SELECT (SELECT...DISTINCT)]
+    Select [0-34] [SELECT (SELECT...DISTINCT)]
+      SelectList [7-34] [(SELECT 1 AS a |> DISTINCT)]
+        SelectColumn [7-34] [(SELECT 1 AS a |> DISTINCT)]
+          ExpressionSubquery [7-34] [(SELECT 1 AS a |> DISTINCT)]
+            Query [8-33] [SELECT 1 AS a |> DISTINCT]
+              Select [8-21] [SELECT 1 AS a]
+                SelectList [15-21] [1 AS a]
+                  SelectColumn [15-21] [1 AS a]
+                    IntLiteral(1) [15-16] [1]
+                    Alias [17-21] [AS a]
+                      Identifier(a) [20-21] [a]
+              PipeDistinct [22-33] [|> DISTINCT]
+--
+SELECT
+  (
+    SELECT
+      1 AS a
+    |> DISTINCT)
+==
+
+SELECT 1
+|> @{hint=1} DISTINCT
+--
+ERROR: Syntax error: Expected keyword JOIN but got "@" [at 2:4]
+|> @{hint=1} DISTINCT
+   ^
+
+==
+
+SELECT 1
+|> DISTINCT @{hint=1}
+--
+ERROR: Syntax error: Expected end of input but got "@" [at 2:13]
+|> DISTINCT @{hint=1}
+            ^
+

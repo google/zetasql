@@ -33,9 +33,6 @@
 #include "absl/time/time.h"
 
 ABSL_DECLARE_FLAG(double, zetasql_stack_usage_proportion_warning);
-ABSL_DECLARE_FLAG(bool, zetasql_disable_rewriter_checker);
-
-using ::testing::Gt;
 
 namespace zetasql {
 
@@ -133,6 +130,7 @@ TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
 |       |           |   |           +-ColumnRef(type=STRING, column=$subquery1.k#1, is_correlated=TRUE)
 |       |           |   +-order_by_item_list=
 |       |           |     +-OrderByItem
+|       |           |       +-parse_location=192-203
 |       |           |       +-column_ref=
 |       |           |       | +-ColumnRef(type=INT64, column=$array_offset.offset#4)
 |       |           |       +-is_descending=TRUE
@@ -184,31 +182,6 @@ TEST(RewriteResolvedAstTest, RewriterWarnsComplextyJustOnce) {
               ::testing::ElementsAre(zetasql_base::testing::StatusIs(
                   absl::StatusCode::kResourceExhausted)));
   absl::SetFlag(&FLAGS_zetasql_stack_usage_proportion_warning, old_value);
-}
-
-TEST(RewriteResolvedAstTest, RewriteWithRewriteDetectedDisabled) {
-  absl::SetFlag(&FLAGS_zetasql_disable_rewriter_checker, true);
-  AnalyzerOptions options;
-  options.mutable_language()->EnableMaximumLanguageFeatures();
-  ZETASQL_CHECK_OK(options.AddExpressionColumn("k", types::Int64Type()));
-
-  TypeFactory types;
-  const Type* map_type;
-  ZETASQL_CHECK_OK(types.MakeProtoType(
-      zetasql_test__::MessageWithMapField::descriptor(), &map_type));
-  ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
-
-  SimpleCatalog catalog("catalog", &types);
-  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
-
-  std::unique_ptr<const AnalyzerOutput> output;
-  auto status =
-      AnalyzeExpression("mapproto.string_int32_map[SAFE_KEY('foo')] + k",
-                        options, &catalog, &types, &output);
-  ZETASQL_EXPECT_OK(status);
-  EXPECT_TRUE(output->resolved_expr() != nullptr);
-  EXPECT_THAT(output->runtime_info().rewriters_timed_value().elapsed_duration(),
-              Gt(absl::Nanoseconds(0)));
 }
 
 }  // namespace zetasql

@@ -57,8 +57,14 @@ using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
 using MapTestAllSimpleTypes = testing::TestWithParam<TypeKind>;
 
+struct MapTestFormatValueContentDebugModeTestCase {
+  Value value;
+  std::string expected_debug_string;
+  std::string expected_verbose_debug_string;
+};
+
 using MapTestFormatValueContentDebugMode =
-    testing::TestWithParam<std::tuple<Value, std::string>>;
+    testing::TestWithParam<MapTestFormatValueContentDebugModeTestCase>;
 
 }  // namespace
 
@@ -363,25 +369,30 @@ TEST(MapTest, MapTypeWithEnumValid) {
 
 INSTANTIATE_TEST_SUITE_P(
     MapTest, MapTestFormatValueContentDebugMode,
-    testing::ValuesIn(std::initializer_list<std::tuple<Value, std::string>>{
+    testing::ValuesIn(std::initializer_list<
+                      MapTestFormatValueContentDebugModeTestCase>{
         {
             test_values::Map({{"a", true}}),
             R"({"a": true})",
+            R"(Map{String("a"): Bool(true)})",
         },
         {
             test_values::Map(
                 {{"a", true}, {"b", false}, {"c", Value::NullBool()}}),
             R"({"a": true, "b": false, "c": NULL})",
+            R"(Map{String("a"): Bool(true), String("b"): Bool(false), String("c"): Bool(NULL)})",
         },
         {
             test_values::Map({{"foobar", Value::Int32(1)},
                               {"zoobar", Value::Int32(2)}}),
             R"({"foobar": 1, "zoobar": 2})",
+            R"(Map{String("foobar"): Int32(1), String("zoobar"): Int32(2)})",
         },
         {
             test_values::Map({{"a", test_values::Array({Value::Int32(1),
                                                         Value::Int32(2)})}}),
-            R"({"a": Array[Int32(1), Int32(2)]})",
+            R"({"a": [1, 2]})",
+            R"(Map{String("a"): Array[Int32(1), Int32(2)]})",
         },
         {
             test_values::Map(
@@ -391,6 +402,7 @@ INSTANTIATE_TEST_SUITE_P(
                                  {{"b", test_values::Map(
                                             {{"c", Value::Int32(1)}})}})}})}}),
             R"({"nested": {"a": {"b": {"c": 1}}}})",
+            R"(Map{String("nested"): Map{String("a"): Map{String("b"): Map{String("c"): Int32(1)}}}})",
         },
         {
             test_values::Map(
@@ -400,20 +412,27 @@ INSTANTIATE_TEST_SUITE_P(
                         test_values::Map(
                             {{"a", test_values::Map(
                                        {{"b", Value::Int32(1)}})}})}})}}),
-            R"({"nested": Struct{field:Map<String, Map<String, Int32>>({"a": {"b": 1}})}})",
+            R"({"nested": {field:{"a": {"b": 1}}}})",
+            R"(Map{String("nested"): Struct{field:Map{String("a"): Map{String("b"): Int32(1)}}}})",
         },
     }));
 
 TEST_P(MapTestFormatValueContentDebugMode, FormatValueContentDebugMode) {
-  auto& [map_value, expected_format_str] = GetParam();
+  auto& [map_value, expected_format_str, expected_verbose_format_str] =
+      GetParam();
 
   Type::FormatValueContentOptions options;
   options.mode = Type::FormatValueContentOptions::Mode::kDebug;
-  options.verbose = true;
+  options.verbose = false;
 
   EXPECT_EQ(
       map_value.type()->FormatValueContent(map_value.GetContent(), options),
       expected_format_str);
+
+  options.verbose = true;
+  EXPECT_EQ(
+      map_value.type()->FormatValueContent(map_value.GetContent(), options),
+      expected_verbose_format_str);
 }
 
 TEST(MapTest, FormatValueContentDebugModeEmptyMap) {
@@ -421,15 +440,20 @@ TEST(MapTest, FormatValueContentDebugModeEmptyMap) {
 
   Type::FormatValueContentOptions options;
   options.mode = Type::FormatValueContentOptions::Mode::kDebug;
-  options.verbose = true;
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Type* map_type,
       factory.MakeMapType(factory.get_string(), factory.get_int64()));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(Value map_value, Value::MakeMap(map_type, {}));
+
+  options.verbose = false;
   EXPECT_EQ(map_type->FormatValueContent(map_value.GetContent(), options),
             "{}");
+
+  options.verbose = true;
+  EXPECT_EQ(map_type->FormatValueContent(map_value.GetContent(), options),
+            "Map{}");
 }
 
 TEST(MapTest, MakeMapWithLanguageOptions) {

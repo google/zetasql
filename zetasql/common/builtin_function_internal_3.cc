@@ -18,7 +18,9 @@
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/timestamp.pb.h"
@@ -33,6 +35,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -43,9 +46,12 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -278,6 +284,18 @@ void GetStringFunctions(TypeFactory* type_factory,
         FN_SPLIT_STRING,
         FunctionSignatureOptions().set_uses_operation_collation()},
        {bytes_array_type, {bytes_type, bytes_type}, FN_SPLIT_BYTES}});
+
+  InsertFunction(
+      functions, options, "split_substr", SCALAR,
+      {
+          {string_type,
+           {string_type,
+            string_type,
+            int64_type,
+            {int64_type, FunctionArgumentType::OPTIONAL}},
+           FN_SPLIT_SUBSTR,
+           FunctionSignatureOptions().set_uses_operation_collation()},
+      });
 
   InsertSimpleFunction(
       functions, options, "safe_convert_bytes_to_string", SCALAR,
@@ -946,17 +964,20 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "$concat_op", SCALAR,
-      {{string_type,
-        {{string_type, concat_option}, {string_type, concat_option}},
-        FN_CONCAT_OP_STRING},
-       {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
-       {ARG_ARRAY_TYPE_ANY_1,
-        {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
-        FN_ARRAY_CONCAT_OP}},
+      {
+          {string_type,
+           {{string_type, concat_option}, {string_type, concat_option}},
+           FN_CONCAT_OP_STRING},
+          {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
+          {ARG_ARRAY_TYPE_ANY_1,
+           {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+           FN_ARRAY_CONCAT_OP}
+      },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("||")
-          .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "||")));
+          .set_get_sql_callback(absl::bind_front(&InfixFunctionSQL, "||"))
+  );
 
   // RANGE_BUCKET: returns the bucket of the item in the array.
   InsertFunction(
@@ -1238,6 +1259,7 @@ void GetJSONFunctions(TypeFactory* type_factory,
   const ArrayType* array_bool_type = types::BoolArrayType();
   const ArrayType* array_string_type = types::StringArrayType();
   const ArrayType* array_json_type = types::JsonArrayType();
+  const EnumType* unsupported_fields_type = types::UnsupportedFieldsEnumType();
 
   const Function::Mode SCALAR = Function::SCALAR;
   const FunctionArgumentType::ArgumentCardinality REPEATED =
@@ -1337,18 +1359,26 @@ void GetJSONFunctions(TypeFactory* type_factory,
          {json_type, optional_json_path_argument},
          FN_JSON_VALUE_ARRAY_JSON});
 
-    InsertFunction(
-        functions, options, "to_json", SCALAR,
-        {
-            {json_type,
-             {ARG_TYPE_ANY_1,
-              {bool_type,
-               FunctionArgumentTypeOptions()
-                   .set_cardinality(FunctionEnums::OPTIONAL)
-                   .set_argument_name("stringify_wide_numbers", kNamedOnly)
-                   .set_default(values::Bool(false))}},
-             FN_TO_JSON}
-        });
+    FunctionArgumentTypeList to_json_args(
+        {ARG_TYPE_ANY_1,
+         {bool_type,
+          FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionEnums::OPTIONAL)
+              .set_argument_name("stringify_wide_numbers", kNamedOnly)
+              .set_default(values::Bool(false))}});
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
+      to_json_args.push_back(
+          {unsupported_fields_type,
+           FunctionArgumentTypeOptions()
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_argument_name("unsupported_fields", kNamedOnly)
+               .set_default(values::Enum(unsupported_fields_type,
+                                         functions::UnsupportedFields::FAIL))});
+    }
+    InsertFunction(functions, options, "to_json", SCALAR,
+                   {{json_type, to_json_args, FN_TO_JSON}});
+
     InsertFunction(
         functions, options, "parse_json", SCALAR,
         {{json_type,
@@ -2987,7 +3017,7 @@ void GetTypeOfFunction(TypeFactory* type_factory,
              {ARG_TYPE_ARBITRARY},
              FN_TYPEOF,
              SetRewriter(REWRITE_TYPEOF_FUNCTION)
-                 .set_propagates_collation(false)}
+                 .set_propagates_collation(false)},
         });
   }
 }

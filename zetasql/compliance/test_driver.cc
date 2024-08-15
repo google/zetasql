@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"

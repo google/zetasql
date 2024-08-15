@@ -14,13 +14,16 @@
 // limitations under the License.
 //
 
-#include <utility>
+#include <string>
 #include <vector>
 
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -743,6 +746,332 @@ std::vector<FunctionTestCall> GetFunctionTestsStringWithCollator() {
       GetFunctionTestsStringWithCollatorInitializerList();
   GetReplaceFunctions(tests);
   return tests;
+}
+
+struct CollatedResult {
+  std::string collation;
+  const ValueConstructor result;
+  absl::StatusCode status;
+
+  CollatedResult(absl::string_view collation, const ValueConstructor& result,
+                 absl::StatusCode status = absl::StatusCode::kOk)
+      : collation(collation), result(result), status(status) {}
+};
+
+struct FunctionTestWithCollator {
+  std::string function_name;
+  std::vector<ValueConstructor> params;
+  std::vector<CollatedResult> results;
+};
+
+std::vector<FunctionTestCall> GetFunctionTestCalls(
+    const std::vector<FunctionTestWithCollator>& tests, bool skip_collation) {
+  std::vector<FunctionTestCall> function_test_calls;
+  for (const auto& test : tests) {
+    for (const auto& result : test.results) {
+      if (skip_collation) {
+        // only push test-cases with binary collation
+        if (result.collation == "binary") {
+          QueryParamsWithResult query_params_with_result(
+              test.params, result.result, result.status);
+          function_test_calls.push_back(
+              {test.function_name, query_params_with_result});
+        }
+      } else {
+        std::vector<ValueConstructor> params_with_collator;
+        params_with_collator.reserve(test.params.size() + 1);
+        params_with_collator.push_back(result.collation);
+
+        for (const auto& param : test.params) {
+          params_with_collator.push_back(param);
+        }
+
+        QueryParamsWithResult query_params_with_result(
+            params_with_collator, result.result, result.status);
+        function_test_calls.push_back(
+            {test.function_name + "_with_collator", query_params_with_result});
+      }
+    }
+  }
+  return function_test_calls;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsSplitSubstr(bool skip_collation) {
+  std::vector<FunctionTestWithCollator> tests{
+      // Empty Delimiter
+      {"split_substr",
+       {"www.abc.com", "", 1l, 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Non-UTF-8 Delimiter
+      {"split_substr",
+       {"www.abc.com", "\xc2", 1l, 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Non-UTF-8 Text
+      {"split_substr",
+       {"www.abc.\xc2om", ".", 1l, 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Negative Count
+      {"split_substr",
+       {"www.abc.com", ".", 1l, -1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Empty Text.
+      {"split_substr", {"", ".", 1l, 1l}, {{"binary", ""}, {"und:ci", ""}}},
+      // Delimiter not present
+      {"split_substr",
+       {"www.abc.com", "#", 1l, 1l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 0l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 2l},
+       {{"binary", "www.abc"}, {"und:ci", "www.abc"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 1l},
+       {{"binary", "www"}, {"und:ci", "www"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 2l},
+       {{"binary", "www.abc"}, {"und:ci", "www.abc"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 3l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l, 4l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 0l, 4l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 2l, 3l},
+       {{"binary", "abc.com"}, {"und:ci", "abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 3l, 3l},
+       {{"binary", "com"}, {"und:ci", "com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 4l, 1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"www.abc.com", ".", 5l, 1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"www.abc.com", ".", -1l, 1l},
+       {{"binary", "com"}, {"und:ci", "com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -2l, 3l},
+       {{"binary", "abc.com"}, {"und:ci", "abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -3l, 4l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -4l, 1l},
+       {{"binary", "www"}, {"und:ci", "www"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -5l, 1l},
+       {{"binary", "www"}, {"und:ci", "www"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -5l, 2l},
+       {{"binary", "www.abc"}, {"und:ci", "www.abc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 0l, 1l},
+       {{"binary", "aaa"}, {"und:ci", "aaa"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 1l, 1l},
+       {{"binary", "aaa"}, {"und:ci", "aaa"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 2l, 1l},
+       {{"binary", "*bb"}, {"und:ci", "*bb"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 3l, 1l},
+       {{"binary", "*cc"}, {"und:ci", "*cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 4l, 1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -1l, 2l},
+       {{"binary", "*cc"}, {"und:ci", "*cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -2l, 2l},
+       {{"binary", "*bb***cc"}, {"und:ci", "*bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -3l, 2l},
+       {{"binary", "aaa***bb"}, {"und:ci", "aaa***bb"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -4l, 2l},
+       {{"binary", "aaa***bb"}, {"und:ci", "aaa***bb"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -5l, 2l},
+       {{"binary", "aaa***bb"}, {"und:ci", "aaa***bb"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 100l, 2l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -100l, 2l},
+       {{"binary", "aaa***bb"}, {"und:ci", "aaa***bb"}}},
+      // Delimiter as prefix.
+      {"split_substr",
+       {"**aaa***bb***cc", "**", 1l, 1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      // Delimiter as suffix.
+      {"split_substr",
+       {"aaa***bb***cc**", "**", -1l, 1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", 0l, 1l},
+       {{"und:ci", "aaa"}, {"binary", "aaaXXXbbXXXcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", 1l, 1l}, {{"und:ci", "aaa"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", 2l, 1l}, {{"und:ci", "Xbb"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", 3l, 1l}, {{"und:ci", "Xcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", 4l, 1l}, {{"und:ci", ""}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", -1l, 2l}, {{"und:ci", "Xcc"}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", -2l, 2l},
+       {{"und:ci", "XbbXXXcc"}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", -3l, 2l},
+       {{"und:ci", "aaaXXXbb"}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", -4l, 2l},
+       {{"und:ci", "aaaXXXbb"}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", -5l, 2l},
+       {{"und:ci", "aaaXXXbb"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "Xx", 100l, 2l}, {{"und:ci", ""}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "Xx", -100l, 2l},
+       {{"und:ci", "aaaXXXbb"}}},
+      {"split_substr",
+       {"аБракадабра", "абр", 1l, 1l},
+       {{"und:ci", ""}, {"binary", "аБракад"}}},
+      {"split_substr",
+       {"аБракадабра", "абр", 2l, 1l},
+       {{"und:ci", "акад"}, {"binary", "а"}}},
+      {"split_substr",
+       {"aaa\0*\0*bb***cc", "**", 0l, 1l},
+       {{"binary", "aaa\0*\0*bb"}, {"und:ci", "aaa\0"}}},
+      // Delimiter as prefix.
+      {"split_substr", {"XXaaaXXXbbXXXcc", "Xx", 1l, 1l}, {{"und:ci", ""}}},
+      // Delimiter as suffix.
+      {"split_substr", {"aaaXXXbbXXXccXX", "Xx", -1l, 1l}, {{"und:ci", ""}}},
+      // without count argument
+      //  // Empty Delimiter
+      {"split_substr",
+       {"www.abc.com", "", 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Non-UTF-8 Delimiter
+      {"split_substr",
+       {"www.abc.com", "\xc2", 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      // Non-UTF-8 Text
+      {"split_substr",
+       {"www.abc.\xc2om", ".", 1l},
+       {{"binary", "", OUT_OF_RANGE}, {"und:ci", "", OUT_OF_RANGE}}},
+      {"split_substr",
+       {"www.abc.com", "#", 1l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 0l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 1l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 2l},
+       {{"binary", "abc.com"}, {"und:ci", "abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 3l},
+       {{"binary", "com"}, {"und:ci", "com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", 4l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"www.abc.com", ".", 5l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"www.abc.com", ".", -1l},
+       {{"binary", "com"}, {"und:ci", "com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -2l},
+       {{"binary", "abc.com"}, {"und:ci", "abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -3l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -4l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"www.abc.com", ".", -5l},
+       {{"binary", "www.abc.com"}, {"und:ci", "www.abc.com"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 0l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 1l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 2l},
+       {{"binary", "*bb***cc"}, {"und:ci", "*bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 3l},
+       {{"binary", "*cc"}, {"und:ci", "*cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 4l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -1l},
+       {{"binary", "*cc"}, {"und:ci", "*cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -2l},
+       {{"binary", "*bb***cc"}, {"und:ci", "*bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -3l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -4l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -5l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", 100l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaa***bb***cc", "**", -100l},
+       {{"binary", "aaa***bb***cc"}, {"und:ci", "aaa***bb***cc"}}},
+      // Delimiter as prefix.
+      {"split_substr",
+       {"**aaa***bb***cc", "**", 1l},
+       {{"binary", "**aaa***bb***cc"}, {"und:ci", "**aaa***bb***cc"}}},
+      // Delimiter as suffix.
+      {"split_substr",
+       {"aaa***bb***cc**", "**", -1l},
+       {{"binary", ""}, {"und:ci", ""}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "xX", 0l},
+       {{"und:ci", "aaaXXXbbXXXcc"}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "xX", 1l},
+       {{"und:ci", "aaaXXXbbXXXcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "xX", 2l}, {{"und:ci", "XbbXXXcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "xX", -1l}, {{"und:ci", "Xcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "xX", -2l}, {{"und:ci", "XbbXXXcc"}}},
+      {"split_substr", {"aaaXXXbbXXXcc", "xX", 100l}, {{"und:ci", ""}}},
+      {"split_substr",
+       {"aaaXXXbbXXXcc", "xX", -100l},
+       {{"und:ci", "aaaXXXbbXXXcc"}}},
+      {"split_substr",
+       {"аБракадабра", "Абр", 2l},
+       {{"und:ci", "акадабра"}, {"binary", ""}}},
+      {"split_substr",
+       {"аБракадабра", "Абр", 2l},
+       {{"und:ci", "акадабра"}, {"binary", ""}}},
+      {"split_substr",
+       {"аБракадабра", "Абр", 1l},
+       {{"und:ci", "аБракадабра"}, {"binary", "аБракадабра"}}},
+      {"split_substr",
+       {"aaa\0*\0*bb***cc", "**", 2l},
+       {{"binary", "*cc"}, {"und:ci", "bb***cc"}}},
+  };
+  return GetFunctionTestCalls(tests, skip_collation);
 }
 
 }  // namespace zetasql

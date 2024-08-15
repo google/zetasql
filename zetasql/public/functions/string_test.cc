@@ -31,10 +31,10 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
@@ -45,12 +45,26 @@ using zetasql_base::testing::StatusIs;
 
 namespace {
 
+template <typename OutType, typename FunctionType, typename... Args>
+bool EvaluateFunction(FunctionType function, Args&&... args, OutType* out,
+                      absl::Status* status) {
+  if constexpr (std::is_invocable_v<decltype(function), Args..., OutType*,
+                                    absl::Status*>) {
+    return function(args..., out, status);
+  } else {
+    *status = function(args..., out);
+    return status->ok();
+  }
+}
+
 template <typename OutType, typename FunctionType, class... Args>
 void TestFunction(FunctionType function, const QueryParamsWithResult& param,
                   Args... args) {
   OutType out;
   absl::Status status;
-  EXPECT_EQ(function(args..., &out, &status), param.status().ok());
+  bool evaluation_result = EvaluateFunction<OutType, FunctionType, Args...>(
+      function, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(Value::Make<OutType>(out)))
@@ -70,7 +84,10 @@ void TestArrayFunction(FunctionType function,
                        const QueryParamsWithResult& param, Args... args) {
   std::vector<ElementType> out;
   absl::Status status;
-  EXPECT_EQ(function(args..., &out, &status), param.status().ok());
+  bool evaluation_result =
+      EvaluateFunction<std::vector<ElementType>, FunctionType, Args...>(
+          function, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   Value array_value;
   if (status.ok()) {
     std::vector<Value> elements;
@@ -94,7 +111,9 @@ void TestStringFunction(FunctionType function,
                         const QueryParamsWithResult& param, Args... args) {
   OutType out;
   absl::Status status;
-  EXPECT_EQ(function(args..., &out, &status), param.status().ok());
+  bool evaluation_result = EvaluateFunction<OutType, FunctionType, Args...>(
+      function, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(Value::String(out)))
@@ -114,7 +133,9 @@ void TestBytesFunction(FunctionType function,
                        const QueryParamsWithResult& param, Args... args) {
   OutType out;
   absl::Status status;
-  EXPECT_EQ(function(args..., &out, &status), param.status().ok());
+  bool evaluation_result = EvaluateFunction<OutType, FunctionType, Args...>(
+      function, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(Value::Bytes(out)))
@@ -1240,6 +1261,35 @@ TEST_P(BytesStringConversionTemplateTest, Testlib) {
 INSTANTIATE_TEST_SUITE_P(
     String, BytesStringConversionTemplateTest,
     testing::ValuesIn(GetFunctionTestsBytesStringConversion()));
+
+typedef testing::TestWithParam<FunctionTestCall> SplitSubstrTemplateTest;
+TEST_P(SplitSubstrTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  int64_t num_params = param.params.num_params();
+
+  for (int i = 0; i < num_params; ++i) {
+    if (param.params.param(i).is_null()) {
+      return;
+    }
+  }
+
+  if (num_params == 3) {
+    TestStringFunction<std::string>(&SplitSubstr, param.params,
+                                    param.params.param(0).string_value(),
+                                    param.params.param(1).string_value(),
+                                    param.params.param(2).int64_value());
+  } else {
+    TestStringFunction<std::string>(&SplitSubstrWithCount, param.params,
+                                    param.params.param(0).string_value(),
+                                    param.params.param(1).string_value(),
+                                    param.params.param(2).int64_value(),
+                                    param.params.param(3).int64_value());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    String, SplitSubstrTemplateTest,
+    testing::ValuesIn(GetFunctionTestsSplitSubstr(/*skip_collation=*/true)));
 
 }  // anonymous namespace
 }  // namespace functions

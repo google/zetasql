@@ -1243,9 +1243,10 @@ absl::Status ValidateDateTimeFormatElements(
 
     // We store at most 2 elements inside this map, since this is enough to
     // print in error message when duplicate checks fail for a category.
-    if (category_to_elements_map[format_element.category].size() < 2) {
-      category_to_elements_map[format_element.category].push_back(
-          &format_element);
+    std::vector<const DateTimeFormatElement*>& elements =
+        category_to_elements_map[format_element.category];
+    if (elements.size() < 2) {
+      elements.push_back(&format_element);
     }
 
     if (type_to_element_map.contains(format_element.type)) {
@@ -1346,7 +1347,7 @@ absl::Status ValidateDateTimeFormatElementsForDateType(
 }
 
 absl::Status ValidateDateTimeFormatElementsForTimeType(
-    const std::vector<DateTimeFormatElement>& format_elements) {
+    absl::Span<const DateTimeFormatElement> format_elements) {
   return ValidateDateTimeFormatElements(
       format_elements,
       {FormatElementCategory::kYear, FormatElementCategory::kMonth,

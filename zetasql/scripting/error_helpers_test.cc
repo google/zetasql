@@ -74,8 +74,11 @@ void TestConvertErrorWithSource(
       error_stmt_text);
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                        /*keep_error_location_payload=*/true, &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
   const ASTStatement* error_stmt =
       parser_output->script()->statement_list().at(1);
@@ -134,8 +137,11 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
   const std::string error_stmt_text = "SELECT error_location";
 
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
-                        /*keep_error_location_payload=*/true, &parser_output));
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(),
+                        {.mode = ERROR_MESSAGE_WITH_PAYLOAD,
+                         .attach_error_location_payload = true,
+                         .stability = GetDefaultErrorMessageStability()},
+                        &parser_output));
   ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
   const ASTStatement* error_stmt =
       parser_output->script()->statement_list().at(1);

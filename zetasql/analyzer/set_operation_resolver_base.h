@@ -74,7 +74,7 @@ class SetOperationResolverBase {
   // REQUIRES: `final_column_names` and `final_column_types` must have the same
   // length.
   absl::StatusOr<ResolvedColumnList> BuildFinalColumnList(
-      const std::vector<IdString>& final_column_names,
+      absl::Span<const IdString> final_column_names,
       const std::vector<const Type*>& final_column_types, IdString table_name,
       std::function<void(const ResolvedColumn&)> record_column_access);
 

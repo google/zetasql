@@ -561,7 +561,7 @@ class TreeGenerator(object):
   def AddNode(
       self,
       name,
-      tag_id,  # Next tag_id: 263
+      tag_id,  # Next tag_id: 265
       parent,
       fields,
       is_abstract=False,
@@ -4269,9 +4269,11 @@ value.
       This statement:
       CREATE [OR REPLACE] [UNIQUE] [SEARCH | VECTOR] INDEX [IF NOT EXISTS]
        <index_name_path> ON <table_name_path>
-      [STORING (Expression, ...)]
       [UNNEST(path_expression) [[AS] alias] [WITH OFFSET [[AS] alias]], ...]
-      (path_expression [ASC|DESC], ...) [OPTIONS (name=value, ...)];
+      (path_expression [ASC|DESC], ...)
+      [STORING (Expression, ...)]
+      [PARTITION BY partition_expression, ...]
+      [OPTIONS (name=value, ...)];
 
       <table_name_path> is the name of table being indexed.
       <table_scan> is a TableScan on the table being indexed.
@@ -4287,6 +4289,7 @@ value.
                         to 'computed_columns_list' entries or the columns of
                         'table_scan'.
       <storing_expression_list> has the expressions in the storing clause.
+      <partition_by_list> has the expressions in the partition by clause.
       <option_list> has engine-specific directives for how and where to
                     materialize this index.
       <computed_columns_list> has computed columns derived from the columns of
@@ -4333,6 +4336,12 @@ value.
               'storing_expression_list',
               'ResolvedExpr',
               tag_id=9,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'partition_by_list',
+              'ResolvedExpr',
+              tag_id=13,
               vector=True,
               ignorable=IGNORABLE_DEFAULT),
           Field(
@@ -9368,6 +9377,50 @@ ResolvedArgumentRef(y)
   )
 
   gen.AddNode(
+      name='ResolvedStaticDescribeScan',
+      tag_id=251,
+      parent='ResolvedScan',
+      use_custom_debug_string=True,
+      comment="""
+      This represents the pipe STATIC_DESCRIBE operator, which is controlled by
+      FEATURE_PIPE_STATIC_DESCRIBE.
+
+      This scan is a no-op, that just stores the describe_text produced to show
+      the intermediate schema where this operator occurred.
+
+      This describe_text is displayed in resolved AST DebugStrings (which is
+      used internally in analyzer tests), and is also meant to be displayed
+      through some engine-specific side-channel at query prepare time.
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
+          Field('describe_text', SCALAR_STRING, ignorable=IGNORABLE, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedAssertScan',
+      tag_id=252,
+      parent='ResolvedScan',
+      comment="""
+      This represents the pipe ASSERT operator, which is controlled by
+      FEATURE_PIPE_ASSERT.
+
+      `condition` is a boolean expression.
+      `message` is a string expression.
+
+      `condition` is computed for each row.  If it does not return true,
+      the assertion fails.  Then `message` is evaluated and used as part
+      of the error message, following something like "Assert failed: ".
+      """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field('condition', 'ResolvedExpr', tag_id=3),
+          Field('message', 'ResolvedExpr', tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedBarrierScan',
       tag_id=261,
       parent='ResolvedScan',
@@ -9389,6 +9442,43 @@ ResolvedArgumentRef(y)
       fields=[
           Field('input_scan', 'ResolvedScan', tag_id=2, propagate_order=True),
       ],
+  )
+
+  gen.AddNode(
+      name='ResolvedCreateConnectionStmt',
+      tag_id=263,
+      parent='ResolvedCreateStatement',
+      comment="""
+     This statement:
+     CREATE [OR REPLACE] [TEMP] CONNECTION
+     [IF NOT EXISTS] <name> [OPTIONS (name=value, ...)]
+
+     builds a new connection based on the inputs provided via the
+     the OPTIONS field.
+
+     <name> is the name of the fully qualified connection.
+     <option_list> is the list of options for the connection.
+     """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedAlterConnectionStmt',
+      tag_id=264,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER CONNECTION [IF EXISTS] <name_path> SET OPTIONS(...)
+              """,
+      fields=[],
   )
 
   gen.Generate(

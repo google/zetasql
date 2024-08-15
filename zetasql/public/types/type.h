@@ -661,6 +661,12 @@ class Type {
   // (such as element types of arrays or field types of structs).
   virtual int64_t GetEstimatedOwnedMemoryBytesSize() const = 0;
 
+  // Type subclasses should return true if and only if the Type's stringified
+  // name is included when formatting the ValueContent in verbose debug mode.
+  virtual bool VerboseDebugFormatValueContentHasTypeName() const {
+    return false;
+  };
+
   // Formatting options that can be provided to FormatValueContent.
   struct FormatValueContentOptions {
     enum class Mode {
@@ -681,6 +687,21 @@ class Type {
       // function for more details.
       kSQLExpression,
     };
+
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, Mode m) {
+      switch (m) {
+        case Mode::kDebug:
+          sink.Append("kDebug");
+          break;
+        case Mode::kSQLLiteral:
+          sink.Append("kSQLLiteral");
+          break;
+        case Mode::kSQLExpression:
+          sink.Append("kSQLExpression");
+          break;
+      }
+    }
 
     // The getters below are here mostly for historical reasons: originally
     // internal zetasql::Value formatting functions were using these two flags

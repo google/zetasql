@@ -65,45 +65,30 @@ static ParseLocationRange MakeLocation(int start_offset, int end_offset) {
   return location;
 }
 
-static FlexTokenProvider MakeTokenProvider(absl::string_view input,
-                                           bool preserve_comments) {
-  return FlexTokenProvider(kFileName, input, preserve_comments,
-                           /*start_offset=*/0, /*end_offset=*/std::nullopt);
-}
-
 static FlexTokenProvider MakeTokenProvider(absl::string_view input) {
-  return MakeTokenProvider(input, /*preserve_comments=*/false);
+  return FlexTokenProvider(kFileName, input,
+                           /*start_offset=*/0, /*end_offset=*/std::nullopt);
 }
 
 TEST(FlexTokenProviderTest, RawTokenizerMode) {
   absl::string_view input = "/*comment*/ 123";
 
-  EXPECT_THAT(
-      MakeTokenProvider(input, /*preserve_comments=*/false).ConsumeNextToken(),
-      IsOkAndHoldsToken(TokenWithLocation{
-          .kind = DECIMAL_INTEGER_LITERAL,
-          .location = MakeLocation(12, 15),
-          .text = "123",
-          .preceding_whitespaces = "/*comment*/ ",
-      }));
-}
+  FlexTokenProvider token_provider = MakeTokenProvider(input);
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
+              IsOkAndHoldsToken(TokenWithLocation{
+                  .kind = COMMENT,
+                  .location = MakeLocation(0, 11),
+                  .text = "/*comment*/",
+                  .preceding_whitespaces = "",
+              }));
 
-TEST(FlexTokenProviderTest, RawTokenizerPreserveCommentsMode) {
-  absl::string_view input = "/*comment*/ 123";
-  FlexTokenProvider provider =
-      MakeTokenProvider(input, /*preserve_comments=*/true);
-  EXPECT_THAT(provider.ConsumeNextToken(), IsOkAndHoldsToken(TokenWithLocation{
-                                               .kind = COMMENT,
-                                               .location = MakeLocation(0, 11),
-                                               .text = "/*comment*/",
-                                               .preceding_whitespaces = "",
-                                           }));
-  EXPECT_THAT(provider.ConsumeNextToken(), IsOkAndHoldsToken(TokenWithLocation{
-                                               .kind = DECIMAL_INTEGER_LITERAL,
-                                               .location = MakeLocation(12, 15),
-                                               .text = "123",
-                                               .preceding_whitespaces = " ",
-                                           }));
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
+              IsOkAndHoldsToken(TokenWithLocation{
+                  .kind = DECIMAL_INTEGER_LITERAL,
+                  .location = MakeLocation(12, 15),
+                  .text = "123",
+                  .preceding_whitespaces = " ",
+              }));
 }
 
 TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {

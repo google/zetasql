@@ -21,6 +21,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/testdata/sample_catalog.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

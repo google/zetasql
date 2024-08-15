@@ -393,22 +393,6 @@ class ResolverTest : public ::testing::Test {
         StatusIs(_, HasSubstr(expected_error_substr)));
   }
 
-  void TestResolverErrorMessage(absl::string_view query,
-                                absl::string_view expected_error_substr) {
-    std::unique_ptr<ParserOutput> parser_output;
-    std::unique_ptr<const ResolvedExpr> resolved_expression;
-    // Parsing should succeed.
-    ZETASQL_ASSERT_OK(ParseExpression(query, ParserOptions(), &parser_output)) << query;
-    const ASTExpression* parsed_expression = parser_output->expression();
-    ASSERT_THAT(parsed_expression, NotNull());
-    EXPECT_THAT(ResolveExpr(parsed_expression, &resolved_expression),
-                StatusIs(_, HasSubstr(expected_error_substr)))
-        << "Query: " << query
-        << "\nParsed expression: " << Unparse(parsed_expression);
-    EXPECT_THAT(resolved_expression.get(), IsNull())
-        << resolved_expression->DebugString();
-  }
-
   void TestResolverOK(absl::string_view query) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;

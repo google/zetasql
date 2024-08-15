@@ -1574,7 +1574,7 @@ SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
 Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REP_OPT
   Argument types: STRING, STRING, STRING, STRING, o0 => STRING, o1 => STRING
-  Signature: FN_REP_OPT([a0=>]STRING, [[r0=>]STRING, ...], [[r1=>]STRING, ...], [[r2=>]STRING, ...], [a1=>]STRING, [[o0=>]STRING], [[o1=>]STRING])
+  Signature: FN_REP_OPT([a0=>]STRING, [[STRING, STRING, STRING], ...], [a1=>]STRING, [[o0=>]STRING], [[o1=>]STRING])
     Required named argument `a1` is not provided [at 1:8]
 SELECT fn_rep_opt("a0", "r0", "r1", "r2", o0 => "o0", o1 => "o1");
        ^
@@ -2435,14 +2435,14 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
   ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, o1 => BOOL
-  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
     Unable to find common supertype for templated argument <T1>
       Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", o1=>true);
@@ -2455,14 +2455,14 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, INT64, STRING, o1 => BOOL. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
   ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, INT64, STRING, o1 => BOOL
-  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
     Unable to find common supertype for templated argument <T1>
       Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", 3, "4", o1=>true);
@@ -2475,14 +2475,14 @@ SELECT
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
 --
 
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, BOOL, STRING, o1 => INT64. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([ANY, ...], [ANY, ...], [o1 => ANY]) [at 3:3]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1 for argument types: INT64, STRING, BOOL, STRING, o1 => INT64. Supported signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[ANY, ANY], ...], [o1 => ANY]) [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);
   ^
 --
 Signature Mismatch Details:
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1
   Argument types: INT64, STRING, BOOL, STRING, o1 => INT64
-  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([T1, ...], [T2, ...], [o1 => T1])
+  Signature: FN_REPEATED_T1_T2_WITH_OPTIONAL_NAMED_T1([[T1, T2], ...], [o1 => T1])
     Unable to find common supertype for templated argument <T1>
       Input types for <T1>: {INT64, BOOL} [at 3:3]
   fn_repeated_t1_t2_with_optional_named_t1(1, "2", true, "3", o1=>1);

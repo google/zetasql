@@ -77,6 +77,8 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_JSON_ARRAY_VALUE_EXTRACTION_FUNCTIONS);
       features.insert(FEATURE_V_1_4_JSON_MORE_VALUE_EXTRACTION_FUNCTIONS);
       features.insert(FEATURE_V_1_4_CREATE_FUNCTION_LANGUAGE_WITH_CONNECTION);
+      features.insert(FEATURE_V_1_4_KLL_FLOAT64_PRIMARY_WITH_DOUBLE_ALIAS);
+      features.insert(FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
@@ -270,7 +272,7 @@ void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
 
 const LanguageOptions::KeywordSet& LanguageOptions::GetReservableKeywords() {
   static auto* reservable_keywords = new KeywordSet{
-      "QUALIFY",
+      "QUALIFY", "MATCH_RECOGNIZE",
   };
   return *reservable_keywords;
 }

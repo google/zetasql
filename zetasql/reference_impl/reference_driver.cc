@@ -133,9 +133,9 @@ ReferenceDriver::ReferenceDriver(
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external) &&
-      options.product_mode() != ProductMode::PRODUCT_EXTERNAL) {
+      language_options_.product_mode() != ProductMode::PRODUCT_EXTERNAL) {
     ABSL_LOG(WARNING) << "Overriding requested Reference ProductMode "
-                 << ProductMode_Name(options.product_mode())
+                 << ProductMode_Name(language_options_.product_mode())
                  << " with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
   }
@@ -247,6 +247,7 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
     const TestTable& test_table = t.second;
     AddTableInternal(table_name, test_table);
   }
+
   return absl::OkStatus();
 }
 
@@ -288,14 +289,12 @@ absl::Status ReferenceDriver::AddSqlUdfs(
   // Don't pre-rewrite function bodies.
   // TODO: In RQG mode, apply a random subset of rewriters.
   analyzer_options.set_enabled_rewrites({});
-  // TODO: b/277368430 - Remove this rewriter once the reference implementation
-  // for UDA is fixed.
-  analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_UDAS);
   for (const std::string& create_function : create_function_stmts) {
-    sql_udf_artifacts_.emplace_back();
+    artifacts_.emplace_back();
     ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
         create_function, analyzer_options, /*allow_persistent_function=*/false,
-        function_options, sql_udf_artifacts_.back(), *catalog_.catalog()));
+        function_options, artifacts_.back(), *catalog_.catalog(),
+        *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -313,7 +312,7 @@ absl::Status ReferenceDriver::AddViews(
   for (const std::string& create_view : create_view_stmts) {
     ZETASQL_RETURN_IF_ERROR(AddViewFromCreateView(create_view, analyzer_options,
                                           /*allow_non_temp=*/false,
-                                          sql_udf_artifacts_.emplace_back(),
+                                          artifacts_.emplace_back(),
                                           *catalog_.catalog()));
   }
   return absl::OkStatus();
@@ -480,9 +479,9 @@ absl::StatusOr<ScriptResult> ReferenceDriver::ExecuteScript(
     const std::string& sql, const std::map<std::string, Value>& parameters,
     TypeFactory* type_factory) {
   ExecuteStatementOptions options{.primary_key_mode = PrimaryKeyMode::DEFAULT};
-  bool uses_unsupported_type = false;  // unused
+  ExecuteScriptAuxOutput aux_output_ignored;
   return ExecuteScriptForReferenceDriver(sql, parameters, options, type_factory,
-                                         &uses_unsupported_type);
+                                         aux_output_ignored);
 }
 
 absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
@@ -515,7 +514,6 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     // If provide, uses this instead of calling analyzer.
     const AnalyzerOutput* analyzed_input,
     ExecuteStatementAuxOutput& aux_output) {
-
   ABSL_CHECK(catalog_.catalog() != nullptr) << "Call CreateDatabase() first";
 
   std::unique_ptr<SimpleCatalog> internal_catalog;
@@ -871,6 +869,10 @@ class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
   // expression uses an unsupported type.
   bool uses_unsupported_type() const { return uses_unsupported_type_; }
 
+  // Returns false if any call to ExecuteStatement() returned a
+  // non-deterministic result.
+  bool is_deterministic_output() const { return is_deterministic_output_; }
+
  private:
   StatementEvaluatorCallback evaluator_callback_;
   ScriptResult* result_;
@@ -879,6 +881,7 @@ class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
   TypeFactory* type_factory_;
   ReferenceDriver* driver_;
   bool uses_unsupported_type_ = false;
+  bool is_deterministic_output_ = true;
 };
 
 absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
@@ -923,6 +926,11 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
     uses_unsupported_type_ |= *aux_output.uses_unsupported_type;
   }
 
+  if (aux_output.is_deterministic_output.has_value()) {
+    is_deterministic_output_ =
+        is_deterministic_output_ && *aux_output.is_deterministic_output;
+  }
+
   result_->statement_results.push_back(std::move(result));
   absl::Status status = result_->statement_results.back().result.status();
   if (!status.ok() && status.code() != absl::StatusCode::kInternal) {
@@ -944,25 +952,24 @@ absl::Status ExecuteScriptInternal(ScriptExecutor* executor) {
 absl::StatusOr<ScriptResult> ReferenceDriver::ExecuteScriptForReferenceDriver(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
     const ExecuteStatementOptions& options, TypeFactory* type_factory,
-    bool* uses_unsupported_type) {
+    ExecuteScriptAuxOutput& aux_output) {
   ScriptResult result;
   ZETASQL_RETURN_IF_ERROR(ExecuteScriptForReferenceDriverInternal(
-      sql, parameters, options, type_factory, uses_unsupported_type, &result));
+      sql, parameters, options, type_factory, aux_output, &result));
   return result;
 }
 
 absl::Status ReferenceDriver::ExecuteScriptForReferenceDriverInternal(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
     const ExecuteStatementOptions& options, TypeFactory* type_factory,
-    bool* uses_unsupported_type, ScriptResult* result) {
+    ExecuteScriptAuxOutput& aux_output, ScriptResult* result) {
   std::optional<bool> tmp_uses_unsupported_type;
 
   procedures_.clear();  // Clear procedures leftover from previous script.
   absl::StatusOr<AnalyzerOptions> analyzer_options =
       GetAnalyzerOptions(parameters, tmp_uses_unsupported_type);
-  if (uses_unsupported_type != nullptr &&
-      tmp_uses_unsupported_type.has_value()) {
-    *uses_unsupported_type = *tmp_uses_unsupported_type;
+  if (tmp_uses_unsupported_type.has_value()) {
+    aux_output.uses_unsupported_type = *tmp_uses_unsupported_type;
   }
   if (!analyzer_options.ok()) {
     return analyzer_options.status();
@@ -992,7 +999,8 @@ absl::Status ReferenceDriver::ExecuteScriptForReferenceDriverInternal(
       std::unique_ptr<ScriptExecutor> executor,
       ScriptExecutor::Create(sql, script_executor_options, &evaluator));
   absl::Status status = ExecuteScriptInternal(executor.get());
-  *uses_unsupported_type = evaluator.uses_unsupported_type();
+  aux_output.uses_unsupported_type = evaluator.uses_unsupported_type();
+  aux_output.is_deterministic_output = evaluator.is_deterministic_output();
   ZETASQL_RETURN_IF_ERROR(status);
   return absl::OkStatus();
 }

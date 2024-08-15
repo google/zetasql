@@ -255,24 +255,6 @@ SELECT CURRENT_TIMESTAMP() AS now;
  *---------------------------------------------*/
 ```
 
-When a column named `current_timestamp` is present, the column name and the
-function call without parentheses are ambiguous. To ensure the function call,
-add parentheses; to ensure the column name, qualify it with its
-[range variable][timestamp-functions-link-to-range-variables]. For example, the
-following query selects the function in the `now` column and the table
-column in the `current_timestamp` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_timestamp`)
-SELECT current_timestamp() AS now, t.current_timestamp FROM t;
-
-/*---------------------------------------------+-------------------*
- | now                                         | current_timestamp |
- +---------------------------------------------+-------------------+
- | 2020-06-02 17:00:53.110 America/Los_Angeles | column value      |
- *---------------------------------------------+-------------------*/
-```
-
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 ### `EXTRACT`
@@ -337,11 +319,15 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
 ```sql
-WITH Input AS (SELECT TIMESTAMP("2008-12-25 05:30:00+00") AS timestamp_value)
 SELECT
-  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "UTC") AS the_day_utc,
-  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles") AS the_day_california
-FROM Input
+  EXTRACT(
+    DAY
+    FROM TIMESTAMP('2008-12-25 05:30:00+00') AT TIME ZONE 'UTC')
+    AS the_day_utc,
+  EXTRACT(
+    DAY
+    FROM TIMESTAMP('2008-12-25 05:30:00+00') AT TIME ZONE 'America/Los_Angeles')
+    AS the_day_california
 
 /*-------------+--------------------*
  | the_day_utc | the_day_california |
@@ -350,38 +336,108 @@ FROM Input
  *-------------+--------------------*/
 ```
 
-In the following example, `EXTRACT` returns values corresponding to different
+In the following examples, `EXTRACT` returns values corresponding to different
 time parts from a column of type `TIMESTAMP`.
 
 ```sql
-WITH Timestamps AS (
-  SELECT TIMESTAMP("2005-01-03 12:34:56+00") AS timestamp_value UNION ALL
-  SELECT TIMESTAMP("2007-12-31 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2009-01-01 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2009-12-31 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2017-01-02 12:00:00+00") UNION ALL
-  SELECT TIMESTAMP("2017-05-26 12:00:00+00")
-)
 SELECT
-  timestamp_value,
-  EXTRACT(ISOYEAR FROM timestamp_value) AS isoyear,
-  EXTRACT(ISOWEEK FROM timestamp_value) AS isoweek,
-  EXTRACT(YEAR FROM timestamp_value) AS year,
-  EXTRACT(WEEK FROM timestamp_value) AS week
-FROM Timestamps
-ORDER BY timestamp_value;
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2005-01-03 12:34:56+00")) AS week
 
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------+---------+------+------*
- | timestamp_value                             | isoyear | isoweek | year | week |
- +---------------------------------------------+---------+---------+------+------+
- | 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
- | 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
- | 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
- | 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
- | 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
- | 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
- *---------------------------------------------+---------+---------+------+------*/
+-- Display of results may differ, depending upon the environment and
+-- time zone where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2005    | 1       | 2005 | 1    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2007-12-31 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2007-12-31 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2008    | 1       | 2007 | 52    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2009-01-01 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2009-01-01 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2009    | 1       | 2009 | 0    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2009-12-31 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2009-12-31 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2009    | 53      | 2009 | 52   |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2017-01-02 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2017-01-02 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2017    | 1       | 2017 | 1    |
+ *---------+---------+------+------*/
+```
+
+```sql
+SELECT
+  TIMESTAMP("2017-05-26 12:00:00+00") AS timestamp_value,
+  EXTRACT(ISOYEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoyear,
+  EXTRACT(ISOWEEK FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS isoweek,
+  EXTRACT(YEAR FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS year,
+  EXTRACT(WEEK FROM TIMESTAMP("2017-05-26 12:00:00+00")) AS week
+
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*---------+---------+------+------*
+ | isoyear | isoweek | year | week |
+ +---------+---------+------+------+
+ | 2017    | 21      | 2017 | 21   |
+ *---------+---------+------+------*/
 ```
 
 In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
@@ -389,19 +445,17 @@ calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT TIMESTAMP("2017-11-06 00:00:00+00") AS timestamp_value)
 SELECT
-  timestamp_value,
-  EXTRACT(WEEK(SUNDAY) FROM timestamp_value) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
-FROM table;
+  EXTRACT(WEEK(SUNDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM TIMESTAMP("2017-11-06 00:00:00+00")) AS week_monday
 
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+-------------+---------------*
- | timestamp_value                             | week_sunday | week_monday   |
- +---------------------------------------------+-------------+---------------+
- | 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
- *---------------------------------------------+-------------+---------------*/
+-- Display of results may differ, depending upon the environment and time zone
+-- where this query was executed.
+/*-------------+---------------*
+ | week_sunday | week_monday   |
+ +-------------+---------------+
+ | 45          | 44            |
+ *-------------+---------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -725,8 +779,9 @@ Gets the number of unit boundaries between two `TIMESTAMP` values
 
 +   `start_timestamp`: The starting `TIMESTAMP` value.
 +   `end_timestamp`: The ending `TIMESTAMP` value.
-+   `granularity`: The timestamp part that represents the granularity.
-    This can be:
++   `granularity`: The timestamp part that represents the granularity. If
+    you passed in `TIMESTAMP` values for the first arguments, `granularity` can
+    be:
 
     
     + `NANOSECOND`
@@ -744,6 +799,10 @@ If `end_timestamp` is earlier than `start_timestamp`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `TIMESTAMP` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `TIMESTAMP_DIFF(DATE, DATE, PART)`
+behaves like `DATE_DIFF(DATE, DATE, PART)`.
 
 **Return Data Type**
 
@@ -1018,44 +1077,63 @@ SELECT
 ### `TIMESTAMP_TRUNC`
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
+TIMESTAMP_TRUNC(timestamp_expression, granularity[, time_zone])
 ```
 
 **Description**
 
-Truncates a timestamp to the granularity of `date_time_part`.
-The timestamp is always rounded to the beginning of `date_time_part`,
-which can be one of the following:
+Truncates a `TIMESTAMP` value at a particular time granularity. The `TIMESTAMP`
+value is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-+ `DAY`: The day in the Gregorian calendar year that contains the
-  `TIMESTAMP` value.
-+ `WEEK`: The first day of the week in the week that contains the
-  `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
-  `WEEK(SUNDAY)`.
-+ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
-  `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
-   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
-   or `SATURDAY`.
-+ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
-  ISO week that contains the `TIMESTAMP` value. The ISO week begins on
-  Monday. The first ISO week of each ISO year contains the first Thursday of the
-  corresponding Gregorian calendar year.
-+ `MONTH`: The first day of the month in the month that contains the
-  `TIMESTAMP` value.
-+ `QUARTER`: The first day of the quarter in the quarter that contains the
-  `TIMESTAMP` value.
-+ `YEAR`: The first day of the year in the year that contains the
-  `TIMESTAMP` value.
-+ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
-  in the ISO year that contains the `TIMESTAMP` value. The ISO year is the
-  Monday of the first week whose Thursday belongs to the corresponding
-  Gregorian calendar year.
+**Definitions**
+
++ `timestamp_expression`: The `TIMESTAMP` value to truncate.
++ `granularity`: The datetime part that represents the granularity. If
+  you passed in a `TIMESTAMP` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
+
+  + `DAY`: The day in the Gregorian calendar year that contains the
+    `TIMESTAMP` value.
+
+  + `WEEK`: The first day in the week that contains the
+    `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
+    `WEEK(SUNDAY)`.
+
+  + `WEEK(WEEKDAY)`: The first day in the week that contains the
+    `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+     following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+     or `SATURDAY`.
+
+  + `ISOWEEK`: The first day in the [ISO 8601 week][ISO-8601-week] that contains
+    the `TIMESTAMP` value. The ISO week begins on
+    Monday. The first ISO week of each ISO year contains the first Thursday of the
+    corresponding Gregorian calendar year.
+
+  + `MONTH`: The first day in the month that contains the
+    `TIMESTAMP` value.
+
+  + `QUARTER`: The first day in the quarter that contains the
+    `TIMESTAMP` value.
+
+  + `YEAR`: The first day in the year that contains the
+    `TIMESTAMP` value.
+
+  + `ISOYEAR`: The first day in the [ISO 8601][ISO-8601] week-numbering year
+    that contains the `TIMESTAMP` value. The ISO year is the
+    Monday of the first week where Thursday belongs to the corresponding
+    Gregorian calendar year.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1065,23 +1143,20 @@ which can be one of the following:
 
 <!-- mdlint on -->
 
-`TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
-parameter applies to the following `date_time_part`:
++ `time_zone`: Use this parameter if you want to use a time zone other than
+  the default time zone, which is implementation defined, as part of the
+  truncate operation. This can be:
 
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`
-+ `WEEK(<WEEKDAY>)`
-+ `ISOWEEK`
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`
-
-Use this parameter if you want to use a time zone other than the
-default time zone, which is implementation defined, as part of the
-truncate operation.
+    + `MINUTE`
+    + `HOUR`
+    + `DAY`
+    + `WEEK`
+    + `WEEK(<WEEKDAY>)`
+    + `ISOWEEK`
+    + `MONTH`
+    + `QUARTER`
+    + `YEAR`
+    + `ISOYEAR`
 
 When truncating a timestamp to `MINUTE`
 or`HOUR` parts, `TIMESTAMP_TRUNC` determines the civil time of the

@@ -1219,11 +1219,12 @@ absl::Status SimpleCatalog::SerializeImpl(
 
   for (const auto& entry : functions) {
     const Function* const function = entry.second;
-    // TODO: in case we have a function with an alias we serialize it
-    // twice here (first for main entry and second time for an alias). Thus
-    // when we try to deserialize it we fail, because all entries are identical
-    // and we still insert an alias entry using main function name as a key.
-    // To fix it we should serialize only main entry.
+    // Skip serializing the alias entry as the main entry will be serialized,
+    // this prevents duplicate function entries in the catalog proto.
+    if (zetasql_base::CaseCompare(entry.first,
+                                             function->alias_name()) == 0) {
+      continue;
+    }
     if (!(ignore_builtin && function->IsZetaSQLBuiltin())) {
       ZETASQL_RETURN_IF_ERROR(function->Serialize(file_descriptor_set_map,
                                           proto->add_custom_function()));
@@ -1348,6 +1349,15 @@ absl::Status SimpleCatalog::GetFunctions(
   ZETASQL_RET_CHECK(output->empty());
   absl::MutexLock lock(&mutex_);
   InsertValuesFromMap(functions_, output);
+  return absl::OkStatus();
+}
+
+absl::Status SimpleCatalog::GetModels(
+    absl::flat_hash_set<const Model*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(models_, output);
   return absl::OkStatus();
 }
 

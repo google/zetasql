@@ -17,6 +17,113 @@ explicitly indicated otherwise in the function description:
 + For functions that are time zone sensitive, the default time zone,
   which is implementation defined, is used when a time zone is not specified.
 
+## Named arguments
+
+```sql
+named_argument => value
+```
+
+You can provide parameter arguments by name when calling some functions and
+procedures. These arguments are called _named arguments_. An argument that is
+not named is called a _positional argument_.
+
++  Named arguments are optional, unless specified as required in the
+   function signature.
++  Named arguments don't need to be in order.
++  You can specify positional arguments before named arguments.
++  You cannot specify positional arguments after named arguments.
++  An optional positional argument that is not used doesn't need to be added
+   before a named argument.
+
+**Examples**
+
+These examples reference a function called `CountTokensInText`, which counts
+the number of tokens in a paragraph. The function signature looks like this:
+
+```sql
+CountTokensInText(paragraph STRING, tokens ARRAY<STRING>, delimiters STRING)
+```
+
+`CountTokensInText` contains three arguments: `paragraph`, `tokens`, and
+`delimiters`. `paragraph` represents a body of text to analyze,
+`tokens` represents the tokens to search for in the paragraph,
+and `delimiters` represents the characters that specify a boundary
+between tokens in the paragraph.
+
+This is a query that includes `CountTokensInText`
+without named arguments:
+
+```sql
+SELECT token, count
+FROM CountTokensInText(
+  'Would you prefer softball, baseball, or tennis? There is also swimming.',
+  ['baseball', 'football', 'tennis'],
+  ' .,!?()')
+```
+
+This is the query with named arguments:
+
+```sql
+SELECT token, count
+FROM CountTokensInText(
+  paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.',
+  tokens => ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()')
+```
+
+If named arguments are used, the order of the arguments doesn't matter. This
+works:
+
+```sql
+SELECT token, count
+FROM CountTokensInText(
+  tokens => ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()',
+  paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.')
+```
+
+You can mix positional arguments and named arguments, as long as the positional
+arguments in the function signature come first:
+
+```sql
+SELECT token, count
+FROM CountTokensInText(
+  'Would you prefer softball, baseball, or tennis? There is also swimming.',
+  tokens => ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()')
+```
+
+This doesn't work because a positional argument appears after a named argument:
+
+```sql
+SELECT token, count
+FROM CountTokensInText(
+  paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.',
+  ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()')
+```
+
+If you want to use `tokens` as a positional argument, any arguments that appear
+before it in the function signature must also be positional arguments.
+If you try to use a named argument for `paragraph` and a positional
+argument for `tokens`, this will not work.
+
+```sql
+-- This doesn't work.
+SELECT token, count
+FROM CountTokensInText(
+  ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()',
+  paragraph => 'Would you prefer softball, baseball, or tennis? There is also swimming.')
+
+-- This works.
+SELECT token, count
+FROM CountTokensInText(
+  'Would you prefer softball, baseball, or tennis? There is also swimming.',
+  ['baseball', 'football', 'tennis'],
+  delimiters => ' .,!?()')
+```
+
 ## Lambdas 
 <a id="lambdas"></a>
 

@@ -22,10 +22,13 @@
 #include <optional>
 #include <string>
 
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -114,6 +117,10 @@ class ContainerType : public Type {
   std::string FormatNullableValueContent(
       const internal::NullableValueContent element, const Type* type,
       const FormatValueContentOptions& options) const {
+    if (!ThreadHasEnoughStack()) {
+      return std::string(kFormatValueContentOutOfStackError);
+    }
+
     if (element.is_null()) {
       return options.as_literal()
                  ? "NULL"
@@ -133,6 +140,44 @@ class ContainerType : public Type {
     format_options.mode = Type::FormatValueContentOptions::Mode::kDebug;
     return format_options;
   }
+
+  // Formats a NullableValueContent in debug mode. If verbose mode is set, the
+  // the type name is prepended to the formatted content. Ex: String("abc") or
+  // Int(5).
+  //
+  // Since some types prepend the type name explicitly as part of
+  // FormatValueContent in verbose debug mode, this function ensures the type
+  // name is not prepended twice.
+  std::string DebugFormatNullableValueContentForContainer(
+      const internal::NullableValueContent& nullable_content, const Type* type,
+      const FormatValueContentOptions& options) const {
+    ABSL_DCHECK_EQ(options.mode, Type::FormatValueContentOptions::Mode::kDebug)
+        << "This function should only be called in debug formatting mode";
+
+    std::string value_str =
+        FormatNullableValueContent(nullable_content, type, options);
+
+    if (!options.verbose) {
+      return value_str;
+    }
+
+    // If the value is not null, and the type has already included the type
+    // name, don't prepend it again.
+    if (!nullable_content.is_null() &&
+        type->VerboseDebugFormatValueContentHasTypeName()) {
+      return value_str;
+    }
+
+    return type->AddCapitalizedTypePrefix(value_str,
+                                          nullable_content.is_null());
+  }
+
+  bool VerboseDebugFormatValueContentHasTypeName() const override {
+    return true;
+  };
+
+  static constexpr absl::string_view kFormatValueContentOutOfStackError =
+      "... <out of stack>";
 };
 
 }  // namespace zetasql

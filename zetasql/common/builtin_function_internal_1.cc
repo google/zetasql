@@ -171,11 +171,6 @@ std::string SignatureTextForAnonCountStarFunction(
   return SignatureTextForAnonCountStarFunction();
 }
 
-std::string SupportedSignaturesForAnonCountStarFunction(
-    const LanguageOptions& language_options, const Function& function) {
-  return SignatureTextForAnonCountStarFunction();
-}
-
 std::string SignatureTextForAnonCountStarWithReportFunction(
     const std::string& report_format) {
   return absl::StrCat(
@@ -190,24 +185,12 @@ std::string SignatureTextForAnonCountStarWithReportFunction(
   return SignatureTextForAnonCountStarWithReportFunction(report_format);
 }
 
-std::string SupportedSignaturesForAnonCountStarWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
-    const Function& function) {
-  return SignatureTextForAnonCountStarWithReportFunction(report_format);
-}
-
 std::string SignatureTextForAnonQuantilesWithReportFunction(
     const std::string& report_format) {
   return absl::StrCat(
       "ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH "
       "REPORT(FORMAT=",
       report_format, "))");
-}
-
-std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
-    const Function& function) {
-  return SignatureTextForAnonQuantilesWithReportFunction(report_format);
 }
 
 std::string SignatureTextForAnonQuantilesWithReportFunction(
@@ -344,7 +327,7 @@ std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
 std::string NotLikeAnyFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
-  return absl::StrCat(inputs[0], "NOT LIKE ALL (",
+  return absl::StrCat(inputs[0], " NOT LIKE ANY (",
                       absl::StrJoin(like_list, ", "), ")");
 }
 std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs) {
@@ -356,7 +339,7 @@ std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs) {
 std::string NotLikeAllFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_GT(inputs.size(), 1);
   std::vector<std::string> like_list(inputs.begin() + 1, inputs.end());
-  return absl::StrCat(inputs[0], "NOT LIKE ALL (",
+  return absl::StrCat(inputs[0], " NOT LIKE ALL (",
                       absl::StrJoin(like_list, ", "), ")");
 }
 std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {

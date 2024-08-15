@@ -1,0 +1,504 @@
+# The first few tests here are trying to make sure all the possible keyword
+# prefixes around JOIN work for pipe JOIN too, and that the various
+# forms of RHS table_expressions also work.
+select 1 x
+|> join t2.x.y
+|> join t3 using (x)
+|> left join @{hint=1} t4 on true
+|> inner join (select zzz from zzz)
+|> cross join t6
+|> natural join t7
+|> hash join t7
+|> lookup join t7
+--
+QueryStatement [0-186] [select 1 x...lookup join t7]
+  Query [0-186] [select 1 x...lookup join t7]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-25] [|> join t2.x.y]
+      Join [13-25] [join t2.x.y]
+        PipeJoinLhsPlaceholder [14-25] [join t2.x.y]
+        Location [14-18] [join]
+        TablePathExpression [19-25] [t2.x.y]
+          PathExpression [19-25] [t2.x.y]
+            Identifier(t2) [19-21] [t2]
+            Identifier(x) [22-23] [x]
+            Identifier(y) [24-25] [y]
+    PipeJoin [26-46] [|> join t3 using (x)]
+      Join [28-46] [join t3 using (x)]
+        PipeJoinLhsPlaceholder [29-46] [join t3 using (x)]
+        Location [29-33] [join]
+        TablePathExpression [34-36] [t3]
+          PathExpression [34-36] [t3]
+            Identifier(t3) [34-36] [t3]
+        UsingClause [37-46] [using (x)]
+          Identifier(x) [44-45] [x]
+    PipeJoin [47-80] [|> left join...t4 on true]
+      Join(LEFT) [49-80] [left join @{hint=1} t4 on true]
+        PipeJoinLhsPlaceholder [50-80] [left join @{hint=1} t4 on true]
+        Hint [60-69] [@{hint=1}]
+          HintEntry [62-68] [hint=1]
+            Identifier(hint) [62-66] [hint]
+            IntLiteral(1) [67-68] [1]
+        Location [50-59] [left join]
+        TablePathExpression [70-72] [t4]
+          PathExpression [70-72] [t4]
+            Identifier(t4) [70-72] [t4]
+        OnClause [73-80] [on true]
+          BooleanLiteral(true) [76-80] [true]
+    PipeJoin [81-116] [|> inner join...from zzz)]
+      Join(INNER) [83-116] [inner join...from zzz)]
+        PipeJoinLhsPlaceholder [84-116] [inner join...from zzz)]
+        Location [84-94] [inner join]
+        TableSubquery [95-116] [(select zzz from zzz)]
+          Query [96-115] [select zzz from zzz]
+            Select [96-115] [select zzz from zzz]
+              SelectList [103-106] [zzz]
+                SelectColumn [103-106] [zzz]
+                  PathExpression [103-106] [zzz]
+                    Identifier(zzz) [103-106] [zzz]
+              FromClause [107-115] [from zzz]
+                TablePathExpression [112-115] [zzz]
+                  PathExpression [112-115] [zzz]
+                    Identifier(zzz) [112-115] [zzz]
+    PipeJoin [117-133] [|> cross join t6]
+      Join(CROSS) [119-133] [cross join t6]
+        PipeJoinLhsPlaceholder [120-133] [cross join t6]
+        Location [120-130] [cross join]
+        TablePathExpression [131-133] [t6]
+          PathExpression [131-133] [t6]
+            Identifier(t6) [131-133] [t6]
+    PipeJoin [134-152] [|> natural join t7]
+      Join(NATURAL) [137-152] [natural join t7]
+        PipeJoinLhsPlaceholder [137-152] [natural join t7]
+        Location [137-149] [natural join]
+        TablePathExpression [150-152] [t7]
+          PathExpression [150-152] [t7]
+            Identifier(t7) [150-152] [t7]
+    PipeJoin [153-168] [|> hash join t7]
+      Join(HASH) [155-168] [hash join t7]
+        PipeJoinLhsPlaceholder [156-168] [hash join t7]
+        Location [156-165] [hash join]
+        TablePathExpression [166-168] [t7]
+          PathExpression [166-168] [t7]
+            Identifier(t7) [166-168] [t7]
+    PipeJoin [169-186] [|> lookup join t7]
+      Join(LOOKUP) [171-186] [lookup join t7]
+        PipeJoinLhsPlaceholder [172-186] [lookup join t7]
+        Location [172-183] [lookup join]
+        TablePathExpression [184-186] [t7]
+          PathExpression [184-186] [t7]
+            Identifier(t7) [184-186] [t7]
+--
+SELECT
+  1 AS x
+|> JOIN
+   t2.x.y
+|> JOIN
+   t3
+   USING(x)
+|> LEFT JOIN
+   @{ hint = 1 } t4
+   ON true
+|> INNER JOIN
+   (
+     SELECT
+       zzz
+     FROM
+       zzz
+   )
+|> CROSS JOIN
+   t6
+|> NATURAL JOIN
+   t7
+|> HASH JOIN
+   t7
+|> LOOKUP JOIN
+   t7
+==
+
+select 1 x
+|> join tvf((select 1))
+|> join unnest(y)
+|> join unnest(y.z) i WITH OFFSET o
+--
+QueryStatement [0-88] [select 1 x...WITH OFFSET o]
+  Query [0-88] [select 1 x...WITH OFFSET o]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-34] [|> join tvf((select 1))]
+      Join [13-34] [join tvf((select 1))]
+        PipeJoinLhsPlaceholder [14-34] [join tvf((select 1))]
+        Location [14-18] [join]
+        TVF [19-34] [tvf((select 1))]
+          PathExpression [19-22] [tvf]
+            Identifier(tvf) [19-22] [tvf]
+          TVFArgument [23-33] [(select 1)]
+            ExpressionSubquery [23-33] [(select 1)]
+              Query [24-32] [select 1]
+                Select [24-32] [select 1]
+                  SelectList [31-32] [1]
+                    SelectColumn [31-32] [1]
+                      IntLiteral(1) [31-32] [1]
+    PipeJoin [35-52] [|> join unnest(y)]
+      Join [37-52] [join unnest(y)]
+        PipeJoinLhsPlaceholder [38-52] [join unnest(y)]
+        Location [38-42] [join]
+        TablePathExpression [43-52] [unnest(y)]
+          UnnestExpression [43-52] [unnest(y)]
+            ExpressionWithOptAlias [50-51] [y]
+              PathExpression [50-51] [y]
+                Identifier(y) [50-51] [y]
+    PipeJoin [53-88] [|> join unnest...WITH OFFSET o]
+      Join [55-88] [join unnest...WITH OFFSET o]
+        PipeJoinLhsPlaceholder [56-88] [join unnest...WITH OFFSET o]
+        Location [56-60] [join]
+        TablePathExpression [61-88] [unnest(y.z) i WITH OFFSET o]
+          UnnestExpression [61-72] [unnest(y.z)]
+            ExpressionWithOptAlias [68-71] [y.z]
+              PathExpression [68-71] [y.z]
+                Identifier(y) [68-69] [y]
+                Identifier(z) [70-71] [z]
+          Alias [73-74] [i]
+            Identifier(i) [73-74] [i]
+          WithOffset [75-88] [WITH OFFSET o]
+            Alias [87-88] [o]
+              Identifier(o) [87-88] [o]
+--
+SELECT
+  1 AS x
+|> JOIN
+   tvf((
+     SELECT
+       1
+   ))
+|> JOIN
+   UNNEST(y)
+|> JOIN
+   UNNEST(y.z) AS i WITH OFFSET AS o
+==
+
+# Variations of LEFT/RIGHT/FULL [OUTER] JOIN.
+select 1 x
+|> {{left|right|full}} {{|outer}} join tr
+--
+ALTERNATION GROUP: left,
+--
+QueryStatement [0-27] [select 1 x |> left  join tr]
+  Query [0-27] [select 1 x |> left  join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-27] [|> left  join tr]
+      Join(LEFT) [13-27] [left  join tr]
+        PipeJoinLhsPlaceholder [14-27] [left  join tr]
+        Location [14-24] [left  join]
+        TablePathExpression [25-27] [tr]
+          PathExpression [25-27] [tr]
+            Identifier(tr) [25-27] [tr]
+--
+SELECT
+  1 AS x
+|> LEFT JOIN
+   tr
+--
+ALTERNATION GROUP: left,outer
+--
+QueryStatement [0-32] [select 1 x...outer join tr]
+  Query [0-32] [select 1 x...outer join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-32] [|> left outer join tr]
+      Join(LEFT) [13-32] [left outer join tr]
+        PipeJoinLhsPlaceholder [14-32] [left outer join tr]
+        Location [14-29] [left outer join]
+        TablePathExpression [30-32] [tr]
+          PathExpression [30-32] [tr]
+            Identifier(tr) [30-32] [tr]
+--
+SELECT
+  1 AS x
+|> LEFT JOIN
+   tr
+--
+ALTERNATION GROUP: right,
+--
+QueryStatement [0-28] [select 1 x |> right  join tr]
+  Query [0-28] [select 1 x |> right  join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-28] [|> right  join tr]
+      Join(RIGHT) [13-28] [right  join tr]
+        PipeJoinLhsPlaceholder [14-28] [right  join tr]
+        Location [14-25] [right  join]
+        TablePathExpression [26-28] [tr]
+          PathExpression [26-28] [tr]
+            Identifier(tr) [26-28] [tr]
+--
+SELECT
+  1 AS x
+|> RIGHT JOIN
+   tr
+--
+ALTERNATION GROUP: right,outer
+--
+QueryStatement [0-33] [select 1 x...outer join tr]
+  Query [0-33] [select 1 x...outer join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-33] [|> right outer join tr]
+      Join(RIGHT) [13-33] [right outer join tr]
+        PipeJoinLhsPlaceholder [14-33] [right outer join tr]
+        Location [14-30] [right outer join]
+        TablePathExpression [31-33] [tr]
+          PathExpression [31-33] [tr]
+            Identifier(tr) [31-33] [tr]
+--
+SELECT
+  1 AS x
+|> RIGHT JOIN
+   tr
+--
+ALTERNATION GROUP: full,
+--
+QueryStatement [0-27] [select 1 x |> full  join tr]
+  Query [0-27] [select 1 x |> full  join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-27] [|> full  join tr]
+      Join(FULL) [13-27] [full  join tr]
+        PipeJoinLhsPlaceholder [14-27] [full  join tr]
+        Location [14-24] [full  join]
+        TablePathExpression [25-27] [tr]
+          PathExpression [25-27] [tr]
+            Identifier(tr) [25-27] [tr]
+--
+SELECT
+  1 AS x
+|> FULL JOIN
+   tr
+--
+ALTERNATION GROUP: full,outer
+--
+QueryStatement [0-32] [select 1 x...outer join tr]
+  Query [0-32] [select 1 x...outer join tr]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-32] [|> full outer join tr]
+      Join(FULL) [13-32] [full outer join tr]
+        PipeJoinLhsPlaceholder [14-32] [full outer join tr]
+        Location [14-29] [full outer join]
+        TablePathExpression [30-32] [tr]
+          PathExpression [30-32] [tr]
+            Identifier(tr) [30-32] [tr]
+--
+SELECT
+  1 AS x
+|> FULL JOIN
+   tr
+==
+
+# The normal join has productions for multiple ON/USING clauses, but
+# that isn't allowed here.
+select 1 x
+|> join t2 USING(x) USING(y)
+--
+ERROR: Syntax error: Expected end of input but got keyword USING [at 2:21]
+|> join t2 USING(x) USING(y)
+                    ^
+==
+
+select 1 x
+|> join t2 ON true ON false
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 2:20]
+|> join t2 ON true ON false
+                   ^
+==
+
+select 1 x
+|> join
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:8]
+|> join
+       ^
+==
+
+select 1 x
+|> join t2, t3
+--
+ERROR: Syntax error: Expected end of input but got "," [at 2:11]
+|> join t2, t3
+          ^
+==
+
+select 1 x
+|> join t2 join t3
+--
+ERROR: Syntax error: Expected end of input but got keyword JOIN [at 2:12]
+|> join t2 join t3
+           ^
+==
+
+# Parenthesized joins on the rhs, with arbitrary nesting.
+select 1 x
+|> join (t2 join t3 using (x))
+|> join (t2 join (t3 join t4))
+--
+QueryStatement [0-72] [select 1 x...join t4))]
+  Query [0-72] [select 1 x...join t4))]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-41] [|> join (t2 join t3 using (x))]
+      Join [13-41] [join (t2 join t3 using (x))]
+        PipeJoinLhsPlaceholder [14-41] [join (t2 join t3 using (x))]
+        Location [14-18] [join]
+        ParenthesizedJoin [19-41] [(t2 join t3 using (x))]
+          Join [20-40] [t2 join t3 using (x)]
+            TablePathExpression [20-22] [t2]
+              PathExpression [20-22] [t2]
+                Identifier(t2) [20-22] [t2]
+            Location [23-27] [join]
+            TablePathExpression [28-30] [t3]
+              PathExpression [28-30] [t3]
+                Identifier(t3) [28-30] [t3]
+            UsingClause [31-40] [using (x)]
+              Identifier(x) [38-39] [x]
+    PipeJoin [42-72] [|> join (t2 join (t3 join t4))]
+      Join [44-72] [join (t2 join (t3 join t4))]
+        PipeJoinLhsPlaceholder [45-72] [join (t2 join (t3 join t4))]
+        Location [45-49] [join]
+        ParenthesizedJoin [50-72] [(t2 join (t3 join t4))]
+          Join [51-71] [t2 join (t3 join t4)]
+            TablePathExpression [51-53] [t2]
+              PathExpression [51-53] [t2]
+                Identifier(t2) [51-53] [t2]
+            Location [54-58] [join]
+            ParenthesizedJoin [59-71] [(t3 join t4)]
+              Join [60-70] [t3 join t4]
+                TablePathExpression [60-62] [t3]
+                  PathExpression [60-62] [t3]
+                    Identifier(t3) [60-62] [t3]
+                Location [63-67] [join]
+                TablePathExpression [68-70] [t4]
+                  PathExpression [68-70] [t4]
+                    Identifier(t4) [68-70] [t4]
+--
+SELECT
+  1 AS x
+|> JOIN
+   (
+     t2
+     JOIN
+     t3
+     USING(x)
+   )
+|> JOIN
+   (
+     t2
+     JOIN
+     (
+       t3
+       JOIN
+       t4
+     )
+   )
+==
+
+# Parenthesizing also allows sequences of joins.
+select 1 x
+|> join (t2 join t3 join t4) using (x)
+--
+QueryStatement [0-49] [select 1 x...using (x)]
+  Query [0-49] [select 1 x...using (x)]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeJoin [11-49] [|> join (t2...using (x)]
+      Join [13-49] [join (t2 join...using (x)]
+        PipeJoinLhsPlaceholder [14-49] [join (t2 join...using (x)]
+        Location [14-18] [join]
+        ParenthesizedJoin [19-39] [(t2 join t3 join t4)]
+          Join [20-38] [t2 join t3 join t4]
+            Join [20-30] [t2 join t3]
+              TablePathExpression [20-22] [t2]
+                PathExpression [20-22] [t2]
+                  Identifier(t2) [20-22] [t2]
+              Location [23-27] [join]
+              TablePathExpression [28-30] [t3]
+                PathExpression [28-30] [t3]
+                  Identifier(t3) [28-30] [t3]
+            Location [31-35] [join]
+            TablePathExpression [36-38] [t4]
+              PathExpression [36-38] [t4]
+                Identifier(t4) [36-38] [t4]
+        UsingClause [40-49] [using (x)]
+          Identifier(x) [47-48] [x]
+--
+SELECT
+  1 AS x
+|> JOIN
+   (
+     t2
+     JOIN
+     t3
+     JOIN
+     t4
+   )
+   USING(x)
+==
+
+# The weird JoinProcessor case with consecutive conditions
+# doesn't work inside a parenthesized rhs.
+select 1
+|> join (t1 join t2 join t3 using (x) using (y))
+--
+ERROR: Syntax error: Expected end of input but got keyword USING [at 2:39]
+|> join (t1 join t2 join t3 using (x) using (y))
+                                      ^
+==
+
+select 1
+|> join (t1 join t2 join t3 on cond1 on cond2)
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 2:38]
+|> join (t1 join t2 join t3 on cond1 on cond2)
+                                     ^

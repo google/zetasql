@@ -1,0 +1,1158 @@
+[default language_features=PIPES]
+
+select 1,2,3
+|> where true;
+--
+QueryStatement [0-26] [select 1,2,3 |> where true]
+  Query [0-26] [select 1,2,3 |> where true]
+    Select [0-12] [select 1,2,3]
+      SelectList [7-12] [1,2,3]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+        SelectColumn [9-10] [2]
+          IntLiteral(2) [9-10] [2]
+        SelectColumn [11-12] [3]
+          IntLiteral(3) [11-12] [3]
+    PipeWhere [13-26] [|> where true]
+      WhereClause [16-26] [where true]
+        BooleanLiteral(true) [22-26] [true]
+--
+SELECT
+  1,
+  2,
+  3
+|> WHERE
+     true
+==
+
+select * from t where x=1
+|> where y=1
+|> where y=2
+;
+--
+QueryStatement [0-51] [select * from...where y=2]
+  Query [0-51] [select * from...where y=2]
+    Select [0-25] [select * from t where x=1]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [from t]
+        TablePathExpression [14-15] [t]
+          PathExpression [14-15] [t]
+            Identifier(t) [14-15] [t]
+      WhereClause [16-25] [where x=1]
+        BinaryExpression(=) [22-25] [x=1]
+          PathExpression [22-23] [x]
+            Identifier(x) [22-23] [x]
+          IntLiteral(1) [24-25] [1]
+    PipeWhere [26-38] [|> where y=1]
+      WhereClause [29-38] [where y=1]
+        BinaryExpression(=) [35-38] [y=1]
+          PathExpression [35-36] [y]
+            Identifier(y) [35-36] [y]
+          IntLiteral(1) [37-38] [1]
+    PipeWhere [39-51] [|> where y=2]
+      WhereClause [42-51] [where y=2]
+        BinaryExpression(=) [48-51] [y=2]
+          PathExpression [48-49] [y]
+            Identifier(y) [48-49] [y]
+          IntLiteral(2) [50-51] [2]
+--
+SELECT
+  *
+FROM
+  t
+WHERE
+  x = 1
+|> WHERE
+     y = 1
+|> WHERE
+     y = 2
+==
+
+select 5
+from (
+  select 1
+  |> where true
+)
+--
+QueryStatement [0-44] [select 5 from...where true )]
+  Query [0-44] [select 5 from...where true )]
+    Select [0-44] [select 5 from...where true )]
+      SelectList [7-8] [5]
+        SelectColumn [7-8] [5]
+          IntLiteral(5) [7-8] [5]
+      FromClause [9-44] [from (   select...where true )]
+        TableSubquery [14-44] [(   select 1   |> where true )]
+          Query [18-42] [select 1   |> where true]
+            Select [18-26] [select 1]
+              SelectList [25-26] [1]
+                SelectColumn [25-26] [1]
+                  IntLiteral(1) [25-26] [1]
+            PipeWhere [29-42] [|> where true]
+              WhereClause [32-42] [where true]
+                BooleanLiteral(true) [38-42] [true]
+--
+SELECT
+  5
+FROM
+  (
+    SELECT
+      1
+    |> WHERE
+         true
+  )
+==
+
+select (select 1 |> where true)
+--
+QueryStatement [0-31] [select (select...where true)]
+  Query [0-31] [select (select...where true)]
+    Select [0-31] [select (select...where true)]
+      SelectList [7-31] [(select 1 |> where true)]
+        SelectColumn [7-31] [(select 1 |> where true)]
+          ExpressionSubquery [7-31] [(select 1 |> where true)]
+            Query [8-30] [select 1 |> where true]
+              Select [8-16] [select 1]
+                SelectList [15-16] [1]
+                  SelectColumn [15-16] [1]
+                    IntLiteral(1) [15-16] [1]
+              PipeWhere [17-30] [|> where true]
+                WhereClause [20-30] [where true]
+                  BooleanLiteral(true) [26-30] [true]
+--
+SELECT
+  (
+    SELECT
+      1
+    |> WHERE
+         true)
+==
+
+# Query before set op cannot have pipe operators.
+select 1
+|> where true
+union all
+select 2
+--
+ERROR: Syntax error: Expected end of input but got keyword UNION [at 3:1]
+union all
+^
+==
+
+select 1
+union all
+select 2
+|> where true
+--
+QueryStatement [0-41] [select 1 union...where true]
+  Query [0-41] [select 1 union...where true]
+    SetOperation(UNION ALL) [0-27] [select 1 union all select 2]
+      SetOperationMetadataList [9-18] [union all]
+        SetOperationMetadata [9-18] [union all]
+          SetOperationType [9-14] [union]
+          SetOperationAllOrDistinct [15-18] [all]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [19-27] [select 2]
+        SelectList [26-27] [2]
+          SelectColumn [26-27] [2]
+            IntLiteral(2) [26-27] [2]
+    PipeWhere [28-41] [|> where true]
+      WhereClause [31-41] [where true]
+        BooleanLiteral(true) [37-41] [true]
+--
+SELECT
+  1
+UNION ALL
+SELECT
+  2
+|> WHERE
+     true
+==
+
+select 1
+union all
+select 2
+order by x
+limit 5
+|> where false
+--
+QueryStatement [0-61] [select 1 union...where false]
+  Query [0-61] [select 1 union...where false]
+    SetOperation(UNION ALL) [0-27] [select 1 union all select 2]
+      SetOperationMetadataList [9-18] [union all]
+        SetOperationMetadata [9-18] [union all]
+          SetOperationType [9-14] [union]
+          SetOperationAllOrDistinct [15-18] [all]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [19-27] [select 2]
+        SelectList [26-27] [2]
+          SelectColumn [26-27] [2]
+            IntLiteral(2) [26-27] [2]
+    OrderBy [28-38] [order by x]
+      OrderingExpression(ASC) [37-38] [x]
+        PathExpression [37-38] [x]
+          Identifier(x) [37-38] [x]
+    LimitOffset [39-46] [limit 5]
+      IntLiteral(5) [45-46] [5]
+    PipeWhere [47-61] [|> where false]
+      WhereClause [50-61] [where false]
+        BooleanLiteral(false) [56-61] [false]
+--
+SELECT
+  1
+UNION ALL
+SELECT
+  2
+ORDER BY x
+LIMIT 5
+|> WHERE
+     false
+==
+
+WITH q1 AS (select 1 x |> where true)
+select * from q1
+|> where false
+--
+QueryStatement [0-69] [WITH q1 AS...where false]
+  Query [0-69] [WITH q1 AS...where false]
+    WithClause [0-37] [WITH q1 AS...where true)]
+      AliasedQuery [5-37] [q1 AS (select...where true)]
+        Identifier(q1) [5-7] [q1]
+        Query [12-36] [select 1 x |> where true]
+          Select [12-22] [select 1 x]
+            SelectList [19-22] [1 x]
+              SelectColumn [19-22] [1 x]
+                IntLiteral(1) [19-20] [1]
+                Alias [21-22] [x]
+                  Identifier(x) [21-22] [x]
+          PipeWhere [23-36] [|> where true]
+            WhereClause [26-36] [where true]
+              BooleanLiteral(true) [32-36] [true]
+    Select [38-54] [select * from q1]
+      SelectList [45-46] [*]
+        SelectColumn [45-46] [*]
+          Star(*) [45-46] [*]
+      FromClause [47-54] [from q1]
+        TablePathExpression [52-54] [q1]
+          PathExpression [52-54] [q1]
+            Identifier(q1) [52-54] [q1]
+    PipeWhere [55-69] [|> where false]
+      WhereClause [58-69] [where false]
+        BooleanLiteral(false) [64-69] [false]
+--
+WITH
+  q1 AS (
+    SELECT
+      1 AS x
+    |> WHERE
+         true
+  )
+SELECT
+  *
+FROM
+  q1
+|> WHERE
+     false
+==
+
+# This shows where the pipe operators are binding around the WITH structure.
+# One pipe is attached to the CTE query, one to the final WITH
+# query, and one following the WITH query outside the parentheses.
+(
+  WITH q1 AS (select 1 x |> where 1)
+  select * from q1
+  |> where 2
+)
+|> where 3
+--
+QueryStatement [0-83] [(   WITH q1...|> where 3]
+  Query [0-83] [(   WITH q1...|> where 3]
+    Query [4-70] [WITH q1 AS...|> where 2]
+      WithClause [4-38] [WITH q1 AS...> where 1)]
+        AliasedQuery [9-38] [q1 AS (select 1 x |> where 1)]
+          Identifier(q1) [9-11] [q1]
+          Query [16-37] [select 1 x |> where 1]
+            Select [16-26] [select 1 x]
+              SelectList [23-26] [1 x]
+                SelectColumn [23-26] [1 x]
+                  IntLiteral(1) [23-24] [1]
+                  Alias [25-26] [x]
+                    Identifier(x) [25-26] [x]
+            PipeWhere [27-37] [|> where 1]
+              WhereClause [30-37] [where 1]
+                IntLiteral(1) [36-37] [1]
+      Select [41-57] [select * from q1]
+        SelectList [48-49] [*]
+          SelectColumn [48-49] [*]
+            Star(*) [48-49] [*]
+        FromClause [50-57] [from q1]
+          TablePathExpression [55-57] [q1]
+            PathExpression [55-57] [q1]
+              Identifier(q1) [55-57] [q1]
+      PipeWhere [60-70] [|> where 2]
+        WhereClause [63-70] [where 2]
+          IntLiteral(2) [69-70] [2]
+    PipeWhere [73-83] [|> where 3]
+      WhereClause [76-83] [where 3]
+        IntLiteral(3) [82-83] [3]
+--
+(WITH
+    q1 AS (
+      SELECT
+        1 AS x
+      |> WHERE
+           1
+    )
+  SELECT
+    *
+  FROM
+    q1
+  |> WHERE
+       2
+)
+|> WHERE
+     3
+==
+
+# Pipe after a parenthesized query attaches at an outer level, not just
+# as a trailing pipe operator.
+(
+  select 1
+  UNION ALL
+  select 2
+  |> where 2
+)
+|> where 3
+--
+QueryStatement [0-61] [(   select...|> where 3]
+  Query [0-61] [(   select...|> where 3]
+    Query [4-48] [select 1...|> where 2]
+      SetOperation(UNION ALL) [4-35] [select 1...select 2]
+        SetOperationMetadataList [15-24] [UNION ALL]
+          SetOperationMetadata [15-24] [UNION ALL]
+            SetOperationType [15-20] [UNION]
+            SetOperationAllOrDistinct [21-24] [ALL]
+        Select [4-12] [select 1]
+          SelectList [11-12] [1]
+            SelectColumn [11-12] [1]
+              IntLiteral(1) [11-12] [1]
+        Select [27-35] [select 2]
+          SelectList [34-35] [2]
+            SelectColumn [34-35] [2]
+              IntLiteral(2) [34-35] [2]
+      PipeWhere [38-48] [|> where 2]
+        WhereClause [41-48] [where 2]
+          IntLiteral(2) [47-48] [2]
+    PipeWhere [51-61] [|> where 3]
+      WhereClause [54-61] [where 3]
+        IntLiteral(3) [60-61] [3]
+--
+(
+  SELECT
+    1
+  UNION ALL
+  SELECT
+    2
+  |> WHERE
+       2
+)
+|> WHERE
+     3
+==
+
+select 1 x
+limit 10
+|> where 1
+--
+QueryStatement [0-30] [select 1 x limit 10 |> where 1]
+  Query [0-30] [select 1 x limit 10 |> where 1]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    LimitOffset [11-19] [limit 10]
+      IntLiteral(10) [17-19] [10]
+    PipeWhere [20-30] [|> where 1]
+      WhereClause [23-30] [where 1]
+        IntLiteral(1) [29-30] [1]
+--
+SELECT
+  1 AS x
+LIMIT 10
+|> WHERE
+     1
+==
+
+select 1 x
+order by 1
+|> where 1
+--
+QueryStatement [0-32] [select 1 x...|> where 1]
+  Query [0-32] [select 1 x...|> where 1]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    OrderBy [11-21] [order by 1]
+      OrderingExpression(ASC) [20-21] [1]
+        IntLiteral(1) [20-21] [1]
+    PipeWhere [22-32] [|> where 1]
+      WhereClause [25-32] [where 1]
+        IntLiteral(1) [31-32] [1]
+--
+SELECT
+  1 AS x
+ORDER BY 1
+|> WHERE
+     1
+==
+
+# Various forms and syntaxes for SELECT allowed during parsing.
+# The full grammar of the normal SELECT clause is allowed.
+# Some of these SELECT clauses are disallowed by the analyzer.
+select 1
+|> select 1,2,"abc"
+|> select distinct x
+|> select as struct x,y
+|> select as value z
+|> select as c.TypeName z
+|> select *, * except(abc), * replace(abc as def)
+|> select @{hint=1} *, * except(abc), * replace(abc as def)
+|> select abc.def.*, abc.* except(x)
+|> select with anonymization 1,2
+--
+QueryStatement [0-300] [select 1 |...anonymization 1,2]
+  Query [0-300] [select 1 |...anonymization 1,2]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSelect [9-28] [|> select 1,2,"abc"]
+      Select [12-28] [select 1,2,"abc"]
+        SelectList [19-28] [1,2,"abc"]
+          SelectColumn [19-20] [1]
+            IntLiteral(1) [19-20] [1]
+          SelectColumn [21-22] [2]
+            IntLiteral(2) [21-22] [2]
+          SelectColumn [23-28] ["abc"]
+            StringLiteral [23-28] ["abc"]
+              StringLiteralComponent("abc") [23-28] ["abc"]
+    PipeSelect [29-49] [|> select distinct x]
+      Select(distinct=true) [32-49] [select distinct x]
+        SelectList [48-49] [x]
+          SelectColumn [48-49] [x]
+            PathExpression [48-49] [x]
+              Identifier(x) [48-49] [x]
+    PipeSelect [50-73] [|> select as struct x,y]
+      Select [53-73] [select as struct x,y]
+        SelectAs(as_mode=STRUCT) [60-69] [as struct]
+        SelectList [70-73] [x,y]
+          SelectColumn [70-71] [x]
+            PathExpression [70-71] [x]
+              Identifier(x) [70-71] [x]
+          SelectColumn [72-73] [y]
+            PathExpression [72-73] [y]
+              Identifier(y) [72-73] [y]
+    PipeSelect [74-94] [|> select as value z]
+      Select [77-94] [select as value z]
+        SelectAs(as_mode=VALUE) [84-92] [as value]
+        SelectList [93-94] [z]
+          SelectColumn [93-94] [z]
+            PathExpression [93-94] [z]
+              Identifier(z) [93-94] [z]
+    PipeSelect [95-120] [|> select as c.TypeName z]
+      Select [98-120] [select as c.TypeName z]
+        SelectAs [105-118] [as c.TypeName]
+          PathExpression [108-118] [c.TypeName]
+            Identifier(c) [108-109] [c]
+            Identifier(TypeName) [110-118] [TypeName]
+        SelectList [119-120] [z]
+          SelectColumn [119-120] [z]
+            PathExpression [119-120] [z]
+              Identifier(z) [119-120] [z]
+    PipeSelect [121-170] [|> select...abc as def)]
+      Select [124-170] [select *,...abc as def)]
+        SelectList [131-170] [*, * except...abc as def)]
+          SelectColumn [131-132] [*]
+            Star(*) [131-132] [*]
+          SelectColumn [134-147] [* except(abc)]
+            StarWithModifiers [134-147] [* except(abc)]
+              StarModifiers [136-147] [except(abc)]
+                StarExceptList [136-147] [except(abc)]
+                  Identifier(abc) [143-146] [abc]
+          SelectColumn [149-170] [* replace(abc as def)]
+            StarWithModifiers [149-170] [* replace(abc as def)]
+              StarModifiers [151-170] [replace(abc as def)]
+                StarReplaceItem [159-169] [abc as def]
+                  PathExpression [159-162] [abc]
+                    Identifier(abc) [159-162] [abc]
+                  Identifier(def) [166-169] [def]
+    PipeSelect [171-230] [|> select...abc as def)]
+      Select [174-230] [select @{hint...abc as def)]
+        Hint [181-190] [@{hint=1}]
+          HintEntry [183-189] [hint=1]
+            Identifier(hint) [183-187] [hint]
+            IntLiteral(1) [188-189] [1]
+        SelectList [191-230] [*, * except...abc as def)]
+          SelectColumn [191-192] [*]
+            Star(*) [191-192] [*]
+          SelectColumn [194-207] [* except(abc)]
+            StarWithModifiers [194-207] [* except(abc)]
+              StarModifiers [196-207] [except(abc)]
+                StarExceptList [196-207] [except(abc)]
+                  Identifier(abc) [203-206] [abc]
+          SelectColumn [209-230] [* replace(abc as def)]
+            StarWithModifiers [209-230] [* replace(abc as def)]
+              StarModifiers [211-230] [replace(abc as def)]
+                StarReplaceItem [219-229] [abc as def]
+                  PathExpression [219-222] [abc]
+                    Identifier(abc) [219-222] [abc]
+                  Identifier(def) [226-229] [def]
+    PipeSelect [231-267] [|> select...except(x)]
+      Select [234-267] [select abc...except(x)]
+        SelectList [241-267] [abc.def.*, abc.* except(x)]
+          SelectColumn [241-250] [abc.def.*]
+            DotStar [241-250] [abc.def.*]
+              PathExpression [241-248] [abc.def]
+                Identifier(abc) [241-244] [abc]
+                Identifier(def) [245-248] [def]
+          SelectColumn [252-267] [abc.* except(x)]
+            DotStarWithModifiers [252-267] [abc.* except(x)]
+              PathExpression [252-255] [abc]
+                Identifier(abc) [252-255] [abc]
+              StarModifiers [258-267] [except(x)]
+                StarExceptList [258-267] [except(x)]
+                  Identifier(x) [265-266] [x]
+    PipeSelect [268-300] [|> select...anonymization 1,2]
+      Select [271-300] [select with anonymization 1,2]
+        SelectWith [278-296] [with anonymization]
+          Identifier(anonymization) [283-296] [anonymization]
+        SelectList [297-300] [1,2]
+          SelectColumn [297-298] [1]
+            IntLiteral(1) [297-298] [1]
+          SelectColumn [299-300] [2]
+            IntLiteral(2) [299-300] [2]
+--
+SELECT
+  1
+|> SELECT
+     1,
+     2,
+     "abc"
+|> SELECT DISTINCT
+     x
+|> SELECT AS STRUCT
+     x,
+     y
+|> SELECT AS VALUE
+     z
+|> SELECT AS c.TypeName
+     z
+|> SELECT
+     *,
+     * EXCEPT (abc),
+     * REPLACE (abc AS def)
+|> SELECT @{ hint = 1 }
+     *,
+     * EXCEPT (abc),
+     * REPLACE (abc AS def)
+|> SELECT
+     abc.def.*,
+     abc.* EXCEPT (x)
+|> SELECT WITH anonymization ALL
+     1,
+     2
+==
+
+# Trailing commas are allowed.
+select 1,
+|> select 2,
+|> select 3,4,
+--
+QueryStatement [0-37] [select 1,...select 3,4,]
+  Query [0-37] [select 1,...select 3,4,]
+    Select [0-9] [select 1,]
+      SelectList [7-9] [1,]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeSelect [10-22] [|> select 2,]
+      Select [13-22] [select 2,]
+        SelectList [20-22] [2,]
+          SelectColumn [20-21] [2]
+            IntLiteral(2) [20-21] [2]
+    PipeSelect [23-37] [|> select 3,4,]
+      Select [26-37] [select 3,4,]
+        SelectList [33-37] [3,4,]
+          SelectColumn [33-34] [3]
+            IntLiteral(3) [33-34] [3]
+          SelectColumn [35-36] [4]
+            IntLiteral(4) [35-36] [4]
+--
+SELECT
+  1
+|> SELECT
+     2
+|> SELECT
+     3,
+     4
+==
+
+select 1
+|> select ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:11]
+|> select ,
+          ^
+==
+
+select 1
+|> select
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:10]
+|> select
+         ^
+==
+
+# Can't have a FROM clause on pipe SELECT.
+select 1
+|> select 1,2 from t1
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 2:15]
+|> select 1,2 from t1
+              ^
+==
+
+# Can't have a WHERE clause on pipe SELECT.
+select 1
+|> select 1,2 where true
+--
+ERROR: Syntax error: Expected end of input but got keyword WHERE [at 2:15]
+|> select 1,2 where true
+              ^
+==
+
+select 1 x
+|> extend 2 y, 3 AS z
+|> extend y+z AS yz, pb.f1.f2[3] f3, sqrt(y)
+|> where true
+|> extend 1,2,3 as `three`, 4 four
+--
+QueryStatement [0-126] [select 1 x...three`, 4 four]
+  Query [0-126] [select 1 x...three`, 4 four]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeExtend [11-32] [|> extend 2 y, 3 AS z]
+      Select [14-32] [extend 2 y, 3 AS z]
+        SelectList [21-32] [2 y, 3 AS z]
+          SelectColumn [21-24] [2 y]
+            IntLiteral(2) [21-22] [2]
+            Alias [23-24] [y]
+              Identifier(y) [23-24] [y]
+          SelectColumn [26-32] [3 AS z]
+            IntLiteral(3) [26-27] [3]
+            Alias [28-32] [AS z]
+              Identifier(z) [31-32] [z]
+    PipeExtend [33-77] [|> extend...f3, sqrt(y)]
+      Select [36-77] [extend y+z...f3, sqrt(y)]
+        SelectList [43-77] [y+z AS yz,...f3, sqrt(y)]
+          SelectColumn [43-52] [y+z AS yz]
+            BinaryExpression(+) [43-46] [y+z]
+              PathExpression [43-44] [y]
+                Identifier(y) [43-44] [y]
+              PathExpression [45-46] [z]
+                Identifier(z) [45-46] [z]
+            Alias [47-52] [AS yz]
+              Identifier(yz) [50-52] [yz]
+          SelectColumn [54-68] [pb.f1.f2[3] f3]
+            ArrayElement [54-65] [pb.f1.f2[3]]
+              PathExpression [54-62] [pb.f1.f2]
+                Identifier(pb) [54-56] [pb]
+                Identifier(f1) [57-59] [f1]
+                Identifier(f2) [60-62] [f2]
+              Location [62-63] [[]
+              IntLiteral(3) [63-64] [3]
+            Alias [66-68] [f3]
+              Identifier(f3) [66-68] [f3]
+          SelectColumn [70-77] [sqrt(y)]
+            FunctionCall [70-77] [sqrt(y)]
+              PathExpression [70-74] [sqrt]
+                Identifier(sqrt) [70-74] [sqrt]
+              PathExpression [75-76] [y]
+                Identifier(y) [75-76] [y]
+    PipeWhere [78-91] [|> where true]
+      WhereClause [81-91] [where true]
+        BooleanLiteral(true) [87-91] [true]
+    PipeExtend [92-126] [|> extend...three`, 4 four]
+      Select [95-126] [extend 1,2...three`, 4 four]
+        SelectList [102-126] [1,2,3 as `three`, 4 four]
+          SelectColumn [102-103] [1]
+            IntLiteral(1) [102-103] [1]
+          SelectColumn [104-105] [2]
+            IntLiteral(2) [104-105] [2]
+          SelectColumn [106-118] [3 as `three`]
+            IntLiteral(3) [106-107] [3]
+            Alias [108-118] [as `three`]
+              Identifier(three) [111-118] [`three`]
+          SelectColumn [120-126] [4 four]
+            IntLiteral(4) [120-121] [4]
+            Alias [122-126] [four]
+              Identifier(four) [122-126] [four]
+--
+SELECT
+  1 AS x
+|> EXTEND
+     2 AS y,
+     3 AS z
+|> EXTEND
+     y + z AS yz,
+     pb.f1.f2[3] AS f3,
+     sqrt(y)
+|> WHERE
+     true
+|> EXTEND
+     1,
+     2,
+     3 AS three,
+     4 AS four
+==
+
+select 1 x
+|> extend
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:10]
+|> extend
+         ^
+==
+
+# Trailing commas are allowed.
+select 1 x,
+|> extend 2,
+|> extend 3, 4,
+--
+QueryStatement [0-40] [select 1 x...extend 3, 4,]
+  Query [0-40] [select 1 x...extend 3, 4,]
+    Select [0-11] [select 1 x,]
+      SelectList [7-11] [1 x,]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeExtend [12-24] [|> extend 2,]
+      Select [15-24] [extend 2,]
+        SelectList [22-24] [2,]
+          SelectColumn [22-23] [2]
+            IntLiteral(2) [22-23] [2]
+    PipeExtend [25-40] [|> extend 3, 4,]
+      Select [28-40] [extend 3, 4,]
+        SelectList [35-40] [3, 4,]
+          SelectColumn [35-36] [3]
+            IntLiteral(3) [35-36] [3]
+          SelectColumn [38-39] [4]
+            IntLiteral(4) [38-39] [4]
+--
+SELECT
+  1 AS x
+|> EXTEND
+     2
+|> EXTEND
+     3,
+     4
+==
+
+select 1 x
+|> extend ,
+--
+ERROR: Syntax error: Unexpected "," [at 2:11]
+|> extend ,
+          ^
+==
+
+select 1 x
+|> extend *
+--
+ERROR: Syntax error: Unexpected "*" [at 2:11]
+|> extend *
+          ^
+==
+
+select 1 x
+|> extend * except (x)
+--
+ERROR: Syntax error: Unexpected "*" [at 2:11]
+|> extend * except (x)
+          ^
+==
+
+# Dot-star is allowed on EXTEND, with the optional modifiers, including
+# on the output of window functions.
+select 1
+|> EXTEND x.*,
+          f(x).* except(a),
+          (1+x).* replace(a as b),
+          (sum(x) OVER ()).*
+--
+QueryStatement [0-115] [select 1 |...OVER ()).*]
+  Query [0-115] [select 1 |...OVER ()).*]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeExtend [9-115] [|> EXTEND...OVER ()).*]
+      Select [12-115] [EXTEND x.*...OVER ()).*]
+        SelectList [19-115] [x.*,...OVER ()).*]
+          SelectColumn [19-22] [x.*]
+            DotStar [19-22] [x.*]
+              PathExpression [19-20] [x]
+                Identifier(x) [19-20] [x]
+          SelectColumn [34-50] [f(x).* except(a)]
+            DotStarWithModifiers [34-50] [f(x).* except(a)]
+              FunctionCall [34-38] [f(x)]
+                PathExpression [34-35] [f]
+                  Identifier(f) [34-35] [f]
+                PathExpression [36-37] [x]
+                  Identifier(x) [36-37] [x]
+              StarModifiers [41-50] [except(a)]
+                StarExceptList [41-50] [except(a)]
+                  Identifier(a) [48-49] [a]
+          SelectColumn [62-85] [(1+x).* replace(a as b)]
+            DotStarWithModifiers [62-85] [(1+x).* replace(a as b)]
+              BinaryExpression(+) [63-66] [1+x]
+                IntLiteral(1) [63-64] [1]
+                PathExpression [65-66] [x]
+                  Identifier(x) [65-66] [x]
+              StarModifiers [70-85] [replace(a as b)]
+                StarReplaceItem [78-84] [a as b]
+                  PathExpression [78-79] [a]
+                    Identifier(a) [78-79] [a]
+                  Identifier(b) [83-84] [b]
+          SelectColumn [97-115] [(sum(x) OVER ()).*]
+            DotStar [97-115] [(sum(x) OVER ()).*]
+              AnalyticFunctionCall [98-112] [sum(x) OVER ()]
+                FunctionCall [98-104] [sum(x)]
+                  PathExpression [98-101] [sum]
+                    Identifier(sum) [98-101] [sum]
+                  PathExpression [102-103] [x]
+                    Identifier(x) [102-103] [x]
+                WindowSpecification [110-112] [()]
+--
+SELECT
+  1
+|> EXTEND
+     x.*,
+     f(x).* EXCEPT (a),
+     (1 + x).* REPLACE (a AS b),
+     (sum(x) OVER ()).*
+==
+
+# The precedence allows binding .* here.
+select 1
+|> EXTEND sum(x) OVER ().*
+--
+QueryStatement [0-35] [select 1 |...OVER ().*]
+  Query [0-35] [select 1 |...OVER ().*]
+    Select [0-8] [select 1]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+    PipeExtend [9-35] [|> EXTEND sum(x) OVER ().*]
+      Select [12-35] [EXTEND sum(x) OVER ().*]
+        SelectList [19-35] [sum(x) OVER ().*]
+          SelectColumn [19-35] [sum(x) OVER ().*]
+            DotStar [19-35] [sum(x) OVER ().*]
+              AnalyticFunctionCall [19-33] [sum(x) OVER ()]
+                FunctionCall [19-25] [sum(x)]
+                  PathExpression [19-22] [sum]
+                    Identifier(sum) [19-22] [sum]
+                  PathExpression [23-24] [x]
+                    Identifier(x) [23-24] [x]
+                WindowSpecification [31-33] [()]
+--
+SELECT
+  1
+|> EXTEND
+     sum(x) OVER ().*
+==
+
+# Precedence makes this illegal.
+select 1
+|> EXTEND 1+sum(x) OVER ().*
+--
+ERROR: Syntax error: Unexpected "*" [at 2:28]
+|> EXTEND 1+sum(x) OVER ().*
+                           ^
+==
+
+select 1
+|> EXTEND sum(x).* OVER ()
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 2:20]
+|> EXTEND sum(x).* OVER ()
+                   ^
+==
+
+select 1
+|> EXTEND sum(x.*) OVER ()
+--
+ERROR: Syntax error: Unexpected "*" [at 2:17]
+|> EXTEND sum(x.*) OVER ()
+                ^
+==
+
+# These are disallowed in the analyzer.
+select 1 x
+|> extend count(*), sum(x) over ()
+--
+QueryStatement [0-45] [select 1 x...x) over ()]
+  Query [0-45] [select 1 x...x) over ()]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeExtend [11-45] [|> extend...x) over ()]
+      Select [14-45] [extend count...x) over ()]
+        SelectList [21-45] [count(*), sum(x) over ()]
+          SelectColumn [21-29] [count(*)]
+            FunctionCall [21-29] [count(*)]
+              PathExpression [21-26] [count]
+                Identifier(count) [21-26] [count]
+              Star(*) [27-28] [*]
+          SelectColumn [31-45] [sum(x) over ()]
+            AnalyticFunctionCall [31-45] [sum(x) over ()]
+              FunctionCall [31-37] [sum(x)]
+                PathExpression [31-34] [sum]
+                  Identifier(sum) [31-34] [sum]
+                PathExpression [35-36] [x]
+                  Identifier(x) [35-36] [x]
+              WindowSpecification [43-45] [()]
+--
+SELECT
+  1 AS x
+|> EXTEND
+     count(*),
+     sum(x) OVER ()
+==
+
+select 1 x
+|> extend as struct x,x
+--
+ERROR: Syntax error: Unexpected keyword AS [at 2:11]
+|> extend as struct x,x
+          ^
+==
+
+select 1 x
+|> limit 10
+|> limit 12 offset 22
+|> limit @x offset @y
+|> limit cast(@z as int64)
+--
+QueryStatement [0-93] [select 1 x...as int64)]
+  Query [0-93] [select 1 x...as int64)]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeLimitOffset [11-22] [|> limit 10]
+      LimitOffset [14-22] [limit 10]
+        IntLiteral(10) [20-22] [10]
+    PipeLimitOffset [23-44] [|> limit 12 offset 22]
+      LimitOffset [26-44] [limit 12 offset 22]
+        IntLiteral(12) [32-34] [12]
+        IntLiteral(22) [42-44] [22]
+    PipeLimitOffset [45-66] [|> limit @x offset @y]
+      LimitOffset [48-66] [limit @x offset @y]
+        ParameterExpr [54-56] [@x]
+          Identifier(x) [55-56] [x]
+        ParameterExpr [64-66] [@y]
+          Identifier(y) [65-66] [y]
+    PipeLimitOffset [67-93] [|> limit cast(@z as int64)]
+      LimitOffset [70-93] [limit cast(@z as int64)]
+        CastExpression [76-93] [cast(@z as int64)]
+          ParameterExpr [81-83] [@z]
+            Identifier(z) [82-83] [z]
+          SimpleType [87-92] [int64]
+            PathExpression [87-92] [int64]
+              Identifier(int64) [87-92] [int64]
+--
+SELECT
+  1 AS x
+|> LIMIT 10
+|> LIMIT 12 OFFSET 22
+|> LIMIT @x OFFSET @y
+|> LIMIT CAST(@z AS int64)
+==
+
+select 1 x
+|> limit
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:9]
+|> limit
+        ^
+==
+
+select 1 x
+|> offset 20
+--
+ERROR: Syntax error: Expected keyword JOIN but got keyword OFFSET [at 2:4]
+|> offset 20
+   ^
+==
+
+# LIMIT takes a constant expression.
+select 1 x
+|> limit {{x|1+2|f(1)}}
+--
+ALTERNATION GROUP: x
+--
+QueryStatement [0-21] [select 1 x |> limit x]
+  Query [0-21] [select 1 x |> limit x]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeLimitOffset [11-21] [|> limit x]
+      LimitOffset [14-21] [limit x]
+        PathExpression [20-21] [x]
+          Identifier(x) [20-21] [x]
+--
+SELECT
+  1 AS x
+|> LIMIT x
+--
+ALTERNATION GROUP: 1+2
+--
+QueryStatement [0-23] [select 1 x |> limit 1+2]
+  Query [0-23] [select 1 x |> limit 1+2]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeLimitOffset [11-23] [|> limit 1+2]
+      LimitOffset [14-23] [limit 1+2]
+        BinaryExpression(+) [20-23] [1+2]
+          IntLiteral(1) [20-21] [1]
+          IntLiteral(2) [22-23] [2]
+--
+SELECT
+  1 AS x
+|> LIMIT 1 + 2
+--
+ALTERNATION GROUP: f(1)
+--
+QueryStatement [0-24] [select 1 x |> limit f(1)]
+  Query [0-24] [select 1 x |> limit f(1)]
+    Select [0-10] [select 1 x]
+      SelectList [7-10] [1 x]
+        SelectColumn [7-10] [1 x]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-10] [x]
+            Identifier(x) [9-10] [x]
+    PipeLimitOffset [11-24] [|> limit f(1)]
+      LimitOffset [14-24] [limit f(1)]
+        FunctionCall [20-24] [f(1)]
+          PathExpression [20-21] [f]
+            Identifier(f) [20-21] [f]
+          IntLiteral(1) [22-23] [1]
+--
+SELECT
+  1 AS x
+|> LIMIT f(1)
+==
+
+from t
+|> static_describe
+|> static_describe
+|> where true
+--
+QueryStatement [0-58] [from t |>...where true]
+  Query [0-58] [from t |>...where true]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeStaticDescribe [7-25] [|> static_describe]
+    PipeStaticDescribe [26-44] [|> static_describe]
+    PipeWhere [45-58] [|> where true]
+      WhereClause [48-58] [where true]
+        BooleanLiteral(true) [54-58] [true]
+--
+FROM
+  t
+|> STATIC_DESCRIBE
+|> STATIC_DESCRIBE
+|> WHERE
+     true
+==
+
+from t
+|> @{hint=1} static_describe
+--
+ERROR: Syntax error: Expected keyword JOIN but got "@" [at 2:4]
+|> @{hint=1} static_describe
+   ^
+==
+
+# It's a common mistake to try writing a pipe operator directly after the WITH,
+# without a query.
+WITH q AS (select 1 x)
+|> where x = 5
+--
+ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the main query; The main query usually starts with SELECT or FROM here [at 2:1]
+|> where x = 5
+^
+==
+
+WITH q AS (select 1 x)
+|> from q
+--
+ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the main query; The main query usually starts with SELECT or FROM here [at 2:1]
+|> from q
+^
+==
+
+[default language_features={{|PIPES}}]
+WITH q AS (select 1 x)
+|> select * from q
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected | [at 2:1]
+|> select * from q
+^
+--
+ALTERNATION GROUP: PIPES
+--
+ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the main query; The main query usually starts with SELECT or FROM here [at 2:1]
+|> select * from q
+^
+==
+
+WITH q AS (select 1 x) |>
+--
+ERROR: Syntax error: A pipe operator cannot follow the WITH clause before the main query; The main query usually starts with SELECT or FROM here [at 1:24]
+WITH q AS (select 1 x) |>
+                       ^

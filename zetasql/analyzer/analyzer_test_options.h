@@ -158,9 +158,11 @@ class AnalyzerTestCase;
 //       - Multiple statements may use the same prepare_database to add multiple
 //           objects to the same catalog. However, such statements must be
 //           sequentially adjacent, and only the first may be contain
-//           a 'use_catalog' option.
+//           a 'use_database' option.
 //       - The following statements are currently supported:
 //         CREATE [AGGREGATE] FUNCTION
+//         CREATE TABLE FUNCTION
+//         CREATE TABLE
 //
 //   error_message_mode
 //       - "with_payload", "one_line", or "multi_line_with_caret".

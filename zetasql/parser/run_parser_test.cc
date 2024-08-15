@@ -102,6 +102,7 @@ class RunParserTest : public ::testing::Test {
       "supported_generic_sub_entity_types";
   // Indicates that QUALIFY is a reserved keyword.
   const std::string kQualifyReserved = "qualify_reserved";
+  const std::string kReserveMatchRecognize = "reserve_match_recognize";
   // Show the text of the SQL fragment for each parse location, rather than only
   // the integer range.
   const std::string kShowParseLocationText = "show_parse_location_text";
@@ -115,6 +116,7 @@ class RunParserTest : public ::testing::Test {
       test_case_options_.RegisterBool(kTestGetParseTokens, true);
       test_case_options_.RegisterBool(kTestUnparse, true);
       test_case_options_.RegisterBool(kQualifyReserved, true);
+      test_case_options_.RegisterBool(kReserveMatchRecognize, true);
       test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
       test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
       test_case_options_.RegisterBool(kShowParseLocationText, true);
@@ -602,6 +604,9 @@ class RunParserTest : public ::testing::Test {
     if (test_case_options_.GetBool(kQualifyReserved)) {
       ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("QUALIFY"));
     }
+    if (test_case_options_.GetBool(kReserveMatchRecognize)) {
+      ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("MATCH_RECOGNIZE"));
+    }
 
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);
@@ -616,7 +621,8 @@ class RunParserTest : public ::testing::Test {
     language_options_->SetSupportedGenericSubEntityTypes(sub_entity_types);
 
     return ParserOptions(/*id_string_pool=*/nullptr, /*arena=*/nullptr,
-                         language_options_.get());
+                         // ParserOptions wants a copy of LanguageOptions.
+                         *language_options_);
   }
 
   void CheckExtractedStatementProperties(

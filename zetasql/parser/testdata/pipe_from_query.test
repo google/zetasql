@@ -1,0 +1,666 @@
+# We give parse errors as early as possible for queries
+# that start with FROM, rather than waiting for the analyzer.
+from t
+--
+ERROR: Syntax error: Unexpected FROM [at 1:1]
+from t
+^
+==
+
+select (from TestTable)
+--
+ERROR: Syntax error: Unexpected FROM [at 1:9]
+select (from TestTable)
+        ^
+==
+
+select EXISTS(from TestTable)
+--
+ERROR: Syntax error: Unexpected FROM [at 1:15]
+select EXISTS(from TestTable)
+              ^
+==
+
+select ARRAY(from TestTable)
+--
+ERROR: Syntax error: Unexpected FROM [at 1:14]
+select ARRAY(from TestTable)
+             ^
+==
+
+WITH q1 AS (select * from TestTable)
+FROM q1
+--
+ERROR: Syntax error: Unexpected FROM [at 2:1]
+FROM q1
+^
+==
+
+# These two queries show a leakage where we get an error about bad syntax
+# inside the FROM before we get the error about FROM not being allowed.
+# This is hard to avoid.
+from 123
+--
+ERROR: Syntax error: Unexpected integer literal "123" [at 1:6]
+from 123
+     ^
+==
+
+from t1, (select bad syntax here)
+--
+ERROR: Syntax error: Expected ")" but got identifier "here" [at 1:29]
+from t1, (select bad syntax here)
+                            ^
+==
+
+[default language_features=PIPES]
+from t
+--
+QueryStatement [0-6] [from t]
+  Query [0-6] [from t]
+    FromQuery [0-6] [from t]
+      FromClause [0-6] [from t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+--
+FROM
+  t
+==
+
+from unnest([1]) x
+--
+QueryStatement [0-18] [from unnest([1]) x]
+  Query [0-18] [from unnest([1]) x]
+    FromQuery [0-18] [from unnest([1]) x]
+      FromClause [0-18] [from unnest([1]) x]
+        TablePathExpression [5-18] [unnest([1]) x]
+          UnnestExpression [5-16] [unnest([1])]
+            ExpressionWithOptAlias [12-15] [[1]]
+              ArrayConstructor [12-15] [[1]]
+                IntLiteral(1) [13-14] [1]
+          Alias [17-18] [x]
+            Identifier(x) [17-18] [x]
+--
+FROM
+  UNNEST(ARRAY[1]) AS x
+==
+
+from t1, t2 JOIN t3 using (x), unnest(4) with offset o
+--
+QueryStatement [0-54] [from t1, t2...with offset o]
+  Query [0-54] [from t1, t2...with offset o]
+    FromQuery [0-54] [from t1, t2...with offset o]
+      FromClause [0-54] [from t1, t2...with offset o]
+        Join(COMMA) [5-54] [t1, t2 JOIN...with offset o]
+          Join [5-29] [t1, t2 JOIN t3 using (x)]
+            Join(COMMA) [5-11] [t1, t2]
+              TablePathExpression [5-7] [t1]
+                PathExpression [5-7] [t1]
+                  Identifier(t1) [5-7] [t1]
+              Location [7-8] [,]
+              TablePathExpression [9-11] [t2]
+                PathExpression [9-11] [t2]
+                  Identifier(t2) [9-11] [t2]
+            Location [12-16] [JOIN]
+            TablePathExpression [17-19] [t3]
+              PathExpression [17-19] [t3]
+                Identifier(t3) [17-19] [t3]
+            UsingClause [20-29] [using (x)]
+              Identifier(x) [27-28] [x]
+          Location [29-30] [,]
+          TablePathExpression [31-54] [unnest(4) with offset o]
+            UnnestExpression [31-40] [unnest(4)]
+              ExpressionWithOptAlias [38-39] [4]
+                IntLiteral(4) [38-39] [4]
+            WithOffset [41-54] [with offset o]
+              Alias [53-54] [o]
+                Identifier(o) [53-54] [o]
+--
+FROM
+  t1,
+  t2
+  JOIN
+  t3
+  USING(x),
+  UNNEST(4) WITH OFFSET AS o
+==
+
+from t
+select 1
+--
+ERROR: Syntax error: SELECT not supported after FROM query; Consider using pipe operator `|> SELECT` [at 2:1]
+select 1
+^
+==
+
+# Test the errors for other operators not allowed after FROM queries.
+# Common ones give a suggestion to use the pipe operator.
+[language_features={{|PIPES}}]
+from t
+{{where true|group by 1|having x|qualify y|offset 10}}
+--
+ALTERNATION GROUPS:
+    where true
+    group by 1
+    having x
+    qualify y
+    offset 10
+--
+ERROR: Syntax error: Unexpected FROM [at 1:1]
+from t
+^
+--
+ALTERNATION GROUP: PIPES,where true
+--
+ERROR: Syntax error: WHERE not supported after FROM query; Consider using pipe operator `|> WHERE` [at 2:1]
+where true
+^
+--
+ALTERNATION GROUP: PIPES,group by 1
+--
+ERROR: Syntax error: GROUP BY not supported after FROM query; Consider using pipe operator `|> AGGREGATE` [at 2:1]
+group by 1
+^
+--
+ALTERNATION GROUP: PIPES,having x
+--
+ERROR: Syntax error: Expected end of input but got keyword HAVING [at 2:1]
+having x
+^
+--
+ALTERNATION GROUP: PIPES,qualify y
+--
+ERROR: Syntax error: Expected end of input but got keyword QUALIFY [at 2:1]
+qualify y
+^
+--
+ALTERNATION GROUP: PIPES,offset 10
+--
+ERROR: Syntax error: Expected end of input but got integer literal "10" [at 2:8]
+offset 10
+       ^
+==
+
+# LIMIT, ORDER BY and set operations are not allowed when starting from a
+# standalone FROM.  The FROM clause is a whole query, not a query_primary.
+# These suggest using the pipe operator, or parenthesizing, which also works.
+[language_features={{|PIPES}}]
+from t
+{{limit 5|order by x|union all from t2|intersect|except distinct abc}}
+--
+ALTERNATION GROUPS:
+    limit 5
+    order by x
+    union all from t2
+    intersect
+    except distinct abc
+--
+ERROR: Syntax error: Unexpected FROM [at 1:1]
+from t
+^
+--
+ALTERNATION GROUP: PIPES,limit 5
+--
+ERROR: Syntax error: LIMIT not supported after FROM query; Consider using pipe operator `|> LIMIT` or parentheses around the FROM query [at 2:1]
+limit 5
+^
+--
+ALTERNATION GROUP: PIPES,order by x
+--
+ERROR: Syntax error: ORDER BY not supported after FROM query; Consider using pipe operator `|> ORDER BY` or parentheses around the FROM query [at 2:1]
+order by x
+^
+--
+ALTERNATION GROUP: PIPES,union all from t2
+--
+ERROR: Syntax error: UNION not supported after FROM query; Consider using pipe operator `|> UNION` or parentheses around the FROM query [at 2:1]
+union all from t2
+^
+--
+ALTERNATION GROUP: PIPES,intersect
+--
+ERROR: Syntax error: INTERSECT not supported after FROM query; Consider using pipe operator `|> INTERSECT` or parentheses around the FROM query [at 2:1]
+intersect
+^
+--
+ALTERNATION GROUP: PIPES,except distinct abc
+--
+ERROR: Syntax error: EXCEPT not supported after FROM query; Consider using pipe operator `|> EXCEPT` or parentheses around the FROM query [at 2:1]
+except distinct abc
+^
+==
+
+# EXCEPT has some special case handling that makes it
+# behave slightly differently from UNION on some cases.
+from t
+{{except|union}}
+from t2
+--
+ALTERNATION GROUP: except
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 2:1]
+except
+^
+--
+ALTERNATION GROUP: union
+--
+ERROR: Syntax error: UNION not supported after FROM query; Consider using pipe operator `|> UNION` or parentheses around the FROM query [at 2:1]
+union
+^
+==
+
+# Helpful error for FROM after a set op.
+[language_features={{|PIPES}}]
+select 1
+union all
+from t2
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected FROM [at 3:1]
+from t2
+^
+--
+ALTERNATION GROUP: PIPES
+--
+ERROR: Syntax error: Unexpected FROM; FROM queries following a set operation must be parenthesized [at 3:1]
+from t2
+^
+==
+
+# Helpful error for FROM after a set op.  Separate parser rule for second
+# vs third or later input query.
+[language_features={{|PIPES}}]
+select 1
+intersect all
+select 2
+except all
+from t3
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected FROM [at 5:1]
+from t3
+^
+--
+ALTERNATION GROUP: PIPES
+--
+ERROR: Syntax error: Unexpected FROM; FROM queries following a set operation must be parenthesized [at 5:1]
+from t3
+^
+==
+
+(from t) union all (from t intersect all from t2)
+--
+ERROR: Syntax error: INTERSECT not supported after FROM query; Consider using pipe operator `|> INTERSECT` or parentheses around the FROM query [at 1:28]
+(from t) union all (from t intersect all from t2)
+                           ^
+==
+
+(from t) join (from t2) using (x)
+--
+ERROR: Syntax error: Expected end of input but got keyword JOIN [at 1:10]
+(from t) join (from t2) using (x)
+         ^
+==
+
+select *
+from
+  (from t) join (from t2) using (x)
+--
+QueryStatement [0-49] [select * from...using (x)]
+  Query [0-49] [select * from...using (x)]
+    Select [0-49] [select * from...using (x)]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-49] [from   (from...using (x)]
+        Join [16-49] [(from t) join...using (x)]
+          TableSubquery [16-24] [(from t)]
+            Query [17-23] [from t]
+              FromQuery [17-23] [from t]
+                FromClause [17-23] [from t]
+                  TablePathExpression [22-23] [t]
+                    PathExpression [22-23] [t]
+                      Identifier(t) [22-23] [t]
+          Location [25-29] [join]
+          TableSubquery [30-39] [(from t2)]
+            Query [31-38] [from t2]
+              FromQuery [31-38] [from t2]
+                FromClause [31-38] [from t2]
+                  TablePathExpression [36-38] [t2]
+                    PathExpression [36-38] [t2]
+                      Identifier(t2) [36-38] [t2]
+          UsingClause [40-49] [using (x)]
+            Identifier(x) [47-48] [x]
+--
+SELECT
+  *
+FROM
+  (
+    FROM
+      t
+  )
+  JOIN
+  (
+    FROM
+      t2
+  )
+  USING(x)
+==
+
+from (select * from t)
+--
+QueryStatement [0-22] [from (select * from t)]
+  Query [0-22] [from (select * from t)]
+    FromQuery [0-22] [from (select * from t)]
+      FromClause [0-22] [from (select * from t)]
+        TableSubquery [5-22] [(select * from t)]
+          Query [6-21] [select * from t]
+            Select [6-21] [select * from t]
+              SelectList [13-14] [*]
+                SelectColumn [13-14] [*]
+                  Star(*) [13-14] [*]
+              FromClause [15-21] [from t]
+                TablePathExpression [20-21] [t]
+                  PathExpression [20-21] [t]
+                    Identifier(t) [20-21] [t]
+--
+FROM
+  (
+    SELECT
+      *
+    FROM
+      t
+  )
+==
+
+select (from t), EXISTS(from t1), ARRAY(from t2)
+from (from t)
+--
+QueryStatement [0-62] [select (from...from (from t)]
+  Query [0-62] [select (from...from (from t)]
+    Select [0-62] [select (from...from (from t)]
+      SelectList [7-48] [(from t),...ARRAY(from t2)]
+        SelectColumn [7-15] [(from t)]
+          ExpressionSubquery [7-15] [(from t)]
+            Query [8-14] [from t]
+              FromQuery [8-14] [from t]
+                FromClause [8-14] [from t]
+                  TablePathExpression [13-14] [t]
+                    PathExpression [13-14] [t]
+                      Identifier(t) [13-14] [t]
+        SelectColumn [17-32] [EXISTS(from t1)]
+          ExpressionSubquery(modifier=EXISTS) [17-32] [EXISTS(from t1)]
+            Query [24-31] [from t1]
+              FromQuery [24-31] [from t1]
+                FromClause [24-31] [from t1]
+                  TablePathExpression [29-31] [t1]
+                    PathExpression [29-31] [t1]
+                      Identifier(t1) [29-31] [t1]
+        SelectColumn [34-48] [ARRAY(from t2)]
+          ExpressionSubquery(modifier=ARRAY) [34-48] [ARRAY(from t2)]
+            Query [40-47] [from t2]
+              FromQuery [40-47] [from t2]
+                FromClause [40-47] [from t2]
+                  TablePathExpression [45-47] [t2]
+                    PathExpression [45-47] [t2]
+                      Identifier(t2) [45-47] [t2]
+      FromClause [49-62] [from (from t)]
+        TableSubquery [54-62] [(from t)]
+          Query [55-61] [from t]
+            FromQuery [55-61] [from t]
+              FromClause [55-61] [from t]
+                TablePathExpression [60-61] [t]
+                  PathExpression [60-61] [t]
+                    Identifier(t) [60-61] [t]
+--
+SELECT
+  (
+    FROM
+      t),
+  EXISTS(
+    FROM
+      t1),
+  ARRAY(
+    FROM
+      t2)
+FROM
+  (
+    FROM
+      t
+  )
+==
+
+from tvf(1,2)
+--
+QueryStatement [0-13] [from tvf(1,2)]
+  Query [0-13] [from tvf(1,2)]
+    FromQuery [0-13] [from tvf(1,2)]
+      FromClause [0-13] [from tvf(1,2)]
+        TVF [5-13] [tvf(1,2)]
+          PathExpression [5-8] [tvf]
+            Identifier(tvf) [5-8] [tvf]
+          TVFArgument [9-10] [1]
+            IntLiteral(1) [9-10] [1]
+          TVFArgument [11-12] [2]
+            IntLiteral(2) [11-12] [2]
+--
+FROM
+  tvf(1, 2)
+==
+
+select * from tvf((from t))
+--
+QueryStatement [0-27] [select * from tvf((from t))]
+  Query [0-27] [select * from tvf((from t))]
+    Select [0-27] [select * from tvf((from t))]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-27] [from tvf((from t))]
+        TVF [14-27] [tvf((from t))]
+          PathExpression [14-17] [tvf]
+            Identifier(tvf) [14-17] [tvf]
+          TVFArgument [18-26] [(from t)]
+            ExpressionSubquery [18-26] [(from t)]
+              Query [19-25] [from t]
+                FromQuery [19-25] [from t]
+                  FromClause [19-25] [from t]
+                    TablePathExpression [24-25] [t]
+                      PathExpression [24-25] [t]
+                        Identifier(t) [24-25] [t]
+--
+SELECT
+  *
+FROM
+  tvf((
+    FROM
+      t))
+==
+
+select * from tvf(from t)
+--
+ERROR: Syntax error: Unexpected keyword FROM [at 1:19]
+select * from tvf(from t)
+                  ^
+==
+
+WITH q1 AS (from t)
+from t2
+--
+QueryStatement [0-27] [WITH q1 AS (from t) from t2]
+  Query [0-27] [WITH q1 AS (from t) from t2]
+    WithClause [0-19] [WITH q1 AS (from t)]
+      AliasedQuery [5-19] [q1 AS (from t)]
+        Identifier(q1) [5-7] [q1]
+        Query [12-18] [from t]
+          FromQuery [12-18] [from t]
+            FromClause [12-18] [from t]
+              TablePathExpression [17-18] [t]
+                PathExpression [17-18] [t]
+                  Identifier(t) [17-18] [t]
+    FromQuery [20-27] [from t2]
+      FromClause [20-27] [from t2]
+        TablePathExpression [25-27] [t2]
+          PathExpression [25-27] [t2]
+            Identifier(t2) [25-27] [t2]
+--
+WITH
+  q1 AS (
+    FROM
+      t
+  )
+FROM
+  t2
+==
+
+WITH q1 AS (from t1,t2)
+from t3,t4
+limit 10
+--
+ERROR: Syntax error: LIMIT not supported after FROM query; Consider using pipe operator `|> LIMIT` or parentheses around the FROM query [at 3:1]
+limit 10
+^
+==
+
+# Test the special case error for trailing comma in the WITH clause.
+WITH q1 AS (from t),
+{{from t2|select 5}}
+--
+ALTERNATION GROUP: from t2
+--
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 2:1]
+from t2
+^
+--
+ALTERNATION GROUP: select 5
+--
+ERROR: Syntax error: Trailing comma after the WITH clause before the main query is not allowed [at 2:1]
+select 5
+^
+==
+
+with q1 as (from t |> where true)
+from q1
+|> where false
+--
+QueryStatement [0-56] [with q1 as...where false]
+  Query [0-56] [with q1 as...where false]
+    WithClause [0-33] [with q1 as...where true)]
+      AliasedQuery [5-33] [q1 as (from t |> where true)]
+        Identifier(q1) [5-7] [q1]
+        Query [12-32] [from t |> where true]
+          FromQuery [12-18] [from t]
+            FromClause [12-18] [from t]
+              TablePathExpression [17-18] [t]
+                PathExpression [17-18] [t]
+                  Identifier(t) [17-18] [t]
+          PipeWhere [19-32] [|> where true]
+            WhereClause [22-32] [where true]
+              BooleanLiteral(true) [28-32] [true]
+    FromQuery [34-41] [from q1]
+      FromClause [34-41] [from q1]
+        TablePathExpression [39-41] [q1]
+          PathExpression [39-41] [q1]
+            Identifier(q1) [39-41] [q1]
+    PipeWhere [42-56] [|> where false]
+      WhereClause [45-56] [where false]
+        BooleanLiteral(false) [51-56] [false]
+--
+WITH
+  q1 AS (
+    FROM
+      t
+    |> WHERE
+         true
+  )
+FROM
+  q1
+|> WHERE
+     false
+==
+
+# Test other postfix table operators allowed in the FROM clause,
+# mostly from `table_path_expression`.
+from
+  t1 @{hint=1},
+  t2 PIVOT(SUM(a) FOR b IN (0, 1)),
+  t3 UNPIVOT (a FOR c IN (x, y)),
+  t4 WITH OFFSET AS o
+     FOR SYSTEM TIME AS OF y
+     TABLESAMPLE abc(5 rows)
+--
+QueryStatement [0-170] [from   t1...abc(5 rows)]
+  Query [0-170] [from   t1...abc(5 rows)]
+    FromQuery [0-170] [from   t1...abc(5 rows)]
+      FromClause [0-170] [from   t1...abc(5 rows)]
+        Join(COMMA) [7-170] [t1 @{hint=...abc(5 rows)]
+          Join(COMMA) [7-89] [t1 @{hint=...IN (x, y))]
+            Join(COMMA) [7-55] [t1 @{hint=...IN (0, 1))]
+              TablePathExpression [7-19] [t1 @{hint=1}]
+                PathExpression [7-9] [t1]
+                  Identifier(t1) [7-9] [t1]
+                Hint [10-19] [@{hint=1}]
+                  HintEntry [12-18] [hint=1]
+                    Identifier(hint) [12-16] [hint]
+                    IntLiteral(1) [17-18] [1]
+              Location [19-20] [,]
+              TablePathExpression [23-55] [t2 PIVOT(SUM...IN (0, 1))]
+                PathExpression [23-25] [t2]
+                  Identifier(t2) [23-25] [t2]
+                PivotClause [26-55] [PIVOT(SUM(a) FOR b IN (0, 1))]
+                  PivotExpressionList [32-38] [SUM(a)]
+                    PivotExpression [32-38] [SUM(a)]
+                      FunctionCall [32-38] [SUM(a)]
+                        PathExpression [32-35] [SUM]
+                          Identifier(SUM) [32-35] [SUM]
+                        PathExpression [36-37] [a]
+                          Identifier(a) [36-37] [a]
+                  PathExpression [43-44] [b]
+                    Identifier(b) [43-44] [b]
+                  PivotValueList [49-53] [0, 1]
+                    PivotValue [49-50] [0]
+                      IntLiteral(0) [49-50] [0]
+                    PivotValue [52-53] [1]
+                      IntLiteral(1) [52-53] [1]
+            Location [55-56] [,]
+            TablePathExpression [59-89] [t3 UNPIVOT (a FOR c IN (x, y))]
+              PathExpression [59-61] [t3]
+                Identifier(t3) [59-61] [t3]
+              UnpivotClause [62-89] [UNPIVOT (a FOR c IN (x, y))]
+                PathExpressionList [71-72] [a]
+                  PathExpression [71-72] [a]
+                    Identifier(a) [71-72] [a]
+                PathExpression [77-78] [c]
+                  Identifier(c) [77-78] [c]
+                UnpivotInItemList [82-88] [(x, y)]
+                  UnpivotInItem [83-84] [x]
+                    PathExpressionList [83-84] [x]
+                      PathExpression [83-84] [x]
+                        Identifier(x) [83-84] [x]
+                  UnpivotInItem [86-87] [y]
+                    PathExpressionList [86-87] [y]
+                      PathExpression [86-87] [y]
+                        Identifier(y) [86-87] [y]
+          Location [89-90] [,]
+          TablePathExpression [93-170] [t4 WITH OFFSET...abc(5 rows)]
+            PathExpression [93-95] [t4]
+              Identifier(t4) [93-95] [t4]
+            WithOffset [96-112] [WITH OFFSET AS o]
+              Alias [108-112] [AS o]
+                Identifier(o) [111-112] [o]
+            ForSystemTime [118-141] [FOR SYSTEM TIME AS OF y]
+              PathExpression [140-141] [y]
+                Identifier(y) [140-141] [y]
+            SampleClause [147-170] [TABLESAMPLE abc(5 rows)]
+              Identifier(abc) [159-162] [abc]
+              SampleSize [163-169] [5 rows]
+                IntLiteral(5) [163-164] [5]
+--
+FROM
+  t1 @{ hint = 1 },
+  t2 PIVOT(SUM(a) FOR b IN (0, 1)),
+  t3 UNPIVOT(a FOR c IN ((x), (y))),
+  t4 WITH OFFSET AS o FOR SYSTEM_TIME AS OF y TABLESAMPLE abc(5 ROWS)

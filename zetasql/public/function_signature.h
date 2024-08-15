@@ -676,6 +676,9 @@ class FunctionArgumentType {
   // Returns information about a lambda typed function argument.
   const ArgumentTypeLambda& lambda() const {
     ABSL_DCHECK(IsLambda());
+    ABSL_DCHECK(lambda_ != nullptr)
+        << "FunctionArgumentType with ARG_TYPE_LAMBDA constructed directly is "
+           "not allowed. Use FunctionArgumentType::Lambda instead.";
     return *lambda_;
   }
 

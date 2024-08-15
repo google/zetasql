@@ -683,6 +683,7 @@ InsertStmt
 |   |   |       +-output_column_list=KeyValue.[Key#5, Value#6]
 |   |   +-order_by_item_list=
 |   |     +-OrderByItem
+|   |       +-parse_location=98-99
 |   |       +-column_ref=
 |   |         +-ColumnRef(type=INT64, column=$union_all.Key#7)
 |   +-limit=

@@ -29,6 +29,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/functions/json_format.h"
+#include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
@@ -40,6 +41,8 @@
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -80,19 +83,19 @@ template <typename T>
 absl::StatusOr<JSONValue> ToJsonFromNumeric(
     const T& value, bool stringify_wide_number,
     const LanguageOptions& language_options, const std::string_view type_name,
-    bool canonicalize_zero) {
+    bool canonicalize_zero, UnsupportedFields unsupported_fields) {
   if (!value.HasFractionalPart()) {
     // Check whether the value is int64_t
     if (value >= T(kInt64Min) && value <= T(kInt64Max)) {
       ZETASQL_ASSIGN_OR_RETURN(int64_t int64value, value.template To<int64_t>());
       return ToJson(Value::Int64(int64value), stringify_wide_number,
-                    language_options, canonicalize_zero);
+                    language_options, canonicalize_zero, unsupported_fields);
     }
     // Check whether the value is uint64_t
     if (value >= T(kUint64Min) && value <= T(kUint64Max)) {
       ZETASQL_ASSIGN_OR_RETURN(uint64_t uint64value, value.template To<uint64_t>());
       return ToJson(Value::Uint64(uint64value), stringify_wide_number,
-                    language_options, canonicalize_zero);
+                    language_options, canonicalize_zero, unsupported_fields);
     }
   }
   // Check whether the value can be converted to double without precision loss
@@ -139,7 +142,8 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
                                        bool stringify_wide_numbers,
                                        const LanguageOptions& language_options,
                                        int current_nesting_level,
-                                       bool canonicalize_zero) {
+                                       bool canonicalize_zero,
+                                       UnsupportedFields unsupported_fields) {
   // Check the stack usage iff the <current_neesting_level> not less than
   // kNestingLevelStackCheckThreshold.
   if (current_nesting_level >= kNestingLevelStackCheckThreshold) {
@@ -180,12 +184,12 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       return ToJsonFromNumeric(
           value.numeric_value(), stringify_wide_numbers, language_options,
           value.type()->ShortTypeName(language_options.product_mode()),
-          canonicalize_zero);
+          canonicalize_zero, unsupported_fields);
     case TYPE_BIGNUMERIC:
       return ToJsonFromNumeric(
           value.bignumeric_value(), stringify_wide_numbers, language_options,
           value.type()->ShortTypeName(language_options.product_mode()),
-          canonicalize_zero);
+          canonicalize_zero, unsupported_fields);
       break;
     case TYPE_STRING: {
       return JSONValue(value.string_value());
@@ -254,7 +258,8 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
         ZETASQL_ASSIGN_OR_RETURN(
             JSONValue json_member_value,
             ToJsonHelper(field_value, stringify_wide_numbers, language_options,
-                         current_nesting_level + 1, canonicalize_zero));
+                         current_nesting_level + 1, canonicalize_zero,
+                         unsupported_fields));
         JSONValueRef member_value_ref = json_value_ref.GetMember(name);
         member_value_ref.Set(std::move(json_member_value));
       }
@@ -268,13 +273,30 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
         json_value_ref.GetArrayElement(value.num_elements() - 1);
         int element_index = 0;
         for (const auto& element_value : value.elements()) {
-          ZETASQL_ASSIGN_OR_RETURN(
-              JSONValue json_element,
+          auto json_element =
               ToJsonHelper(element_value, stringify_wide_numbers,
                            language_options, current_nesting_level + 1,
-                           canonicalize_zero));
+                           canonicalize_zero, UnsupportedFields::FAIL);
+          if (json_element.status().code() ==
+              absl::StatusCode::kUnimplemented) {
+            // The value type is not supported by TO_JSON, and we should
+            // handle this entire array field as a whole, e.g. for IGNORE we
+            // return just one `NULL`, instead of an `ARRAY(NULL, ...)`.
+            if (unsupported_fields == UnsupportedFields::FAIL) {
+              return json_element.status();
+            }
+            if (unsupported_fields == UnsupportedFields::IGNORE) {
+              return JSONValue();
+            }
+            ZETASQL_RET_CHECK_EQ(unsupported_fields, UnsupportedFields::PLACEHOLDER);
+            return JSONValue(
+                absl::StrCat("Unsupported: array of ",
+                             element_value.type()->ShortTypeName(
+                                 language_options.product_mode())));
+          }
+          ZETASQL_RETURN_IF_ERROR(json_element.status());
           json_value_ref.GetArrayElement(element_index)
-              .Set(std::move(json_element));
+              .Set(std::move(json_element.value()));
           element_index++;
         }
       }
@@ -292,27 +314,39 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       JSONValueRef json_value_ref = json_value.GetRef();
       json_value_ref.SetToEmptyObject();
 
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValue json_member_value,
-          ToJsonHelper(value.start(), stringify_wide_numbers, language_options,
-                       current_nesting_level + 1, canonicalize_zero));
+      ZETASQL_ASSIGN_OR_RETURN(JSONValue json_member_value,
+                       ToJsonHelper(value.start(), stringify_wide_numbers,
+                                    language_options, current_nesting_level + 1,
+                                    canonicalize_zero, unsupported_fields));
       JSONValueRef member_value_ref = json_value_ref.GetMember("start");
       member_value_ref.Set(std::move(json_member_value));
 
-      ZETASQL_ASSIGN_OR_RETURN(
-          json_member_value,
-          ToJsonHelper(value.end(), stringify_wide_numbers, language_options,
-                       current_nesting_level + 1, canonicalize_zero));
+      ZETASQL_ASSIGN_OR_RETURN(json_member_value,
+                       ToJsonHelper(value.end(), stringify_wide_numbers,
+                                    language_options, current_nesting_level + 1,
+                                    canonicalize_zero, unsupported_fields));
       member_value_ref = json_value_ref.GetMember("end");
       member_value_ref.Set(std::move(json_member_value));
 
       return json_value;
     }
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unsupported argument type "
-             << value.type()->ShortTypeName(language_options.product_mode())
-             << " for TO_JSON";
+    default: {
+      if (unsupported_fields == UnsupportedFields::FAIL) {
+        return ::zetasql_base::UnimplementedErrorBuilder()
+               << "Unsupported argument type "
+               << value.type()->ShortTypeName(language_options.product_mode())
+               << " for TO_JSON";
+      }
+      if (unsupported_fields == UnsupportedFields::IGNORE) {
+        return JSONValue();
+      }
+      ZETASQL_RET_CHECK_EQ(unsupported_fields, UnsupportedFields::PLACEHOLDER);
+      // The object of unsupported type will be replaced with a json string,
+      // and no error will be triggered.
+      return JSONValue(absl::StrCat(
+          "Unsupported: ",
+          value.type()->ShortTypeName(language_options.product_mode())));
+    }
   }
 }
 
@@ -321,9 +355,11 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
 absl::StatusOr<JSONValue> ToJson(const Value& value,
                                  bool stringify_wide_numbers,
                                  const LanguageOptions& language_options,
-                                 bool canonicalize_zero) {
+                                 bool canonicalize_zero,
+                                 UnsupportedFields unsupported_fields) {
   return ToJsonHelper(value, stringify_wide_numbers, language_options,
-                      /*current_nesting_level=*/0, canonicalize_zero);
+                      /*current_nesting_level=*/0, canonicalize_zero,
+                      unsupported_fields);
 }
 
 }  // namespace functions

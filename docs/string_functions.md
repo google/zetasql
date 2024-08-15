@@ -330,6 +330,15 @@ canonical equivalence.
 </tr>
 
 <tr>
+  <td><a href="#regexp_substr"><code>REGEXP_SUBSTR</code></a>
+
+</td>
+  <td>
+    Synonym for <code>REGEXP_EXTRACT</code>.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#repeat"><code>REPEAT</code></a>
 
 </td>
@@ -583,21 +592,23 @@ regardless of whether the value is a `STRING` or `BYTES` type.
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT BYTE_LENGTH('абвгд') AS string_example;
 
-SELECT
-  characters,
-  BYTE_LENGTH(characters) AS string_example,
-  bytes,
-  BYTE_LENGTH(bytes) AS bytes_example
-FROM example;
+/*----------------*
+ | string_example |
+ +----------------+
+ | 10             |
+ *----------------*/
+```
 
-/*------------+----------------+-------+---------------*
- | characters | string_example | bytes | bytes_example |
- +------------+----------------+-------+---------------+
- | абвгд      | 10             | абвгд | 10            |
- *------------+----------------+-------+---------------*/
+```sql
+SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
+
+/*----------------*
+ | bytes_example  |
+ +----------------+
+ | 10             |
+ *----------------*/
 ```
 
 ### `CHAR_LENGTH`
@@ -617,19 +628,13 @@ Gets the number of characters in a `STRING` value.
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters)
+SELECT CHAR_LENGTH('абвгд') AS char_length;
 
-SELECT
-  characters,
-  CHAR_LENGTH(characters) AS char_length_example
-FROM example;
-
-/*------------+---------------------*
- | characters | char_length_example |
- +------------+---------------------+
- | абвгд      |                   5 |
- *------------+---------------------*/
+/*-------------*
+ | char_length |
+ +-------------+
+ | 5           |
+ *------------ */
 ```
 
 ### `CHARACTER_LENGTH`
@@ -649,13 +654,9 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 **Examples**
 
 ```sql
-WITH example AS
-  (SELECT 'абвгд' AS characters)
-
 SELECT
-  characters,
-  CHARACTER_LENGTH(characters) AS char_length_example
-FROM example;
+  'абвгд' AS characters,
+  CHARACTER_LENGTH('абвгд') AS char_length_example
 
 /*------------+---------------------*
  | characters | char_length_example |
@@ -1116,22 +1117,11 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  ENDS_WITH(item, 'e') as example
-FROM items;
+SELECT ENDS_WITH('apple', 'e') as example
 
 /*---------*
  | example |
  +---------+
- |    True |
- |   False |
  |    True |
  *---------*/
 ```
@@ -1727,6 +1717,8 @@ JSON '
  
 </table>
 
+ 
+
 ##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
 
@@ -2111,40 +2103,27 @@ If `value` or `delimiters` is `NULL`, the function returns `NULL`.
 **Examples**
 
 ```sql
-WITH example AS
-(
-  SELECT 'Hello World-everyone!' AS value UNION ALL
-  SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
-  SELECT 'apples&oranges;&pears' AS value UNION ALL
-  SELECT 'καθίσματα ταινιών' AS value
-)
-SELECT value, INITCAP(value) AS initcap_value FROM example
+SELECT
+  'Hello World-everyone!' AS value,
+  INITCAP('Hello World-everyone!') AS initcap_value
 
 /*-------------------------------+-------------------------------*
  | value                         | initcap_value                 |
  +-------------------------------+-------------------------------+
  | Hello World-everyone!         | Hello World-Everyone!         |
- | tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
- | apples&oranges;&pears         | Apples&Oranges;&Pears         |
- | καθίσματα ταινιών             | Καθίσματα Ταινιών             |
  *-------------------------------+-------------------------------*/
+```
 
-WITH example AS
-(
-  SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
-  SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
-  SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
-  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
-)
-SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
+```sql
+SELECT
+  'Apples1oranges2pears' as value,
+  '12' AS delimiters,
+  INITCAP('Apples1oranges2pears' , '12') AS initcap_value
 
 /*----------------------+------------+----------------------*
  | value                | delimiters | initcap_value        |
  +----------------------+------------+----------------------+
- | hello WORLD!         |            | Hello world!         |
- | καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
  | Apples1oranges2pears | 12         | Apples1Oranges2Pears |
- | tHisEisEaESentence   | E          | ThisEIsEAESentence   |
  *----------------------+------------+----------------------*/
 ```
 
@@ -2198,41 +2177,109 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH example AS
-(SELECT 'banana' as value, 'an' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 1 as position, 2 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 1 as position, 3 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, 3 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, -1 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'an' as subvalue, -3 as position, 1 as
-occurrence UNION ALL
-SELECT 'banana' as value, 'ann' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 1 as
-occurrence UNION ALL
-SELECT 'helloooo' as value, 'oo' as subvalue, 1 as position, 2 as
-occurrence
-)
-SELECT value, subvalue, position, occurrence, INSTR(value,
-subvalue, position, occurrence) AS instr
-FROM example;
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', 1, 1) AS instr;
 
 /*--------------+--------------+----------+------------+-------*
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 1          | 2     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 2 AS occurrence,
+  INSTR('banana', 'an', 1, 2) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 2          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 1 AS position, 3 AS occurrence,
+  INSTR('banana', 'an', 1, 3) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 3          | 0     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, 3 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', 3, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | 3        | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, -1 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', -1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | -1       | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'an' AS subvalue, -3 AS position, 1 AS occurrence,
+  INSTR('banana', 'an', -3, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | an           | -3       | 1          | 4     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'banana' AS value, 'ann' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('banana', 'ann', 1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | banana       | ann          | 1        | 1          | 0     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 1 AS occurrence,
+  INSTR('helloooo', 'oo', 1, 1) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 1          | 5     |
+ *--------------+--------------+----------+------------+-------*/
+```
+
+```sql
+SELECT
+  'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 2 AS occurrence,
+  INSTR('helloooo', 'oo', 1, 2) AS instr;
+
+/*--------------+--------------+----------+------------+-------*
+ | value        | subvalue     | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 2          | 6     |
  *--------------+--------------+----------+------------+-------*/
 ```
@@ -2264,43 +2311,23 @@ will be returned.
 **Examples**
 
 ```sql
-WITH examples AS
-(SELECT 'apple' as example
-UNION ALL
-SELECT 'banana' as example
-UNION ALL
-SELECT 'абвгд' as example
-)
-SELECT example, LEFT(example, 3) AS left_example
-FROM examples;
+SELECT LEFT('banana', 3) AS results
 
-/*---------+--------------*
- | example | left_example |
- +---------+--------------+
- | apple   | app          |
- | banana  | ban          |
- | абвгд   | абв          |
- *---------+--------------*/
+/*---------*
+ | results |
+  +--------+
+ | ban     |
+ *---------*/
 ```
 
 ```sql
-WITH examples AS
-(SELECT b'apple' as example
-UNION ALL
-SELECT b'banana' as example
-UNION ALL
-SELECT b'\xab\xcd\xef\xaa\xbb' as example
-)
-SELECT example, LEFT(example, 3) AS left_example
-FROM examples;
+SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
-/*----------------------+--------------*
- | example              | left_example |
- +----------------------+--------------+
- | apple                | app          |
- | banana               | ban          |
- | \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
- *----------------------+--------------*/
+/*--------------*
+ | results      |
+ +--------------+
+ | \xab\xcd\xef |
+ *--------------*/
 ```
 
 ### `LENGTH`
@@ -2322,21 +2349,15 @@ argument.
 **Examples**
 
 ```sql
-
-WITH example AS
-  (SELECT 'абвгд' AS characters)
-
 SELECT
-  characters,
-  LENGTH(characters) AS string_example,
-  LENGTH(CAST(characters AS BYTES)) AS bytes_example
-FROM example;
+  LENGTH('абвгд') AS string_example,
+  LENGTH(CAST('абвгд' AS BYTES)) AS bytes_example;
 
-/*------------+----------------+---------------*
- | characters | string_example | bytes_example |
- +------------+----------------+---------------+
- | абвгд      |              5 |            10 |
- *------------+----------------+---------------*/
+/*----------------+---------------*
+ | string_example | bytes_example |
+ +----------------+---------------+
+ | 5              | 10            |
+ *----------------+---------------*/
 ```
 
 ### `LOWER`
@@ -2363,28 +2384,15 @@ greater than 127 left intact.
 **Examples**
 
 ```sql
-
-WITH items AS
-  (SELECT
-    'FOO' as item
-  UNION ALL
-  SELECT
-    'BAR' as item
-  UNION ALL
-  SELECT
-    'BAZ' as item)
-
 SELECT
-  LOWER(item) AS example
+  LOWER('FOO BAR BAZ') AS example
 FROM items;
 
-/*---------*
- | example |
- +---------+
- | foo     |
- | bar     |
- | baz     |
- *---------*/
+/*-------------*
+ | example     |
+ +-------------+
+ | foo bar baz |
+ *-------------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -2426,72 +2434,53 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
-  STRUCT('abc' AS t, 5 AS len),
-  ('abc', 2),
-  ('例子', 4)
-]);
+SELECT FORMAT('%T', LPAD('c', 5)) AS results
 
-/*------+-----+----------*
- | t    | len | LPAD     |
- |------|-----|----------|
- | abc  | 5   | "  abc"  |
- | abc  | 2   | "ab"     |
- | 例子  | 4   | "  例子" |
- *------+-----+----------*/
+/*---------*
+ | results |
+ +---------+
+ | "    c" |
+ *---------*/
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT('%T', LPAD(t, len, pattern)) AS LPAD FROM UNNEST([
-  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
-  ('abc', 5, '-'),
-  ('例子', 5, '中文')
-]);
+SELECT LPAD('b', 5, 'a') AS results
 
-/*------+-----+---------+--------------*
- | t    | len | pattern | LPAD         |
- |------|-----|---------|--------------|
- | abc  | 8   | def     | "defdeabc"   |
- | abc  | 5   | -       | "--abc"      |
- | 例子  | 5   | 中文    | "中文中例子"   |
- *------+-----+---------+--------------*/
+/*---------*
+ | results |
+ +---------+
+ | aaaab   |
+ *---------*/
 ```
 
 ```sql
-SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
-  STRUCT(b'abc' AS t, 5 AS len),
-  (b'abc', 2),
-  (b'\xab\xcd\xef', 4)
-]);
+SELECT LPAD('abc', 10, 'ghd') AS results
 
-/*-----------------+-----+------------------*
- | t               | len | LPAD             |
- |-----------------|-----|------------------|
- | b"abc"          | 5   | b"  abc"         |
- | b"abc"          | 2   | b"ab"            |
- | b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
- *-----------------+-----+------------------*/
+/*------------*
+ | results    |
+ +------------+
+ | ghdghdgabc |
+ *------------*/
 ```
 
 ```sql
-SELECT
-  FORMAT('%T', t) AS t,
-  len,
-  FORMAT('%T', pattern) AS pattern,
-  FORMAT('%T', LPAD(t, len, pattern)) AS LPAD
-FROM UNNEST([
-  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
-  (b'abc', 5, b'-'),
-  (b'\xab\xcd\xef', 5, b'\x00')
-]);
+SELECT LPAD('abc', 2, 'd') AS results
 
-/*-----------------+-----+---------+-------------------------*
- | t               | len | pattern | LPAD                    |
- |-----------------|-----|---------|-------------------------|
- | b"abc"          | 8   | b"def"  | b"defdeabc"             |
- | b"abc"          | 5   | b"-"    | b"--abc"                |
- | b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
- *-----------------+-----+---------+-------------------------*/
+/*---------*
+ | results |
+ +---------+
+ | ab      |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
+
+/*---------------*
+ | results       |
+ +---------------+
+ | b"ghdghdgabc" |
+ *---------------*/
 ```
 
 ### `LTRIM`
@@ -2511,68 +2500,32 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT '   apple   ' as item
-  UNION ALL
-  SELECT '   banana   ' as item
-  UNION ALL
-  SELECT '   orange   ' as item)
-
-SELECT
-  CONCAT('#', LTRIM(item), '#') as example
-FROM items;
+SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 
 /*-------------*
  | example     |
  +-------------+
- | #apple   #  |
- | #banana   # |
- | #orange   # |
+ | #apple #    |
  *-------------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  LTRIM(item, '*') as example
-FROM items;
+SELECT LTRIM('***apple***', '*') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | apple***  |
- | banana*** |
- | orange*** |
  *-----------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'xxxapplexxx' as item
-  UNION ALL
-  SELECT 'yyybananayyy' as item
-  UNION ALL
-  SELECT 'zzzorangezzz' as item
-  UNION ALL
-  SELECT 'xyzpearxyz' as item)
-
-SELECT
-  LTRIM(item, 'xyz') as example
-FROM items;
+SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | applexxx  |
- | bananayyy |
- | orangezzz |
- | pearxyz   |
  *-----------*/
 ```
 
@@ -2609,40 +2562,60 @@ points.
 
 **Examples**
 
+The following example normalizes different language characters:
+
 ```sql
-SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
+SELECT
+  NORMALIZE('\u00ea') as a,
+  NORMALIZE('\u0065\u0302') as b,
+  NORMALIZE('\u00ea') = NORMALIZE('\u0065\u0302') as normalized;
 
 /*---+---+------------*
  | a | b | normalized |
  +---+---+------------+
- | ê | ê | true       |
+ | ê | ê | TRUE       |
  *---+---+------------*/
 ```
-The following example normalizes different space characters.
+The following examples normalize different space characters:
 
 ```sql
-WITH EquivalentNames AS (
-  SELECT name
-  FROM UNNEST([
-      'Jane\u2004Doe',
-      'John\u2004Smith',
-      'Jane\u2005Doe',
-      'Jane\u2006Doe',
-      'John Smith']) AS name
-)
-SELECT
-  NORMALIZE(name, NFKC) AS normalized_name,
-  COUNT(*) AS name_count
-FROM EquivalentNames
-GROUP BY 1;
+SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
 
-/*-----------------+------------*
- | normalized_name | name_count |
- +-----------------+------------+
- | John Smith      | 2          |
- | Jane Doe        | 3          |
- *-----------------+------------*/
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
+```
+
+```sql
+SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
+
+/*-----------------*
+ | normalized_name |
+ +-----------------+
+ | Raha Mahan      |
+ *-----------------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -2685,34 +2658,45 @@ considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
 
 ```sql
 SELECT
-  a, b,
-  NORMALIZE(a) = NORMALIZE(b) as normalized,
-  NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
-FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
+  NORMALIZE('The red barn') = NORMALIZE('The Red Barn') AS normalized,
+  NORMALIZE_AND_CASEFOLD('The red barn')
+    = NORMALIZE_AND_CASEFOLD('The Red Barn') AS normalized_with_case_folding;
 
-/*--------------+--------------+------------+------------------------------*
- | a            | b            | normalized | normalized_with_case_folding |
- +--------------+--------------+------------+------------------------------+
- | The red barn | The Red Barn | false      | true                         |
- *--------------+--------------+------------+------------------------------*/
+/*------------+------------------------------*
+ | normalized | normalized_with_case_folding |
+ +------------+------------------------------+
+ | FALSE      | TRUE                         |
+ *------------+------------------------------*/
 ```
 
 ```sql
-WITH Strings AS (
-  SELECT '\u2168' AS a, 'IX' AS b UNION ALL
-  SELECT '\u0041\u030A', '\u00C5'
-)
-SELECT a, b,
-  NORMALIZE_AND_CASEFOLD(a, NFD)=NORMALIZE_AND_CASEFOLD(b, NFD) AS nfd,
-  NORMALIZE_AND_CASEFOLD(a, NFC)=NORMALIZE_AND_CASEFOLD(b, NFC) AS nfc,
-  NORMALIZE_AND_CASEFOLD(a, NFKD)=NORMALIZE_AND_CASEFOLD(b, NFKD) AS nkfd,
-  NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
-FROM Strings;
+SELECT
+  '\u2168' AS a,
+  'IX' AS b,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFD)=NORMALIZE_AND_CASEFOLD('IX', NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFC)=NORMALIZE_AND_CASEFOLD('IX', NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFKD)=NORMALIZE_AND_CASEFOLD('IX', NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD('\u2168', NFKC)=NORMALIZE_AND_CASEFOLD('IX', NFKC) AS nkfc;
 
 /*---+----+-------+-------+------+------*
  | a | b  | nfd   | nfc   | nkfd | nkfc |
  +---+----+-------+-------+------+------+
  | Ⅸ | IX | false | false | true | true |
+ *---+----+-------+-------+------+------*/
+```
+
+```sql
+SELECT
+  '\u0041\u030A' AS a,
+  '\u00C5' AS b,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFD)=NORMALIZE_AND_CASEFOLD('\u00C5', NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFC)=NORMALIZE_AND_CASEFOLD('\u00C5', NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKD)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKC)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKC) AS nkfc;
+
+/*---+----+-------+-------+------+------*
+ | a | b  | nfd   | nfc   | nkfd | nkfc |
+ +---+----+-------+-------+------+------+
  | Å | Å  | true  | true  | true | true |
  *---+----+-------+-------+------+------*/
 ```
@@ -2760,46 +2744,98 @@ regular expression syntax.
 
 **Examples**
 
+The following queries check to see if an email is valid:
+
 ```sql
 SELECT
-  email,
-  REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
-FROM
-  (SELECT
-    ['foo@example.com', 'bar@example.org', 'www.example.net']
-    AS addresses),
-  UNNEST(addresses) AS email;
+  'foo@example.com' AS email,
+  REGEXP_CONTAINS('foo@example.com', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
 
 /*-----------------+----------*
  | email           | is_valid |
  +-----------------+----------+
- | foo@example.com | true     |
- | bar@example.org | true     |
- | www.example.net | false    |
+ | foo@example.com | TRUE     |
  *-----------------+----------*/
+ ```
 
--- Performs a full match, using ^ and $. Due to regular expression operator
--- precedence, it is good practice to use parentheses around everything between ^
--- and $.
+ ```sql
 SELECT
-  email,
-  REGEXP_CONTAINS(email, r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$')
-    AS valid_email_address,
-  REGEXP_CONTAINS(email, r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$')
-    AS without_parentheses
-FROM
-  (SELECT
-    ['a@foo.com', 'a@foo.computer', 'b@bar.org', '!b@bar.org', 'c@buz.net']
-    AS addresses),
-  UNNEST(addresses) AS email;
+  'www.example.net' AS email,
+  REGEXP_CONTAINS('www.example.net', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
+
+/*-----------------+----------*
+ | email           | is_valid |
+ +-----------------+----------+
+ | www.example.net | FALSE    |
+ *-----------------+----------*/
+ ```
+
+The following queries check to see if an email is valid. They
+perform a full match, using `^` and `$`. Due to regular expression operator
+precedence, it is good practice to use parentheses around everything between `^`
+and `$`.
+
+```sql
+SELECT
+  'a@foo.com' AS email,
+  REGEXP_CONTAINS('a@foo.com', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('a@foo.com', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
 /*----------------+---------------------+---------------------*
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | a@foo.com      | true                | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'a@foo.computer' AS email,
+  REGEXP_CONTAINS('a@foo.computer', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('a@foo.computer', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | a@foo.computer | false               | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'b@bar.org' AS email,
+  REGEXP_CONTAINS('b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | b@bar.org      | true                | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  '!b@bar.org' AS email,
+  REGEXP_CONTAINS('!b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('!b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | !b@bar.org     | false               | true                |
+ *----------------+---------------------+---------------------*/
+```
+
+```sql
+SELECT
+  'c@buz.net' AS email,
+  REGEXP_CONTAINS('c@buz.net', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
+  REGEXP_CONTAINS('c@buz.net', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
  | c@buz.net      | false               | false               |
  *----------------+---------------------+---------------------*/
 ```
@@ -2809,23 +2845,36 @@ FROM
 ### `REGEXP_EXTRACT`
 
 ```sql
-REGEXP_EXTRACT(value, regexp)
+REGEXP_EXTRACT(value, regexp[, position[, occurrence]])
 ```
 
 **Description**
 
-Returns the first substring in `value` that matches the
-[re2 regular expression][string-link-to-re2],
-`regexp`. Returns `NULL` if there is no match.
+Returns the substring in `value` that matches the
+[re2 regular expression][string-link-to-re2], `regexp`.
+Returns `NULL` if there is no match.
 
 If the regular expression contains a capturing group (`(...)`), and there is a
 match for that capturing group, that match is returned. If there
 are multiple matches for a capturing group, the first match is returned.
 
+If `position` is specified, the search starts at this
+position in `value`, otherwise it starts at the beginning of `value`. The
+`position` must be a positive integer and cannot be 0. If `position` is greater
+than the length of `value`, `NULL` is returned.
+
+If `occurrence` is specified, the search returns a specific occurrence of the
+`regexp` in `value`, otherwise returns the first match. If `occurrence` is
+greater than the number of matches found, `NULL` is returned. For
+`occurrence` > 1, the function searches for additional occurrences beginning
+with the character following the previous occurrence.
+
 Returns an error if:
 
 + The regular expression is invalid
 + The regular expression has more than one capturing group
++ The `position` is not a positive integer
++ The `occurrence` is not a positive integer
 
 **Return type**
 
@@ -2834,67 +2883,72 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH email_addresses AS
-  (SELECT 'foo@example.com' as email
-  UNION ALL
-  SELECT 'bar@example.org' as email
-  UNION ALL
-  SELECT 'baz@example.net' as email)
-
-SELECT
-  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+')
-  AS user_name
-FROM email_addresses;
+SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
 
 /*-----------*
  | user_name |
  +-----------+
  | foo       |
- | bar       |
- | baz       |
  *-----------*/
 ```
 
 ```sql
-WITH email_addresses AS
-  (SELECT 'foo@example.com' as email
-  UNION ALL
-  SELECT 'bar@example.org' as email
-  UNION ALL
-  SELECT 'baz@example.net' as email)
-
-SELECT
-  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
-  AS top_level_domain
-FROM email_addresses;
+SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
 
 /*------------------*
  | top_level_domain |
  +------------------+
  | com              |
- | org              |
- | net              |
  *------------------*/
 ```
 
 ```sql
-WITH
-  characters AS (
-    SELECT 'ab' AS value, '.b' AS regex UNION ALL
-    SELECT 'ab' AS value, '(.)b' AS regex UNION ALL
-    SELECT 'xyztb' AS value, '(.)+b' AS regex UNION ALL
-    SELECT 'ab' AS value, '(z)?b' AS regex
-  )
-SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
+SELECT
+  REGEXP_EXTRACT('ab', '.b') AS result_a,
+  REGEXP_EXTRACT('ab', '(.)b') AS result_b,
+  REGEXP_EXTRACT('xyztb', '(.)+b') AS result_c,
+  REGEXP_EXTRACT('ab', '(z)?b') AS result_d
 
-/*-------+---------+----------*
- | value | regex   | result   |
- +-------+---------+----------+
- | ab    | .b      | ab       |
- | ab    | (.)b    | a        |
- | xyztb | (.)+b   | t        |
- | ab    | (z)?b   | NULL     |
- *-------+---------+----------*/
+/*-------------------------------------------*
+ | result_a | result_b | result_c | result_d |
+ +-------------------------------------------+
+ | ab       | a        | t        | NULL     |
+ *-------------------------------------------*/
+```
+
+```sql
+WITH example AS
+(SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position,
+1 AS occurrence UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 2 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 3 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 4 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 2, 1 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 1 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 2 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 3 UNION ALL
+SELECT 'Hello Helloo and Hellooo', 'H?ello+', 20, 1 UNION ALL
+SELECT 'cats&dogs&rabbits' ,'\\w+&', 1, 2 UNION ALL
+SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
+)
+SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex,
+position, occurrence) AS regexp_value FROM example;
+
+/*--------------------------+---------+----------+------------+--------------*
+ | value                    | regex   | position | occurrence | regexp_value |
+ +--------------------------+---------+----------+------------+--------------+
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 1          | Hello        |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 2          | Helloo       |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 3          | Hellooo      |
+ | Hello Helloo and Hellooo | H?ello+ | 1        | 4          | NULL         |
+ | Hello Helloo and Hellooo | H?ello+ | 2        | 1          | ello         |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 1          | Helloo       |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 2          | Hellooo      |
+ | Hello Helloo and Hellooo | H?ello+ | 3        | 3          | NULL         |
+ | Hello Helloo and Hellooo | H?ello+ | 20       | 1          | NULL         |
+ | cats&dogs&rabbits        | \w+&    | 1        | 2          | dogs&        |
+ | cats&dogs&rabbits        | \w+&    | 2        | 3          | NULL         |
+ *--------------------------+---------+----------+------------+--------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2930,18 +2984,13 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH code_markdown AS
-  (SELECT 'Try `function(x)` or `function(y)`' as code)
+SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
-SELECT
-  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
-FROM code_markdown;
-
-/*----------------------------*
- | example                    |
- +----------------------------+
- | [function(x), function(y)] |
- *----------------------------*/
+/*--------------------*
+ | example            |
+ +--------------------+
+ | [func(x), func(y)] |
+ *--------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3003,81 +3052,56 @@ Returns an error if:
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'ab@cd-ef' AS source_value, '@[^-]*' AS regexp UNION ALL
-  SELECT 'ab@d-ef', '@[^-]*' UNION ALL
-  SELECT 'abc@cd-ef', '@[^-]*' UNION ALL
-  SELECT 'abc-ef', '@[^-]*')
-SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
-FROM example;
+SELECT
+  REGEXP_INSTR('ab@cd-ef',  '@[^-]*') AS instr_a,
+  REGEXP_INSTR('ab@d-ef',   '@[^-]*') AS instr_b,
+  REGEXP_INSTR('abc@cd-ef', '@[^-]*') AS instr_c,
+  REGEXP_INSTR('abc-ef',    '@[^-]*') AS instr_d,
 
-/*--------------+--------+-------*
- | source_value | regexp | instr |
- +--------------+--------+-------+
- | ab@cd-ef     | @[^-]* | 3     |
- | ab@d-ef      | @[^-]* | 3     |
- | abc@cd-ef    | @[^-]* | 4     |
- | abc-ef       | @[^-]* | 0     |
- *--------------+--------+-------*/
+/*---------------------------------------*
+ | instr_a | instr_b | instr_c | instr_d |
+ +---------------------------------------+
+ | 3       | 3       | 4       | 0       |
+ *---------------------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef b@cd-ef' AS source_value, '@[^-]*' AS regexp, 1 AS position UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 2 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 3 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef', '@[^-]*', 4)
 SELECT
-  source_value, regexp, position,
-  REGEXP_INSTR(source_value, regexp, position) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 1) AS instr_a,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 2) AS instr_b,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 3) AS instr_c,
+  REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 4) AS instr_d,
 
-/*-----------------+--------+----------+-------*
- | source_value    | regexp | position | instr |
- +-----------------+--------+----------+-------+
- | a@cd-ef b@cd-ef | @[^-]* | 1        | 2     |
- | a@cd-ef b@cd-ef | @[^-]* | 2        | 2     |
- | a@cd-ef b@cd-ef | @[^-]* | 3        | 10    |
- | a@cd-ef b@cd-ef | @[^-]* | 4        | 10    |
- *-----------------+--------+----------+-------*/
+/*---------------------------------------*
+ | instr_a | instr_b | instr_c | instr_d |
+ +---------------------------------------+
+ | 2       | 2       | 10      | 10      |
+ *---------------------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef' AS source_value,
-         '@[^-]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2 UNION ALL
-  SELECT 'a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3)
 SELECT
-  source_value, regexp, position, occurrence,
-  REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 1) AS instr_a,
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2) AS instr_b,
+  REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3) AS instr_c
 
-/*-------------------------+--------+----------+------------+-------*
- | source_value            | regexp | position | occurrence | instr |
- +-------------------------+--------+----------+------------+-------+
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 1          | 2     |
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 2          | 10    |
- | a@cd-ef b@cd-ef c@cd-ef | @[^-]* | 1        | 3          | 18    |
- *-------------------------+--------+----------+------------+-------*/
+/*-----------------------------*
+ | instr_a | instr_b | instr_c |
+ +-----------------------------+
+ | 2       | 10      | 18      |
+ *-----------------------------*/
 ```
 
 ```sql
-WITH example AS (
-  SELECT 'a@cd-ef' AS source_value, '@[^-]*' AS regexp,
-         1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
-  SELECT 'a@cd-ef', '@[^-]*', 1, 1, 1)
 SELECT
-  source_value, regexp, position, occurrence, o_position,
-  REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
-FROM example;
+  REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 0) AS instr_a,
+  REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 1) AS instr_b
 
-/*--------------+--------+----------+------------+------------+-------*
- | source_value | regexp | position | occurrence | o_position | instr |
- +--------------+--------+----------+------------+------------+-------+
- | a@cd-ef      | @[^-]* | 1        | 1          | 0          | 2     |
- | a@cd-ef      | @[^-]* | 1        | 1          | 1          | 5     |
- *--------------+--------+----------+------------+------------+-------*/
+/*-------------------*
+ | instr_a | instr_b |
+ +-------------------+
+ | 2       | 5       |
+ *-------------------*/
 ```
 
 ### `REGEXP_MATCH` (Deprecated) 
@@ -3173,27 +3197,51 @@ regular expression syntax.
 **Examples**
 
 ```sql
-WITH markdown AS
-  (SELECT '# Heading' as heading
-  UNION ALL
-  SELECT '# Another heading' as heading)
-
-SELECT
-  REGEXP_REPLACE(heading, r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>')
-  AS html
-FROM markdown;
+SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS html
 
 /*--------------------------*
  | html                     |
  +--------------------------+
  | <h1>Heading</h1>         |
- | <h1>Another heading</h1> |
  *--------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 
 [string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+### `REGEXP_SUBSTR`
+
+```sql
+REGEXP_SUBSTR(value, regexp[, position[, occurrence]])
+```
+
+**Description**
+
+Synonym for [REGEXP_EXTRACT][string-link-to-regex].
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+WITH example AS
+(SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS
+occurrence
+)
+SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex,
+position, occurrence) AS regexp_value FROM example;
+
+/*--------------------+---------+----------+------------+--------------*
+ | value              | regex   | position | occurrence | regexp_value |
+ +--------------------+---------+----------+------------+--------------+
+ | Hello World Helloo | H?ello+ | 1        | 1          | Hello        |
+ *--------------------+---------+----------+------------+--------------*/
+```
+
+[string-link-to-regex]: #regexp_extract
 
 ### `REPEAT`
 
@@ -3217,21 +3265,33 @@ This function returns an error if the `repetitions` value is negative.
 **Examples**
 
 ```sql
-SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
-  STRUCT('abc' AS t, 3 AS n),
-  ('例子', 2),
-  ('abc', null),
-  (null, 3)
-]);
+SELECT REPEAT('abc', 3) AS results
 
-/*------+------+-----------*
- | t    | n    | REPEAT    |
- |------|------|-----------|
- | abc  | 3    | abcabcabc |
- | 例子 | 2    | 例子例子  |
- | abc  | NULL | NULL      |
- | NULL | 3    | NULL      |
- *------+------+-----------*/
+/*-----------*
+ | results   |
+ |-----------|
+ | abcabcabc |
+ *-----------*/
+```
+
+```sql
+SELECT REPEAT('abc', NULL) AS results
+
+/*---------*
+ | results |
+ |---------|
+ | NULL    |
+ *---------*/
+```
+
+```sql
+SELECT REPEAT(NULL, 3) AS results
+
+/*---------*
+ | results |
+ |---------|
+ | NULL    |
+ *---------*/
 ```
 
 ### `REPLACE`
@@ -3293,23 +3353,23 @@ Returns the reverse of the input `STRING` or `BYTES`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
-  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
-)
-SELECT
-  sample_string,
-  REVERSE(sample_string) AS reverse_string,
-  sample_bytes,
-  REVERSE(sample_bytes) AS reverse_bytes
-FROM example;
+SELECT REVERSE('abc') AS results
 
-/*---------------+----------------+--------------+---------------*
- | sample_string | reverse_string | sample_bytes | reverse_bytes |
- +---------------+----------------+--------------+---------------+
- | foo           | oof            | bar          | rab           |
- | абвгд         | дгвба          | 123          | 321           |
- *---------------+----------------+--------------+---------------*/
+/*---------*
+ | results |
+ +---------+
+ | cba     |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
+
+/*---------*
+ | results |
+ +---------+
+ | b"3a1"  |
+ *---------*/
 ```
 
 ### `RIGHT`
@@ -3339,42 +3399,22 @@ will be returned.
 **Examples**
 
 ```sql
-WITH examples AS
-(SELECT 'apple' as example
-UNION ALL
-SELECT 'banana' as example
-UNION ALL
-SELECT 'абвгд' as example
-)
-SELECT example, RIGHT(example, 3) AS right_example
-FROM examples;
+SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
 
 /*---------+---------------*
  | example | right_example |
  +---------+---------------+
  | apple   | ple           |
- | banana  | ana           |
- | абвгд   | вгд           |
  *---------+---------------*/
 ```
 
 ```sql
-WITH examples AS
-(SELECT b'apple' as example
-UNION ALL
-SELECT b'banana' as example
-UNION ALL
-SELECT b'\xab\xcd\xef\xaa\xbb' as example
-)
-SELECT example, RIGHT(example, 3) AS right_example
-FROM examples;
+SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
 /*----------------------+---------------*
  | example              | right_example |
  +----------------------+---------------+
  | apple                | ple           |
- | banana               | ana           |
- | \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
  *----------------------+---------------*
 ```
 
@@ -3416,72 +3456,53 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
-  STRUCT('abc' AS t, 5 AS len),
-  ('abc', 2),
-  ('例子', 4)
-]);
+SELECT FORMAT('%T', RPAD('c', 5)) AS results
 
-/*------+-----+----------*
- | t    | len | RPAD     |
- +------+-----+----------+
- | abc  | 5   | "abc  "  |
- | abc  | 2   | "ab"     |
- | 例子  | 4   | "例子  " |
- *------+-----+----------*/
+/*---------*
+ | results |
+ +---------+
+ | "c    " |
+ *---------*/
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) AS RPAD FROM UNNEST([
-  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
-  ('abc', 5, '-'),
-  ('例子', 5, '中文')
-]);
+SELECT RPAD('b', 5, 'a') AS results
 
-/*------+-----+---------+--------------*
- | t    | len | pattern | RPAD         |
- +------+-----+---------+--------------+
- | abc  | 8   | def     | "abcdefde"   |
- | abc  | 5   | -       | "abc--"      |
- | 例子  | 5   | 中文     | "例子中文中"  |
- *------+-----+---------+--------------*/
+/*---------*
+ | results |
+ +---------+
+ | baaaa   |
+ *---------*/
 ```
 
 ```sql
-SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
-  STRUCT(b'abc' AS t, 5 AS len),
-  (b'abc', 2),
-  (b'\xab\xcd\xef', 4)
-]);
+SELECT RPAD('abc', 10, 'ghd') AS results
 
-/*-----------------+-----+------------------*
- | t               | len | RPAD             |
- +-----------------+-----+------------------+
- | b"abc"          | 5   | b"abc  "         |
- | b"abc"          | 2   | b"ab"            |
- | b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
- *-----------------+-----+------------------*/
+/*------------*
+ | results    |
+ +------------+
+ | abcghdghdg |
+ *------------*/
 ```
 
 ```sql
-SELECT
-  FORMAT('%T', t) AS t,
-  len,
-  FORMAT('%T', pattern) AS pattern,
-  FORMAT('%T', RPAD(t, len, pattern)) AS RPAD
-FROM UNNEST([
-  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
-  (b'abc', 5, b'-'),
-  (b'\xab\xcd\xef', 5, b'\x00')
-]);
+SELECT RPAD('abc', 2, 'd') AS results
 
-/*-----------------+-----+---------+-------------------------*
- | t               | len | pattern | RPAD                    |
- +-----------------+-----+---------+-------------------------+
- | b"abc"          | 8   | b"def"  | b"abcdefde"             |
- | b"abc"          | 5   | b"-"    | b"abc--"                |
- | b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
- *-----------------+-----+---------+-------------------------*/
+/*---------*
+ | results |
+ +---------+
+ | ab      |
+ *---------*/
+```
+
+```sql
+SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
+
+/*---------------*
+ | results       |
+ +---------------+
+ | b"abcghdghdg" |
+ *---------------*/
 ```
 
 ### `RTRIM`
@@ -3501,47 +3522,22 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  RTRIM(item, '*') as example
-FROM items;
+SELECT RTRIM('***apple***', '*') AS example
 
 /*-----------*
  | example   |
  +-----------+
  | ***apple  |
- | ***banana |
- | ***orange |
  *-----------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'applexxx' as item
-  UNION ALL
-  SELECT 'bananayyy' as item
-  UNION ALL
-  SELECT 'orangezzz' as item
-  UNION ALL
-  SELECT 'pearxyz' as item)
-
-SELECT
-  RTRIM(item, 'xyz') as example
-FROM items;
+SELECT RTRIM('applexxz', 'xyz') AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
- | pear    |
  *---------*/
 ```
 
@@ -3597,30 +3593,12 @@ non-Latin characters, an empty `STRING` is returned.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'Ashcraft' AS value UNION ALL
-  SELECT 'Raven' AS value UNION ALL
-  SELECT 'Ribbon' AS value UNION ALL
-  SELECT 'apple' AS value UNION ALL
-  SELECT 'Hello world!' AS value UNION ALL
-  SELECT '  H3##!@llo w00orld!' AS value UNION ALL
-  SELECT '#1' AS value UNION ALL
-  SELECT NULL AS value
-)
-SELECT value, SOUNDEX(value) AS soundex
-FROM example;
+SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
 /*----------------------+---------*
  | value                | soundex |
  +----------------------+---------+
  | Ashcraft             | A261    |
- | Raven                | R150    |
- | Ribbon               | R150    |
- | apple                | a140    |
- | Hello world!         | H464    |
- |   H3##!@llo w00orld! | H464    |
- | #1                   |         |
- | NULL                 | NULL    |
  *----------------------+---------*/
 ```
 
@@ -3699,22 +3677,11 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'foo' as item
-  UNION ALL
-  SELECT 'bar' as item
-  UNION ALL
-  SELECT 'baz' as item)
-
-SELECT
-  STARTS_WITH(item, 'b') as example
-FROM items;
+SELECT STARTS_WITH('bar', 'b') AS example
 
 /*---------*
  | example |
  +---------+
- |   False |
- |    True |
  |    True |
  *---------*/
 ```
@@ -3741,30 +3708,12 @@ This function supports specifying [collation][collation].
 **Examples**
 
 ```sql
-WITH email_addresses AS
-  (SELECT
-    'foo@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'foobar@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'foobarbaz@example.com' AS email_address
-  UNION ALL
-  SELECT
-    'quxexample.com' AS email_address)
-
-SELECT
-  STRPOS(email_address, '@') AS example
-FROM email_addresses;
+SELECT STRPOS('foo@example.com', '@') AS example
 
 /*---------*
  | example |
  +---------+
  |       4 |
- |       7 |
- |      10 |
- |       0 |
  *---------*/
 ```
 
@@ -3807,127 +3756,61 @@ return.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 2) as example
-FROM items;
+SELECT SUBSTR('apple', 2) AS example
 
 /*---------*
  | example |
  +---------+
  | pple    |
- | anana   |
- | range   |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 2, 2) as example
-FROM items;
+SELECT SUBSTR('apple', 2, 2) AS example
 
 /*---------*
  | example |
  +---------+
  | pp      |
- | an      |
- | ra      |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, -2) as example
-FROM items;
+SELECT SUBSTR('apple', -2) AS example
 
 /*---------*
  | example |
  +---------+
  | le      |
- | na      |
- | ge      |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 1, 123) as example
-FROM items;
+SELECT SUBSTR('apple', 1, 123) AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 123) as example
-FROM items;
+SELECT SUBSTR('apple', 123) AS example
 
 /*---------*
  | example |
  +---------+
  |         |
- |         |
- |         |
  *---------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT 'apple' as item
-  UNION ALL
-  SELECT 'banana' as item
-  UNION ALL
-  SELECT 'orange' as item)
-
-SELECT
-  SUBSTR(item, 123, 5) as example
-FROM items;
+SELECT SUBSTR('apple', 123, 5) AS example
 
 /*---------*
  | example |
  +---------+
- |         |
- |         |
  |         |
  *---------*/
 ```
@@ -4050,41 +3933,101 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 
 **Examples**
 
-The following example gets the code points for each element in an array of
+The following examples get the code points for each element in an array of
 words.
 
 ```sql
-SELECT word, TO_CODE_POINTS(word) AS code_points
-FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word;
+SELECT
+  'foo' AS word,
+  TO_CODE_POINTS('foo') AS code_points
 
 /*---------+------------------------------------*
  | word    | code_points                        |
  +---------+------------------------------------+
  | foo     | [102, 111, 111]                    |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'bar' AS word,
+  TO_CODE_POINTS('bar') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | bar     | [98, 97, 114]                      |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'baz' AS word,
+  TO_CODE_POINTS('baz') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | baz     | [98, 97, 122]                      |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'giraffe' AS word,
+  TO_CODE_POINTS('giraffe') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | giraffe | [103, 105, 114, 97, 102, 102, 101] |
+ *---------+------------------------------------*/
+```
+
+```sql
+SELECT
+  'llama' AS word,
+  TO_CODE_POINTS('llama') AS code_points
+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
  | llama   | [108, 108, 97, 109, 97]            |
  *---------+------------------------------------*/
 ```
 
-The following example converts integer representations of `BYTES` to their
+The following examples convert integer representations of `BYTES` to their
 corresponding ASCII character values.
 
 ```sql
-SELECT word, TO_CODE_POINTS(word) AS bytes_value_as_integer
-FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word;
+SELECT
+  b'\x66\x6f\x6f' AS bytes_value,
+  TO_CODE_POINTS(b'\x66\x6f\x6f') AS bytes_value_as_integer
 
 /*------------------+------------------------*
- | word             | bytes_value_as_integer |
+ | bytes_value      | bytes_value_as_integer |
  +------------------+------------------------+
- | \x00\x01\x10\xff | [0, 1, 16, 255]        |
  | foo              | [102, 111, 111]        |
  *------------------+------------------------*/
 ```
 
+```sql
+SELECT
+  b'\x00\x01\x10\xff' AS bytes_value,
+  TO_CODE_POINTS(b'\x00\x01\x10\xff') AS bytes_value_as_integer
+
+/*------------------+------------------------*
+ | bytes_value      | bytes_value_as_integer |
+ +------------------+------------------------+
+ | \x00\x01\x10\xff | [0, 1, 16, 255]        |
+ *------------------+------------------------*/
+```
+
 The following example demonstrates the difference between a `BYTES` result and a
-`STRING` result.
+`STRING` result. Notice that the character `Ā` is represented as a two-byte
+Unicode sequence. As a result, the `BYTES` version of `TO_CODE_POINTS` returns
+an array with two elements, while the `STRING` version returns an array with a
+single element.
 
 ```sql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
@@ -4095,10 +4038,6 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
  | [196, 128] | [256]    |
  *------------+----------*/
 ```
-
-Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
-a result, the `BYTES` version of `TO_CODE_POINTS` returns an array with two
-elements, while the `STRING` version returns an array with a single element.
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
 
@@ -4126,18 +4065,14 @@ in the `STRING` as two hexadecimal characters in the range
 **Example**
 
 ```sql
-WITH Input AS (
-  SELECT b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_str UNION ALL
-  SELECT b'foobar'
-)
-SELECT byte_str, TO_HEX(byte_str) AS hex_str
-FROM Input;
+SELECT
+  b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_string,
+  TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF') AS hex_string
 
 /*----------------------------------+------------------*
  | byte_string                      | hex_string       |
  +----------------------------------+------------------+
  | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
- | foobar                           | 666f6f626172     |
  *----------------------------------+------------------*/
 ```
 
@@ -4169,22 +4104,13 @@ type, either `STRING` or `BYTES`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS
-  target_characters UNION ALL
-  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as
-  target_characters
-)
-SELECT expression, source_characters, target_characters, TRANSLATE(expression,
-source_characters, target_characters) AS translate
-FROM example;
+SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
-/*------------------+-------------------+-------------------+------------------*
- | expression       | source_characters | target_characters | translate        |
- +------------------+-------------------+-------------------+------------------+
- | This is a cookie | sco               | zku               | Thiz iz a kuukie |
- | A coaster        | co                | k                 | A kaster         |
- *------------------+-------------------+-------------------+------------------*/
+/*------------------*
+ | translate        |
+ +------------------+
+ | Thiz iz a kuukie |
+ *------------------*/
 ```
 
 ### `TRIM`
@@ -4217,74 +4143,38 @@ In the following example, all leading and trailing whitespace characters are
 removed from `item` because `set_of_characters_to_remove` is not specified.
 
 ```sql
-WITH items AS
-  (SELECT '   apple   ' as item
-  UNION ALL
-  SELECT '   banana   ' as item
-  UNION ALL
-  SELECT '   orange   ' as item)
-
-SELECT
-  CONCAT('#', TRIM(item), '#') as example
-FROM items;
+SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 
 /*----------*
  | example  |
  +----------+
  | #apple#  |
- | #banana# |
- | #orange# |
  *----------*/
 ```
 
 In the following example, all leading and trailing `*` characters are removed
-from `item`.
+from '***apple***'.
 
 ```sql
-WITH items AS
-  (SELECT '***apple***' as item
-  UNION ALL
-  SELECT '***banana***' as item
-  UNION ALL
-  SELECT '***orange***' as item)
-
-SELECT
-  TRIM(item, '*') as example
-FROM items;
+SELECT TRIM('***apple***', '*') AS example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
  *---------*/
 ```
 
 In the following example, all leading and trailing `x`, `y`, and `z` characters
-are removed from `item`.
+are removed from 'xzxapplexxy'.
 
 ```sql
-WITH items AS
-  (SELECT 'xxxapplexxx' as item
-  UNION ALL
-  SELECT 'yyybananayyy' as item
-  UNION ALL
-  SELECT 'zzzorangezzz' as item
-  UNION ALL
-  SELECT 'xyzpearxyz' as item)
-
-SELECT
-  TRIM(item, 'xyz') as example
-FROM items;
+SELECT TRIM('xzxapplexxy', 'xyz') as example
 
 /*---------*
  | example |
  +---------+
  | apple   |
- | banana  |
- | orange  |
- | pear    |
  *---------*/
 ```
 
@@ -4298,7 +4188,7 @@ SELECT
   TRIM('abaW̊', 'Y̊') AS a,
   TRIM('W̊aba', 'Y̊') AS b,
   TRIM('abaŪ̊', 'Y̊') AS c,
-  TRIM('Ū̊aba', 'Y̊') AS d;
+  TRIM('Ū̊aba', 'Y̊') AS d
 
 /*------+------+------+------*
  | a    | b    | c    | d    |
@@ -4311,21 +4201,12 @@ In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
 bytes are removed from `item`.
 
 ```sql
-WITH items AS
-(
-  SELECT b'apple' as item UNION ALL
-  SELECT b'banana' as item UNION ALL
-  SELECT b'\xab\xcd\xef\xaa\xbb' as item
-)
-SELECT item, TRIM(item, b'na\xab') AS examples
-FROM items;
+SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
 /*----------------------+------------------*
  | item                 | example          |
  +----------------------+------------------+
  | apple                | pple             |
- | banana               | b                |
- | \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
  *----------------------+------------------*/
 ```
 
@@ -4383,26 +4264,12 @@ greater than 127 left intact.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT
-    'foo' as item
-  UNION ALL
-  SELECT
-    'bar' as item
-  UNION ALL
-  SELECT
-    'baz' as item)
-
-SELECT
-  UPPER(item) AS example
-FROM items;
+SELECT UPPER('foo') AS example
 
 /*---------*
  | example |
  +---------+
  | FOO     |
- | BAR     |
- | BAZ     |
  *---------*/
 ```
 

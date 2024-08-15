@@ -36,7 +36,10 @@ known_errors {
   label: "unnest_multiway_test:multiway_unnest_one_null_array_default_mode"
   label: "unnest_multiway_test:multiway_unnest_one_null_array_pad_mode"
   label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_default_mode"
+  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_null_mode"
   label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_pad_mode"
+  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_strict_mode"
+  label: "unnest_multiway_test:multiway_unnest_ten_unequal_arrays_column_ref_truncate_mode"
   label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_default_mode"
   label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_pad_mode"
   label: "unnest_multiway_test:multiway_unnest_three_unequal_arrays_column_ref_truncate_mode"
@@ -304,7 +307,7 @@ known_errors {
 }
 known_errors {
   mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  reason: "TODO: Reference implementation reports non-determinism and rewritten there is none"
+  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
   label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same"
   label: "array_zip_test:array_zip_igore_order_array_all_elements_are_the_same_lambda"
 }
@@ -312,4 +315,35 @@ known_errors {
   mode: ALLOW_ERROR_OR_WRONG_ANSWER
   reason: "TODO: After rewriter array is ordered instead of unordered"
   label: "array_path_test:flatten_deeply_nested_unordered_array"
+}
+
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
+  label: "aggregation_order_by_queries_test:aggregate_order_by_correlated_column_1"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_computed_order_by_exprs"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_distinct"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_distinct_limit"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_computed_order_by_exprs"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_desc"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_order_by_different_columns"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_param"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_same_values"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_test_table"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_limit_without_group_by"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_range_date"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_range_datetime"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_range_timestamp"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_test_table"
+  label: "aggregation_order_by_queries_test:aggregation_order_by_with_nulls_first_last"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
+  label: "with_recursive_test:recursive_query_prime_factorization"
+}
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "TODO: Reference implementation reports non-determinism and in the rewritten resolved AST there is none"
+  label: "pivot_test:pivot_array_agg_ignore_nulls"
 }

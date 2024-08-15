@@ -267,4 +267,76 @@ TEST(ParserMacroExpansionTest, CorrectErrorWhenMacroNameIsMissingAtSemicolon) {
                HasSubstr("Syntax error: Expected macro name but got \";\"")));
 }
 
+TEST(ParserMacroExpansionTest, TopLevelCommentsArePreserved) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m /* dropped_comment */ 1;", macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParseResumeLocation resume_location = ParseResumeLocation::FromStringView(
+      "/* preserved_comment */ SELECT $m()");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(QueryStatement [24-35]
+  Query [24-35]
+    Select [24-35]
+      SelectList [31-35]
+        SelectColumn [31-35]
+          IntLiteral($m()) [31-35]
+)");
+}
+
+TEST(ParserMacroExpansionTest,
+     TopLevelCommentsArePreservedExpandingDefineMacroStatements) {
+  MacroCatalog macro_catalog;
+  RegisterMacros("DEFINE MACRO m1 /*internal comment*/ 123;", macro_catalog);
+  ParserOptions parser_options(GetLanguageOptions(), &macro_catalog);
+  ParseResumeLocation resume_location = ParseResumeLocation::FromStringView(
+      "select 1; /*comment 1*/ DEFINE MACRO m2 /*comment 2*/ $m1; SELECT "
+      "$m1()");
+  bool at_end_of_input;
+  std::unique_ptr<ParserOutput> parser_output;
+
+  // "select 1;" does not have comments.
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_FALSE(at_end_of_input);
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+)");
+
+  // "/*comment 1*/ DEFINE MACRO m2 /*comment 2*/ $m1;" has both the comments
+  // preserved, and "$m1" is not expanded.
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_FALSE(at_end_of_input);
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(DefineMacroStatement [24-57]
+  Identifier(m2) [37-39]
+  MacroBody($m1) [54-57]
+)");
+
+  // The last statement "SELECT $m1()" has "$m1" expanded, and the comment
+  // "/*internal comment*/" is not dropped, i.e. the statement that the parser
+  // sees is: SELECT 123
+  ZETASQL_ASSERT_OK(ParseNextStatement(&resume_location, parser_options, &parser_output,
+                               &at_end_of_input));
+  EXPECT_TRUE(at_end_of_input);
+  EXPECT_EQ(parser_output->statement()->DebugString(),
+            R"(QueryStatement [59-71]
+  Query [59-71]
+    Select [59-71]
+      SelectList [66-71]
+        SelectColumn [66-71]
+          IntLiteral($m1()) [66-71]
+)");
+}
+
 }  // namespace zetasql

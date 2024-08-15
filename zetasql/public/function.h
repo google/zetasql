@@ -178,9 +178,6 @@ class AggregateFunctionEvaluator {
  public:
   virtual ~AggregateFunctionEvaluator() = default;
 
-  // Sets an evaluation context.
-  virtual void SetEvaluationContext(EvaluationContext* context) {};
-
   // Resets the accumulation. This method will be called before any value
   // accumulation and between groups, and should restore any state variables
   // needed to keep track of the accumulated result to their initial values.
@@ -786,7 +783,7 @@ class Function {
   // Convenience function that returns the same Function object so that
   // calls can be chained.
   Function* AddSignatureOrDie(TypeKind result_kind,
-                              const std::vector<TypeKind>& input_kinds,
+                              absl::Span<const TypeKind> input_kinds,
                               void* context, TypeFactory* factory);
 
   Mode mode() const { return mode_; }

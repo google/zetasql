@@ -16,14 +16,18 @@
 
 """ Step 2 to load ZetaSQL dependencies. """
 
-load("@bazel_gazelle//:deps.bzl", "go_repository")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
+load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
 
 # Followup from zetasql_deps_step_1.bzl
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 load("@rules_m4//m4:m4.bzl", "m4_register_toolchains")
-load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
-load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
+load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
+load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
 
 def _load_deps_from_step_1():
     rules_foreign_cc_dependencies()
@@ -107,10 +111,10 @@ def zetasql_deps_step_2(
             #
             http_archive(
                 name = "com_google_absl",
-                # Commit from 2023-03-16
-                url = "https://github.com/abseil/abseil-cpp/archive/0697762c62cdb51ead8d9c2f0d299c5d4a4ff9db.tar.gz",
-                sha256 = "3439843ac7d7b9cc354dd6735b6790fa7589b73429bbda77976e0db61e92f1fd",
-                strip_prefix = "abseil-cpp-0697762c62cdb51ead8d9c2f0d299c5d4a4ff9db",
+                # Commit from 2024-05-31
+                url = "https://github.com/abseil/abseil-cpp/archive/d06b82773e2306a99a8971934fb5845d5c04a170.tar.gz",
+                sha256 = "fd4c78078d160951f2317229511340f3e92344213bc145939995eea9ff9b9e48",
+                strip_prefix = "abseil-cpp-d06b82773e2306a99a8971934fb5845d5c04a170",
             )
 
         # required by many python libraries
@@ -173,12 +177,12 @@ py_library(
             # Abseil generally just does daily (or even subdaily) releases. None are
             # special, so just periodically update as necessary.
             #
-            #  https://github.com/abseil/abseil-cpp/commits/master
+            #  https://github.com/google/riegeli/commits/master
             #  pick a recent release.
             #  Hit the 'clipboard with a left arrow' icon to copy the commit hex
             #    COMMIT=<paste commit hex>
-            #    PREFIX=abseil-cpp-
-            #    REPO=https://github.com/abseil/abseil-cpp/archive
+            #    PREFIX=riegeli-
+            #    REPO=https://github.com/google/riegeli/archive
             #    URL=${REPO}/${COMMIT}.tar.gz
             #    wget $URL
             #    SHA256=$(sha256sum ${COMMIT}.tar.gz | cut -f1 -d' ')
@@ -190,10 +194,10 @@ py_library(
             #
             http_archive(
                 name = "com_google_riegeli",
-                # Commit from 2022-02-16
-                url = "https://github.com/google/riegeli/archive/934428f44a6d120cb6c065315c788aa3a1be6b66.tar.gz",
-                sha256 = "a54dafa634db87723db106bc44ef365b1b442d8862aafbeb5f1d2e922049e587",
-                strip_prefix = "riegeli-934428f44a6d120cb6c065315c788aa3a1be6b66",
+                # Commit from 2024-07-31
+                url = "https://github.com/google/riegeli/archive/31c4dd1295a48aa59ec0d669e42ed42861ffa3ad.tar.gz",
+                sha256 = "b811ddccc42321ecc4d8416fdf1f74fd122b074886b33daba2b6095706723068",
+                strip_prefix = "riegeli-31c4dd1295a48aa59ec0d669e42ed42861ffa3ad",
             )
     if evaluator_deps:
         # Differential Privacy
@@ -236,23 +240,13 @@ py_library(
                 strip_prefix = "farmhash-816a4ae622e964763ca0862d9dbd19324a1eaf45",
             )
     if analyzer_deps:
-        # We need to override protobuf's native dep, because they patch the
-        # the repo in an unhelpful way.
-        if not native.existing_rule("upb"):
-            http_archive(
-                name = "upb",
-                urls = ["https://github.com/protocolbuffers/upb/archive/0ea9f73be35e35db242ccc65aa9c87487b792324.tar.gz"],
-                sha256 = "046b5f134523eaad9265a41a2ec0701cc45973841070af2772e3578a9f3bfed0",
-                strip_prefix = "upb-0ea9f73be35e35db242ccc65aa9c87487b792324",
-            )
-
         # Protobuf
         if not native.existing_rule("com_google_protobuf"):
             http_archive(
                 name = "com_google_protobuf",
-                urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v4.23.3.tar.gz"],
-                sha256 = "21fcb4b0df6a8e6279e5843af8c9f2245919cf0d3ec2021c76fccc4fc4bf9aca",
-                strip_prefix = "protobuf-4.23.3",
+                urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protobuf-25.2.tar.gz"],
+                sha256 = "8ff511a64fc46ee792d3fe49a5a1bcad6f7dc50dfbba5a28b0e5b979c17f9871",
+                strip_prefix = "protobuf-25.2",
             )
 
     if testing_deps:
@@ -266,12 +260,18 @@ py_library(
             )
     if analyzer_deps:
         # gRPC
+        rules_proto_dependencies()
+        rules_proto_setup()
+        rules_proto_toolchains()
+
         if not native.existing_rule("com_github_grpc_grpc"):
             http_archive(
                 name = "com_github_grpc_grpc",
-                urls = ["https://github.com/grpc/grpc/archive/v1.56.0.tar.gz"],
-                sha256 = "e034992a0b464042021f6d440f2090acc2422c103a322b0844e3921ccea981dc",
-                strip_prefix = "grpc-1.56.0",
+                urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.61.2.tar.gz"],
+                sha256 = "86f8773434c4b8a4b64c67c91a19a90991f0da0ba054bbeb299dc1bc95fad1e9",
+                strip_prefix = "grpc-1.61.2",
+                # from https://github.com/google/gvisor/blob/master/tools/grpc_extra_deps.patch
+                patches = ["@com_google_zetasql//bazel:grpc_extra_deps.patch"],
             )
 
     if analyzer_deps:
@@ -408,9 +408,12 @@ alias(
         m4_register_toolchains(version = "1.4.18")
         flex_register_toolchains(version = "2.6.4")
         bison_register_toolchains(version = "3.3.2")
+        go_rules_dependencies()
+        go_register_toolchains(version = "1.21.6")
+        gazelle_dependencies()
         go_repository(
             name = "com_github_inspirer_textmapper",
-            commit = "e0aa14dc6db169c7afdf6908e810b5d12bbae2db",
+            commit = "8fdc73e6bd65dc4478b9d6526fe6c282f9c8d25b",
             importpath = "github.com/inspirer/textmapper",
         )
 
@@ -433,3 +436,31 @@ alias(
             urls = ["https://github.com/unicode-org/icu/releases/download/release-65-1/icu4c-65_1-src.tgz"],
             patches = ["@com_google_zetasql//bazel:icu4c-64_2.patch"],
         )
+
+    http_archive(
+        name = "civetweb",
+        strip_prefix = "civetweb-1.16",
+        sha256 = "9f98e60ef418562ae57d6c8e64fb1b2d2b726201b7baee23b043d15538c81dac",
+        urls = [
+            "https://github.com/civetweb/civetweb/archive/v1.16.zip",
+        ],
+        build_file = "@com_google_zetasql//bazel:civetweb.BUILD",
+    )
+
+    http_archive(
+        name = "mstch",
+        strip_prefix = "mstch-1.0.2",
+        sha256 = "a06980c2031cd9222b6356a2f3674064c6aa923c25a15a8acf2652769f3e6628",
+        urls = [
+            "https://github.com/no1msd/mstch/archive/1.0.2.zip",
+        ],
+        build_file = "@com_google_zetasql//bazel:mstch.BUILD",
+    )
+
+    http_archive(
+        name = "boost",
+        build_file = "@com_google_zetasql//bazel:boost.BUILD",
+        sha256 = "be0d91732d5b0cc6fbb275c7939974457e79b54d6f07ce2e3dfdd68bef883b0b",
+        strip_prefix = "boost_1_85_0",
+        url = "https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz",
+    )

@@ -49,12 +49,10 @@ absl::StatusOr<TokenKind> ZetaSqlFlexTokenizer::GetNextToken(
 
 ZetaSqlFlexTokenizer::ZetaSqlFlexTokenizer(absl::string_view filename,
                                                absl::string_view input,
-                                               bool preserve_comments,
                                                int start_offset)
     : filename_(filename),
       start_offset_(start_offset),
-      input_stream_(std::make_unique<StringViewStream>(input)),
-      preserve_comments_(preserve_comments) {
+      input_stream_(std::make_unique<StringViewStream>(input)) {
   // Seek the stringstream to the start_offset, and then instruct flex to read
   // from the stream. (Flex has the ability to read multiple consecutive
   // streams, but we only ever feed it one.)

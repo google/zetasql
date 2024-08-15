@@ -39,6 +39,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {
@@ -3201,7 +3202,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonStripNulls() {
 void JsonKeysSameResultForModes(absl::string_view json_input,
                                 std::optional<int64_t> max_depth,
                                 std::vector<std::string> results,
-                                const std::vector<absl::string_view>& modes,
+                                absl::Span<const absl::string_view> modes,
                                 std::vector<FunctionTestCall>& tests) {
   constexpr absl::string_view kModeArgumentName = "mode";
   for (absl::string_view mode : modes) {

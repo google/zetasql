@@ -16,13 +16,15 @@
 
 #include "zetasql/testdata/populate_sample_tables.h"
 
-#include "google/protobuf/descriptor.h"
-#include "zetasql/public/catalog.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
+#include "absl/status/status.h"
+#include "absl/time/civil_time.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

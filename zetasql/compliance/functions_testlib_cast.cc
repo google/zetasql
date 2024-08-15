@@ -2432,12 +2432,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
                                             &kitchen_sink_message));
   absl::Cord bytes_2203;
   ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2203));
-  absl::Cord kitchen_sink_cord_3 = bytes_2203;
   ABSL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_4,
                                             &kitchen_sink_message));
   absl::Cord bytes_2206;
   ABSL_CHECK(kitchen_sink_message.SerializeToCord(&bytes_2206));
-  absl::Cord kitchen_sink_cord_4 = bytes_2206;
 
   zetasql_test__::NullableInt nullable_int_message;
   const std::string nullable_int_string_1("value: 1");

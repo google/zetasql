@@ -319,14 +319,14 @@ absl::Status Resolver::ResolveStandaloneExprAndAssignToType(
 
 absl::Status Resolver::ResolveExprWithFunctionArguments(
     absl::string_view sql, const ASTExpression* ast_expr,
-    IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>>*
+    const IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>>&
         function_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* output) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   Reset(sql);
   auto arg_info = std::make_unique<FunctionArgumentInfo>();
-  for (auto& [arg_name, resolved_arg] : *function_arguments) {
+  for (auto& [arg_name, resolved_arg] : function_arguments) {
     ZETASQL_RETURN_IF_ERROR(
         arg_info->AddScalarArg(arg_name, resolved_arg->argument_kind(),
                                FunctionArgumentType(resolved_arg->type())));

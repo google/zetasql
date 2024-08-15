@@ -153,6 +153,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/compare.h"
 #include "absl/types/span.h"
 #include "zetasql/base/endian.h"
 
@@ -794,6 +795,21 @@ inline bool operator>=(const FixedUint<kNumBitsPerWord, kNumWords>& lh,
   return !(lh < rh);
 }
 
+#ifdef __cpp_impl_three_way_comparison
+template <int kNumBitsPerWord, int kNumWords>
+inline std::strong_ordering operator<=>(
+    const FixedUint<kNumBitsPerWord, kNumWords>& lh,
+    const FixedUint<kNumBitsPerWord, kNumWords>& rh) {
+  if (lh == rh) {
+    return std::strong_ordering::equal;
+  }
+  if (lh < rh) {
+    return std::strong_ordering::less;
+  }
+  return std::strong_ordering::greater;
+}
+#endif
+
 template <int kNumBitsPerWord, int kNumWords>
 void FixedUint<kNumBitsPerWord, kNumWords>::AppendToString(
     std::string* result) const {
@@ -1386,6 +1402,22 @@ inline bool operator>=(const FixedInt<kNumBitsPerWord, kNumWords>& lh,
                        const FixedInt<kNumBitsPerWord, kNumWords>& rh) {
   return !(lh < rh);
 }
+
+#ifdef __cpp_impl_three_way_comparison
+template <int kNumBitsPerWord, int kNumWords>
+inline std::strong_ordering operator<=>(
+    const FixedInt<kNumBitsPerWord, kNumWords>& lh,
+    const FixedInt<kNumBitsPerWord, kNumWords>& rh) {
+  if (lh == rh) {
+    return std::strong_ordering::equal;
+  }
+  if (lh < rh) {
+    return std::strong_ordering::less;
+  } else {
+    return std::strong_ordering::greater;
+  }
+}
+#endif  // __cpp_impl_three_way_comparison
 
 // Equivalent to FixedUint<k, n1 + n2>(x) *= FixedUint<k, n1 + n2>(y)
 // except that this method is typically 50-60% faster than the above code.

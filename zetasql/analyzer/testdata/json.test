@@ -315,7 +315,7 @@ SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[SAFE_ORDINAL(1)]["a"]
                                              ^
 ==
 
-[language_features=JSON_TYPE,NAMED_ARGUMENTS]
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,TO_JSON_UNSUPPORTED_FIELDS]
 SELECT TO_JSON(key), TO_JSON(TestEnum, stringify_wide_numbers=>true), TO_JSON(KitchenSink, stringify_wide_numbers=>false) FROM TestTable;
 --
 QueryStmt
@@ -328,22 +328,25 @@ QueryStmt
     +-column_list=$query.[$col1#4, $col2#5, $col3#6]
     +-expr_list=
     | +-$col1#4 :=
-    | | +-FunctionCall(ZetaSQL:to_json(INT32, optional(1) BOOL stringify_wide_numbers) -> JSON)
+    | | +-FunctionCall(ZetaSQL:to_json(INT32, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
     | |   +-ColumnRef(type=INT32, column=TestTable.key#1)
     | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=FAIL)
     | +-$col2#5 :=
-    | | +-FunctionCall(ZetaSQL:to_json(ENUM<zetasql_test__.TestEnum>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+    | | +-FunctionCall(ZetaSQL:to_json(ENUM<zetasql_test__.TestEnum>, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
     | |   +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
     | |   +-Literal(type=BOOL, value=true)
+    | |   +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=FAIL)
     | +-$col3#6 :=
-    |   +-FunctionCall(ZetaSQL:to_json(PROTO<zetasql_test__.KitchenSinkPB>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+    |   +-FunctionCall(ZetaSQL:to_json(PROTO<zetasql_test__.KitchenSinkPB>, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
     |     +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=FAIL)
     +-input_scan=
       +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
 ==
 
-[language_features=JSON_TYPE,NAMED_ARGUMENTS]
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,TO_JSON_UNSUPPORTED_FIELDS]
 SELECT TO_JSON(1, false);
 --
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "stringify_wide_numbers" only [at 1:19]
@@ -577,3 +580,178 @@ FROM JsonTable;
 ERROR: Argument 'mode' to JSON_KEYS must be a constant expression [at 1:30]
 SELECT JSON_KEYS(JSON '999', mode=>TO_JSON_STRING(json_col))
                              ^
+==
+
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
+[enabled_ast_rewrites=DEFAULTS]
+[run_unparser]
+[show_unparsed]
+
+# TO_JSON with unsupported_fields defauls to 'FAIL'
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL))
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_json(RANGE<DATE>, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
+    |     +-FunctionCall(ZetaSQL:range(DATE, DATE) -> RANGE<DATE>)
+    |     | +-Literal(type=DATE, value=2022-10-01, has_explicit_type=TRUE)
+    |     | +-Literal(type=DATE, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=FAIL)
+    +-input_scan=
+      +-SingleRowScan
+
+[UNPARSED_SQL]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => "FAIL") AS a_1;
+==
+
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
+[enabled_ast_rewrites=DEFAULTS]
+[run_unparser]
+[show_unparsed]
+
+# TO_JSON with unsupported_fields set to 'IGNORE' or 'PLACEHOLDER'
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>{{'IGNORE'|'PLACEHOLDER'}})
+--
+
+ALTERNATION GROUP: 'IGNORE'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_json(RANGE<DATE>, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
+    |     +-FunctionCall(ZetaSQL:range(DATE, DATE) -> RANGE<DATE>)
+    |     | +-Literal(type=DATE, value=2022-10-01, has_explicit_type=TRUE)
+    |     | +-Literal(type=DATE, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=IGNORE)
+    +-input_scan=
+      +-SingleRowScan
+
+[UNPARSED_SQL]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => "IGNORE") AS a_1;
+--
+ALTERNATION GROUP: 'PLACEHOLDER'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_json(RANGE<DATE>, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
+    |     +-FunctionCall(ZetaSQL:range(DATE, DATE) -> RANGE<DATE>)
+    |     | +-Literal(type=DATE, value=2022-10-01, has_explicit_type=TRUE)
+    |     | +-Literal(type=DATE, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=ENUM<zetasql.functions.UnsupportedFields>, value=PLACEHOLDER)
+    +-input_scan=
+      +-SingleRowScan
+
+[UNPARSED_SQL]
+SELECT
+  TO_JSON(`RANGE`(DATE "2022-10-01", CAST(NULL AS DATE)), stringify_wide_numbers  => false, unsupported_fields  => "PLACEHOLDER") AS a_1;
+==
+
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
+[enabled_ast_rewrites=DEFAULTS]
+[no_run_unparser]
+
+# TO_JSON with unsupported_fields set to invalid value 'blah'
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'blah')
+--
+
+ERROR: Could not cast literal "blah" to type zetasql.functions.UnsupportedFields [at 2:48]
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'blah')
+                                               ^
+==
+
+# Case sensitive: setting unsupported_fields to `iGnore` triggers hint
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
+[enabled_ast_rewrites=DEFAULTS]
+[run_unparser]
+[show_unparsed]
+
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
+--
+
+ERROR: Could not cast literal "iGnore" to type zetasql.functions.UnsupportedFields; Did you mean 'IGNORE'? (Note: ENUM values are case sensitive) [at 1:48]
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
+                                               ^
+==
+
+# Case sensitive: setting unsupported_fields to `iGnore` triggers hint
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,RANGE_TYPE,TO_JSON_UNSUPPORTED_FIELDS]
+[enabled_ast_rewrites=DEFAULTS]
+[run_unparser]
+[show_unparsed]
+
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
+--
+
+ERROR: Could not cast literal "iGnore" to type zetasql.functions.UnsupportedFields; Did you mean 'IGNORE'? (Note: ENUM values are case sensitive) [at 1:48]
+SELECT TO_JSON(RANGE(DATE '2022-10-01', NULL), unsupported_fields=>'iGnore')
+                                               ^
+==
+
+# Setting unsupported_fields to a named parameter
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,TO_JSON_UNSUPPORTED_FIELDS]
+[allow_undeclared_parameters]
+SELECT TO_JSON(1, unsupported_fields=>@p);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_json(INT64, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Parameter(parse_location=38-40, type=ENUM<zetasql.functions.UnsupportedFields>, name="p")
+    +-input_scan=
+      +-SingleRowScan
+[UNDECLARED_PARAMETERS]
+p: ENUM<zetasql.functions.UnsupportedFields>
+==
+
+# Setting unsupported_fields to a positional parameter
+[language_features=JSON_TYPE,NAMED_ARGUMENTS,TO_JSON_UNSUPPORTED_FIELDS]
+[allow_undeclared_parameters]
+[parameter_mode=positional]
+SELECT TO_JSON(1, unsupported_fields=>?);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:to_json(INT64, optional(1) BOOL stringify_wide_numbers, optional(1) ENUM<zetasql.functions.UnsupportedFields> unsupported_fields) -> JSON)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Parameter(parse_location=38-39, type=ENUM<zetasql.functions.UnsupportedFields>, position=1)
+    +-input_scan=
+      +-SingleRowScan
+[UNDECLARED_PARAMETERS]
+ENUM<zetasql.functions.UnsupportedFields>

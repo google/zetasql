@@ -19,8 +19,10 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include "absl/time/civil_time.h"
+#include "absl/types/compare.h"
 
 namespace zetasql {
 
@@ -200,6 +202,27 @@ class TimeValue {
   // Pack the hour/minute/second/nanos into a bit field.
   int64_t Packed64TimeNanos() const;
 
+  // Note that TimeValues with IsValid() false will compare unequal to
+  // everything, including other TimeValues with IsValid() false and the exact
+  // same contents, which naturally have the same hash. This violates the
+  // expectation that is should be rare to find objects with equal hashes that
+  // are unequal.
+  template <typename H>
+  friend H AbslHashValue(H h, const TimeValue& time_value) {
+    return H::combine(std::move(h), time_value.IsValid(),
+                      time_value.Packed64TimeNanos());
+  }
+
+#ifdef __cpp_impl_three_way_comparison
+  friend std::partial_ordering operator<=>(const TimeValue& lhs,
+                                           const TimeValue& rhs) {
+    if (!lhs.IsValid() || !rhs.IsValid()) {
+      return std::partial_ordering::unordered;
+    }
+    return lhs.Packed64TimeNanos() <=> rhs.Packed64TimeNanos();
+  }
+#endif
+
  private:
   static TimeValue FromHMSAndNanosInternal(int64_t hour, int64_t minute,
                                            int64_t second, int64_t nanosecond);
@@ -360,6 +383,29 @@ class DatetimeValue {
   absl::CivilSecond ConvertToCivilSecond() const {
     return absl::CivilSecond(year_, month_, day_, hour_, minute_, second_);
   }
+
+  // Note that DatetimeValues with IsValid() false will compare unequal to
+  // everything, including other DatetimeValues with IsValid() false and the
+  // exact same contents, which naturally have the same hash. This violates the
+  // expectation that is should be rare to find objects with equal hashes that
+  // are unequal.
+  template <typename H>
+  friend H AbslHashValue(H h, const DatetimeValue& datetime_value) {
+    return H::combine(std::move(h), datetime_value.IsValid(),
+                      datetime_value.Packed64DatetimeSeconds(),
+                      datetime_value.Nanoseconds());
+  }
+
+#ifdef __cpp_impl_three_way_comparison
+  friend std::partial_ordering operator<=>(const DatetimeValue& lhs,
+                                           const DatetimeValue& rhs) {
+    if (!lhs.IsValid() || !rhs.IsValid()) {
+      return std::partial_ordering::unordered;
+    }
+    return std::make_pair(lhs.Packed64DatetimeSeconds(), lhs.Nanoseconds()) <=>
+           std::make_pair(rhs.Packed64DatetimeSeconds(), rhs.Nanoseconds());
+  }
+#endif
 
  private:
   static DatetimeValue FromYMDHMSAndNanosInternal(int64_t year, int64_t month,

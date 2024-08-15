@@ -194,8 +194,6 @@ struct TypeCastLabel {
     return from_type == rhs.from_type && to_type == rhs.to_type;
   }
 
-  bool operator!=(const TypeCastLabel& rhs) const { return !(*this == rhs); }
-
   std::string DebugString() {
     return absl::StrCat(TypeKind_Name(from_type), ":", TypeKind_Name(to_type));
   }

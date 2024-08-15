@@ -273,6 +273,7 @@ cc_library(
     deps = [
         ":string_util",
         "//zetasql/base",
+        "//zetasql/base:mathlimits",
         "//zetasql/base:mathutil",
         "@com_google_absl//absl/strings",
     ],
@@ -296,6 +297,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/numeric:bits",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:compare",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -425,6 +427,7 @@ cc_library(
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:builtin_function_options",
         "//zetasql/public:catalog",
+        "//zetasql/public:coercer",
         "//zetasql/public:cycle_detector",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
@@ -440,6 +443,7 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:string_format",
+        "//zetasql/public/functions:unsupported_fields_cc_proto",
         "//zetasql/public/types",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -678,6 +682,16 @@ cc_library(
     deps = ["//zetasql/public:analyzer_options"],
 )
 
+cc_library(
+    name = "internal_analyzer_output_properties",
+    hdrs = ["internal_analyzer_output_properties.h"],
+    deps = [
+        "//zetasql/public:analyzer_output_properties",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:target_syntax",
+    ],
+)
+
 cc_test(
     name = "function_utils_test",
     srcs = ["function_utils_test.cc"],
@@ -742,9 +756,4 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
     ],
-)
-
-cc_library(
-    name = "resolution_scope",
-    hdrs = ["resolution_scope.h"],
 )

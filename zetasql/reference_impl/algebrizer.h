@@ -41,6 +41,7 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "zetasql/reference_impl/uda_evaluation.h"
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -273,12 +274,17 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> array_value,
       const ResolvedCollation& collation);
 
+  // Adds a variable for a UDA argument. Requires that `argument_name` does not
+  // already have a variable.
+  absl::StatusOr<VariableId> AddUdaArgumentVariable(
+      absl::string_view argument_name);
+
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUdaCall(
       const AnonymizationOptions* anonymization_options,
       const ResolvedExpr& function_expr,
       const std::vector<const ResolvedExpr*>& aggregate_exprs,
       const ResolvedColumnList& aggregate_expr_columns,
-      std::vector<std::string> argument_names,
+      absl::Span<const UdaArgumentInfo> argument_infos,
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory);
 
@@ -290,16 +296,19 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
   CreateTemplatedUserDefinedAggregateFn(
       const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      std::vector<std::unique_ptr<ValueExpr>>& arguments,
       const AnonymizationOptions* anonymization_options);
 
   absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
   CreateNonTemplatedUserDefinedAggregateFn(
       const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      std::vector<std::unique_ptr<ValueExpr>>& arguments,
       const AnonymizationOptions* anonymization_options);
 
   absl::StatusOr<std::unique_ptr<AggregateFunctionBody>>
   CreateUserDefinedAggregateFn(
       const ResolvedNonScalarFunctionCallBase* aggregate_function,
+      std::vector<std::unique_ptr<ValueExpr>>& arguments,
       const AnonymizationOptions* anonymization_options);
 
   // TODO: Remove the special collation logics in this function.
@@ -333,14 +342,6 @@ class Algebrizer {
   // AlgebrizeAggregateFn.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeExpression(
       const ResolvedExpr* expr);
-
-  // Wraps 'value_expr' in a RootExpr to manage ownership of some objects
-  // required by the algebrized tree.
-  absl::StatusOr<std::unique_ptr<ValueExpr>> WrapWithRootExpr(
-      std::unique_ptr<ValueExpr> value_expr);
-
-  // Moves state from this algebrizer into a RootData and returns it.
-  std::unique_ptr<RootData> GetRootData();
 
   // Wraps a conjunct from a filter with some associated information.
   struct FilterConjunctInfo {
@@ -481,6 +482,11 @@ class Algebrizer {
       const ResolvedSetOperationScan* set_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeProjectScan(
       const ResolvedProjectScan* resolved_project,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeProjectScanInternal(
+      const ResolvedColumnList& column_list,
+      absl::Span<const std::unique_ptr<const ResolvedComputedColumn>> expr_list,
+      const ResolvedScan* input_scan, bool is_ordered,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   // 'limit' and 'offset' may both be NULL or both non-NULL.
   absl::StatusOr<std::unique_ptr<SortOp>> AlgebrizeOrderByScan(
@@ -825,6 +831,24 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> input,
       std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts);
 
+  // Returns a `RelationalOp` corresponding to `resolved_assert`.
+  //
+  // Unlike `AlgebrizeProjectScan`, this function does not accept
+  // FilterConjunctInfo to prevent query optimizations like filter pushdown,
+  // which can violate the semantics of the assert statement.
+  //
+  // For example, consider the following query:
+  //
+  // FROM UNNEST([1, 2, 3]) AS k
+  // |> ASSERT k > 1
+  // |> WHERE k > 1
+  //
+  // The assertion should fail. However, if the filter `WHERE k > 1` is pushed
+  // down to the array scan for [1, 2, 3], the assertion will succeed and thus
+  // the result is wrong.
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAssertScan(
+      const ResolvedAssertScan* resolved_assert);
+
   // Returns a `RelationalOp` corresponding to `resolved_barrier_scan`.
   //
   // This function does not accept FilterConjunctInfo to prevent query
@@ -968,17 +992,14 @@ class Algebrizer {
     std::string DebugString() const;
   };
 
-  // Adds a FieldRegistry to 'get_proto_field_caches_' and returns the
-  // corresponding pointer. If 'id' is set, also updates
-  // 'proto_field_registry_map_'.
-  absl::StatusOr<ProtoFieldRegistry*> AddProtoFieldRegistry(
+  // If 'id' is set, also updates 'proto_field_registry_map_'.
+  absl::StatusOr<std::unique_ptr<ProtoFieldRegistry>> MakeProtoFieldRegistry(
       const std::optional<SharedProtoFieldPath>& id);
 
-  // Adds a ProtoFieldReader corresponding to 'access_info' and 'registry' to
-  // 'get_proto_field_readers_' and returns the corresponding pointer. If 'id'
-  // is set and 'access_info' represents a proto-valued field, also updates
-  // 'get_proto_field_reader_map_'.
-  absl::StatusOr<ProtoFieldReader*> AddProtoFieldReader(
+  // A ProtoFieldReader corresponding to 'access_info' and 'registry' is
+  // returned. If 'id' is set and 'access_info' represents a proto-valued field,
+  // also updates 'get_proto_field_reader_map_'.
+  absl::StatusOr<std::unique_ptr<ProtoFieldReader>> MakeProtoFieldReader(
       const std::optional<SharedProtoFieldPath>& id,
       const ProtoFieldAccessInfo& access_info, ProtoFieldRegistry* registry);
 
@@ -1045,6 +1066,9 @@ class Algebrizer {
   Parameters* parameters_;
   ParameterMap* column_map_;  // Maps columns to variables. Not owned.
 
+  // Maps aggregate arguments by names to the variables.
+  absl::flat_hash_map<std::string, VariableId> aggregate_args_map_;
+
   // Maps system variables to variable ids.  Not owned.
   SystemVariablesAlgebrizerMap* system_variables_map_;
 
@@ -1065,12 +1089,6 @@ class Algebrizer {
   //
   // Entries are removed from the map as AlgebrizeWithRefScan() consumes them.
   absl::flat_hash_map<std::string, const ResolvedScan*> inlined_with_entries_;
-
-  // Owns all the ProtoFieldRegistries created by the algebrizer.
-  std::vector<std::unique_ptr<ProtoFieldRegistry>> proto_field_registries_;
-
-  // Owns all the ProtoFieldReaders created by the algebrizer.
-  std::vector<std::unique_ptr<ProtoFieldReader>> get_proto_field_readers_;
 
   // If 'algebrizer_options_.consolidate_proto_field_accesses' is true, contains
   // every GetProtoFieldExpr::FieldRegistry whose proto-valued expression can be

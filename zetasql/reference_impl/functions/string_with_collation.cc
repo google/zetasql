@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,13 +25,15 @@
 #include "zetasql/public/collator.h"
 #include "zetasql/public/functions/string_with_collation.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/function.h"
-#include "zetasql/reference_impl/functions/like.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -71,13 +74,20 @@ class CollationKeyFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class LikeWithCollationFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
+template <typename OutType, typename FunctionType, class... Args>
+bool EvaluateFunctionWithCollation(FunctionType function,
+                                   const ZetaSqlCollator& collator,
+                                   Args&&... args, OutType* out,
+                                   absl::Status* status) {
+  if constexpr (std::is_invocable_v<decltype(function),
+                                    const ZetaSqlCollator&, Args..., OutType*,
+                                    absl::Status*>) {
+    return function(collator, args..., out, status);
+  } else {
+    *status = function(collator, args..., out);
+    return status->ok();
+  }
+}
 
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeWithCollation(FunctionType function, Value* result,
@@ -90,9 +100,12 @@ bool InvokeWithCollation(FunctionType function, Value* result,
     return false;
   }
   OutType out;
-  if (!function(*(collator_or_status.value()), args..., &out, status)) {
+  if (!EvaluateFunctionWithCollation<OutType, FunctionType, Args...>(
+          function, *(collator_or_status.value()), std::forward<Args>(args)...,
+          &out, status)) {
     return false;
   }
+
   *result = Value::Make<OutType>(out);
   return true;
 }
@@ -108,7 +121,9 @@ bool InvokeStringWithCollation(FunctionType function, Value* result,
     return false;
   }
   std::string out;
-  if (!function(*(collator_or_status.value()), args..., &out, status)) {
+  if (!EvaluateFunctionWithCollation<std::string, FunctionType, Args...>(
+          function, *(collator_or_status.value()), std::forward<Args>(args)...,
+          &out, status)) {
     return false;
   }
   *result = Value::String(out);
@@ -162,6 +177,19 @@ bool StringWithCollationFunction::Eval(
           &functions::ReplaceUtf8WithCollation, result, status,
           args[0].string_value(), args[1].string_value(),
           args[2].string_value(), args[3].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSplitSubstrWithCollation, TYPE_STRING,
+                        4):
+      return InvokeStringWithCollation(
+          &functions::SplitSubstrWithCollation, result, status,
+          args[0].string_value(), args[1].string_value(),
+          args[2].string_value(), args[3].int64_value(),
+          /*count=*/std::numeric_limits<int64_t>::max());
+    case FCT_TYPE_ARITY(FunctionKind::kSplitSubstrWithCollation, TYPE_STRING,
+                        5):
+      return InvokeStringWithCollation(
+          &functions::SplitSubstrWithCollation, result, status,
+          args[0].string_value(), args[1].string_value(),
+          args[2].string_value(), args[3].int64_value(), args[4].int64_value());
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported string function: " << debug_name();
@@ -215,19 +243,6 @@ absl::StatusOr<Value> CollationKeyFunction::Eval(
   return Value::Bytes(cord.Flatten());
 }
 
-absl::StatusOr<Value> LikeWithCollationFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_GE(args.size(), 3) << "LIKE with collation has 3 or more arguments";
-  QuantifiedLikeEvaluationParams quantified_like_eval_params(
-      /*search_value=*/args[1],
-      /*pattern_elements=*/args.subspan(2),
-      /*operation_type=*/QuantifiedLikeEvaluationParams::kLike,
-      /*is_not=*/false,
-      /*collation_str=*/args[0].string_value());
-  return EvaluateQuantifiedLike(quantified_like_eval_params);
-}
-
 }  // namespace
 
 void RegisterBuiltinStringWithCollationFunctions() {
@@ -235,7 +250,8 @@ void RegisterBuiltinStringWithCollationFunctions() {
       {FunctionKind::kEndsWithWithCollation,
        FunctionKind::kReplaceWithCollation, FunctionKind::kSplitWithCollation,
        FunctionKind::kStartsWithWithCollation,
-       FunctionKind::kStrposWithCollation, FunctionKind::kInstrWithCollation},
+       FunctionKind::kStrposWithCollation, FunctionKind::kInstrWithCollation,
+       FunctionKind::kSplitSubstrWithCollation},
       [](FunctionKind kind, const Type* output_type) {
         return new StringWithCollationFunction(kind, output_type);
       });

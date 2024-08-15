@@ -326,6 +326,7 @@ QueryStmt
     |   |         +-TableScan(table=KeyValue)
     |   +-order_by_item_list=
     |     +-OrderByItem
+    |       +-parse_location=32-33
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
     +-limit=
@@ -513,6 +514,7 @@ QueryStmt
     |   |     +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
     |   +-order_by_item_list=
     |     +-OrderByItem
+    |       +-parse_location=99-100
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$groupby.key#3)
     +-limit=
@@ -671,6 +673,7 @@ QueryStmt
     |   |         +-ColumnRef(type=ARRAY<INT32>, column=$subquery1.b#4)
     |   +-order_by_item_list=
     |     +-OrderByItem
+    |       +-parse_location=140-141
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$subquery1.c#5)
     +-limit=

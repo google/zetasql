@@ -32,6 +32,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/log.h"
@@ -615,6 +616,8 @@ enum class GroupingType {
   // In exceptional cases we need to drop the remaining parsed tokens and
   // reparse the rest of sql.
   kNeedRetokenizing,
+  // Embedded SQL inside a string literal.
+  kEmbeddedSql,
 };
 
 // Holds a state of grouping multiple ZetaSQL tokens into a single formatter
@@ -756,6 +759,18 @@ bool IsDoubleSlashComment(const ParseToken& parse_token,
                           const Token& prev_token) {
   return prev_token.GetImage() == "/" && parse_token.GetImage() == "/" &&
          !SpaceBetweenTokensInInput(prev_token, parse_token);
+}
+
+// Returns true if the given `parse_token` is a string literal annotated as an
+// embedded SQL string, e.g.: /*sql*/"SELECT 1;"
+bool IsEmbeddedSqlStart(const ParseToken& parse_token,
+                        const Token& prev_token) {
+  return parse_token.IsValue() &&
+         parse_token.GetValue().type_kind() == TYPE_STRING &&
+         prev_token.IsSlashStarComment() &&
+         StrContainsIgnoreCase(prev_token.GetImage(), "/*sql*/") &&
+         !absl::StripAsciiWhitespace(parse_token.GetValue().string_value())
+              .empty();
 }
 
 // Updates grouping state with the end of no format region if the given
@@ -1013,6 +1028,31 @@ void UpdateGroupingStateForDoubleSlashComment(
       FindLineEnd(sql, TokenStartOffset(comment_start) + 2);
 }
 
+// Updates grouping state for an embedded SQL string. This is a special case
+// when we need to re-tokenize the contents of the string, so this function
+// calculates the range to be re-tokenized.
+void UpdateGroupingStateForEmbeddedSql(const ParseToken& embedded_sql,
+                                       TokenGroupingState* grouping_state) {
+  grouping_state->type = GroupingType::kEmbeddedSql;
+  const int quotes_length =
+      static_cast<int>(embedded_sql.GetImage().size() -
+                       embedded_sql.GetValue().string_value().size());
+  // Find the start and end of the embedded SQL string within quotes. This
+  // handles single quotes, triple quotes and string literal prefixes, e.g.:
+  // r'raw string'.
+  int content_start = TokenStartOffset(embedded_sql);
+  int content_end = TokenEndOffset(embedded_sql);
+  if (quotes_length >= 6) {  // Triple quotes ''', """ or r'''.
+    content_start += quotes_length - 3;
+    content_end -= 3;
+  } else {  // Single quotes '' or "", or r''.
+    content_start += quotes_length - 1;
+    content_end -= 1;
+  }
+  grouping_state->start_position = content_start;
+  grouping_state->end_position = content_end;
+}
+
 // Creates a zetasql::ParseToken.
 ParseToken CreateParseToken(absl::string_view sql, int start_position,
                             int end_position, ParseToken::Kind kind,
@@ -1148,6 +1188,11 @@ TokenGroupingState MaybeMoveParseTokenIntoTokens(
         // Remove '/' from already processed tokens: it'll become a part of the
         // comment token.
         tokens.pop_back();
+        return grouping_state;
+      } else if (!tokens.empty() &&
+                 IsEmbeddedSqlStart(parse_token, tokens.back())) {
+        UpdateGroupingStateForEmbeddedSql(parse_token, &grouping_state);
+        tokens.back().SetType(Token::Type::STRING_ANNOTATION_COMMENT);
         return grouping_state;
       }
       break;
@@ -1361,6 +1406,10 @@ TokenGroupingState MaybeMoveParseTokenIntoTokens(
     case GroupingType::kNeedRetokenizing: {
       return grouping_state;
     }
+
+    case GroupingType::kEmbeddedSql: {
+      return grouping_state;
+    }
   }
 
   // Default action: copy the token to the result as is.
@@ -1417,6 +1466,67 @@ void ConvertEnclosingDoubleQuotesToSingleIfSafe(std::string& image) {
                 enclosing_quotes_length, '\'');
 }
 
+// Creates a token that represents opening or closing quotes of a string
+// literal, whose content is parsed as SQL. In this case, quotes of the string
+// act as parentheses for the contents inside.
+Token CreateTokenForQuotes(absl::string_view sql, int start_position,
+                           int end_position, Token::Type type) {
+  // Omit 'r' or 'b' that might appear before opening quotes of a string
+  // literal, so that Token::GetKeyword() returns quotes without this prefix,
+  // but Token::GetImage() still contains the full string.
+  int quotes_start = start_position;
+  while (quotes_start < end_position && sql[quotes_start] != '\'' &&
+         sql[quotes_start] != '"') {
+    quotes_start++;
+  }
+  absl::string_view quotes =
+      sql.substr(quotes_start, end_position - quotes_start);
+  Token token(
+      CreateParseToken(sql, start_position, end_position, ParseToken::KEYWORD),
+      quotes);
+  token.SetType(type);
+  return token;
+}
+
+// Parses contents of a string literal as SQL and adds the resulting tokens to
+// the `tokens` vector.
+absl::Status ParseEmbeddedSql(const ParseToken& string_literal,
+                              absl::string_view sql,
+                              const TokenGroupingState& grouping_state,
+                              const FormatterOptions& options,
+                              std::vector<Token>& tokens) {
+  // Create a token that represents opening quotes of the string literal.
+  tokens.push_back(CreateTokenForQuotes(sql, TokenStartOffset(string_literal),
+                                        grouping_state.start_position,
+                                        Token::Type::OPEN_BRACKET));
+
+  // Parse substring inside the quotes. We preserve all bytes before the string
+  // start to get the correct byte offsets.
+  absl::string_view embedded_sql = sql.substr(0, grouping_state.end_position);
+  ParseResumeLocation embedded_location =
+      ParseResumeLocation::FromStringView(embedded_sql);
+  embedded_location.set_byte_position(grouping_state.start_position);
+  // Do not format structured strings inside structured strings recursively.
+  FormatterOptions embedded_options = options;
+  embedded_options.FormatStructuredStrings(false);
+  while (embedded_location.byte_position() < grouping_state.end_position) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<Token> embedded_tokens,
+        TokenizeNextStatement(&embedded_location, embedded_options));
+    if (embedded_tokens.empty()) {
+      break;
+    }
+    for (auto&& token : embedded_tokens) {
+      tokens.push_back(std::move(token));
+    }
+  }
+  // Create a token that represents closing quotes of the string literal.
+  tokens.push_back(CreateTokenForQuotes(sql, grouping_state.end_position,
+                                        TokenEndOffset(string_literal),
+                                        Token::Type::CLOSE_BRACKET));
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 Token ParseInvalidToken(ParseResumeLocation* resume_location,
@@ -1470,11 +1580,10 @@ Token ParseInvalidToken(ParseResumeLocation* resume_location,
 }
 
 absl::StatusOr<std::vector<Token>> TokenizeStatement(
-    absl::string_view sql, bool allow_invalid_tokens) {
+    absl::string_view sql, const FormatterOptions& options) {
   ParseResumeLocation parse_location = ParseResumeLocation::FromStringView(sql);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<Token> tokens,
-      TokenizeNextStatement(&parse_location, allow_invalid_tokens));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<Token> tokens,
+                   TokenizeNextStatement(&parse_location, options));
   if (parse_location.byte_position() < sql.size()) {
     return absl::InvalidArgumentError(absl::StrCat(
         "TokenizeStatement(absl::string_view sql, bool allow_invalid_tokens) "
@@ -1488,7 +1597,7 @@ absl::StatusOr<std::vector<Token>> TokenizeStatement(
 }
 
 absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
-    ParseResumeLocation* parse_location, bool allow_invalid_tokens) {
+    ParseResumeLocation* parse_location, const FormatterOptions& options) {
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
   // TODO Allow V_1_4_SQL_MACROS as well
@@ -1518,9 +1627,19 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
         grouping_state.Reset();
         break;
       }
+      if (grouping_state.type == GroupingType::kEmbeddedSql) {
+        if (options.IsFormattingStructuredStrings()) {
+          ZETASQL_RETURN_IF_ERROR(ParseEmbeddedSql(token, parse_location->input(),
+                                           grouping_state, options, tokens));
+        } else {
+          // Do not reparse the string literal.
+          tokens.emplace_back(std::move(token));
+        }
+        grouping_state.Reset();
+      }
     }
     if (!parse_status.ok()) {
-      if (!allow_invalid_tokens) {
+      if (!options.IsAllowedInvalidTokens()) {
         return parse_status;
       }
       // ZetaSQL tokenizer couldn't parse any tokens at all. Unblock it by
@@ -1628,6 +1747,19 @@ bool Token::IsCaseExprKeyword() const {
       new zetasql_base::flat_set<absl::string_view>({"ELSE", "END", "THEN", "WHEN"});
   return !Is(Type::KEYWORD_AS_IDENTIFIER_FRAGMENT) &&
          kCaseClauseKeywords->contains(GetKeyword());
+}
+
+bool Token::IsStringLiteral() const {
+  return IsValue() &&
+         GetValue().type_kind() == zetasql::TypeKind::TYPE_STRING;
+}
+
+bool Token::IsOpenAngleBracket() const {
+  return Is(Type::OPEN_BRACKET) && GetKeyword() == "<";
+}
+
+bool Token::IsCloseAngleBracket() const {
+  return Is(Type::CLOSE_BRACKET) && GetKeyword() == ">";
 }
 
 bool Token::MayBeIdentifier() const {
@@ -1799,7 +1931,7 @@ bool IsCloseParenOrBracket(absl::string_view keyword) {
 
 absl::string_view CorrespondingOpenBracket(absl::string_view keyword) {
   if (keyword.empty()) {
-    return "";
+    return "<unknown>";
   }
   switch (keyword[0]) {
     case ')':
@@ -1808,8 +1940,16 @@ absl::string_view CorrespondingOpenBracket(absl::string_view keyword) {
       return "[";
     case '}':
       return "{";
+    case '>':
+      return "<";
+    // Quotes behave as parentheses when the contents of a string literal is
+    // parsed as SQL.
+    case '\'':
+      return keyword.length() == 1 ? "'" : "'''";
+    case '"':
+      return keyword.length() == 1 ? "\"" : "\"\"\"";
     default:
-      return "";
+      return "<unknown>";
   }
 }
 

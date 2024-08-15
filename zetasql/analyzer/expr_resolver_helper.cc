@@ -317,7 +317,8 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
       ARG_UPDATE(top_level_ast_expr),
       column_alias(!options.column_alias.empty() ? options.column_alias
                                                  : parent->column_alias)
-{
+      ,
+      enclosing_aggregate_function(parent->enclosing_aggregate_function) {
   // This constructor can only be used to switch the name scope to the parent's
   // aggregate or analytic scope, not to introduce a new scope,
   // unless allow_new_scopes is set.
@@ -346,7 +347,8 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
       use_post_grouping_columns(parent->use_post_grouping_columns),
       top_level_ast_expr(parent->top_level_ast_expr),
       column_alias(parent->column_alias)
-{}
+      ,
+      enclosing_aggregate_function(parent->enclosing_aggregate_function) {}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
@@ -445,6 +447,10 @@ std::string ExprResolutionInfo::DebugString() const {
   absl::StrAppend(&debugstring, "\nclause_name: ", clause_name);
   absl::StrAppend(&debugstring,
                   "\nuse_post_grouping_columns: ", use_post_grouping_columns);
+  absl::StrAppend(&debugstring, "\enclosing_aggregate_function:\n",
+                  (enclosing_aggregate_function != nullptr
+                       ? enclosing_aggregate_function->DebugString()
+                       : "NULL"));
   absl::StrAppend(
       &debugstring, "\nQueryResolutionInfo:\n",
       (query_resolution_info != nullptr ? query_resolution_info->DebugString()

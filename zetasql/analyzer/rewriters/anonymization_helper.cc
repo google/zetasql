@@ -235,7 +235,7 @@ class PublicGroupsState {
   MaybeRewritePublicGroupsJoinAndReturnUid(
       const UidColumnState& left_scan_uid_state,
       const UidColumnState& right_scan_uid_state,
-      const std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries,
+      absl::Span<const std::unique_ptr<WithEntryRewriteState>> with_entries,
       ResolvedJoinScan* join);
 
   // Tracks column replacements, so that the join conditions can be rewritten
@@ -3133,13 +3133,9 @@ ExtractSubmessageFromProtoColumn(const std::string& field_name,
   ZETASQL_RETURN_IF_ERROR(type_factory.GetProtoFieldType(
       field, proto_column.type()->AsProto()->CatalogNamePath(), &field_type));
 
-  const zetasql::ProtoType* proto_field_type;
-  ZETASQL_RETURN_IF_ERROR(
-      type_factory.MakeProtoType(&proto_descriptor, &proto_field_type));
-
   return MakeResolvedGetProtoField(
       field_type, BuildResolvedColumnRef(proto_column), field,
-      Value::Null(proto_field_type),
+      Value::Null(field_type),
       /* get_has_bit=*/false, ProtoType::GetFormatAnnotation(field),
       /* return_default_value_when_unset=*/false);
 }
@@ -3280,8 +3276,9 @@ MakeExtractCountFromAnonOutputWithReportJson(
   ZETASQL_RETURN_IF_ERROR(catalog.FindFunction({std::string("json_query")},
                                        &json_query_fn, options.find_options()));
   FunctionSignature json_query_signature(
-      type_factory.get_json(),
-      {type_factory.get_json(), type_factory.get_string()}, FN_JSON_QUERY_JSON);
+      {type_factory.get_json(), 1},
+      {{type_factory.get_json(), 1}, {type_factory.get_string(), 1}},
+      FN_JSON_QUERY_JSON);
   std::vector<std::unique_ptr<const ResolvedExpr>> json_query_fn_args(2);
   json_query_fn_args[0] = BuildResolvedColumnRef(unique_users_count_column);
   json_query_fn_args[1] =
@@ -3291,8 +3288,9 @@ MakeExtractCountFromAnonOutputWithReportJson(
   const Function* json_to_int64_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(catalog.FindFunction(
       {std::string("int64")}, &json_to_int64_fn, options.find_options()));
-  FunctionSignature json_to_int64_signature(
-      type_factory.get_int64(), {type_factory.get_json()}, FN_JSON_TO_INT64);
+  FunctionSignature json_to_int64_signature({type_factory.get_int64(), 1},
+                                            {{type_factory.get_json(), 1}},
+                                            FN_JSON_TO_INT64);
   std::vector<std::unique_ptr<const ResolvedExpr>> json_to_int64_fn_args(1);
   json_to_int64_fn_args[0] = MakeResolvedFunctionCall(
       types::JsonType(), json_query_fn, json_query_signature,
@@ -3526,7 +3524,7 @@ inline constexpr absl::string_view kPrivacyUnitColumnOptionName =
 // Factory method that extracts the aggregation threshold options from the raw
 // options of the aggregation threshold aggregate scan.
 inline absl::StatusOr<AggregationThresholdOptionSpec> FromScanOptions(
-    const std::vector<std::unique_ptr<const ResolvedOption>>& scan_options,
+    absl::Span<const std::unique_ptr<const ResolvedOption>> scan_options,
     const LanguageOptions& language_options) {
   std::optional<Value> threshold;
   std::optional<Value> max_groups_contributed;
@@ -3901,7 +3899,7 @@ absl::StatusOr<std::optional<UidColumnState>>
 PublicGroupsState::MaybeRewritePublicGroupsJoinAndReturnUid(
     const UidColumnState& left_scan_uid_state,
     const UidColumnState& right_scan_uid_state,
-    const std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries,
+    absl::Span<const std::unique_ptr<WithEntryRewriteState>> with_entries,
     ResolvedJoinScan* join) {
   std::optional<PublicGroupsUserDataAndPublicDataUidColumn> uid_columns =
       GetPublicGroupsUserDataAndPublicDataUidColumn(join, left_scan_uid_state,
@@ -4506,7 +4504,7 @@ void AppendResolvedComputedColumnsToList(
 }
 
 void AppendResolvedComputedColumnsToList(
-    const std::vector<std::unique_ptr<ResolvedComputedColumnBase>>&
+    absl::Span<const std::unique_ptr<ResolvedComputedColumnBase>>
         resolved_computed_columns,
     std::vector<ResolvedColumn>& out_column_list) {
   for (const std::unique_ptr<ResolvedComputedColumnBase>& computed_column :

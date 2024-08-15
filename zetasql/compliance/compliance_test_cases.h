@@ -97,18 +97,18 @@ class ComplianceCodebasedTests : public SQLTestBase {
   // named @p0, @p1, etc. Examples of sql_string are '@p0 + @p1', 'sqrt(@p0)',
   // etc.
   void RunStatementTests(
-      const std::vector<QueryParamsWithResult>& statement_tests,
+      absl::Span<const QueryParamsWithResult> statement_tests,
       absl::string_view sql_string);
 
   // Takes 'operator_name' as input and creates a sql string of the kind @p0
   // op_name @p1 ... op_name @pn.
   void RunFunctionTestsInfix(
-      const std::vector<QueryParamsWithResult>& function_tests,
+      absl::Span<const QueryParamsWithResult> function_tests,
       absl::string_view operator_name);
 
   // Creates a sql string of the kind @p0 IN (@p1, @p2, ...)
   void RunFunctionTestsInOperator(
-      const std::vector<QueryParamsWithResult>& function_tests);
+      absl::Span<const QueryParamsWithResult> function_tests);
 
   // Creates a sql string of the kind @p0 IN UNNEST([@p1, @p2, ...])
   void RunFunctionTestsInOperatorUnnestArray(
@@ -177,18 +177,9 @@ class ComplianceCodebasedTests : public SQLTestBase {
   void RunFunctionTestsCustom(absl::Span<const FunctionTestCall> function_tests,
                               FCT get_sql_string);
 
-  // Runs a statement with the specified feature set and returns the result.
-  absl::StatusOr<ComplianceCodebasedTests::ComplianceTestCaseResult>
-  ExecuteStatementWithFeatures(
-      const std::string& sql, const std::map<std::string, Value>& params,
-      const QueryParamsWithResult::FeatureSet& features);
-
   // Runs a statement with required and/or prohibited features.
   void RunStatementOnFeatures(absl::string_view sql,
                               const QueryParamsWithResult& params);
-
-  // Default TestDatabase used by many tests.
-  static TestDatabase GetDefaultTestDatabase();
 
   // Options that modify which specific tests we run or what behavior we
   // expect for a particular field in TestProtoFieldImpl.

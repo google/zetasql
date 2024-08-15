@@ -32,6 +32,7 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/analyzer/analyzer_output_mutator.h"
 #include "zetasql/analyzer/analyzer_test_options.h"
+#include "zetasql/common/internal_analyzer_output_properties.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/common/unicode_utils.h"
@@ -312,8 +313,6 @@ class AnalyzerTestRunner {
   // depending on the value of catalog_name.
   class CatalogHolder {
    public:
-    // "suppressed_functions" is a comma separated list of built-in function
-    // names to exclude when using "SampleCatalog".
     explicit CatalogHolder(Catalog* catalog) : catalog_(catalog) {}
     Catalog* catalog() { return catalog_; }
 
@@ -1013,7 +1012,7 @@ class AnalyzerTestRunner {
                     extracted_statement_properties, test_result);
   }
 
-  void TestMulti(const std::string& test_case, const AnalyzerOptions& options,
+  void TestMulti(absl::string_view test_case, const AnalyzerOptions& options,
                  absl::string_view mode, Catalog* catalog,
                  TypeFactory* type_factory,
                  file_based_test_driver::RunTestCaseResult* test_result) {
@@ -1349,7 +1348,7 @@ class AnalyzerTestRunner {
   }
 
   void HandleOneResult(
-      const std::string& test_case, const AnalyzerOptions& options,
+      absl::string_view test_case, const AnalyzerOptions& options,
       TypeFactory* type_factory, Catalog* catalog, absl::string_view mode,
       const absl::Status& status,
       const absl::Status& detailed_sig_mismatch_status,
@@ -1675,6 +1674,31 @@ class AnalyzerTestRunner {
           return absl::InvalidArgumentError(absl::StrFormat(
               "prepare_database duplicate function definition %s",
               function->DebugString()));
+        }
+        break;
+      }
+      case RESOLVED_CREATE_TABLE_STMT: {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<SimpleTable> table,
+            MakeTableFromCreateTable(*output->resolved_statement()
+                                          ->GetAs<ResolvedCreateTableStmt>()));
+        const std::string table_name = table->Name();
+        if (!database_entry->mutable_catalog()->AddOwnedTableIfNotPresent(
+                table_name, std::move(table))) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "prepare_database duplicate table definition %s", table_name));
+        }
+        break;
+      }
+      case RESOLVED_CREATE_TABLE_FUNCTION_STMT: {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TableValuedFunction> tvf,
+                         MakeTVFFromCreateTableFunction(
+                             *output->resolved_statement()
+                                  ->GetAs<ResolvedCreateTableFunctionStmt>()));
+        if (!database_entry->mutable_catalog()
+                 ->AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "prepare_database duplicate TVF definition %s", tvf->Name()));
         }
         break;
       }
@@ -2312,6 +2336,7 @@ class AnalyzerTestRunner {
       // haven't implemented any comparison yet.  Some of these could do
       // full CompareNode comparison.
       case RESOLVED_ABORT_BATCH_STMT:
+      case RESOLVED_ALTER_CONNECTION_STMT:
       case RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT:
       case RESOLVED_ALTER_DATABASE_STMT:
       case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
@@ -2331,6 +2356,7 @@ class AnalyzerTestRunner {
       case RESOLVED_CALL_STMT:
       case RESOLVED_CLONE_DATA_STMT:
       case RESOLVED_COMMIT_STMT:
+      case RESOLVED_CREATE_CONNECTION_STMT:
       case RESOLVED_CREATE_EXTERNAL_TABLE_STMT:
       case RESOLVED_CREATE_FUNCTION_STMT:
       case RESOLVED_CREATE_MATERIALIZED_VIEW_STMT:
@@ -2570,8 +2596,8 @@ class AnalyzerTestRunner {
     return true;
   }
 
-  bool ComparePath(const std::vector<std::string>& output_path,
-                   const std::vector<std::string>& unparsed_path) {
+  bool ComparePath(absl::Span<const std::string> output_path,
+                   absl::Span<const std::string> unparsed_path) {
     if (output_path.size() != unparsed_path.size()) {
       return false;
     }
@@ -2638,8 +2664,7 @@ class AnalyzerTestRunner {
     // This is used so that we only test each statement kind once.
     static std::set<ResolvedNodeKind> statement_kinds_to_be_skipped = {
         // Skip EXPLAIN statements, which fail the below checks because they
-        // also
-        // require the explained statement kind to be supported.
+        // also require the explained statement kind to be supported.
         RESOLVED_EXPLAIN_STMT};
 
     if (zetasql_base::ContainsKey(statement_kinds_to_be_skipped, kind)) return;
@@ -2846,7 +2871,8 @@ class AnalyzerTestRunner {
         analyzer_output->undeclared_positional_parameters();
     builder_options.catalog = catalog;
     builder_options.target_syntax =
-        analyzer_output->analyzer_output_properties().target_syntax_;
+        InternalAnalyzerOutputProperties::GetTargetSyntax(
+            analyzer_output->analyzer_output_properties());
     const std::string positional_parameter_mode =
         test_case_options_.GetString(kUnparserPositionalParameterMode);
     if (positional_parameter_mode == "question_mark") {

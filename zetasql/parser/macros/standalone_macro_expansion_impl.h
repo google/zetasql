@@ -36,9 +36,8 @@ inline absl::StatusOr<ExpansionOutput> ExpandMacros(
     const MacroCatalog& catalog, const LanguageOptions& language_options,
     DiagnosticOptions diagnostic_options) {
   return MacroExpander::ExpandMacros(
-      std::make_unique<FlexTokenProvider>(
-          filename, input, /*preserve_comments=*/false, /*start_offset=*/0,
-          /*end_offset=*/std::nullopt),
+      std::make_unique<FlexTokenProvider>(filename, input, /*start_offset=*/0,
+                                          /*end_offset=*/std::nullopt),
       language_options, catalog, diagnostic_options);
 }
 

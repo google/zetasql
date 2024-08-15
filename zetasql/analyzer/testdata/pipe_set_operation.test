@@ -1,0 +1,385 @@
+# Pipe set operations aren't supported yet, but this has some tests for
+# pipe operators after set operations.
+[default language_features=PIPES]
+
+# Test UNION ALL producing a value table.
+# The result works as a value table, but pseudo-columns are still dropped.
+(from TestExtraValueTable vt)
+UNION ALL
+(from TestExtraValueTable)
+|> {{limit 1|where str_value is null|SELECT vt, vt.str_value, *|where filename = ''}}
+--
+ALTERNATION GROUP: limit 1
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.vt#7 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$union_all.vt#7]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=[$union_all.vt#7]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+    |     | +-output_column_list=[TestExtraValueTable.value#1]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+    |       +-output_column_list=[TestExtraValueTable.value#4]
+    +-limit=
+      +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: where str_value is null
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.vt#7 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-FilterScan
+    +-column_list=[$union_all.vt#7]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=[$union_all.vt#7]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+    |     | +-output_column_list=[TestExtraValueTable.value#1]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+    |       +-output_column_list=[TestExtraValueTable.value#4]
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+        +-GetProtoField
+          +-type=ARRAY<STRING>
+          +-expr=
+          | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+          +-field_descriptor=str_value
+          +-default_value=[]
+--
+ALTERNATION GROUP: SELECT vt, vt.str_value, *
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.vt#7 AS vt [PROTO<zetasql_test__.TestExtraPB>]
+| +-$pipe_select.str_value#8 AS str_value [ARRAY<STRING>]
+| +-$pipe_select.int32_val1#9 AS int32_val1 [INT32]
+| +-$pipe_select.int32_val2#10 AS int32_val2 [INT32]
+| +-$pipe_select.str_value#11 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$union_all.vt#7, $pipe_select.str_value#8, $pipe_select.int32_val1#9, $pipe_select.int32_val2#10, $pipe_select.str_value#11]
+    +-expr_list=
+    | +-str_value#8 :=
+    | | +-GetProtoField
+    | |   +-type=ARRAY<STRING>
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+    | |   +-field_descriptor=str_value
+    | |   +-default_value=[]
+    | +-int32_val1#9 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+    | |   +-field_descriptor=int32_val1
+    | |   +-default_value=0
+    | +-int32_val2#10 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+    | |   +-field_descriptor=int32_val2
+    | |   +-default_value=0
+    | +-str_value#11 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+    |     +-field_descriptor=str_value
+    |     +-default_value=[]
+    +-input_scan=
+      +-SetOperationScan
+        +-column_list=[$union_all.vt#7]
+        +-op_type=UNION_ALL
+        +-input_item_list=
+          +-SetOperationItem
+          | +-scan=
+          | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+          | +-output_column_list=[TestExtraValueTable.value#1]
+          +-SetOperationItem
+            +-scan=
+            | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+            +-output_column_list=[TestExtraValueTable.value#4]
+--
+ALTERNATION GROUP: where filename = ''
+--
+ERROR: Unrecognized name: filename [at 6:10]
+|> where filename = ''
+         ^
+==
+
+# A set operation on value tables acts as value table when used as a table
+# subquery.
+from (
+  (from TestExtraValueTable vt)
+  UNION ALL
+  (from TestExtraValueTable)
+)
+|> where {{str_value|vt.str_value}} is null
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.vt#7 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-FilterScan
+    +-column_list=[$union_all.vt#7]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=[$union_all.vt#7]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="vt")
+    |     | +-output_column_list=[TestExtraValueTable.value#1]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+    |       +-output_column_list=[TestExtraValueTable.value#4]
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+        +-GetProtoField
+          +-type=ARRAY<STRING>
+          +-expr=
+          | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.vt#7)
+          +-field_descriptor=str_value
+          +-default_value=[]
+==
+
+# A set operation value table acts as value table when used as a table subquery,
+# with an alias on the subquery.
+[language_features=PIPES,V_1_2_GROUP_BY_STRUCT]
+from (
+  select AS STRUCT 1 a, 2 b
+  intersect all
+  select AS STRUCT 3 c, 4 d
+) as input
+|> where b = 2
+|> where input.b = 2
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_all.$struct#7 AS `$value` [STRUCT<a INT64, b INT64>]
++-is_value_table=TRUE
++-query=
+  +-FilterScan
+    +-column_list=[$intersect_all.$struct#7]
+    +-input_scan=
+    | +-FilterScan
+    |   +-column_list=[$intersect_all.$struct#7]
+    |   +-input_scan=
+    |   | +-SetOperationScan
+    |   |   +-column_list=[$intersect_all.$struct#7]
+    |   |   +-op_type=INTERSECT_ALL
+    |   |   +-input_item_list=
+    |   |     +-SetOperationItem
+    |   |     | +-scan=
+    |   |     | | +-ProjectScan
+    |   |     | |   +-column_list=[$make_struct.$struct#3]
+    |   |     | |   +-expr_list=
+    |   |     | |   | +-$struct#3 :=
+    |   |     | |   |   +-MakeStruct
+    |   |     | |   |     +-type=STRUCT<a INT64, b INT64>
+    |   |     | |   |     +-field_list=
+    |   |     | |   |       +-ColumnRef(type=INT64, column=$intersect_all1.a#1)
+    |   |     | |   |       +-ColumnRef(type=INT64, column=$intersect_all1.b#2)
+    |   |     | |   +-input_scan=
+    |   |     | |     +-ProjectScan
+    |   |     | |       +-column_list=$intersect_all1.[a#1, b#2]
+    |   |     | |       +-expr_list=
+    |   |     | |       | +-a#1 := Literal(type=INT64, value=1)
+    |   |     | |       | +-b#2 := Literal(type=INT64, value=2)
+    |   |     | |       +-input_scan=
+    |   |     | |         +-SingleRowScan
+    |   |     | +-output_column_list=[$make_struct.$struct#3]
+    |   |     +-SetOperationItem
+    |   |       +-scan=
+    |   |       | +-ProjectScan
+    |   |       |   +-column_list=[$intersect_all2_cast.$struct#8]
+    |   |       |   +-expr_list=
+    |   |       |   | +-$struct#8 :=
+    |   |       |   |   +-Cast(STRUCT<c INT64, d INT64> -> STRUCT<a INT64, b INT64>)
+    |   |       |   |     +-ColumnRef(type=STRUCT<c INT64, d INT64>, column=$make_struct.$struct#6)
+    |   |       |   +-input_scan=
+    |   |       |     +-ProjectScan
+    |   |       |       +-column_list=[$make_struct.$struct#6]
+    |   |       |       +-expr_list=
+    |   |       |       | +-$struct#6 :=
+    |   |       |       |   +-MakeStruct
+    |   |       |       |     +-type=STRUCT<c INT64, d INT64>
+    |   |       |       |     +-field_list=
+    |   |       |       |       +-ColumnRef(type=INT64, column=$intersect_all2.c#4)
+    |   |       |       |       +-ColumnRef(type=INT64, column=$intersect_all2.d#5)
+    |   |       |       +-input_scan=
+    |   |       |         +-ProjectScan
+    |   |       |           +-column_list=$intersect_all2.[c#4, d#5]
+    |   |       |           +-expr_list=
+    |   |       |           | +-c#4 := Literal(type=INT64, value=3)
+    |   |       |           | +-d#5 := Literal(type=INT64, value=4)
+    |   |       |           +-input_scan=
+    |   |       |             +-SingleRowScan
+    |   |       +-output_column_list=[$intersect_all2_cast.$struct#8]
+    |   +-filter_expr=
+    |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |       +-GetStructField
+    |       | +-type=INT64
+    |       | +-expr=
+    |       | | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+    |       | +-field_idx=1
+    |       +-Literal(type=INT64, value=2)
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        +-GetStructField
+        | +-type=INT64
+        | +-expr=
+        | | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$intersect_all.$struct#7)
+        | +-field_idx=1
+        +-Literal(type=INT64, value=2)
+==
+
+# This is similar to the table subquery case, but written as a parenthesized set
+# operation producing a value table, without a table subquery.
+(
+  (from TestExtraValueTable)
+  union all
+  (from TestExtraValueTable)
+)
+|> {{where str_value is null|where true|select *}}
+--
+ALTERNATION GROUP: where str_value is null
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.TestExtraValueTable#7 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-FilterScan
+    +-column_list=[$union_all.TestExtraValueTable#7]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=[$union_all.TestExtraValueTable#7]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0])
+    |     | +-output_column_list=[TestExtraValueTable.value#1]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+    |       +-output_column_list=[TestExtraValueTable.value#4]
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+        +-GetProtoField
+          +-type=ARRAY<STRING>
+          +-expr=
+          | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.TestExtraValueTable#7)
+          +-field_descriptor=str_value
+          +-default_value=[]
+--
+ALTERNATION GROUP: where true
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.TestExtraValueTable#7 AS `$value` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-FilterScan
+    +-column_list=[$union_all.TestExtraValueTable#7]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=[$union_all.TestExtraValueTable#7]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0])
+    |     | +-output_column_list=[TestExtraValueTable.value#1]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+    |       +-output_column_list=[TestExtraValueTable.value#4]
+    +-filter_expr=
+      +-Literal(type=BOOL, value=true)
+--
+ALTERNATION GROUP: select *
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.int32_val1#8 AS int32_val1 [INT32]
+| +-$pipe_select.int32_val2#9 AS int32_val2 [INT32]
+| +-$pipe_select.str_value#10 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[int32_val1#8, int32_val2#9, str_value#10]
+    +-expr_list=
+    | +-int32_val1#8 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.TestExtraValueTable#7)
+    | |   +-field_descriptor=int32_val1
+    | |   +-default_value=0
+    | +-int32_val2#9 :=
+    | | +-GetProtoField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.TestExtraValueTable#7)
+    | |   +-field_descriptor=int32_val2
+    | |   +-default_value=0
+    | +-str_value#10 :=
+    |   +-GetProtoField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$union_all.TestExtraValueTable#7)
+    |     +-field_descriptor=str_value
+    |     +-default_value=[]
+    +-input_scan=
+      +-SetOperationScan
+        +-column_list=[$union_all.TestExtraValueTable#7]
+        +-op_type=UNION_ALL
+        +-input_item_list=
+          +-SetOperationItem
+          | +-scan=
+          | | +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0])
+          | +-output_column_list=[TestExtraValueTable.value#1]
+          +-SetOperationItem
+            +-scan=
+            | +-TableScan(column_list=[TestExtraValueTable.value#4], table=TestExtraValueTable, column_index_list=[0])
+            +-output_column_list=[TestExtraValueTable.value#4]
+==
+
+from TestTable
+|> union all (from TestTable)
+--
+ERROR: Pipe set operations not supported yet; Try using standard set operator syntax between parenthesized pipe queries [at 2:1]
+|> union all (from TestTable)
+^
+==
+
+(from TestTable)
+|> intersect all (from TestTable)
+--
+ERROR: Pipe set operations not supported yet; Try using standard set operator syntax between parenthesized pipe queries [at 2:1]
+|> intersect all (from TestTable)
+^

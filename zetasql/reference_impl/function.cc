@@ -317,9 +317,19 @@ template <typename OutType, typename FunctionType, class... Args>
 bool InvokeString(FunctionType function, Value* result, absl::Status* status,
                   Args... args) {
   OutType out;
-  if (!function(args..., &out, status)) {
+  if constexpr (std::is_invocable_v<decltype(function), Args..., OutType*,
+                                    absl::Status*>) {
+    if (!function(args..., &out, status)) {
+      return false;
+    }
+  } else {
+    *status = function(args..., &out);
+  }
+
+  if (!status->ok()) {
     return false;
   }
+
   *result = Value::String(out);
   return true;
 }
@@ -847,6 +857,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kSplit, "split", "Split");
     RegisterFunction(FunctionKind::kSplitWithCollation, "$split_with_collation",
                      "SplitWithCollation");
+    RegisterFunction(FunctionKind::kSplitSubstr, "split_substr", "SplitSubstr");
+    RegisterFunction(FunctionKind::kSplitSubstrWithCollation,
+                     "$split_substr_with_collation",
+                     "SplitSubstrWithCollation");
     RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
     RegisterFunction(FunctionKind::kStartsWithWithCollation,
                      "$starts_with_with_collation", "StartsWithWithCollation");
@@ -1113,6 +1127,10 @@ FunctionMap::FunctionMap() {
                      "MapValuesUnsorted");
     RegisterFunction(FunctionKind::kMapValuesSortedByKey,
                      "map_values_sorted_by_key", "MapValuesSortedByKey");
+    RegisterFunction(FunctionKind::kMapEmpty, "map_empty", "MapEmpty");
+    RegisterFunction(FunctionKind::kMapInsert, "map_insert", "MapInsert");
+    RegisterFunction(FunctionKind::kMapInsertOrReplace, "map_insert_or_replace",
+                     "MapInsertOrReplace");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -2322,6 +2340,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kChr:
     case FunctionKind::kTranslate:
     case FunctionKind::kInitCap:
+    case FunctionKind::kSplitSubstr:
       return new StringFunction(kind, output_type);
     case FunctionKind::kCollate:
       return new CollateFunction(kind, output_type);
@@ -2411,6 +2430,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kStrposWithCollation:
     case FunctionKind::kInstrWithCollation:
     case FunctionKind::kSplitWithCollation:
+    case FunctionKind::kSplitSubstrWithCollation:
     case FunctionKind::kCollationKey:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
@@ -4345,19 +4365,21 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       return Value::Datetime(min_value);
     }
     case FCT(FunctionKind::kArrayMin, TYPE_TIMESTAMP): {
-      int64_t min_value = std::numeric_limits<int64_t>::max();
+      absl::Time min_value = absl::InfiniteFuture();
       for (const Value& element : args[0].elements()) {
         if (element.is_null()) {
           continue;
         }
         has_non_null = true;
-        // TODO: Support Value::ToUnixNanos in ARRAY_MIN and MIN.
-        min_value = std::min(min_value, element.ToUnixMicros());
+        min_value = std::min(min_value, element.ToTime());
       }
       if (!has_non_null) {
         return output_null;
       }
-      return Value::TimestampFromUnixMicros(min_value);
+      return context->UseNanosTimeResolution()
+                 ? Value::Timestamp(min_value)
+                 : Value::TimestampFromUnixMicros(
+                       absl::ToUnixMicros(min_value));
     }
     case FCT(FunctionKind::kArrayMin, TYPE_TIME): {
       int64_t min_value = std::numeric_limits<int64_t>::max();
@@ -4582,18 +4604,21 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
       return Value::Datetime(max_value);
     }
     case FCT(FunctionKind::kArrayMax, TYPE_TIMESTAMP): {
-      int64_t max_value = std::numeric_limits<int64_t>::lowest();
+      absl::Time max_value = absl::InfinitePast();
       for (const Value& element : args[0].elements()) {
         if (element.is_null()) {
           continue;
         }
         has_non_null = true;
-        max_value = std::max(max_value, element.ToUnixMicros());
+        max_value = std::max(max_value, element.ToTime());
       }
       if (!has_non_null) {
         return output_null;
       }
-      return Value::TimestampFromUnixMicros(max_value);
+      return context->UseNanosTimeResolution()
+                 ? Value::Timestamp(max_value)
+                 : Value::TimestampFromUnixMicros(
+                       absl::ToUnixMicros(max_value));
     }
     case FCT(FunctionKind::kArrayMax, TYPE_TIME): {
       int64_t max_value = std::numeric_limits<int64_t>::lowest();
@@ -5431,6 +5456,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t out_int64_ = 0;              // Max, Min
   uint64_t out_uint64_ = 0;            // Max, Min
   DatetimeValue out_datetime_;         // Max, Min
+  absl::Time out_timestamp_;           // Max, Min
   IntervalValue out_interval_;         // Max, Min
   __int128 out_int128_ = 0;            // Sum
   unsigned __int128 out_uint128_ = 0;  // Sum
@@ -5600,8 +5626,8 @@ class UserDefinedAggregateFunction : public AggregateFunctionBody {
   std::string debug_name() const override { return function_name_; }
 
   absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
-      absl::Span<const Value> args, CollatorList collator_list,
-      EvaluationContext* context) const override {
+      absl::Span<const Value> args, absl::Span<const TupleData* const> params,
+      CollatorList collator_list, EvaluationContext* context) const override {
     auto status_or_evaluator = evaluator_factory_(function_signature_);
     ZETASQL_RETURN_IF_ERROR(status_or_evaluator.status());
     std::unique_ptr<AggregateFunctionEvaluator> evaluator =
@@ -5609,7 +5635,11 @@ class UserDefinedAggregateFunction : public AggregateFunctionBody {
     // This should never happen because we already check for null evaluator
     // in the algebrizer.
     ZETASQL_RET_CHECK(evaluator != nullptr);
-    evaluator->SetEvaluationContext(context);
+    SqlDefinedAggregateFunctionEvaluator* sql_evaluator =
+        dynamic_cast<SqlDefinedAggregateFunctionEvaluator*>(evaluator.get());
+    if (sql_evaluator != nullptr) {
+      sql_evaluator->SetEvaluationContext(context, params);
+    }
     return UserDefinedAggregateAccumulator::Create(
         std::move(evaluator), output_type_, num_input_fields());
   }
@@ -5691,6 +5721,7 @@ InitializeAnonBuilder<::differential_privacy::Quantiles<double>::Builder>(
   // quantiles.
   double number_of_quantile_boundaries = args[0].int64_value() + 1;
   std::vector<double> quantiles;
+  quantiles.reserve(number_of_quantile_boundaries);
   for (double i = 0; i < number_of_quantile_boundaries; ++i) {
     quantiles.push_back(i / number_of_quantile_boundaries);
   }
@@ -5868,6 +5899,7 @@ BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
   // quantiles.
   double number_of_quantile_boundaries = args[0].int64_value() + 1;
   std::vector<double> quantiles;
+  quantiles.reserve(number_of_quantile_boundaries);
   for (double i = 0; i < number_of_quantile_boundaries; ++i) {
     quantiles.push_back(i / number_of_quantile_boundaries);
   }
@@ -5959,9 +5991,11 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMax, TYPE_DATE):
     case FCT(FunctionKind::kMax, TYPE_BOOL):
     case FCT(FunctionKind::kMax, TYPE_ENUM):
-    case FCT(FunctionKind::kMax, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kMax, TYPE_TIME):
       out_int64_ = std::numeric_limits<int64_t>::lowest();
+      break;
+    case FCT(FunctionKind::kMax, TYPE_TIMESTAMP):
+      out_timestamp_ = absl::InfinitePast();
       break;
     case FCT(FunctionKind::kMax, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MinValue();
@@ -6000,9 +6034,11 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMin, TYPE_DATE):
     case FCT(FunctionKind::kMin, TYPE_BOOL):
     case FCT(FunctionKind::kMin, TYPE_ENUM):
-    case FCT(FunctionKind::kMin, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kMin, TYPE_TIME):
       out_int64_ = std::numeric_limits<int64_t>::max();
+      break;
+    case FCT(FunctionKind::kMin, TYPE_TIMESTAMP):
+      out_timestamp_ = absl::InfiniteFuture();
       break;
     case FCT(FunctionKind::kMin, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MaxValue();
@@ -6451,7 +6487,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_TIMESTAMP): {
-      out_int64_ = std::max(out_int64_, value.ToUnixMicros());
+      out_timestamp_ = std::max(out_timestamp_, value.ToTime());
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_DATETIME): {
@@ -6556,7 +6592,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     }
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP): {
       // TODO: Support Value::ToUnixNanos in ARRAY_MIN and MIN.
-      out_int64_ = std::min(out_int64_, value.ToUnixMicros());
+      out_timestamp_ = std::min(out_timestamp_, value.ToTime());
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_DATETIME): {
@@ -8006,8 +8042,14 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       return count_ > 0 ? Value::Date(out_int64_) : Value::NullDate();
     case FCT(FunctionKind::kMax, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP):
-      return count_ > 0 ? Value::TimestampFromUnixMicros(out_int64_)
-                        : Value::NullTimestamp();
+      if (count_ == 0) {
+        return Value::NullTimestamp();
+      }
+      return context_->UseNanosTimeResolution()
+                 ? Value::Timestamp(out_timestamp_)
+                 : Value::TimestampFromUnixMicros(
+                       absl::ToUnixMicros(out_timestamp_));
+
     case FCT(FunctionKind::kMax, TYPE_DATETIME):
     case FCT(FunctionKind::kMin, TYPE_DATETIME):
       return count_ > 0 ? Value::Datetime(out_datetime_)
@@ -8134,9 +8176,9 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
-BuiltinAggregateFunction::CreateAccumulator(absl::Span<const Value> args,
-                                            CollatorList collator_list,
-                                            EvaluationContext* context) const {
+BuiltinAggregateFunction::CreateAccumulator(
+    absl::Span<const Value> args, absl::Span<const TupleData* const> params,
+    CollatorList collator_list, EvaluationContext* context) const {
   return BuiltinAggregateAccumulator::Create(this, input_type(), args,
                                              std::move(collator_list), context);
 }
@@ -8414,6 +8456,7 @@ absl::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
 
 absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
+                                      absl::Span<const TupleData* const> params,
                                       CollatorList collator_list,
                                       EvaluationContext* context) const {
   // <collator_list> should be empty for bivariate stats functions.
@@ -9367,6 +9410,15 @@ bool StringFunction::Eval(absl::Span<const TupleData* const> params,
       return InvokeString<std::string>(&functions::InitialCapitalize, result,
                                        status, args[0].string_value(),
                                        args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSplitSubstr, TYPE_STRING, 3):
+      return InvokeString<std::string>(
+          &functions::SplitSubstr, result, status, args[0].string_value(),
+          args[1].string_value(), args[2].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSplitSubstr, TYPE_STRING, 4):
+      return InvokeString<std::string>(
+          &functions::SplitSubstrWithCount, result, status,
+          args[0].string_value(), args[1].string_value(), args[2].int64_value(),
+          args[3].int64_value());
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported string function: " << debug_name();
@@ -9962,8 +10014,7 @@ absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
       if (args.size() == 2) {
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
             args[0].string_value(),
-            context->GetLanguageOptions().LanguageFeatureEnabled(
-                FEATURE_TIMESTAMP_NANOS)
+            context->UseNanosTimeResolution()
                 ? args[1].ToTime()
                 : absl::FromUnixMicros(args[1].ToUnixMicros()),
             context->GetDefaultTimeZone(), {.expand_Q = true, .expand_J = true},
@@ -9971,8 +10022,7 @@ absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
       } else {
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
             args[0].string_value(),
-            context->GetLanguageOptions().LanguageFeatureEnabled(
-                FEATURE_TIMESTAMP_NANOS)
+            context->UseNanosTimeResolution()
                 ? args[1].ToTime()
                 : absl::FromUnixMicros(args[1].ToUnixMicros()),
             args[2].string_value(), {.expand_Q = true, .expand_J = true},
@@ -10273,8 +10323,7 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
         ZETASQL_RETURN_IF_ERROR(
             functions::MakeTimeZone(args[1].string_value(), &timezone));
       }
-      if (context->GetLanguageOptions().LanguageFeatureEnabled(
-              FEATURE_TIMESTAMP_NANOS)) {
+      if (context->UseNanosTimeResolution()) {
         ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
             args[0].ToTime(), functions::kNanoseconds, timezone,
             &result_string));
@@ -10367,8 +10416,7 @@ absl::StatusOr<Value> ParseTimestampFunction::Eval(
     EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
   if (HasNulls(args)) return Value::Null(output_type());
-  if (context->GetLanguageOptions().LanguageFeatureEnabled(
-          FEATURE_TIMESTAMP_NANOS)) {
+  if (context->UseNanosTimeResolution()) {
     absl::Time timestamp;
     if (args.size() == 2) {
       ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(

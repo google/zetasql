@@ -225,7 +225,8 @@ struct TestDatabase {
   // Returns true if empty.
   bool empty() const {
     return proto_files.empty() && proto_names.empty() && enum_names.empty() &&
-           tables.empty();
+           tables.empty()
+       ;
   }
   // LINT.IfChange
   // File paths (*.proto) relative to the build workspace

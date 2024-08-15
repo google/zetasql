@@ -142,8 +142,7 @@ absl::Status ParseStatement(absl::string_view statement_string,
 
 absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
-                         ErrorMessageMode error_message_mode,
-                         bool keep_error_location_payload,
+                         ErrorMessageOptions error_message_options,
                          std::unique_ptr<ParserOutput>* output) {
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
@@ -165,11 +164,7 @@ absl::Status ParseScript(absl::string_view script_string,
     script = absl::WrapUnique(ast_node.release()->GetAsOrDie<ASTScript>());
   }
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      ErrorMessageOptions{
-          .mode = error_message_mode,
-          .attach_error_location_payload = keep_error_location_payload,
-          .stability = GetDefaultErrorMessageStability()},
-      script_string, status));
+      error_message_options, script_string, status));
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script),

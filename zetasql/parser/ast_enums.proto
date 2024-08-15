@@ -36,6 +36,7 @@ enum SchemaObjectKind {
   kInvalidSchemaObjectKind = 1;
   kAggregateFunction = 2;
   kApproxView = 17;
+  kConnection = 19;
   kConstant = 3;
   kDatabase = 4;
   kExternalTable = 5;
@@ -380,5 +381,15 @@ message ASTSpannerInterleaveClauseEnums {
     NOT_SET = 0;
     IN = 1;
     IN_PARENT = 2;
+  }
+}
+
+message ASTRowPatternOperationEnums {
+  enum OperationType {
+    OPERATION_TYPE_UNSPECIFIED = 0;
+    CONCAT = 1;
+    ALTERNATE = 2;
+    PERMUTE = 3;
+    EXCLUDE = 4;  // {- ... -}
   }
 }

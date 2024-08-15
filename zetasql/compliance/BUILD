@@ -15,6 +15,7 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 # Placeholder: load py_proto_library
 load(
     "//zetasql/compliance:builddefs.bzl",
@@ -59,6 +60,7 @@ cc_library(
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_helpers",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:simple_catalog_util",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -68,6 +70,7 @@ cc_library(
         "//zetasql/reference_impl:reference_driver",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:sql_builder",
         "//zetasql/testing:type_util",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:btree",
@@ -447,7 +450,6 @@ cc_library(
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:builtin_function",
         "//zetasql/public:builtin_function_options",
-        "//zetasql/public:catalog",
         "//zetasql/public:function_headers",
         "//zetasql/public:language_options",
         "//zetasql/public:simple_catalog",

@@ -72,7 +72,8 @@ Returns an error.
 **Definitions**
 
 +   `error_message`: A `STRING` value that represents the error message to
-    produce.
+    produce. Any whitespace characters beyond a
+    single space are trimmed from the results.
 
 **Details**
 
@@ -84,6 +85,13 @@ result in an error: there is no special guarantee of evaluation order.
 ZetaSQL infers the return type in context.
 
 **Examples**
+
+In the following example, the query produces an error message:
+
+```sql
+-- ERROR: Show this error message (while evaluating error("Show this error message"))
+SELECT ERROR('Show this error message')
+```
 
 In the following example, the query returns an error message if the value of the
 row does not match one of two defined values.
@@ -168,7 +176,7 @@ The [supertype][supertype] for `try_expression` and
 
 **Example**
 
-In the following examples, the query successfully evaluates `try_expression`.
+In the following example, the query successfully evaluates `try_expression`.
 
 ```sql
 SELECT IFERROR('a', 'b') AS result
@@ -180,6 +188,9 @@ SELECT IFERROR('a', 'b') AS result
  *--------*/
 ```
 
+In the following example, the query successfully evaluates the
+`try_expression` subquery.
+
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
@@ -190,7 +201,7 @@ SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
  *--------*/
 ```
 
-In the following examples, `IFERROR` catches an evaluation error in the
+In the following example, `IFERROR` catches an evaluation error in the
 `try_expression` and successfully evaluates `catch_expression`.
 
 ```sql
@@ -202,6 +213,9 @@ SELECT IFERROR(ERROR('a'), 'b') AS result
  | b      |
  *--------*/
 ```
+
+In the following example, `IFERROR` catches an evaluation error in the
+`try_expression` subquery and successfully evaluates `catch_expression`.
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
@@ -397,7 +411,7 @@ The data type for `try_expression` or `NULL`
 
 **Example**
 
-In the following examples, `NULLIFERROR` successfully evaluates
+In the following example, `NULLIFERROR` successfully evaluates
 `try_expression`.
 
 ```sql
@@ -410,6 +424,9 @@ SELECT NULLIFERROR('a') AS result
  *--------*/
 ```
 
+In the following example, `NULLIFERROR` successfully evaluates
+the `try_expression` subquery.
+
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
@@ -420,7 +437,7 @@ SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
  *--------*/
 ```
 
-In the following examples, `NULLIFERROR` catches an evaluation error in
+In the following example, `NULLIFERROR` catches an evaluation error in
 `try_expression`.
 
 ```sql
@@ -432,6 +449,9 @@ SELECT NULLIFERROR(ERROR('a')) AS result
  | NULL   |
  *--------*/
 ```
+
+In the following example, `NULLIFERROR` catches an evaluation error in
+the `try_expression` subquery.
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result

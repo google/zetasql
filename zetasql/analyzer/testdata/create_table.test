@@ -5552,7 +5552,21 @@ create table t (a int64) with connection ``;
 [language_features=CREATE_TABLE_WITH_CONNECTION]
 create table t (a int64) with connection default;
 --
-ERROR: CONNECTION DEFAULT is not supported [at 1:42]
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection=
+  +-Connection(connection=$connection_default)
+
+==
+
+[no_java]
+[use_database=SpecialCatalog]
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+create table t (a int64) with connection default;
+--
+ERROR: Default connection not found [at 1:42]
 create table t (a int64) with connection default;
                                          ^
 

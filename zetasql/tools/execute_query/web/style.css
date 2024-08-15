@@ -1,0 +1,199 @@
+body {
+  background-color: #f0f8ff;
+  margin: 0;
+}
+
+#header {
+  margin-bottom: 0.5rem;
+  background-color: #1597ec;
+  font-size: 2.25em;
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+}
+
+#header a {
+  text-decoration: none;
+  color: #fff;
+}
+
+body, p {
+  font-family: system-ui,
+               -apple-system, BlinkMacSystemFont,
+               'Segoe UI',
+               Roboto,
+               Oxygen-Sans,
+               Ubuntu,
+               Cantarell,
+               'Helvetica Neue',
+               Arial, sans-serif;
+}
+
+body, input, textarea, select {
+  font-size: 1rem;
+}
+
+select {
+  padding: 0.3em;
+  border-radius: 0.3em;
+}
+
+main {
+  margin: 1em;
+}
+
+textarea, pre {
+  font-family: ui-monospace,
+               Menlo, Monaco,
+               'Cascadia Mono', 'Segoe UI Mono',
+               'Roboto Mono',
+               'Oxygen Mono',
+               'Ubuntu Monospace',
+               'Source Code Pro',
+                Consolas,
+               'Courier New', monospace;
+}
+
+main {
+  display: grid;
+  grid-template-columns: calc(40% - 25px) calc(60% - 25px);
+  gap: 20px 50px;
+  min-width: 650px;
+}
+
+@media (max-width: 1600px) {
+  main {
+    display: block;
+  }
+}
+
+textarea {
+  width: 100%;
+  min-height: 30em;
+  height: 60vh;
+  margin: 0;
+  padding: 0.7em;
+  outline: none;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  margin-bottom: 0.7em;
+  resize: none;
+}
+
+@media (max-width: 1600px) {
+  textarea {
+    height: auto;
+  }
+}
+
+fieldset {
+  display: inline-block;
+  margin-bottom: 0.5em;
+  width: fit-content;
+  border-radius: 0.5rem;
+}
+
+label {
+  margin-right: 0.5em;
+}
+
+input[type='checkbox'] {
+  vertical-align: bottom;
+}
+
+input[type='submit'] {
+  background-color: #0f73b5;;
+  border-radius: 0.5em;
+  border: 1px solid #0f73b5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.1em;
+  margin-left: 1em;
+  margin-top: 0.5em;
+  max-height: 2.5em;
+  max-width: 6em;
+  min-width: 5em;
+  padding: 0.5em;
+}
+
+input[type='submit']:hover {
+  background-color: #1597ec;
+  border-color: #1597ec;
+}
+
+form {
+  container-type: inline-size;
+}
+
+.options {
+  display: flex;
+}
+
+.mode-option {
+  white-space: nowrap;
+}
+
+.result > h3 {
+  margin-top: 2.5em;
+  margin-bottom: 0;
+  background-color: #1597ec;
+  color: #fff;
+  width: fit-content;
+  padding: 0.25em 0.5em;
+  border-radius: 0.5em 0.5em 0 0;
+}
+
+.result > h3:first-of-type {
+  margin-top: auto;
+}
+
+pre.output {
+  background-color: #fafafa;
+  border: 1px dashed #aaa;
+  padding: 0.5em;
+  margin-top: 0;
+  overflow: auto;
+}
+
+pre.output code {
+  -webkit-user-select: all;
+  -moz-user-select: all;
+  -ms-user-select: all;
+  user-select: all;
+}
+
+pre.output code.hljs {
+  background-color: transparent;
+  padding: 0;
+}
+
+#error {
+  display: inline-block;
+  background-color: #f1a7a7;
+  margin: 0;
+  padding: 1em;
+}
+
+pre.output > table {
+  border-collapse: collapse;
+  border: 1px solid #066eb3;
+  cursor: default;
+}
+
+pre.output th {
+  background-color: #1597ec;
+  color: #fff;
+}
+
+pre.output th, pre.output td {
+  border-right: 1px solid #066eb3;
+  padding: 0.25em 0.5em;
+}
+
+pre.output tbody tr:nth-child(even) {
+  background: #f0f8ff;
+}
+
+pre.output tbody tr:hover {
+  background: #eee;
+}

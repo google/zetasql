@@ -199,7 +199,7 @@ drop SNAPSHOT TABLE
 # The follow object types are syntactically valid (no syntax errors),
 # although AGGREGATE FUNCTION and TABLE FUNCTION are not currently supported.
 # Other object types are not valid.
-drop {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA|EXTERNAL SCHEMA|SNAPSHOT TABLE}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
+drop {{AGGREGATE FUNCTION|CONNECTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA|EXTERNAL SCHEMA|SNAPSHOT TABLE}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
 --
 ALTERNATION GROUP: AGGREGATE FUNCTION,
 --
@@ -236,6 +236,44 @@ ALTERNATION GROUP: AGGREGATE FUNCTION,DROP_MODE_UNSPECIFIED
 ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
 drop AGGREGATE FUNCTION foo DROP_MODE_UNSPECIFIED;
      ^
+--
+ALTERNATION GROUP: CONNECTION,
+--
+DropStatement CONNECTION [0-19] [drop CONNECTION foo]
+  PathExpression [16-19] [foo]
+    Identifier(foo) [16-19] [foo]
+--
+DROP CONNECTION foo
+--
+ALTERNATION GROUP: CONNECTION,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP CONNECTION [at 1:21]
+drop CONNECTION foo RESTRICT;
+                    ^
+--
+ALTERNATION GROUP: CONNECTION,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP CONNECTION [at 1:21]
+drop CONNECTION foo Restrict;
+                    ^
+--
+ALTERNATION GROUP: CONNECTION,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP CONNECTION [at 1:21]
+drop CONNECTION foo CASCADE;
+                    ^
+--
+ALTERNATION GROUP: CONNECTION,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:21]
+drop CONNECTION foo INVALID_DROP_MODE;
+                    ^
+--
+ALTERNATION GROUP: CONNECTION,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:21]
+drop CONNECTION foo DROP_MODE_UNSPECIFIED;
+                    ^
 --
 ALTERNATION GROUP: CONSTANT,
 --
@@ -905,3 +943,21 @@ DropStatement TABLE [0-22] [drop table foo-bar.baz]
     Identifier(baz) [19-22] [baz]
 --
 DROP TABLE `foo-bar`.baz
+==
+
+DROP CONNECTION IF EXISTS foo
+--
+DropStatement CONNECTION(is_if_exists) [0-29] [DROP CONNECTION IF EXISTS foo]
+  PathExpression [26-29] [foo]
+    Identifier(foo) [26-29] [foo]
+--
+DROP CONNECTION IF EXISTS foo
+==
+
+DROP CONNECTION foo
+--
+DropStatement CONNECTION [0-19] [DROP CONNECTION foo]
+  PathExpression [16-19] [foo]
+    Identifier(foo) [16-19] [foo]
+--
+DROP CONNECTION foo

@@ -10,7 +10,8 @@ values of the same data type. You can construct arrays of simple data types,
 such as `INT64`, and complex data types, such as `STRUCT`s. The current
 exception to this is the `ARRAY` data type because arrays of arrays
 are not supported. To learn more about the `ARRAY`
-data type, see [Array type][array-data-type].
+data type, including
+`NULL` handling, see [Array type][array-data-type].
 
 With ZetaSQL, you can construct array literals,
  build arrays from subqueries using the

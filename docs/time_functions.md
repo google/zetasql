@@ -141,24 +141,6 @@ SELECT CURRENT_TIME() as now;
  *----------------------------*/
 ```
 
-When a column named `current_time` is present, the column name and the function
-call without parentheses are ambiguous. To ensure the function call, add
-parentheses; to ensure the column name, qualify it with its
-[range variable][time-functions-link-to-range-variables]. For example, the
-following query will select the function in the `now` column and the table
-column in the `current_time` column.
-
-```sql
-WITH t AS (SELECT 'column value' AS `current_time`)
-SELECT current_time() as now, t.current_time FROM t;
-
-/*-----------------+--------------*
- | now             | current_time |
- +-----------------+--------------+
- | 15:31:38.776361 | column value |
- *-----------------+--------------*/
-```
-
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -416,8 +398,9 @@ Gets the number of unit boundaries between two `TIME` values (`end_time` -
 
 +   `start_time`: The starting `TIME` value.
 +   `end_time`: The ending `TIME` value.
-+   `granularity`: The time part that represents the granularity.
-    This can be:
++   `granularity`: The time part that represents the granularity. If
+    you passed in `TIME` values for the first arguments, `granularity` can
+    be:
 
     
     + `NANOSECOND`
@@ -434,6 +417,10 @@ If `end_time` is earlier than `start_time`, the output is negative.
 Produces an error if the computation overflows, such as if the difference
 in nanoseconds
 between the two `TIME` values overflows.
+
+Note: The behavior of the this function follows the type of arguments passed in.
+For example, `TIME_DIFF(TIMESTAMP, TIMESTAMP, PART)`
+behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 
 **Return Data Type**
 
@@ -499,21 +486,32 @@ SELECT
 ### `TIME_TRUNC`
 
 ```sql
-TIME_TRUNC(time_expression, time_part)
+TIME_TRUNC(time_expression, granularity)
 ```
 
 **Description**
 
-Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
-is always rounded to the beginning of `time_part`, which can be one of the
-following:
+Truncates a `TIME` value at a particular time granularity. The `TIME` value
+is always rounded to the beginning of `granularity`.
 
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
+**Definitions**
+
++ `time_expression`: The `TIME` value to truncate.
++ `granularity`: The time part that represents the granularity. If
+  you passed in a `TIME` value for the first argument, `granularity` can
+  be:
+
+  + `NANOSECOND`: If used, nothing is truncated from the value.
+
+  + `MICROSECOND`: The nearest lesser than or equal microsecond.
+
+  + `MILLISECOND`: The nearest lesser than or equal millisecond.
+
+  + `SECOND`: The nearest lesser than or equal second.
+
+  + `MINUTE`: The nearest lesser than or equal minute.
+
+  + `HOUR`: The nearest lesser than or equal hour.
 
 **Return Data Type**
 

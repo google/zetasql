@@ -53,6 +53,12 @@ message DeprecationWarning {
     //
     // The option is deprecated in favor of the synonym MAX_GROUPS_CONTRIBUTED.
     DEPRECATED_ANONYMIZATION_OPTION_KAPPA = 5;
+
+    // Indicates that the query used PIVOT or UNPIVOT on an array scan.
+    // This is supposed to be an error, but some existing code just dropped the
+    // PIVOT/UNPIVOT.
+    // See b/359591559 for details.
+    PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN = 6;
   }
 
   optional Kind kind = 1;

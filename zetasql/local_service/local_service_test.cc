@@ -785,7 +785,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, Parse) {
                  }
                  is_nested: false
                  is_pivot_input: false
-                 is_graph_subquery: false
                }
              }
            })pb",

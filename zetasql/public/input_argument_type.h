@@ -152,6 +152,7 @@ class InputArgumentType {
   bool is_connection() const { return category_ == kConnection; }
   bool is_lambda() const { return category_ == kLambda; }
   bool is_sequence() const { return category_ == kSequence; }
+  bool is_descriptor() const { return category_ == kDescriptor; }
 
   bool is_default_argument_value() const {
     return is_default_argument_value_;
@@ -208,8 +209,11 @@ class InputArgumentType {
   // table-valued functions. For more information, see table_valued_function.h.
   // 'relation_input_schema' specifies the schema for the provided input
   // relation when function is called.
+  // 'is_pipe_input_table' indicates a TVF argument that came from the
+  // pipe input in pipe CALL. This is currently used only for error messages.
   static InputArgumentType RelationInputArgumentType(
-      const TVFRelation& relation_input_schema);
+      const TVFRelation& relation_input_schema,
+      bool is_pipe_input_table = false);
 
   // Constructor for model arguments. Only for use when analyzing
   // table-valued functions. 'model_arg' specifies the model object for the
@@ -244,6 +248,7 @@ class InputArgumentType {
     ABSL_DCHECK(has_relation_input_schema());
     return *relation_input_schema_;
   }
+  bool is_pipe_input_table() const { return is_pipe_input_table_; }
 
   // Determines equality/inequality of two InputArgumentTypes, considering Type
   // equality via Type::Equals() and whether they are literal or NULL.
@@ -271,7 +276,13 @@ class InputArgumentType {
       : category_(category), type_(type) {}
 
   Category category_ = kUntypedNull;
+
+  // Note: type_ is filled in by use of the default constructor under
+  // factory methods for categories that shouldn't have types.
+  // This would ideally be fixed but some function resolving code
+  // currently looks at types and fails if they aren't present.
   const Type* type_ = nullptr;
+
   std::optional<Value> literal_value_;  // only set for kTypedLiteral.
 
   // True if this InputArgumentType was constructed from a default function
@@ -289,6 +300,10 @@ class InputArgumentType {
   // pointer only because the InputArgumentType is copyable and there is only
   // need for one TVFRelation instance to exist.
   std::shared_ptr<const TVFRelation> relation_input_schema_;
+
+  // Indicates a TVF argument that came from the pipe input in pipe CALL.
+  // This is currently used only for error messages.
+  bool is_pipe_input_table_ = false;
 
   // This is only non-NULL for table-valued functions. It holds the model
   // argument. This is a shared pointer only because the InputArgumentType is

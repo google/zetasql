@@ -1,0 +1,1182 @@
+SELECT 1 x
+--
++---+
+| x |
++---+
+| 1 |
++---+
+\
+==
+
+[mode={{bad||parse|analyze|execute|explain|unparse|unanalyze|parse,analyze}}]
+select 1 x
+--
+ALTERNATION GROUP: bad
+--
+ERROR: INVALID_ARGUMENT: Invalid --mode: 'bad'
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INVALID_ARGUMENT: Invalid --mode: ''
+--
+ALTERNATION GROUP: parse
+--
+QueryStatement [0-10]
+  Query [0-10]
+    Select [0-10]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          IntLiteral(1) [7-8]
+          Alias [9-10]
+            Identifier(x) [9-10]
+\
+--
+ALTERNATION GROUP: analyze
+--
+QueryStmt
++-output_column_list=
+| +-$query.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: execute
+--
++---+
+| x |
++---+
+| 1 |
++---+
+\
+--
+ALTERNATION GROUP: explain
+--
+ComputeOp(
++-map: {
+| +-$x := ConstExpr(1)},
++-input: EnumerateOp(ConstExpr(1)))
+\
+--
+ALTERNATION GROUP: unparse
+--
+SELECT
+  1 AS x
+\
+--
+ALTERNATION GROUP: unanalyze
+--
+SELECT
+  1 AS x;
+\
+--
+ALTERNATION GROUP: parse,analyze
+--
+QueryStatement [0-10]
+  Query [0-10]
+    Select [0-10]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          IntLiteral(1) [7-8]
+          Alias [9-10]
+            Identifier(x) [9-10]
+
+QueryStmt
++-output_column_list=
+| +-$query.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+\
+==
+
+# Make sure ExplainAndOrExecuteSql runs just once, so we get one output
+# for each of the two modes.
+[mode=explain,execute]
+select 1 x, 2 y
+--
+ComputeOp(
++-map: {
+| +-$x := ConstExpr(1),
+| +-$y := ConstExpr(2)},
++-input: EnumerateOp(ConstExpr(1)))
+
++---+---+
+| x | y |
++---+---+
+| 1 | 2 |
++---+---+
+\
+==
+
+COMMIT
+--
+ERROR: INVALID_ARGUMENT: The statement CommitStmt is not supported for execution.
+==
+
+DESCRIBE bad_table
+--
+ERROR: INVALID_ARGUMENT: Object not found
+==
+
+DESCRIBE TaBlE bad_table
+--
+ERROR: NOT_FOUND: Table not found: bad_table not found in catalog<space removed>
+==
+
+[mode={{analyze|explain|execute}}]
+DESCRIBE TABLE Keyvalue
+--
+ALTERNATION GROUP: analyze
+--
+DescribeStmt(object_type="TABLE", name_path=Keyvalue)
+\
+--
+ALTERNATION GROUP: explain
+--
+ERROR: INVALID_ARGUMENT: The statement DescribeStmt is not supported for explanation.
+--
+ALTERNATION GROUP: execute
+--
+Table: KeyValue
+Columns:
+  Key   INT64
+  Value STRING
+\
+==
+
+[mode={{analyze|explain|execute}}]
+EXPLAIN DESCRIBE TABLE Keyvalue
+--
+ALTERNATION GROUP: analyze
+--
+ExplainStmt
++-statement=
+  +-DescribeStmt(object_type="TABLE", name_path=Keyvalue)
+\
+--
+ALTERNATION GROUP: explain
+--
+ERROR: INVALID_ARGUMENT: The statement ExplainStmt is not supported for explanation.
+--
+ALTERNATION GROUP: execute
+--
+ERROR: INVALID_ARGUMENT: The statement ExplainStmt is not supported for execution.
+==
+
+DESCRIBE KeyValue
+--
+Table: KeyValue
+Columns:
+  Key   INT64
+  Value STRING
+\
+==
+
+[catalog={{none|bad||sample}}]
+DESCRIBE KeyValue
+--
+ALTERNATION GROUP: none
+--
+ERROR: INVALID_ARGUMENT: Object not found
+--
+ALTERNATION GROUP: bad
+--
+ERROR: INVALID_ARGUMENT: Catalog not found: bad
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INVALID_ARGUMENT: Catalog not found:<space removed>
+--
+ALTERNATION GROUP: sample
+--
+Table: KeyValue
+Columns:
+  Key   INT64
+  Value STRING
+\
+==
+
+DESCRIBE {{|taBLE}} TestExtraValueTable
+--
+Table: TestExtraValueTable (value table)
+Row type: zetasql_test__.TestExtraPB
+Columns:
+  Filename STRING (pseudo-column)
+  RowId    BYTES (pseudo-column)
+\
+==
+
+DESCRIBE nested_catalog.NestedKeyValue
+--
+Table: KeyValue
+Columns:
+  Key   INT64
+  Value STRING
+\
+==
+
+DESCRIBE {{|fUNCtion}} bad_function
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INVALID_ARGUMENT: Object not found
+--
+ALTERNATION GROUP: fUNCtion
+--
+ERROR: NOT_FOUND: Function not found: bad_function not found in catalog<space removed>
+==
+
+DESCRIBE {{|fUNCtion}} sqrt
+--
+Function SQRT
+Signature: SQRT(DOUBLE) -> DOUBLE
+\
+==
+
+DESCRIBE {{|fUNCtion}} conCAT
+--
+Function CONCAT
+Signature: CONCAT(STRING, [STRING, ...]) -> STRING
+Signature: CONCAT(BYTES, [BYTES, ...]) -> BYTES
+\
+==
+
+DESCRIBE array_transform
+--
+Function ARRAY_TRANSFORM
+Signature: ARRAY_TRANSFORM(ARRAY<T1>, FUNCTION<T1->T2>) -> ARRAY<T2>
+Signature: ARRAY_TRANSFORM(ARRAY<T1>, FUNCTION<(T1, INT64)->T2>) -> ARRAY<T2>
+\
+==
+
+DESCRIBE rank
+--
+Analytic function RANK
+Signature: RANK() -> INT64
+\
+==
+
+[catalog={{none|sample}}]
+DESCRIBE sum
+--
+ALTERNATION GROUP: none
+--
+Aggregate function SUM
+Signature: SUM(INT64) -> INT64
+Signature: SUM(UINT64) -> UINT64
+Signature: SUM(DOUBLE) -> DOUBLE
+Signature: SUM(NUMERIC) -> NUMERIC
+Signature: SUM(BIGNUMERIC) -> BIGNUMERIC
+\
+--
+ALTERNATION GROUP: sample
+--
+Aggregate function SUM
+Signature: SUM(INT64) -> INT64
+Signature: SUM(UINT64) -> UINT64
+Signature: SUM(DOUBLE) -> DOUBLE
+\
+==
+
+DESCRIBE {{|tVf}} bad_tvf
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INVALID_ARGUMENT: Object not found
+--
+ALTERNATION GROUP: tVf
+--
+ERROR: NOT_FOUND: Table function not found: bad_tvf not found in catalog<space removed>
+==
+
+describe {{|tvf}} nested_catalog.nested_tvf_one
+--
+Table-valued function: NESTED_CATALOG.NESTED_TVF_ONE(TABLE<key INT64>) -> TABLE<key INT64>
+\
+==
+
+describe tvf_optional_named_default_args
+--
+Table-valued function: TVF_OPTIONAL_NAMED_DEFAULT_ARGS(relation => TABLE, r1 => BOOL, [o0 => STRING], [o1 => DOUBLE], [o2 => UINT32]) -> TABLE
+\
+==
+
+describe tvf_one_relation_arg_with_fixed_output
+--
+Table-valued function: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>
+\
+==
+
+describe tvf_no_arg_returning_value_table_with_pseudo_columns
+--
+Table-valued function: TVF_NO_ARG_RETURNING_VALUE_TABLE_WITH_PSEUDO_COLUMNS() -> TABLE<`zetasql_test__.TestExtraPB`, RowId INT64, PartitionName STRING>
+\
+==
+
+describe tvf_two_models_with_fixed_output
+--
+Table-valued function: TVF_TWO_MODELS_WITH_FIXED_OUTPUT(MODEL, MODEL) -> TABLE<label DOUBLE>
+\
+==
+
+describe tvf_one_relation_arg_output_schema_is_input_schema
+--
+Table-valued function: TVF_ONE_RELATION_ARG_OUTPUT_SCHEMA_IS_INPUT_SCHEMA(TABLE) -> TABLE
+\
+==
+
+# Multi-statement script.
+[mode={{parse|analyze|execute|parse,execute}}]
+select 1;
+select 'abc';
+select null, null;
+--
+ALTERNATION GROUP: parse
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+
+QueryStatement [10-22]
+  Query [10-22]
+    Select [10-22]
+      SelectList [17-22]
+        SelectColumn [17-22]
+          StringLiteral [17-22]
+            StringLiteralComponent('abc') [17-22]
+
+QueryStatement [24-41]
+  Query [24-41]
+    Select [24-41]
+      SelectList [31-41]
+        SelectColumn [31-35]
+          NullLiteral(null) [31-35]
+        SelectColumn [37-41]
+          NullLiteral(null) [37-41]
+\
+--
+ALTERNATION GROUP: analyze
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=NULL)
+    | +-$col2#2 := Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: execute
+--
++---+
+|   |
++---+
+| 1 |
++---+
+
++-----+
+|     |
++-----+
+| abc |
++-----+
+
++------+------+
+|      |      |
++------+------+
+| NULL | NULL |
++------+------+
+\
+--
+ALTERNATION GROUP: parse,execute
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+
++---+
+|   |
++---+
+| 1 |
++---+
+
+QueryStatement [10-22]
+  Query [10-22]
+    Select [10-22]
+      SelectList [17-22]
+        SelectColumn [17-22]
+          StringLiteral [17-22]
+            StringLiteralComponent('abc') [17-22]
+
++-----+
+|     |
++-----+
+| abc |
++-----+
+
+QueryStatement [24-41]
+  Query [24-41]
+    Select [24-41]
+      SelectList [31-41]
+        SelectColumn [31-35]
+          NullLiteral(null) [31-35]
+        SelectColumn [37-41]
+          NullLiteral(null) [37-41]
+
++------+------+
+|      |      |
++------+------+
+| NULL | NULL |
++------+------+
+\
+==
+
+# Multi-statement script with errors from different phases, with a
+# valid query at the end.
+# Currently, execution stops after the first error.
+# Note that error locations are correct relative to the whole script.
+[mode={{parse|analyze|execute|parse,analyze,execute}}]
+select error("an execute error");
+select an_analyzer_error();
+select a parse error;
+select 1 AS valid_query
+--
+ALTERNATION GROUP: parse
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          FunctionCall [7-32]
+            PathExpression [7-12]
+              Identifier(error) [7-12]
+            StringLiteral [13-31]
+              StringLiteralComponent("an execute error") [13-31]
+
+QueryStatement [34-60]
+  Query [34-60]
+    Select [34-60]
+      SelectList [41-60]
+        SelectColumn [41-60]
+          FunctionCall [41-60]
+            PathExpression [41-58]
+              Identifier(an_analyzer_error) [41-58]
+
+ERROR: INVALID_ARGUMENT: Syntax error: Expected end of input but got keyword ERROR [at 3:16]
+select a parse error;
+               ^
+--
+ALTERNATION GROUP: analyze
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |     +-Literal(type=STRING, value="an execute error")
+    +-input_scan=
+      +-SingleRowScan
+
+ERROR: INVALID_ARGUMENT: Function not found: an_analyzer_error [at 2:8]
+select an_analyzer_error();
+       ^
+--
+ALTERNATION GROUP: execute
+--
+ERROR: OUT_OF_RANGE: an execute error
+--
+ALTERNATION GROUP: parse,analyze,execute
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          FunctionCall [7-32]
+            PathExpression [7-12]
+              Identifier(error) [7-12]
+            StringLiteral [13-31]
+              StringLiteralComponent("an execute error") [13-31]
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |     +-Literal(type=STRING, value="an execute error")
+    +-input_scan=
+      +-SingleRowScan
+
+ERROR: OUT_OF_RANGE: an execute error
+==
+
+[mode=analyze]
+CREATE {{|TEMP}} FUNCTION f(x INT64) AS (sqrt(x)*2);
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStmt
++-name_path=f
++-return_type=DOUBLE
++-argument_name_list=[x]
++-signature=(INT64 x) -> DOUBLE
++-language="SQL"
++-code="sqrt(x)*2"
++-function_expression=
+  +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    +-FunctionCall(ZetaSQL:sqrt(DOUBLE) -> DOUBLE)
+    | +-Cast(INT64 -> DOUBLE)
+    |   +-ArgumentRef(type=INT64, name="x")
+    +-Literal(type=DOUBLE, value=2)
+
+Function registered.
+--
+ALTERNATION GROUP: TEMP
+--
+CreateFunctionStmt
++-name_path=f
++-create_scope=CREATE_TEMP
++-return_type=DOUBLE
++-argument_name_list=[x]
++-signature=(INT64 x) -> DOUBLE
++-language="SQL"
++-code="sqrt(x)*2"
++-function_expression=
+  +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    +-FunctionCall(ZetaSQL:sqrt(DOUBLE) -> DOUBLE)
+    | +-Cast(INT64 -> DOUBLE)
+    |   +-ArgumentRef(type=INT64, name="x")
+    +-Literal(type=DOUBLE, value=2)
+
+Function registered.
+==
+
+==
+# Script that creates a function and then calls it in the next statement.
+[mode={{analyze|execute}}]
+CREATE FUNCTION f(x INT64) AS (sqrt(x)*2);
+DESCRIBE f;
+SELECT f(123);
+--
+ALTERNATION GROUP: analyze
+--
+CreateFunctionStmt
++-name_path=f
++-return_type=DOUBLE
++-argument_name_list=[x]
++-signature=(INT64 x) -> DOUBLE
++-language="SQL"
++-code="sqrt(x)*2"
++-function_expression=
+  +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    +-FunctionCall(ZetaSQL:sqrt(DOUBLE) -> DOUBLE)
+    | +-Cast(INT64 -> DOUBLE)
+    |   +-ArgumentRef(type=INT64, name="x")
+    +-Literal(type=DOUBLE, value=2)
+
+Function registered.
+DescribeStmt(object_type="", name_path=f)
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=DOUBLE
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#3]
+    |         +-expr_list=
+    |         | +-injected#3 :=
+    |         |   +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |         |     +-FunctionCall(ZetaSQL:sqrt(DOUBLE) -> DOUBLE)
+    |         |     | +-Cast(INT64 -> DOUBLE)
+    |         |     |   +-ColumnRef(type=INT64, column=$inlined_f.x#2)
+    |         |     +-Literal(type=DOUBLE, value=2)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$inlined_f.x#2]
+    |             +-expr_list=
+    |             | +-x#2 := Literal(type=INT64, value=123)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: execute
+--
+Function registered.
+Function Lazy_resolution_function:f
+Signature: f([x=>]INT64) -> DOUBLE
+
++--------------------+
+|                    |
++--------------------+
+| 22.181073012818835 |
++--------------------+
+\
+==
+
+# Macros aren't turned on by default yet.
+[mode={{parse|analyze|execute}}]
+DEFINE MACRO abc 123
+--
+ERROR: INVALID_ARGUMENT: Macros are not supported [at 1:8]
+DEFINE MACRO abc 123
+       ^
+==
+
+[mode={{parse|analyze|execute}}]
+DEFINE MACRO abc 123;
+SELECT $abc;
+--
+ERROR: INVALID_ARGUMENT: Macros are not supported [at 1:8]
+DEFINE MACRO abc 123;
+       ^
+==
+
+# Setting a LANGUAGE is required if we don't have a SQL body.
+# execute_query just makes a signature for these but can't execute them.
+# This is still useful to define functions by writing the full signature.
+[mode={{analyze|execute}}]
+create function f(x int64) returns double{{| language C}};
+DESCRIBE f;
+select f(5);
+--
+ALTERNATION GROUPS:
+    analyze,
+    execute,
+--
+ERROR: INVALID_ARGUMENT: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]
+create function f(x int64) returns double;
+^
+--
+ALTERNATION GROUP: analyze, language C
+--
+CreateFunctionStmt(name_path=f, has_explicit_return_type=TRUE, return_type=DOUBLE, argument_name_list=[x], signature=(INT64 x) -> DOUBLE, language="C")
+
+Function registered.
+DescribeStmt(object_type="", name_path=f)
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(External_function:f(INT64 x) -> DOUBLE)
+    |     +-Literal(type=INT64, value=5)
+    +-input_scan=
+      +-SingleRowScan
+\
+--
+ALTERNATION GROUP: execute, language C
+--
+Function registered.
+Function External_function:f
+Signature: f([x=>]INT64) -> DOUBLE
+
+ERROR: INVALID_ARGUMENT: User-defined function f has no evaluator. Use FunctionOptions to supply one.
+==
+
+create function f(x int64) as (x);
+create function f(x int64) as (x+1);
+--
+Function registered.
+ERROR: INVALID_ARGUMENT: Function already exists
+==
+
+[mode=analyze]
+create {{|TEMP}} table function tvf() as (select 1 x);
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableFunctionStmt
++-name_path=tvf
++-signature=() -> TABLE<x INT64>
++-language="SQL"
++-code="select 1 x"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.x#1]
+|   +-expr_list=
+|   | +-x#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-output_column_list=
+  +-$query.x#1 AS x [INT64]
+
+TVF registered.
+--
+ALTERNATION GROUP: TEMP
+--
+CreateTableFunctionStmt
++-name_path=tvf
++-create_scope=CREATE_TEMP
++-signature=() -> TABLE<x INT64>
++-language="SQL"
++-code="select 1 x"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.x#1]
+|   +-expr_list=
+|   | +-x#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-output_column_list=
+  +-$query.x#1 AS x [INT64]
+
+TVF registered.
+==
+
+[mode=analyze,execute]
+create table function tvf() as (select 1 x);
+select * from tvf() t;
+--
+CreateTableFunctionStmt
++-name_path=tvf
++-signature=() -> TABLE<x INT64>
++-language="SQL"
++-code="select 1 x"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.x#1]
+|   +-expr_list=
+|   | +-x#1 := Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-SingleRowScan
++-output_column_list=
+  +-$query.x#1 AS x [INT64]
+
+TVF registered.
+QueryStmt
++-output_column_list=
+| +-tvf.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf.x#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[tvf.x#1]
+        +-expr_list=
+        | +-x#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
++---+
+| x |
++---+
+| 1 |
++---+
+\
+==
+
+[mode={{analyze|execute}}]
+create table function tvf() returns table<x double>;
+select * from tvf() t;
+--
+ALTERNATION GROUP: analyze
+--
+CreateTableFunctionStmt(name_path=tvf, signature=() -> TABLE<x DOUBLE>, has_explicit_return_schema=TRUE, language="UNDECLARED")
+
+TVF registered.
+QueryStmt
++-output_column_list=
+| +-tvf.x#1 AS x [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf.x#1]
+    +-input_scan=
+      +-TVFScan(column_list=[tvf.x#1], tvf=tvf(() -> TABLE<x DOUBLE>), signature=() -> TABLE<x DOUBLE>, column_index_list=[0], alias="t")
+\
+--
+ALTERNATION GROUP: execute
+--
+TVF registered.
+ERROR: UNIMPLEMENTED: TVF tvf does not support the API in evaluator.h
+==
+
+[mode=analyze]
+create {{|temp}} table t1 (
+  x int64,
+  y double
+);
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
+  +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
+
+Table registered.
+--
+ALTERNATION GROUP: temp
+--
+CreateTableStmt
++-name_path=t1
++-create_scope=CREATE_TEMP
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
+  +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
+
+Table registered.
+==
+
+[mode={{analyze|execute}}]
+create table t1 (
+  x int64,
+  y double
+);
+describe t1;
+select * from t1;
+create table t1 (z int64);
+--
+ALTERNATION GROUP: analyze
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=t1.x#1)
+  +-ColumnDefinition(name="y", type=DOUBLE, column=t1.y#2)
+
+Table registered.
+DescribeStmt(object_type="", name_path=t1)
+
+QueryStmt
++-output_column_list=
+| +-t1.x#1 AS x [INT64]
+| +-t1.y#2 AS y [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=t1.[x#1, y#2]
+    +-input_scan=
+      +-TableScan(column_list=t1.[x#1, y#2], table=t1, column_index_list=[0, 1])
+
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="z", type=INT64, column=t1.z#1)
+
+ERROR: INVALID_ARGUMENT: Table already exists
+--
+ALTERNATION GROUP: execute
+--
+Table registered.
+Table: t1
+Columns:
+  x INT64
+  y DOUBLE
+
++---+---+
+| x | y |
++---+---+
++---+---+
+
+ERROR: INVALID_ARGUMENT: Table already exists
+==
+
+[mode=analyze]
+create {{|temp}} table t1 AS (
+  SELECT 123 x
+);
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableAsSelectStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=t1.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=123)
+    +-input_scan=
+      +-SingleRowScan
+
+Table registered.
+--
+ALTERNATION GROUP: temp
+--
+CreateTableAsSelectStmt
++-name_path=t1
++-create_scope=CREATE_TEMP
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=t1.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=123)
+    +-input_scan=
+      +-SingleRowScan
+
+Table registered.
+==
+
+# We can analyze CTAS to get the output schema but can't execute it.
+[mode={{analyze|execute}}]
+create table t1 AS (
+  SELECT 123 x
+);
+select * from t1;
+create table t1 as (select 1 z);
+--
+ALTERNATION GROUP: analyze
+--
+CreateTableAsSelectStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=t1.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=123)
+    +-input_scan=
+      +-SingleRowScan
+
+Table registered.
+QueryStmt
++-output_column_list=
+| +-t1.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[t1.x#1]
+    +-input_scan=
+      +-TableScan(column_list=[t1.x#1], table=t1, column_index_list=[0])
+
+CreateTableAsSelectStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="z", type=INT64, column=t1.z#2)
++-output_column_list=
+| +-$create_as.z#1 AS z [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.z#1]
+    +-expr_list=
+    | +-z#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+ERROR: INVALID_ARGUMENT: Table already exists
+--
+ALTERNATION GROUP: execute
+--
+Table registered.
+ERROR: INVALID_ARGUMENT: The statement CreateTableAsSelectStmt is not supported for execution.
+==
+
+# Create table is rejected if it the statement has unhandled syntax.
+[mode={{analyze|execute}}]
+create table t (x int64)
+OPTIONS (bad_option=123)
+--
+ALTERNATION GROUP: analyze
+--
+CreateTableStmt
++-name_path=t
++-option_list=
+| +-bad_option := Literal(type=INT64, value=123)
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
+
+ERROR: UNIMPLEMENTED: Unimplemented feature (ResolvedCreateTableStmtBase::option_list not accessed and has non-default value)
+CreateTableStmt (*** This node has unaccessed field ***)
++-name_path{*}=t
++-option_list{ }=
+| +-bad_option := Literal(type{ }=INT64, value{ }=123)
++-column_definition_list{*}=
+  +-ColumnDefinition(name{*}="x", type{*}=INT64, column{ }=t.x#1)
+\
+--
+ALTERNATION GROUP: execute
+--
+ERROR: UNIMPLEMENTED: Unimplemented feature (ResolvedCreateTableStmtBase::option_list not accessed and has non-default value)
+CreateTableStmt (*** This node has unaccessed field ***)
++-name_path{*}=t
++-option_list{ }=
+| +-bad_option := Literal(type{ }=INT64, value{ }=123)
++-column_definition_list{*}=
+  +-ColumnDefinition(name{*}="x", type{*}=INT64, column{ }=t.x#1)
+\
+==
+
+# The catalog allows multiple objects of different types with the
+# same name.  DESCRIBE can show all of them, or distinguish.
+# The weird Lazy_resolution_function: prefix comes from a TODO in sql_function.cc.
+[mode=execute]
+create function multi() AS (5);
+create table function multi() AS (select 1 x);
+create table multi (y int64);
+DESCRIBE multi;
+DESCRIBE table multi;
+DESCRIBE TVF multi;
+SELECT * FROM multi;   # The table.
+SELECT * FROM multi(); # The TVF.
+--
+Function registered.
+TVF registered.
+Table registered.
+Table: multi
+Columns:
+  y INT64
+
+Function Lazy_resolution_function:multi
+Signature: multi() -> INT64
+
+Table-valued function: MULTI() -> TABLE<x INT64>
+
+Table: multi
+Columns:
+  y INT64
+
+Table-valued function: MULTI() -> TABLE<x INT64>
+
++---+
+| y |
++---+
++---+
+
++---+
+| x |
++---+
+| 1 |
++---+
+\
+==
+
+# This case with stacked DDL objects that trigger rewriters exercises code that
+# keeps parser and analyzer state objects alive. It crashed without that.
+[mode={{analyze|execute}}]
+create table t (y int64);
+create table function tvf() AS (select 5 mm from t, unnest([1,2]) uu);
+SELECT * FROM tvf();
+--
+ALTERNATION GROUP: analyze
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition(name="y", type=INT64, column=t.y#1)
+
+Table registered.
+CreateTableFunctionStmt
++-name_path=tvf
++-signature=() -> TABLE<mm INT64>
++-language="SQL"
++-code="select 5 mm from t, unnest([1,2]) uu"
++-query=
+| +-ProjectScan
+|   +-column_list=[$query.mm#3]
+|   +-expr_list=
+|   | +-mm#3 := Literal(type=INT64, value=5)
+|   +-input_scan=
+|     +-ArrayScan
+|       +-column_list=[t.y#1, $array.uu#2]
+|       +-input_scan=
+|       | +-TableScan(column_list=[t.y#1], table=t, column_index_list=[0])
+|       +-array_expr_list=
+|       | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+|       +-element_column_list=[$array.uu#2]
++-output_column_list=
+  +-$query.mm#3 AS mm [INT64]
+
+TVF registered.
+QueryStmt
++-output_column_list=
+| +-tvf.mm#1 AS mm [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf.mm#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[tvf.mm#1]
+        +-expr_list=
+        | +-mm#1 := Literal(type=INT64, value=5)
+        +-input_scan=
+          +-ArrayScan
+            +-column_list=[t.y#2, $array.uu#3]
+            +-input_scan=
+            | +-TableScan(column_list=[t.y#2], table=t, column_index_list=[0])
+            +-array_expr_list=
+            | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+            +-element_column_list=[$array.uu#3]
+\
+--
+ALTERNATION GROUP: execute
+--
+Table registered.
+TVF registered.
++----+
+| mm |
++----+
++----+
+\

@@ -18,6 +18,7 @@ cc_library(
     srcs = ["quoting.cc"],
     hdrs = ["quoting.h"],
     deps = [
+        "//zetasql/base:check",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "@com_google_absl//absl/status:statusor",
@@ -109,7 +110,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser:bison_token_codes",
-        "//zetasql/parser:token_disambiguator",  # build_cleaner: keep
+        "//zetasql/parser:lookahead_transformer",  # build_cleaner: keep
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -161,6 +162,7 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -185,8 +187,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",
         "//zetasql/parser:bison_token_codes",
-        "//zetasql/parser:token_disambiguator",  # build_cleaner: keep
-        "//zetasql/public:error_helpers",
+        "//zetasql/parser:lookahead_transformer",  # build_cleaner: keep
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",

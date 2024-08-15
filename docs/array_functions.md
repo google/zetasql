@@ -695,31 +695,72 @@ equality comparison logic as `SELECT DISTINCT`.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [1, 1, 1] AS arr UNION ALL
-  SELECT [1, 2, NULL] AS arr UNION ALL
-  SELECT [1, 1, NULL] AS arr UNION ALL
-  SELECT [1, NULL, NULL] AS arr UNION ALL
-  SELECT [] AS arr UNION ALL
-  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
-)
-SELECT
-  arr,
-  ARRAY_IS_DISTINCT(arr) as is_distinct
-FROM example;
+SELECT ARRAY_IS_DISTINCT([1, 2, 3]) AS is_distinct
 
-/*-----------------+-------------*
- | arr             | is_distinct |
- +-----------------+-------------+
- | [1, 2, 3]       | TRUE        |
- | [1, 1, 1]       | FALSE       |
- | [1, 2, NULL]    | TRUE        |
- | [1, 1, NULL]    | FALSE       |
- | [1, NULL, NULL] | FALSE       |
- | []              | TRUE        |
- | NULL            | NULL        |
- *-----------------+-------------*/
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 1, 1]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 2, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, 1, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT([1, NULL, NULL]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | false       |
+ *-------------*/
+```
+```sql
+SELECT ARRAY_IS_DISTINCT([]) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | true        |
+ *-------------*/
+```
+
+```sql
+SELECT ARRAY_IS_DISTINCT(NULL) AS is_distinct
+
+/*-------------*
+ | is_distinct |
+ +-------------+
+ | NULL        |
+ *-------------*/
 ```
 
 ### `ARRAY_LAST`
@@ -774,20 +815,15 @@ the `array_expression` is `NULL`.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT ["coffee", NULL, "milk" ] as list
-  UNION ALL
-  SELECT ["cake", "pie"] as list)
-SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
-FROM items
-ORDER BY size DESC;
+SELECT
+  ARRAY_LENGTH(["coffee", NULL, "milk" ]) AS size_a,
+  ARRAY_LENGTH(["cake", "pie"]) AS size_b;
 
-/*--------------------+------*
- | list               | size |
- +--------------------+------+
- | coffee, NULL, milk | 3    |
- | cake, pie          | 2    |
- *--------------------+------*/
+/*--------+--------*
+ | size_a | size_b |
+ +--------+--------+
+ | 3      | 2      |
+ *--------+--------*/
 ```
 
 ### `ARRAY_MAX`
@@ -885,23 +921,13 @@ Returns the input `ARRAY` with elements in reverse order.
 **Examples**
 
 ```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [4, 5] AS arr UNION ALL
-  SELECT [] AS arr
-)
-SELECT
-  arr,
-  ARRAY_REVERSE(arr) AS reverse_arr
-FROM example;
+SELECT ARRAY_REVERSE([1, 2, 3]) AS reverse_arr
 
-/*-----------+-------------*
- | arr       | reverse_arr |
- +-----------+-------------+
- | [1, 2, 3] | [3, 2, 1]   |
- | [4, 5]    | [5, 4]      |
- | []        | []          |
- *-----------+-------------*/
+/*-------------*
+ | reverse_arr |
+ +-------------+
+ | [3, 2, 1]   |
+ *-------------*/
 ```
 
 ### `ARRAY_SLICE`
@@ -1233,35 +1259,22 @@ and its preceding delimiter.
 **Examples**
 
 ```sql
-WITH items AS
-  (SELECT ['coffee', 'tea', 'milk' ] as list
-  UNION ALL
-  SELECT ['cake', 'pie', NULL] as list)
-
-SELECT ARRAY_TO_STRING(list, '--') AS text
-FROM items;
+SELECT ARRAY_TO_STRING(['coffee', 'tea', 'milk', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
  | text                           |
  +--------------------------------+
- | coffee--tea--milk              |
- | cake--pie                      |
+ | coffee--tea--milk--MISSING     |
  *--------------------------------*/
 ```
 
 ```sql
-WITH items AS
-  (SELECT ['coffee', 'tea', 'milk' ] as list
-  UNION ALL
-  SELECT ['cake', 'pie', NULL] as list)
 
-SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text
-FROM items;
+SELECT ARRAY_TO_STRING(['cake', 'pie', NULL], '--', 'MISSING') AS text
 
 /*--------------------------------*
  | text                           |
  +--------------------------------+
- | coffee--tea--milk              |
  | cake--pie--MISSING             |
  *--------------------------------*/
 ```

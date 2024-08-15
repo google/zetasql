@@ -661,7 +661,8 @@ bool Chunk::IsTopLevelWith() const {
 bool Chunk::OpensParenBlock() const { return !Empty() && LastKeyword() == "("; }
 
 bool Chunk::OpensParenOrBracketBlock() const {
-  return IsOpenParenOrBracket(LastKeyword());
+  return LastToken().Is(Token::Type::OPEN_BRACKET) ||
+         IsOpenParenOrBracket(LastKeyword());
 }
 
 bool Chunk::ClosesParenBlock() const {
@@ -669,7 +670,8 @@ bool Chunk::ClosesParenBlock() const {
 }
 
 bool Chunk::ClosesParenOrBracketBlock() const {
-  return IsCloseParenOrBracket(FirstKeyword());
+  return FirstToken().Is(Token::Type::CLOSE_BRACKET) ||
+         IsCloseParenOrBracket(FirstKeyword());
 }
 
 bool Chunk::IsFromKeyword() const {
@@ -700,7 +702,7 @@ bool Chunk::IsTypeDeclarationStart() const {
 
 bool Chunk::IsTypeDeclarationEnd() const {
   return absl::c_any_of(tokens_.WithoutComments(), [](const Token* t) {
-    return t->Is(Token::Type::CLOSE_BRACKET);
+    return t->IsCloseAngleBracket();
   });
 }
 
@@ -1006,10 +1008,16 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
       return true;
     }
   }
-  if (token_index > 0 && tokens[token_index - 1]->IsComment() &&
-      tokens[token_index - 1]->GetLineBreaksAfter() > 0) {
-    // Previous token is either a stand-alone or end-of-line comment.
-    return false;
+  if (token_index > 0 && tokens[token_index - 1]->IsComment()) {
+    if (tokens[token_index - 1]->Is(Token::Type::STRING_ANNOTATION_COMMENT) &&
+        tokens[token_index]->Is(Token::Type::OPEN_BRACKET)) {
+      // Group together annotation comment and the opening quotes of the
+      // string literal, e.g.: /*sql*/'''
+      return true;
+    } else if (tokens[token_index - 1]->GetLineBreaksAfter() > 0) {
+      // Previous token is either a stand-alone or end-of-line comment.
+      return false;
+    }
   }
   // All comment-related cases are handled above. If previous index is < 0 it
   // means there are no tokens before.
@@ -1027,6 +1035,9 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   // the chunk, otherwise no.
   if (current_token->IsComment()) {
     return current_token->GetLineBreaksBefore() == 0 &&
+           // Annotation comments like /*sql*/ should be attached to the next
+           // token not to the previous one.
+           !current_token->Is(Token::Type::STRING_ANNOTATION_COMMENT) &&
            // Special case: '/*arg_name=*/value' should be attached to the
            // value, not to the previous token.
            !IsArgumentNameInlineComment(*current_token);
@@ -1071,6 +1082,15 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   // standard).
   if (previous_token->GetKeyword() == ":") {
     return true;
+  }
+
+  // Never combine pipe operator with anything else.
+  if (current == "|>") {
+    return false;
+  }
+  if (previous == "|>") {
+    current_token->SetType(Token::Type::TOP_LEVEL_KEYWORD);
+    return false;
   }
 
   // For module declaration statements and imports, we basically ignore the line
@@ -1157,20 +1177,21 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
             previous_token->Is(Token::Type::COMPLEX_TOKEN_CONTINUATION)) &&
            CanBeFusedWithOpenParenOrBracket(chunk);
   }
-  if (current == "[") {
-    return CanBeFusedWithOpenParenOrBracket(chunk);
-  }
   if (current == ")") {
     return current_token->Is(Token::Type::CLOSE_PROTO_EXTENSION_PARENTHESIS);
   }
-  if (current == "]") {
-    return false;
-  }
-  if (current == "}") {
-    return false;
-  }
-  if (current == "{") {
+  if (current == "[" || current == "{" ||
+      current_token->Is(Token::Type::OPEN_BRACKET)) {
     return CanBeFusedWithOpenParenOrBracket(chunk);
+  }
+  if (current_token->IsCloseAngleBracket()) {
+    // Type declarations have closing bracket always attached to the previous
+    // token.
+    return true;
+  }
+  if (current == "]" || current == "}" ||
+      current_token->Is(Token::Type::CLOSE_BRACKET)) {
+    return false;
   }
 
   // * is tricky. It's the multiplication operator, but it can also be part of
@@ -1191,11 +1212,6 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
 
   // Special handling for <> signs, since these could be both comparison
   // operators and part of a type declaration, like ARRAY<INT64>.
-  if (current_token->IsOneOf(
-          {Token::Type::OPEN_BRACKET, Token::Type::CLOSE_BRACKET})) {
-    // This is opening or closing bracket of a type declaration.
-    return true;
-  }
   if (previous == ">") {
     if (previous_token->Is(Token::Type::CLOSE_BRACKET)) {
       // Group ">" together in a nested type declaration,
@@ -2463,7 +2479,7 @@ void MarkAllAngleBracketPairs(std::vector<Chunk>* chunks) {
     if (tokens.empty()) {
       continue;
     }
-    if (tokens.back()->Is(Token::Type::OPEN_BRACKET)) {
+    if (tokens.back()->IsOpenAngleBracket()) {
       open_brackets.push_back(chunk);
       continue;
     }
@@ -2471,7 +2487,7 @@ void MarkAllAngleBracketPairs(std::vector<Chunk>* chunks) {
       continue;
     }
     for (const auto* token : tokens) {
-      if (token->Is(Token::Type::CLOSE_BRACKET)) {
+      if (token->IsCloseAngleBracket()) {
         Chunk* open_bracket = open_brackets.back();
         open_brackets.pop_back();
         open_bracket->SetMatchingClosingChunk(chunk);

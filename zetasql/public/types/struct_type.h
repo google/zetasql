@@ -27,6 +27,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/list_backed_type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/base/case.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
@@ -148,17 +149,8 @@ class StructType : public ListBackedType {
   int64_t GetEstimatedOwnedMemoryBytesSize() const override
       ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
-  std::string GetFormatPrefix(
-      const ValueContent& value_content,
-      const Type::FormatValueContentOptions& options) const override;
-
-  char GetFormatClosingCharacter(
-      const Type::FormatValueContentOptions& options) const override;
-
-  const Type* GetElementType(int index) const override;
-
-  std::string GetFormatElementPrefix(
-      int index, bool is_null,
+  std::string FormatValueContent(
+      const ValueContent& value,
       const FormatValueContentOptions& options) const override;
 
  private:
@@ -207,13 +199,19 @@ class StructType : public ListBackedType {
                                      ValueProto* value_proto) const override;
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
+  void FormatValueContentDebugModeImpl(
+      const internal::ValueContentOrderedList* container,
+      const FormatValueContentOptions& options, std::string* result) const;
+  void FormatValueContentSqlModeImpl(
+      const internal::ValueContentOrderedList* container,
+      const FormatValueContentOptions& options, std::string* result) const;
 
   const std::vector<StructField> fields_;
 
   // The deepest nesting depth in the type tree rooted at this StructType, i.e.,
   // the maximum nesting_depth of the field types, plus 1 for the StructType
-  // itself. If all fields are simple types, then this is 1.
-  // This field is not serialized. It is recalculated during deserialization.
+  // itself. If all fields are simple types, then this is 1. This field is not
+  // serialized. It is recalculated during deserialization.
   const int nesting_depth_;
 
   // Lazily built map from name to struct field index. Ambiguous lookups are

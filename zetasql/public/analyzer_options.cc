@@ -309,7 +309,8 @@ AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
               absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
           .error_message_stability = GetDefaultErrorMessageStability()}) {
   ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
-                              &data_->default_timezone));
+                              &data_->default_timezone))
+      << "Did you need to install the tzdata package?";
 }
 
 AnalyzerOptions::~AnalyzerOptions() = default;

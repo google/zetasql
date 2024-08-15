@@ -16,10 +16,12 @@
 
 #include "zetasql/testdata/sample_annotation.h"
 
-#include "zetasql/common/errors.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
-#include "absl/strings/substitute.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 // TODO: Extracts helper functions and interfaces from this class.
 namespace zetasql {

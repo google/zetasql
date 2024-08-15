@@ -506,7 +506,24 @@ with connection default
 options (x=foo)
 --
 
-ERROR: CONNECTION DEFAULT is not supported [at 2:17]
+CreateExternalTableStmt
++-name_path=projectid.datasetid.tablename
++-option_list=
+| +-x := Literal(type=STRING, value="foo")
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=projectid.datasetid.tablename.x#1)
++-connection=
+  +-Connection(connection=$connection_default)
+==
+
+[no_java]
+[use_database=SpecialCatalog]
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+create external table projectid.datasetid.tablename(x int64)
+with connection default
+options (x=foo)
+--
+ERROR: Default connection not found [at 2:17]
 with connection default
                 ^
 ==

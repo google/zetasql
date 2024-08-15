@@ -119,7 +119,7 @@ class ProtoFieldRegistry {
  public:
   // 'id' is a unique identifier of this instance that is used for debug
   // logging.
-  explicit ProtoFieldRegistry(int id) : id_(id) {}
+  ProtoFieldRegistry() = default;
   ProtoFieldRegistry(const ProtoFieldRegistry&) = delete;
   ProtoFieldRegistry& operator=(const ProtoFieldRegistry&) = delete;
 
@@ -139,11 +139,7 @@ class ProtoFieldRegistry {
     return registered_access_infos_;
   }
 
-  int id() const { return id_; }
-
  private:
-  const int id_;
-
   // This is the set of fields that GetProtoFieldExprs care about. Not owned.
   std::vector<const ProtoFieldAccessInfo*> registered_access_infos_;
 };

@@ -18,6 +18,21 @@ DROP EXTERNAL TABLE namespace.foo;
 DropStmt(object_type="EXTERNAL TABLE", is_if_exists=FALSE, name_path=namespace.foo)
 ==
 
+DROP CONNECTION foo;
+--
+DropStmt(object_type="CONNECTION", is_if_exists=FALSE, name_path=foo)
+==
+
+DROP CONNECTION foo.bar.baz;
+--
+DropStmt(object_type="CONNECTION", is_if_exists=FALSE, name_path=foo.bar.baz)
+==
+
+DROP CONNECTION IF EXISTS foo.bar.baz;
+--
+DropStmt(object_type="CONNECTION", is_if_exists=TRUE, name_path=foo.bar.baz)
+==
+
 DROP VIEW bar;
 --
 

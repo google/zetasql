@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/parser/flex_tokenizer.h"
+#include "zetasql/parser/lookahead_transformer.h"
 
 #include <memory>
 #include <optional>
@@ -28,7 +28,6 @@
 #include "zetasql/parser/macros/token_with_location.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/parser/token_disambiguator.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
@@ -62,38 +61,38 @@ using Location = ParseLocationRange;
 // private API.
 class TokenTestThief {
  public:
-  static TokenKind Lookahead1(DisambiguatorLexer& lexer) {
-    return lexer.Lookahead1();
+  static TokenKind Lookahead1(LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.Lookahead1();
   }
-  static TokenKind Lookahead2(DisambiguatorLexer& lexer) {
-    return lexer.Lookahead2();
+  static TokenKind Lookahead2(LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.Lookahead2();
   }
-  static TokenKind Lookahead3(DisambiguatorLexer& lexer) {
-    return lexer.Lookahead3();
+  static TokenKind Lookahead3(LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.Lookahead3();
   }
-  static TokenKind Lookback1(DisambiguatorLexer& lexer) {
-    return lexer.Lookback1();
+  static TokenKind Lookback1(LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.Lookback1();
   }
-  static TokenKind Lookback2(DisambiguatorLexer& lexer) {
-    return lexer.Lookback2();
+  static TokenKind Lookback2(LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.Lookback2();
   }
 
   static std::optional<TokenWithOverrideError> GetCurrentToken(
-      const DisambiguatorLexer& lexer) {
-    return lexer.current_token_;
+      const LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.current_token_;
   }
 
   static std::optional<TokenWithOverrideError> GetPreviousToken(
-      const DisambiguatorLexer& lexer) {
-    return lexer.lookback_1_;
+      const LookaheadTransformer& lookahead_transformer) {
+    return lookahead_transformer.lookback_1_;
   }
 };
 
-class FlexTokenizerTest : public ::testing::Test {
+class LookaheadTransformerTest : public ::testing::Test {
  public:
   std::vector<TokenKind> GetAllTokens(BisonParserMode mode,
                                       absl::string_view sql) {
-    auto tokenizer = DisambiguatorLexer::Create(
+    auto tokenizer = LookaheadTransformer::Create(
         mode, "fake_file", sql, 0, options_, /*macro_catalog=*/nullptr,
         /*arena=*/nullptr);
     ZETASQL_DCHECK_OK(tokenizer);
@@ -110,61 +109,59 @@ class FlexTokenizerTest : public ::testing::Test {
   LanguageOptions options_;
 };
 
-TEST_F(FlexTokenizerTest, ParameterKeywordStatementMode) {
+TEST_F(LookaheadTransformerTest, ParameterKeywordStatementMode) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "a @select c"),
               ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, '@',
                           Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, ParameterKeywordTokenizerMode) {
+TEST_F(LookaheadTransformerTest, ParameterKeywordTokenizerMode) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @select c"),
               ElementsAre(Token::IDENTIFIER, '@', Token::IDENTIFIER,
                           Token::IDENTIFIER, Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, SysvarKeywordStatementMode) {
+TEST_F(LookaheadTransformerTest, SysvarKeywordStatementMode) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "a @@where c"),
       ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, Token::KW_DOUBLE_AT,
                   Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, SysvarKeywordTokenizerMode) {
+TEST_F(LookaheadTransformerTest, SysvarKeywordTokenizerMode) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kTokenizer, "a @@where c"),
               ElementsAre(Token::IDENTIFIER, Token::KW_DOUBLE_AT,
                           Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, QueryParamCurrentDate) {
+TEST_F(LookaheadTransformerTest, QueryParamCurrentDate) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "a @current_date c"),
               ElementsAre(Token::MODE_STATEMENT, Token::IDENTIFIER, '@',
                           Token::IDENTIFIER, Token::IDENTIFIER, Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, SysvarWithDotId) {
+TEST_F(LookaheadTransformerTest, SysvarWithDotId) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "SELECT @@ORDER.WITH.c"),
       ElementsAre(Token::MODE_STATEMENT, Token::KW_SELECT, Token::KW_DOUBLE_AT,
                   Token::IDENTIFIER, '.',
-                  // The dot identifier mini-tokenizer needs to kick in after
-                  // the disambiguation of ORDER to identifier.
                   Token::IDENTIFIER, '.', Token::IDENTIFIER, Token::YYEOF));
 }
 
-absl::StatusOr<TokenKind> GetNextToken(DisambiguatorLexer& tokenizer,
+absl::StatusOr<TokenKind> GetNextToken(LookaheadTransformer& tokenizer,
                                        Location& location) {
   TokenKind token_kind;
   ZETASQL_RETURN_IF_ERROR(tokenizer.GetNextToken(&location, &token_kind));
   return token_kind;
 }
 
-TEST_F(FlexTokenizerTest, Lookahead1) {
+TEST_F(LookaheadTransformerTest, Lookahead1) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
@@ -191,15 +188,15 @@ TEST_F(FlexTokenizerTest, Lookahead1) {
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, Lookahead1WithForceTerminate) {
+TEST_F(LookaheadTransformerTest, Lookahead1WithForceTerminate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr,
                       /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::IDENTIFIER);
@@ -218,14 +215,14 @@ TEST_F(FlexTokenizerTest, Lookahead1WithForceTerminate) {
   EXPECT_THAT(GetNextToken(tokenizer, location), IsOkAndHolds(Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, Lookahead2) {
+TEST_F(LookaheadTransformerTest, Lookahead2) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -254,14 +251,14 @@ TEST_F(FlexTokenizerTest, Lookahead2) {
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
 }
 
-TEST_F(FlexTokenizerTest, Lookahead2BeforeLookahead1) {
+TEST_F(LookaheadTransformerTest, Lookahead2BeforeLookahead1) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -277,14 +274,14 @@ TEST_F(FlexTokenizerTest, Lookahead2BeforeLookahead1) {
             Token::DECIMAL_INTEGER_LITERAL);
 }
 
-TEST_F(FlexTokenizerTest, Lookahead2NoEnoughTokens) {
+TEST_F(LookaheadTransformerTest, Lookahead2NoEnoughTokens) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "", 0, options_,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -302,14 +299,14 @@ TEST_F(FlexTokenizerTest, Lookahead2NoEnoughTokens) {
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
 }
 
-TEST_F(FlexTokenizerTest, Lookahead2ForceTerminate) {
+TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -329,14 +326,14 @@ TEST_F(FlexTokenizerTest, Lookahead2ForceTerminate) {
   EXPECT_EQ(TokenTestThief::Lookahead2(tokenizer), Token::YYEOF);
 }
 
-TEST_F(FlexTokenizerTest, Lookahead2ForceTerminateLookahead2First) {
+TEST_F(LookaheadTransformerTest, Lookahead2ForceTerminateLookahead2First) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -356,15 +353,15 @@ TEST_F(FlexTokenizerTest, Lookahead2ForceTerminateLookahead2First) {
   EXPECT_EQ(TokenTestThief::Lookahead1(tokenizer), Token::YYEOF);
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorReturnsYyeofWhenErrors) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT * EXCEPT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest, LookaheadTransformerReturnsYyeofWhenErrors) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT * EXCEPT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -384,7 +381,7 @@ TEST_F(FlexTokenizerTest, DisambiguatorReturnsYyeofWhenErrors) {
   EXPECT_EQ(token_kind, Token::YYEOF);
 }
 
-static void AdvanceLexer(DisambiguatorLexer& tokenizer, Location& location) {
+static void AdvanceLexer(LookaheadTransformer& tokenizer, Location& location) {
   absl::string_view unused;
   tokenizer.GetNextToken(&unused, &location);
 }
@@ -401,15 +398,15 @@ MATCHER_P(TokenIs, expected_kind, "") {
                             result_listener);
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorHasCorrectPrevToken) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT 1 FULL UNION ALL", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest, LookaheadTransformerHasCorrectPrevToken) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT 1 FULL UNION ALL", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
@@ -429,15 +426,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorHasCorrectPrevToken) {
               TokenIs(Token::KW_FULL_IN_SET_OP));
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorHasCorrectPrevTokenAndError) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT * EXCEPT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerHasCorrectPrevTokenAndError) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT * EXCEPT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   AdvanceLexer(tokenizer, location);
   EXPECT_THAT(TokenTestThief::GetCurrentToken(tokenizer),
@@ -468,15 +466,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorHasCorrectPrevTokenAndError) {
 constexpr int kFurtherLookaheadBeyondEof = 5;
 
 // Keep calling GetNextToken after YYEOF is returned with no errors.
-TEST_F(FlexTokenizerTest, DisambiguatorGetNextTokenAfterEofNoError) {
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerGetNextTokenAfterEofNoError) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT *", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      LookaheadTransformer::Create(
+          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -492,15 +491,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorGetNextTokenAfterEofNoError) {
 }
 
 // Keep calling GetNextToken after YYEOF is returned with errors.
-TEST_F(FlexTokenizerTest, DisambiguatorGetNextTokenAfterEofWithError) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT * EXCEPT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerGetNextTokenAfterEofWithError) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT * EXCEPT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -523,16 +523,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorGetNextTokenAfterEofWithError) {
 }
 
 // SetForceTerminate is called without fetching any tokens.
-TEST_F(FlexTokenizerTest,
-       DisambiguatorGetNextTokenAfterSetForceTerminateNoTokens) {
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerGetNextTokenAfterSetForceTerminateNoTokens) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT *", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      LookaheadTransformer::Create(
+          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   tokenizer.SetForceTerminate(/*end_byte_offset=*/nullptr);
   // Keep calling GetNextToken should always return YYEOF with no errors.
@@ -542,16 +542,16 @@ TEST_F(FlexTokenizerTest,
 }
 
 // Last returned token has no errors and then SetForceTerminate is called.
-TEST_F(FlexTokenizerTest,
-       DisambiguatorGetNextTokenAfterSetForceTerminateNoError) {
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerGetNextTokenAfterSetForceTerminateNoError) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT *", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      LookaheadTransformer::Create(
+          BisonParserMode::kStatement, "fake_file", "SELECT *", 0, options_,
+          /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -564,16 +564,16 @@ TEST_F(FlexTokenizerTest,
 }
 
 // Last returned token reports an error and then SetForceTerminate is called.
-TEST_F(FlexTokenizerTest,
-       DisambiguatorGetNextTokenAfterSetForceTerminateLastTokenErrors) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT * EXCEPT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerGetNextTokenAfterSetForceTerminateLastTokenErrors) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT * EXCEPT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetNextToken(tokenizer, location),
               IsOkAndHolds(Token::MODE_STATEMENT));
@@ -597,14 +597,15 @@ TEST_F(FlexTokenizerTest,
   }
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackInvalidAnduselessCalls) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kScript, "fake_file",
-                                 "BEGIN BEGIN END END", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerOverrideLookbackInvalidAnduselessCalls) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kScript, "fake_file",
+                           "BEGIN BEGIN END END", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(tokenizer.OverrideNextTokenLookback(
                   /*parser_lookahead_is_empty=*/true, Token::KW_BEGIN,
@@ -650,15 +651,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackInvalidAnduselessCalls) {
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::KW_END));
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackForEmptyParserLA) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kScript, "fake_file",
-                                 "BEGIN BEGIN END END", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerOverrideLookbackForEmptyParserLA) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kScript, "fake_file",
+                           "BEGIN BEGIN END END", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
   EXPECT_THAT(GetNextToken(tokenizer, location),
@@ -694,15 +696,16 @@ TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackForEmptyParserLA) {
   EXPECT_THAT(TokenTestThief::Lookback2(tokenizer), Eq(Token::KW_END));
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackForNonEmptyParserLA) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kScript, "fake_file",
-                                 "BEGIN BEGIN END END", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerOverrideLookbackForNonEmptyParserLA) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kScript, "fake_file",
+                           "BEGIN BEGIN END END", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(kNoToken));
   EXPECT_THAT(GetNextToken(tokenizer, location),
@@ -727,12 +730,13 @@ TEST_F(FlexTokenizerTest, DisambiguatorOverrideLookbackForNonEmptyParserLA) {
   EXPECT_THAT(TokenTestThief::Lookback1(tokenizer), Eq(Token::KW_END));
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorIdentifyingStartOfExplainExplian) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "EXPLAIN EXPLAIN SELECT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerIdentifyingStartOfExplainExplian) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "EXPLAIN EXPLAIN SELECT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
   EXPECT_THAT(GetNextToken(*lexer, location),
@@ -761,9 +765,10 @@ TEST_F(FlexTokenizerTest, DisambiguatorIdentifyingStartOfExplainExplian) {
                               }));
 }
 
-TEST_F(FlexTokenizerTest, DisambiguatorIdentifyingStartOfHintExplainHint) {
+TEST_F(LookaheadTransformerTest,
+       LookaheadTransformerIdentifyingStartOfHintExplainHint) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
-                       DisambiguatorLexer::Create(
+                       LookaheadTransformer::Create(
                            BisonParserMode::kStatement, "fake_file",
                            "@5 EXPLAIN @{a = 1} EXPLAIN SELECT 1", 0, options_,
                            /*macro_catalog=*/nullptr, /*arena=*/nullptr));
@@ -836,7 +841,7 @@ TEST_F(FlexTokenizerTest, DisambiguatorIdentifyingStartOfHintExplainHint) {
 }
 
 static TokenWithOverrideError GetTokenKindAndError(
-    DisambiguatorLexer& tokenizer) {
+    LookaheadTransformer& tokenizer) {
   absl::string_view unused_text;
   Location unused_location;
   TokenKind token_kind = tokenizer.GetNextToken(&unused_text, &unused_location);
@@ -855,15 +860,15 @@ MATCHER_P(TokenKindIs, expected_kind, "") {
                             arg, result_listener);
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateBeforeFetchingTokens) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 "SELECT * EXCEPT 1", 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+TEST_F(LookaheadTransformerTest, SetForceTerminateBeforeFetchingTokens) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto lexer,
+                       LookaheadTransformer::Create(
+                           BisonParserMode::kStatement, "fake_file",
+                           "SELECT * EXCEPT 1", 0, options_,
+                           /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
   int end_byte_offset;
   tokenizer.SetForceTerminate(&end_byte_offset);
 
@@ -879,14 +884,14 @@ TEST_F(FlexTokenizerTest, SetForceTerminateBeforeFetchingTokens) {
 // The difference between this test case and
 // SetForceTerminateBeforeFetchingTokens is that the lookahead1 of this test
 // case is YYEOF.
-TEST_F(FlexTokenizerTest, SetForceTerminateNoTokens) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateNoTokens) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "", 0, options_,
                       /*macro_catalog=*/nullptr, /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
   int end_byte_offset;
   tokenizer.SetForceTerminate(&end_byte_offset);
 
@@ -899,15 +904,15 @@ TEST_F(FlexTokenizerTest, SetForceTerminateNoTokens) {
   }
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateLastTokenErrors) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenErrors) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file", "`",
-                                 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", "`", 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -934,16 +939,16 @@ TEST_F(FlexTokenizerTest, SetForceTerminateLastTokenErrors) {
   }
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateLastTokenIsYyeof) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateLastTokenIsYyeof) {
   constexpr absl::string_view kInput = "    ";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -963,16 +968,16 @@ TEST_F(FlexTokenizerTest, SetForceTerminateLastTokenIsYyeof) {
   }
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1IsYyeof) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsYyeof) {
   constexpr absl::string_view kInput = "SELECT      ";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -992,16 +997,16 @@ TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1IsYyeof) {
   }
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1Errors) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1Errors) {
   constexpr absl::string_view kInput = "SELECT $";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1021,16 +1026,16 @@ TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1Errors) {
   }
 }
 
-TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1IsNonYyeof) {
+TEST_F(LookaheadTransformerTest, SetForceTerminateLookahead1IsNonYyeof) {
   constexpr absl::string_view kInput = "SELECT 1";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1050,15 +1055,15 @@ TEST_F(FlexTokenizerTest, SetForceTerminateLookahead1IsNonYyeof) {
   }
 }
 
-TEST_F(FlexTokenizerTest, GetNextTokenContinuesToReturnYyeof) {
+TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnYyeof) {
   constexpr absl::string_view kInput = "SELECT";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
 
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1071,17 +1076,17 @@ TEST_F(FlexTokenizerTest, GetNextTokenContinuesToReturnYyeof) {
   }
 }
 
-TEST_F(FlexTokenizerTest, GetNextTokenContinuesToReturnTheSameError) {
+TEST_F(LookaheadTransformerTest, GetNextTokenContinuesToReturnTheSameError) {
   constexpr absl::string_view kInput = "SELECT `";
   constexpr absl::string_view kError =
       "Syntax error: Unclosed identifier literal";
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1122,14 +1127,14 @@ MATCHER_P(IsSameOptionalToken, token, "") {
       arg->token, result_listener);
 }
 
-TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectNoErrors) {
+TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectNoErrors) {
   constexpr absl::string_view kInput = "SELECT 1 *";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
   do {
@@ -1154,16 +1159,16 @@ TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectNoErrors) {
   }
 }
 
-TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectWithErrors) {
+TEST_F(LookaheadTransformerTest, PreviousTokensAreCorrectWithErrors) {
   constexpr absl::string_view kInput = "SELECT `";
   constexpr absl::string_view kError =
       "Syntax error: Unclosed identifier literal";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(BisonParserMode::kStatement,
-                                             "fake_file", kInput, 0, options_,
-                                             /*macro_catalog=*/nullptr,
-                                             /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   std::optional<TokenWithOverrideError> previous_current_token;
   do {
@@ -1179,8 +1184,8 @@ TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectWithErrors) {
   EXPECT_THAT(TokenTestThief::GetPreviousToken(tokenizer),
               IsSameOptionalToken(previous_current_token));
 
-  // The previous token of the disambiguator should remain YYEOF with the same
-  // error.
+  // The previous token of the lookahead_transformer should remain YYEOF with
+  // the same error.
   Location unused_location;
   for (int i = 0; i < kFurtherLookaheadBeyondEof; ++i) {
     AdvanceLexer(tokenizer, unused_location);
@@ -1191,14 +1196,15 @@ TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectWithErrors) {
   }
 }
 
-TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectWithSetForceTerminate) {
+TEST_F(LookaheadTransformerTest,
+       PreviousTokensAreCorrectWithSetForceTerminate) {
   constexpr absl::string_view kInput = "SELECT 1 *";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   Location unused_location;
   AdvanceLexer(tokenizer, unused_location);
@@ -1233,14 +1239,14 @@ TEST_F(FlexTokenizerTest, PreviousTokensAreCorrectWithSetForceTerminate) {
               TokenIs(Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, TokenFusion) {
+TEST_F(LookaheadTransformerTest, TokenFusion) {
   constexpr absl::string_view kInput = ">>";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1249,14 +1255,14 @@ TEST_F(FlexTokenizerTest, TokenFusion) {
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, TokensWithWhitespacesInBetweenCannotFuse) {
+TEST_F(LookaheadTransformerTest, TokensWithWhitespacesInBetweenCannotFuse) {
   constexpr absl::string_view kInput = "> >";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer,
-      DisambiguatorLexer::Create(BisonParserMode::kStatement, "fake_file",
-                                 kInput, 0, options_,
-                                 /*macro_catalog=*/nullptr, /*arena=*/nullptr));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               /*macro_catalog=*/nullptr,
+                                               /*arena=*/nullptr));
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1290,7 +1296,7 @@ static absl::Status RegisterMacros(absl::string_view source,
   return absl::OkStatus();
 }
 
-TEST_F(FlexTokenizerTest, TokensFromDifferentFilesCannotFuse) {
+TEST_F(LookaheadTransformerTest, TokensFromDifferentFilesCannotFuse) {
   options_.EnableLanguageFeature(FEATURE_V_1_4_SQL_MACROS);
   macros::MacroCatalog macro_catalog;
   ZETASQL_ASSERT_OK(
@@ -1299,10 +1305,10 @@ TEST_F(FlexTokenizerTest, TokensFromDifferentFilesCannotFuse) {
 
   constexpr absl::string_view kInput = ">$greater_than";
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(BisonParserMode::kStatement,
-                                             "fake_file", kInput, 0, options_,
-                                             &macro_catalog, arena.get()));
-  DisambiguatorLexer& tokenizer = *lexer;
+      auto lexer, LookaheadTransformer::Create(BisonParserMode::kStatement,
+                                               "fake_file", kInput, 0, options_,
+                                               &macro_catalog, arena.get()));
+  LookaheadTransformer& tokenizer = *lexer;
 
   EXPECT_THAT(GetTokenKindAndError(tokenizer),
               TokenKindIs(Token::MODE_STATEMENT));
@@ -1311,7 +1317,7 @@ TEST_F(FlexTokenizerTest, TokensFromDifferentFilesCannotFuse) {
   EXPECT_THAT(GetTokenKindAndError(tokenizer), TokenKindIs(Token::YYEOF));
 }
 
-TEST_F(FlexTokenizerTest, RightShiftIsAllowedAfterParentheses) {
+TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterParentheses) {
   EXPECT_THAT(
       GetAllTokens(BisonParserMode::kStatement, "ARRAY<TYPEOF(1 >> 2)>"),
       ElementsAreArray(std::vector<TokenKind>{
@@ -1329,7 +1335,7 @@ TEST_F(FlexTokenizerTest, RightShiftIsAllowedAfterParentheses) {
       }));
 }
 
-TEST_F(FlexTokenizerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
+TEST_F(LookaheadTransformerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
   EXPECT_THAT(GetAllTokens(BisonParserMode::kStatement, "ARRAY<)>>>>>"),
               ElementsAreArray(std::vector<TokenKind>{
                   Token::MODE_STATEMENT,
@@ -1343,13 +1349,13 @@ TEST_F(FlexTokenizerTest, RightShiftIsAllowedAfterUnpairedParentheses) {
               }));
 }
 
-TEST_F(FlexTokenizerTest, Lookahead3) {
+TEST_F(LookaheadTransformerTest, Lookahead3) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   // Ok to examine lookaheads before fetching any tokens.
   EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer),
@@ -1368,13 +1374,13 @@ TEST_F(FlexTokenizerTest, Lookahead3) {
   }
 }
 
-TEST_F(FlexTokenizerTest, Lookahead3SetForceTerminate) {
+TEST_F(LookaheadTransformerTest, Lookahead3SetForceTerminate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto lexer, DisambiguatorLexer::Create(
+      auto lexer, LookaheadTransformer::Create(
                       BisonParserMode::kStatement, "fake_file", "a 1 SELECT", 0,
                       options_, /*macro_catalog=*/nullptr, /*arena=*/nullptr));
   Location location;
-  DisambiguatorLexer& tokenizer = *lexer;
+  LookaheadTransformer& tokenizer = *lexer;
 
   // Ok to examine lookaheads before fetching any tokens.
   EXPECT_EQ(TokenTestThief::Lookahead3(tokenizer),

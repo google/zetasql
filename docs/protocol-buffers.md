@@ -783,7 +783,7 @@ various accessed fields:
 </tr>
 <tr>
 <td><code>message_field_y.field_b</code></td>
-<td><code>" "</code> (empty string)</td>
+<td><code>""</code> (empty string)</td>
 <td>Field isn't set but parent message is set, so default value (empty string) is produced.</td>
 </tr>
 <tr>

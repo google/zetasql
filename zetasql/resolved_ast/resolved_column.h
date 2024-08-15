@@ -51,7 +51,17 @@ class ResolvedColumn {
   ResolvedColumn(const ResolvedColumn&) = default;
   ResolvedColumn& operator=(const ResolvedColumn&) = default;
 
-  // Construct a ResolvedColumn with the given <column_id> and <type>.
+  // Construct a ResolvedColumn with the given <column_id> and
+  // {<type> or <<annotated_type>}.
+  //
+  // WARNING: The constructor that takes <type> will not propagate collation or
+  // other type annotations.  When creating a new ResolvedColumn from an
+  // existing ResolvedColumn or ResolvedExpr, it is necessary to use
+  // the <annotated_type> constructor to avoid bugs where annotations are lost.
+  //
+  // TODO: Maybe the <type> constructor should be deprecated, or
+  // we should find another way to make sure the safe one is used where needed.
+  //
   // <table_name> and <name> are for display only, have no defined meaning and
   // are required to be non-empty.
   ResolvedColumn(int column_id, IdString table_name, IdString name,

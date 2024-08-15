@@ -205,12 +205,23 @@ class ReferenceDriver : public TestDriver {
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
 
+  struct ExecuteScriptAuxOutput {
+    // If this has a value, it indicates whether the reference evaluation
+    // engine detected non-determinism in any part of the script.
+    std::optional<bool> is_deterministic_output;
+    // If this has a value, it indicates the script included unsupported
+    // types. This will generally cause a failure of the query.
+    std::optional<bool> uses_unsupported_type;
+  };
   // The same as ExecuteStatementForReferenceDriver(), except executes a script
   // instead of a statement.
+  //
+  // 'aux_output' contains additional information. These values may provided
+  // even in the cause of failures in some cases.
   absl::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* uses_unsupported_type);
+      ExecuteScriptAuxOutput& aux_output);
 
   bool IsReferenceImplementation() const override { return true; }
 
@@ -244,7 +255,7 @@ class ReferenceDriver : public TestDriver {
   // The LanguageOptions used by the zero-arg constructor.
   static LanguageOptions DefaultLanguageOptions();
 
- private:
+ protected:
   struct TableInfo {
     std::string table_name;
     std::set<LanguageFeature> required_features;
@@ -256,7 +267,7 @@ class ReferenceDriver : public TestDriver {
   absl::Status ExecuteScriptForReferenceDriverInternal(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* uses_unsupported_type, ScriptResult* result);
+      ExecuteScriptAuxOutput& aux_output, ScriptResult* result);
 
   absl::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
       absl::string_view sql, const AnalyzerOptions& analyzer_options,
@@ -291,7 +302,7 @@ class ReferenceDriver : public TestDriver {
   TestDatabaseCatalog catalog_;
 
   // Maintains lifetime of objects referenced by SQL UDFs added to catalog_.
-  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_udf_artifacts_;
+  std::vector<std::unique_ptr<const AnalyzerOutput>> artifacts_;
 
   // Defaults to America/Los_Angeles.
   absl::TimeZone default_time_zone_;

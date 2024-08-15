@@ -19,20 +19,23 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 
 // Compiles `create_sql_stmt` and adds the resulting function to `catalog`.
 //
-// `create_sql_stmt`: Must be a CREATE FUNCTION statement that specifies a SQL
-//     defined functions. Non-SQL functions are not supported by this utility.
+// `create_sql_stmt`: Must be a CREATE FUNCTION statement.
 // `analyzer_options`: Analyzer options used to analyze `create_sql_stmt`.
 // `allow_persistent_function`: Unless this is set to true, the utility is
 //     restricted to CREATE TEMP FUNCTION. Use with caution, SimpleCatalog does
@@ -42,21 +45,53 @@ namespace zetasql {
 // `analyzer_output`: Analyzer outputs from compiling `create_sql_stmt`. The
 //     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
 //     The language options must support RESOLVED_CREATE_FUNCTION_STMT.
+// `resolving_catalog`: The catalog to use for resolving names found during
+//     analysis. This can be the same catalog as `catalog`.
 // `catalog`: A SimpleCatalog that will own the created SQLFunction* object.
 absl::Status AddFunctionFromCreateFunction(
     absl::string_view create_sql_stmt, const AnalyzerOptions& analyzer_options,
     bool allow_persistent_function,
     std::optional<FunctionOptions> function_options,
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
-    SimpleCatalog& catalog);
+    Catalog& resolving_catalog, SimpleCatalog& catalog);
 
 // Creates a Function object from a ResolvedCreateFunctionStmt.
 // `create_function_stmt` must outlive the returned Function.
 // `function_options` - if provided will be used to construct the Function.
-// `group_name` if provided will be used to set the Function group name.
 absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
     const ResolvedCreateFunctionStmt& create_function_stmt,
     std::optional<FunctionOptions> function_options = std::nullopt);
+
+// Compiles `create_tvf_stmt` and adds the resulting TVF to `catalog`.
+//
+// `create_tvf_stmt`: Must be a CREATE TABLE FUNCTION statement, with
+//    the restrictions described on `MakeTVFFromCreateTableFunction` below.
+// `analyzer_options`: Analyzer options used to analyze the statement.
+//     The language options must support RESOLVED_CREATE_TABLE_FUNCTION_STMT.
+//     FEATURE_CREATE_TABLE_FUNCTION is always required, and
+//     FEATURE_TEMPLATE_FUNCTIONS is for templated TVFs.
+// `allow_persistent`: Unless this is set to true, the utility is
+//     restricted to CREATE TEMP. Use with caution, SimpleCatalog does
+//     not fully support a distinction between temp and persistent functions.
+// `analyzer_output`: Analyzer outputs from compililing the statement. The
+//     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+// `catalog`: A SimpleCatalog that will own the created TVF.
+absl::Status AddTVFFromCreateTableFunction(
+    absl::string_view create_tvf_stmt, const AnalyzerOptions& analyzer_options,
+    bool allow_persistent,
+    std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    SimpleCatalog& catalog);
+
+// Creates a TableValuedFunction object from a ResolvedCreateTableFunctionStmt.
+// `stmt` must outlive the returned object.
+// This supports:
+//   Non-templated SQL TVFs, returning SQLTableValuedFunction.
+//   Templated SQL TVFs, returning TemplatedSQLTVF.
+//   Non-SQL TVFs with fixed output schemas, returning FixedOutputSchemaTVF.
+// Other TVFs are not handled since they require code to resolve the
+// output schema.
+absl::StatusOr<std::unique_ptr<TableValuedFunction>>
+MakeTVFFromCreateTableFunction(const ResolvedCreateTableFunctionStmt& stmt);
 
 // Adds a `Table` object to `catalog` for the view defined by
 // `create_view_stmt`.
@@ -67,12 +102,35 @@ absl::StatusOr<std::unique_ptr<Function>> MakeFunctionFromCreateFunction(
 // `analyzer_output`: Analyzer outputs from compiling `create_view_stmt`. The
 //     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
 //     `analyzer_options.language()` must support
-//     `RESOLVED_CREATE_FUNCTION_STMT`.
-// `catalog`: A SimpleCatalog that will own the created SQLFunction* object.
+//     `RESOLVED_CREATE_VIEW_STMT`.
+// `catalog`: A SimpleCatalog that will own the created SQLView* object.
 absl::Status AddViewFromCreateView(
     absl::string_view create_view_stmt, const AnalyzerOptions& analyzer_options,
     bool allow_non_temp, std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     SimpleCatalog& catalog);
+
+// Adds a `Table` object to `catalog` for the table defined by
+// `create_table_stmt`.
+//
+// `create_table_stmt`: Must be a CREATE TABLE statement (without AS SELECT).
+// `analyzer_options`: Analyzer options used to analyze `create_table_stmt`.
+//     `analyzer_options.language()` must support `RESOLVED_CREATE_TABLE_STMT`.
+// `allow_non_temp`: If false, require `CREATE TEMP`.
+// `analyzer_output`: Analyzer outputs from compiling `create_table_stmt`. The
+//     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+// `table`: The table created inside `catalog`.
+// `catalog`: A SimpleCatalog that will own the created SQLView* object.
+absl::Status AddTableFromCreateTable(
+    absl::string_view create_table_stmt,
+    const AnalyzerOptions& analyzer_options, bool allow_non_temp,
+    std::unique_ptr<const AnalyzerOutput>& analyzer_output, SimpleTable*& table,
+    SimpleCatalog& catalog);
+
+// Construct a SimpleTable from a ResolvedCreateTableStmtBase.
+// This works for ResolvedCreateTableStmt and ResolvedCreateTableAsSelectStmt
+// but doesn't process the query or set up table contents for either of them.
+absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCreateTable(
+    const ResolvedCreateTableStmtBase& create_table_stmt);
 
 }  // namespace zetasql
 

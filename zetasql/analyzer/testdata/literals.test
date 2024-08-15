@@ -1223,6 +1223,7 @@ QueryStmt
     |     +-$agg2#21 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=74-77
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#20)
 ==

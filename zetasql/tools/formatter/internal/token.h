@@ -44,6 +44,8 @@ class Token : public ParseToken {
  public:
   enum class Type {
     UNKNOWN,
+    // Some tokens can act as brackets depending on the context. For instance,
+    // < >.
     OPEN_BRACKET,
     CLOSE_BRACKET,
     OPEN_PROTO_EXTENSION_PARENTHESIS,
@@ -125,10 +127,15 @@ class Token : public ParseToken {
     // Marks the beginning of a field name in braced constructor. It can be '('
     // for proto extensions.
     BRACED_CONSTR_FIELD,
+    // Marks an inline comment that annotates the following string literal.
+    // Example: /*sql*/'''select 1'''
+    STRING_ANNOTATION_COMMENT,
   };
 
   explicit Token(ParseToken t)
       : ParseToken(std::move(t)), keyword_(ParseToken::GetKeyword()) {}
+  Token(ParseToken t, absl::string_view keyword)
+      : ParseToken(std::move(t)), keyword_(keyword) {}
 
   // Sets the additional semantic type of the token.
   void SetType(Type type) { type_ = type; }
@@ -166,6 +173,16 @@ class Token : public ParseToken {
   // Returns true if the current token is the keyword used in a CASE expression
   // (one of: "WHEN", "THEN", "ELSE", "END", but not "CASE" itself).
   bool IsCaseExprKeyword() const;
+
+  // Returns true if the current token is a string literal.
+  bool IsStringLiteral() const;
+
+  // Returns true if the current token is marked as open angle bracket: "<" (but
+  // not a comparison operator).
+  bool IsOpenAngleBracket() const;
+  // Returns true if the current token is marked as close angle bracket: ">"
+  // (but not a comparison operator).
+  bool IsCloseAngleBracket() const;
 
   // Checks if the current token may be an identifier (but may be also a non
   // reserved keyword).
@@ -235,12 +252,12 @@ class TokensView {
 
 // Parses given `sql` into tokens using ZetaSQL tokenizer. The string must
 // contain a single SQL statement, otherwise InvalidArgument error is returned.
-absl::StatusOr<std::vector<Token>> TokenizeStatement(absl::string_view sql,
-                                                     bool allow_invalid_tokens);
+absl::StatusOr<std::vector<Token>> TokenizeStatement(
+    absl::string_view sql, const FormatterOptions& options);
 // Parses next statement from the input into tokens using given
 // `parse_location`. Updates the location to point to the end of parsed input.
 absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
-    ParseResumeLocation* parse_location, bool allow_invalid_tokens);
+    ParseResumeLocation* parse_location, const FormatterOptions& options);
 
 // Parses a token that ZetaSQL tokenizer was unable to parse. Updates
 // `resume_location` to point after the parsed token. Optional end_position can

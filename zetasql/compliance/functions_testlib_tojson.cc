@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -24,6 +25,7 @@
 #include "zetasql/common/float_margin.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/interval_value_test_util.h"
@@ -32,6 +34,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
@@ -534,6 +537,105 @@ void AddIntervalValueTestCases(bool is_to_json,
   }
 }
 
+// A helper function to add test cases for type Range to the result test
+// set <all_tests>. If <is_to_json> is true, adds TO_JSON test cases. Otherwise
+// adds TO_JSON_STRING test cases.
+void AddRangeTestCases(bool is_to_json,
+                       std::vector<FunctionTestCall>& all_tests) {
+  Value datetime_start =
+      Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 4, 23, 10, 00, 00, 99));
+  Value datetime_end =
+      Datetime(DatetimeValue::FromYMDHMSAndMicros(2024, 4, 24, 10, 00, 00, 99));
+  const std::vector<std::tuple<Value, std::string, std::string>>
+      range_test_cases = {
+          {Range(Date(1), Date(2)), "1970-01-02", "1970-01-03"},
+          {Range(NullDate(), Date(2)), "null", "1970-01-03"},
+          {Range(Date(1), NullDate()), "1970-01-02", "null"},
+          {Range(NullDate(), NullDate()), "null", "null"},
+          {Range(datetime_start, datetime_end), "2024-04-23T10:00:00.000099",
+           "2024-04-24T10:00:00.000099"},
+          {Range(NullDatetime(), datetime_end), "null",
+           "2024-04-24T10:00:00.000099"},
+          {Range(datetime_start, NullDatetime()), "2024-04-23T10:00:00.000099",
+           "null"},
+          {Range(NullDatetime(), NullDatetime()), "null", "null"},
+          {Range(Timestamp(1), Timestamp(2)), "1970-01-01T00:00:00.000001Z",
+           "1970-01-01T00:00:00.000002Z"},
+          {Range(NullTimestamp(), Timestamp(2)), "null",
+           "1970-01-01T00:00:00.000002Z"},
+          {Range(Timestamp(1), NullTimestamp()), "1970-01-01T00:00:00.000001Z",
+           "null"},
+          {Range(NullTimestamp(), NullTimestamp()), "null", "null"},
+      };
+
+  for (const auto& test_case : range_test_cases) {
+    QueryParamsWithResult::FeatureSet required_features{FEATURE_RANGE_TYPE};
+    const Value value = std::get<0>(test_case);
+    std::string start = std::get<1>(test_case);
+    if (start != "null") start = absl::StrCat("\"", start, "\"");
+    std::string end = std::get<2>(test_case);
+    if (end != "null") end = absl::StrCat("\"", end, "\"");
+    if (value.type()->AsRange()->element_type()->kind() ==
+        TypeKind::TYPE_DATETIME) {
+      required_features.insert(FEATURE_V_1_2_CIVIL_TIME);
+    }
+    if (is_to_json) {
+      all_tests.emplace_back(
+          "to_json",
+          QueryParamsWithResult(
+              {value}, values::Json(*JSONValue::ParseJSONString(absl::StrCat(
+                           R"({"end":)", end, R"(,"start":)", start, "}"))))
+              .AddRequiredFeatures(required_features)
+              .AddRequiredFeature(FEATURE_JSON_TYPE));
+    } else {
+      all_tests.emplace_back(
+          "to_json_string",
+          QueryParamsWithResult(
+              {value}, String(absl::StrCat(R"({"start":)", start, R"(,"end":)",
+                                           end, "}")))
+              .AddRequiredFeatures(required_features));
+    }
+  }
+
+  if (is_to_json) {
+    all_tests.emplace_back(
+        "to_json",
+        QueryParamsWithResult({Value::Null(types::DateRangeType())},
+                              Value::Value::Json(JSONValue()))
+            .AddRequiredFeatures({FEATURE_JSON_TYPE, FEATURE_RANGE_TYPE}));
+    all_tests.emplace_back(
+        "to_json",
+        QueryParamsWithResult({Value::Null(types::DatetimeRangeType())},
+                              Value::Value::Json(JSONValue()))
+            .AddRequiredFeatures({FEATURE_JSON_TYPE, FEATURE_RANGE_TYPE,
+                                  FEATURE_V_1_2_CIVIL_TIME}));
+    all_tests.emplace_back(
+        "to_json",
+        QueryParamsWithResult({Value::Null(types::TimestampRangeType())},
+                              Value::Value::Json(JSONValue()))
+            .AddRequiredFeatures({FEATURE_JSON_TYPE, FEATURE_RANGE_TYPE}));
+  } else {
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Value::Null(types::DateRangeType())},
+                              String("null"))
+            .AddRequiredFeatures({
+                FEATURE_RANGE_TYPE,
+            }));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Value::Null(types::DatetimeRangeType())},
+                              String("null"))
+            .AddRequiredFeatures(
+                {FEATURE_RANGE_TYPE, FEATURE_V_1_2_CIVIL_TIME}));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Value::Null(types::TimestampRangeType())},
+                              String("null"))
+            .AddRequiredFeatures({FEATURE_RANGE_TYPE}));
+  }
+}
+
 void AddJsonTestCases(bool is_to_json,
                       std::vector<FunctionTestCall>& all_tests) {
   constexpr absl::string_view kJsonValueString =
@@ -809,11 +911,12 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString() {
   AddCivilAndNanoTestCases(/*is_to_json=*/false, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/false, all_tests);
   AddJsonTestCases(/*is_to_json=*/false, all_tests);
+  AddRangeTestCases(/*is_to_json=*/false, all_tests);
   return all_tests;
 }
 
 // TODO: Unify primitive test cases when to_json_string supports
-// stringify_wide_numbers if it keeps readablity and reduces duplication.
+// stringify_wide_numbers if it keeps readability and reduces duplication.
 // Gets TO_JSON test cases, including nano_timestamp test cases.
 std::vector<FunctionTestCall> GetFunctionTestsToJson() {
   std::vector<FunctionTestCall> all_tests = {
@@ -1059,6 +1162,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson() {
   AddCivilAndNanoTestCases(/*is_to_json=*/true, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/true, all_tests);
   AddJsonTestCases(/*is_to_json=*/true, all_tests);
+  AddRangeTestCases(/*is_to_json=*/true, all_tests);
 
   return all_tests;
 }

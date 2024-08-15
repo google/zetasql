@@ -444,11 +444,11 @@ TEST_F(ExpressionAlgebrizerTest, AlgebrizeResolvedCivilTimeExpressions) {
       test_cases;
   test_cases.emplace_back(MakeResolvedLiteral(Value::Time(
                               TimeValue::FromHMSAndMicros(1, 2, 3, 123456))),
-                          "RootExpr(ConstExpr(Time(01:02:03.123456)))");
+                          "ConstExpr(Time(01:02:03.123456))");
   test_cases.emplace_back(
       MakeResolvedLiteral(Value::Datetime(
           DatetimeValue::FromYMDHMSAndMicros(2006, 1, 2, 3, 4, 5, 123456))),
-      "RootExpr(ConstExpr(Datetime(2006-01-02 03:04:05.123456)))");
+      "ConstExpr(Datetime(2006-01-02 03:04:05.123456))");
 
   TypeFactory type_factory;
 
@@ -756,7 +756,7 @@ TEST_F(ExpressionAlgebrizerTest, PositionalParametersInExpressions) {
   ASSERT_EQ(2, parameters.positional_parameters().size());
   EXPECT_FALSE(parameters.positional_parameters()[0].is_valid());
   EXPECT_TRUE(parameters.positional_parameters()[1].is_valid());
-  EXPECT_EQ(absl::Substitute("RootExpr(DerefExpr(positional_param_$0))",
+  EXPECT_EQ(absl::Substitute("DerefExpr(positional_param_$0)",
                              second_param->position()),
             output->DebugString(/*verbose=*/true));
 }

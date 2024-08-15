@@ -296,6 +296,127 @@ SELECT * FROM UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
                                      ^
 ==
 
+[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# 2 UNNESTs
+SELECT * FROM UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$array.k#1 AS k [STRING]
+| +-$array.Value#2 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$array.[k#1, Value#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=$array.[k#1, Value#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.k#1]
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b"])
+        |   +-element_column_list=[$array.k#1]
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#2]
+
+
+DEPRECATION WARNING:
+UNPIVOT is not allowed with array scans. This will become an error [at 2:63]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                                   ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: UNPIVOT is not allowed with array scans [at 2:63]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                                   ^
+==
+
+[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# Table with UNNEST
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$array.Value#3 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.Value#3]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.Value#3]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#3]
+
+
+DEPRECATION WARNING:
+UNPIVOT is not allowed with array scans. This will become an error [at 2:48]
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                               ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: UNPIVOT is not allowed with array scans [at 2:48]
+SELECT * FROM KeyValue, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                               ^
+==
+
+[language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS{{|,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS}}]
+# Table with 2 UNNESTs
+SELECT * FROM KeyValue, UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$array.k#3 AS k [STRING]
+| +-$array.Value#4 AS Value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3, $array.Value#4]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3, $array.Value#4]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.k#3]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        |   +-array_expr_list=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b"])
+        |   +-element_column_list=[$array.k#3]
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-element_column_list=[$array.Value#4]
+
+
+DEPRECATION WARNING:
+UNPIVOT is not allowed with array scans. This will become an error [at 2:73]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                                   ^
+[zetasql.DeprecationWarning] { kind: PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN }
+--
+ALTERNATION GROUP: ,V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS
+--
+ERROR: UNPIVOT is not allowed with array scans [at 2:73]
+...UNNEST(['a', 'b']) AS k, UNNEST([1,2]) AS Value UNPIVOT(a for b in (Key));
+                                                   ^
+==
+
 # Unpivot with column not present in input source
 SELECT * FROM KeyValue UNPIVOT(a for b in (x));
 --

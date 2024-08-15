@@ -26,6 +26,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/reference_impl/type_helpers.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/types/span.h"
 
@@ -247,6 +248,23 @@ std::string GetEscapedString(const Value& value) {
   return literal.substr(1, literal.length() - 2);
 }
 
+// Returns a string to separate rows in an output table.  A "+" indicates
+// a column boundary, and "-" appears above or below a column.
+//
+// Example:
+// +------+----+-----+------------+------------------------+---+---+
+std::string GetRowSeparator(absl::Span<const size_t> max_column_lengths) {
+  std::string separator = "+";
+  for (int col_idx = 0; col_idx < max_column_lengths.size(); ++col_idx) {
+    absl::StrAppend(&separator,
+                    std::string(max_column_lengths[col_idx] + 2, '-'), "+");
+  }
+  absl::StrAppend(&separator, "\n");
+  return separator;
+}
+
+}  // namespace
+
 // Converts 'value' to an output string and returns it.
 std::string ValueToOutputString(const Value& value, bool escape_strings) {
   if (value.is_null()) return "NULL";
@@ -284,23 +302,6 @@ std::string ValueToOutputString(const Value& value, bool escape_strings) {
     return value.DebugString();
   }
 }
-
-// Returns a string to separate rows in an output table.  A "+" indicates
-// a column boundary, and "-" appears above or below a column.
-//
-// Example:
-// +------+----+-----+------------+------------------------+---+---+
-std::string GetRowSeparator(absl::Span<const size_t> max_column_lengths) {
-  std::string separator = "+";
-  for (int col_idx = 0; col_idx < max_column_lengths.size(); ++col_idx) {
-    absl::StrAppend(&separator,
-                    std::string(max_column_lengths[col_idx] + 2, '-'), "+");
-  }
-  absl::StrAppend(&separator, "\n");
-  return separator;
-}
-
-}  // namespace
 
 std::string ToPrettyOutputStyle(const zetasql::Value& result,
                                 bool is_value_table,

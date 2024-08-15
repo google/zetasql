@@ -558,18 +558,14 @@ a field by position is useful when fields are un-named or have ambiguous names.
 
 **Example**
 
-In the following example, the expression is `t.customer` and the
-field access operations are `.address` and `.country`. An operation is an
-application of an operator (`.`) to specific operands (in this case,
-`address` and `country`, or more specifically, `t.customer` and `address`,
-for the first operation, and `t.customer.address` and `country` for the
-second operation).
+In the following example, the field access operations are `.address` and
+`.country`.
 
 ```sql
-WITH orders AS (
-  SELECT STRUCT(STRUCT('Yonge Street' AS street, 'Canada' AS country) AS address) AS customer
-)
-SELECT t.customer.address.country FROM orders AS t;
+SELECT
+  STRUCT(
+    STRUCT('Yonge Street' AS street, 'Canada' AS country)
+      AS address).address.country
 
 /*---------*
  | country |
@@ -583,8 +579,10 @@ SELECT t.customer.address.country FROM orders AS t;
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-array_expression[array_subscript_specifier]
+array_expression "[" array_subscript_specifier "]"
 
 array_subscript_specifier:
   { index | position_keyword(index) }
@@ -592,9 +590,6 @@ array_subscript_specifier:
 position_keyword:
   { OFFSET | SAFE_OFFSET | ORDINAL | SAFE_ORDINAL }
 ```
-
-Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 
@@ -634,14 +629,12 @@ reference an index (`6`) in an array that is out of range. If the `SAFE` prefix
 is included, `NULL` is returned, otherwise an error is produced.
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
 SELECT
-  item_array,
-  item_array[0] AS item_index,
-  item_array[OFFSET(0)] AS item_offset,
-  item_array[ORDINAL(1)] AS item_ordinal,
-  item_array[SAFE_OFFSET(6)] AS item_safe_offset
-FROM Items
+  ["coffee", "tea", "milk"] AS item_array,
+  ["coffee", "tea", "milk"][0] AS item_index,
+  ["coffee", "tea", "milk"][OFFSET(0)] AS item_offset,
+  ["coffee", "tea", "milk"][ORDINAL(1)] AS item_ordinal,
+  ["coffee", "tea", "milk"][SAFE_OFFSET(6)] AS item_safe_offset
 
 /*---------------------+------------+-------------+--------------+------------------*
  | item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
@@ -655,28 +648,22 @@ keyword that begins with `SAFE` is not included, an error is produced.
 For example:
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
-SELECT
-  item_array[6] AS item_offset
-FROM Items
-
 -- Error. Array index 6 is out of bounds.
+SELECT ["coffee", "tea", "milk"][6] AS item_offset
 ```
 
 ```sql
-WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
-SELECT
-  item_array[OFFSET(6)] AS item_offset
-FROM Items
-
 -- Error. Array index 6 is out of bounds.
+SELECT ["coffee", "tea", "milk"][OFFSET(6)] AS item_offset
 ```
 
 ### Struct subscript operator 
 <a id="struct_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-struct_expression[struct_subscript_specifier]
+struct_expression "[" struct_subscript_specifier "]"
 
 struct_subscript_specifier:
   { index | position_keyword(index) }
@@ -684,9 +671,6 @@ struct_subscript_specifier:
 position_keyword:
   { OFFSET | ORDINAL }
 ```
-
-Note: The brackets (`[]`) around `struct_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 
@@ -718,12 +702,10 @@ shows what happens when you reference an index (`6`) in an struct that is out of
 range.
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
 SELECT
-  item_struct[0] AS field_index,
-  item_struct[OFFSET(0)] AS field_offset,
-  item_struct[ORDINAL(1)] AS field_ordinal
-FROM Items
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[0] AS field_index,
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(0)] AS field_offset,
+  STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[ORDINAL(1)] AS field_ordinal
 
 /*-------------+--------------+---------------*
  | field_index | field_offset | field_ordinal |
@@ -736,36 +718,27 @@ When you reference an index that is out of range in a struct, an error is
 produced. For example:
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
-SELECT
-  item_struct[6] AS field_offset
-FROM Items
-
--- Error. Field ordinal 6 is out of bounds in STRUCT
+-- Error: Field ordinal 6 is out of bounds in STRUCT
+SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[6] AS field_offset
 ```
 
 ```sql
-WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
-SELECT
-  item_struct[OFFSET(6)] AS field_offset
-FROM Items
-
--- Error. Field ordinal 6 is out of bounds in STRUCT
+-- Error: Field ordinal 6 is out of bounds in STRUCT
+SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(6)] AS field_offset
 ```
 
 ### JSON subscript operator 
 <a id="json_subscript_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
-json_expression[array_element_id]
+json_expression "[" array_element_id "]"
 ```
 
 ```
-json_expression[field_name]
+json_expression "[" field_name "]"
 ```
-
-Note: The brackets (`[]`) around `array_element_id` and `field_name` are part
-of the syntax; they do not represent an optional part.
 
 **Description**
 
@@ -947,6 +920,8 @@ FROM
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
 
+Note: Syntax wrapped in double quotes (`""`) is required.
+
 ```
 array_expression.field_or_element[. ...]
 
@@ -954,11 +929,8 @@ field_or_element:
   { fieldname | array_element }
 
 array_element:
-  array_fieldname[array_subscript_specifier]
+  array_fieldname "[" array_subscript_specifier "]"
 ```
-
-Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
-syntax; they do not represent an optional part.
 
 **Description**
 

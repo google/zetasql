@@ -32,9 +32,18 @@ class ExecuteQueryWriter {
  public:
   virtual ~ExecuteQueryWriter() = default;
 
+  // Write textual logging messages. A newline will be added on the end.
+  // This can be called multiple times for the same statement.
+  virtual absl::Status log(absl::string_view message) {
+    return WriteOperationString("log", message);
+  }
+
   virtual absl::Status parsed(absl::string_view parse_debug_string) {
     return WriteOperationString("parsed", parse_debug_string);
   }
+  // Note: This is being abused in some cases to send text directly as output.
+  // This doesn't work as expected in web mode.  At most one of those outputs
+  // shows up and it goes in the "Unparsed" section.
   virtual absl::Status unparsed(absl::string_view unparse_string) {
     return WriteOperationString("unparsed", unparse_string);
   }
@@ -52,15 +61,27 @@ class ExecuteQueryWriter {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::explained is not implemented");
   }
+
+  // This is used for commands that directly produce output as a string.
+  virtual absl::Status executed(absl::string_view output) {
+    return WriteOperationString("executed", output);
+  }
+  // This is used for commands that produce a table as output.
   virtual absl::Status executed(const ResolvedNode& ast,
                                 std::unique_ptr<EvaluatorTableIterator> iter) {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::executed is not implemented");
   }
+
   virtual absl::Status ExecutedExpression(const ResolvedNode& ast,
                                           const Value& value) {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::executed is not implemented");
+  }
+
+  // Called at the start of a statement.  `is_first` is true for the first one.
+  virtual absl::Status StartStatement(bool is_first) {
+    return absl::OkStatus();
   }
 
  protected:
@@ -70,6 +91,9 @@ class ExecuteQueryWriter {
         absl::StrCat("ExecuteQueryWriter does not implement ", operation_name));
   }
 };
+
+absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter,
+                          std::ostream& out);
 
 // Writes a human-readable representation of the query result to an output
 // stream.

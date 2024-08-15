@@ -26,11 +26,12 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
 absl::Status RangeFunctionPreResolutionArgumentConstraint(
-    const std::vector<InputArgumentType>& args,
+    absl::Span<const InputArgumentType> args,
     const LanguageOptions& language_options) {
   if (args.size() != 2) {
     return MakeSqlError() << "RANGE() must take exactly two arguments";
@@ -59,7 +60,7 @@ absl::Status RangeFunctionPreResolutionArgumentConstraint(
 // Checks that the signature doesn't have untyped NULL values in place of
 // RANGE values, which are prohibited.
 absl::Status PreResolutionArgConstraintForUntypedNullOneRangeInput(
-    const std::vector<InputArgumentType>& args,
+    absl::Span<const InputArgumentType> args,
     const LanguageOptions& language_options) {
   // If the argument is an untyped NULL for RANGE, we return an error
   // message for now until RANGE supports other types like INT64.
@@ -77,7 +78,7 @@ absl::Status PreResolutionArgConstraintForUntypedNullOneRangeInput(
 // Checks that the signature doesn't have untyped NULL values in place of
 // RANGE values, which are prohibited.
 absl::Status PreResolutionArgConstraintForUntypedNullTwoRangeInputs(
-    const std::vector<InputArgumentType>& args,
+    absl::Span<const InputArgumentType> args,
     const LanguageOptions& language_options) {
   // If the argument is an untyped NULL for RANGE, we return an error
   // message for now until RANGE supports other types like INT64.

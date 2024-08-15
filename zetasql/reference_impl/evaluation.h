@@ -376,6 +376,12 @@ class EvaluationContext {
     active_group_rows_ = group_rows;
   }
 
+  // Returns true if FEATURE_TIMESTAMP_NANOS is enabled.
+  bool UseNanosTimeResolution() const {
+    return language_options_.LanguageFeatureEnabled(
+        zetasql::FEATURE_TIMESTAMP_NANOS);
+  }
+
   // UDF argument references
   std::map<std::string, Value, zetasql_base::CaseLess>
       udf_argument_references_;

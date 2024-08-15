@@ -1573,6 +1573,7 @@ QueryStmt
     |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=35-118
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==

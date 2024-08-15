@@ -4061,6 +4061,7 @@ QueryStmt
         |   |   +-has_using=TRUE
         |   +-order_by_item_list=
         |     +-OrderByItem
+        |       +-parse_location=111-114
         |       +-column_ref=
         |         +-ColumnRef(type=INT64, column=w1.key#5)
         +-limit=
@@ -7550,3 +7551,46 @@ ERROR: No matching signature for tvf_required_named_optional_required_tables
     Argument 3: expected TABLE, found NULL [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^
+==
+
+select * from tvf_templated_select_any_scalar_arg((select ["abc"]));
+--
+QueryStmt
++-output_column_list=
+| +-tvf_templated_select_any_scalar_arg.x#2 AS x [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_templated_select_any_scalar_arg.x#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_templated_select_any_scalar_arg.x#2]
+        +-tvf=tvf_templated_select_any_scalar_arg((ANY TYPE) -> ANY TABLE)
+        +-signature=(ARRAY<STRING>) -> TABLE<x ARRAY<STRING>>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-SubqueryExpr
+        |       +-type=ARRAY<STRING>
+        |       +-subquery_type=SCALAR
+        |       +-subquery=
+        |         +-ProjectScan
+        |           +-column_list=[$expr_subquery.$col1#1]
+        |           +-expr_list=
+        |           | +-$col1#1 := Literal(type=ARRAY<STRING>, value=["abc"])
+        |           +-input_scan=
+        |             +-SingleRowScan
+        +-column_index_list=[0]
+
+With Templated SQL TVF signature:
+  tvf_templated_select_any_scalar_arg(ARRAY<STRING>) -> TABLE<x ARRAY<STRING>>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-$query.x#1 AS x [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.x#1]
+    +-expr_list=
+    | +-x#1 := ArgumentRef(type=ARRAY<STRING>, name="x")
+    +-input_scan=
+      +-SingleRowScan

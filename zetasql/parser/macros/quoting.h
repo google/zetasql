@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <string>
 
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"

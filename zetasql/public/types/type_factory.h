@@ -687,6 +687,10 @@ const EnumType* ArrayZipModeEnumType();
 // This is an opaque enum type.
 const EnumType* RangeSessionizeModeEnumType();
 
+// Accessor for the ZetaSQL enum Type (functions::UnsupportedFields)
+// that represents how does TO_JSON handle fields of unsupported types.
+const EnumType* UnsupportedFieldsEnumType();
+
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't
 // require TypeFactory.

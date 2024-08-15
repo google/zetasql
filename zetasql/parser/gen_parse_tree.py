@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 477
+NEXT_NODE_TAG_ID = 488
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -254,6 +254,10 @@ SCALAR_LOAD_INSERTION_MODE = EnumScalarType(
 SCALAR_SPANNER_INTERLEAVE_TYPE = EnumScalarType('Type',
                                                 'ASTSpannerInterleaveClause',
                                                 'NOT_SET')
+
+SCALAR_ROW_PATTERN_OPERATION_TYPE = EnumScalarType(
+    'OperationType', 'ASTRowPatternOperation', 'OPERATION_TYPE_UNSPECIFIED'
+)
 
 SCALAR_COLUMN_MATCH_MODE = EnumScalarType(
     'ColumnMatchMode', 'ASTSetOperation', 'BY_POSITION'
@@ -801,6 +805,29 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTAliasedQueryExpression',
+      tag_id=475,
+      parent='ASTQueryExpression',
+      comment="""
+    This is a parenthesized query expression with an alias.
+      """,
+      fields=[
+          Field(
+              'query',
+              'ASTQuery',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTQuery',
       tag_id=4,
       parent='ASTQueryExpression',
@@ -849,8 +876,399 @@ def main(argv):
                 True if this query represents the input to a pivot clause.
                 """,
           ),
+          Field(
+              'pipe_operator_list',
+              'ASTPipeOperator',
+              tag_id=8,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
       ],
       use_custom_debug_string=True,
+  )
+
+  gen.AddNode(
+      name='ASTFromQuery',
+      comment="""
+      This represents a FROM query, which has just a FROM clause and
+      no other clauses.  This is enabled by FEATURE_PIPES.
+      """,
+      tag_id=414,
+      parent='ASTQueryExpression',
+      fields=[
+          Field(
+              'from_clause',
+              'ASTFromClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeOperator',
+      tag_id=408,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      This is the superclass of all ASTPipe* operators, representing one
+      pipe operation in a chain.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTPipeExtend',
+      tag_id=409,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe EXTEND is represented with an ASTSelect with only the
+      SELECT clause present, where the SELECT clause stores the
+      EXTEND expression list.
+      Using this representation rather than storing an ASTSelectList
+      makes sharing resolver code easier.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeRenameItem',
+      tag_id=482,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'old_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'new_name',
+              'ASTIdentifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeRename',
+      tag_id=483,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'rename_item_list',
+              'ASTPipeRenameItem',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeAggregate',
+      tag_id=412,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe AGGREGATE is represented with an ASTSelect with only the
+      SELECT and (optionally) GROUP BY clause present, where the SELECT
+      clause stores the AGGREGATE expression list.
+      Using this representation rather than storing an ASTSelectList and
+      ASTGroupBy makes sharing resolver code easier.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeSetOperation',
+      tag_id=413,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe set operations are represented differently from ASTSetOperation
+      because we have the set operation and metadata always once, and then
+      one or more (not two or more) input queries.
+
+      The syntax looks like
+        <input_table> |> UNION ALL [modifiers] (query1), (query2), ...
+      and it produces the combination of input_table plus all rhs queries.
+      """,
+      fields=[
+          Field(
+              'metadata',
+              'ASTSetOperationMetadata',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'inputs',
+              'ASTQueryExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeJoin',
+      tag_id=415,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe JOIN is represented with an ASTJoin, where the required lhs
+      is always an ASTPipeJoinLhsPlaceholder.
+      """,
+      fields=[
+          Field(
+              'join',
+              'ASTJoin',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeCall',
+      tag_id=417,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'tvf',
+              'ASTTVF',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeWindow',
+      tag_id=418,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe WINDOW is represented with an ASTSelect with only the
+      SELECT clause present, where the SELECT clause stores the
+      WINDOW expression list.
+      Using this representation rather than storing an ASTSelectList
+      makes sharing resolver code easier.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeWhere',
+      tag_id=419,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'where',
+              'ASTWhereClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          )
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeSelect',
+      tag_id=420,
+      parent='ASTPipeOperator',
+      comment="""
+      Pipe SELECT is represented with an ASTSelect with only the
+      SELECT clause present.
+      Using this representation rather than storing an ASTSelectList
+      makes sharing resolver code easier.
+      """,
+      fields=[
+          Field(
+              'select',
+              'ASTSelect',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeLimitOffset',
+      tag_id=421,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'limit_offset',
+              'ASTLimitOffset',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeOrderBy',
+      tag_id=422,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'order_by',
+              'ASTOrderBy',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeDistinct',
+      tag_id=431,
+      parent='ASTPipeOperator',
+  )
+
+  gen.AddNode(
+      name='ASTPipeTablesample',
+      tag_id=435,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'sample',
+              'ASTSampleClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeAs',
+      tag_id=437,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeStaticDescribe',
+      tag_id=447,
+      parent='ASTPipeOperator',
+  )
+
+  gen.AddNode(
+      name='ASTPipeAssert',
+      tag_id=448,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'condition',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'message_list',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeDrop',
+      tag_id=449,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'column_list',
+              'ASTIdentifierList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeSetItem',
+      tag_id=450,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'column',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeSet',
+      tag_id=451,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'set_item_list',
+              'ASTPipeSetItem',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipePivot',
+      tag_id=467,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'pivot_clause',
+              'ASTPivotClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTPipeUnpivot',
+      tag_id=468,
+      parent='ASTPipeOperator',
+      fields=[
+          Field(
+              'unpivot_clause',
+              'ASTUnpivotClause',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
   )
 
   gen.AddNode(
@@ -910,6 +1328,13 @@ def main(argv):
       name='ASTSelectList',
       tag_id=6,
       parent='ASTNode',
+      comment="""
+      This is the column list in SELECT, containing expressions with optional
+      aliases and supporting SELECT-list features like star and dot-star.
+
+      This is also used for selection lists in pipe operators, where
+      ASTGroupingItemOrder suffixes may be present.
+      """,
       fields=[
           Field(
               'columns',
@@ -932,6 +1357,17 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED,
           ),
           Field('alias', 'ASTAlias', tag_id=3),
+          Field(
+              'grouping_item_order',
+              'ASTGroupingItemOrder',
+              tag_id=4,
+              comment="""
+              This is the ordering suffix {ASC|DESC} [NULLS {FIRST|LAST}].
+              It can only be present on ASTSelectColumns parsed with the
+              `pipe_selection_item_list_with_order` rule, which is
+              currently only the pipe AGGREGATE operator.
+              """,
+          ),
       ],
   )
 
@@ -1221,6 +1657,11 @@ def main(argv):
               'ASTForSystemTime',
               tag_id=9),
           Field(
+              'match_recognize_clause',
+              'ASTMatchRecognizeClause',
+              tag_id=11,
+          ),
+          Field(
               'sample_clause',
               'ASTSampleClause',
               tag_id=10),
@@ -1229,6 +1670,17 @@ def main(argv):
   const ASTAlias* alias() const override { return alias_; }
       """
     )
+
+  gen.AddNode(
+      name='ASTPipeJoinLhsPlaceholder',
+      tag_id=416,
+      parent='ASTTableExpression',
+      comment="""
+      This is a placehodler ASTTableExpression used for the lhs field in
+      the ASTJoin used to represent ASTPipeJoin.
+      """,
+      fields=[],
+  )
 
   gen.AddNode(
       name='ASTFromClause',
@@ -1417,6 +1869,7 @@ def main(argv):
           Field('collate', 'ASTCollate', tag_id=3),
           Field('null_order', 'ASTNullOrder', tag_id=4),
           Field('ordering_spec', SCALAR_ORDERING_SPEC, tag_id=5),
+          Field('option_list', 'ASTOptionsList', tag_id=6),
       ],
       extra_public_defs="""
   bool descending() const { return ordering_spec_ == DESC; }
@@ -1436,6 +1889,22 @@ def main(argv):
               field_loader=FieldLoaderMethod.REST_AS_REPEATED,
           ),
       ],
+  )
+
+  gen.AddNode(
+      name='ASTGroupingItemOrder',
+      tag_id=466,
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field('ordering_spec', SCALAR_ORDERING_SPEC, tag_id=2),
+          Field('null_order', 'ASTNullOrder', tag_id=3),
+      ],
+      extra_public_defs="""
+        bool descending() const {
+          return ordering_spec_ == ASTOrderingExpression::DESC;
+        }
+           """,
   )
 
   gen.AddNode(
@@ -1475,6 +1944,22 @@ def main(argv):
               ASTGroupingSet.
               """,
           ),
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=6,
+              comment="""Alias can only be present for `expression` cases.
+              It can be present but is not valid outside pipe AGGREGATE.
+              """,
+          ),
+          Field(
+              'grouping_item_order',
+              'ASTGroupingItemOrder',
+              tag_id=7,
+              comment="""Order can only be present for `expression` cases.
+              It can be present but is not valid outside pipe AGGREGATE.
+              """,
+          ),
       ],
   )
 
@@ -1482,6 +1967,7 @@ def main(argv):
       name='ASTGroupBy',
       tag_id=26,
       parent='ASTNode',
+      use_custom_debug_string=True,
       fields=[
           Field('hint', 'ASTHint', tag_id=2),
           Field(
@@ -1499,6 +1985,17 @@ def main(argv):
               'ASTGroupingItem',
               tag_id=4,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+          Field(
+              'and_order_by',
+              SCALAR_BOOL,
+              tag_id=5,
+              # Used for backwards compatibility, and so the serializer tests
+              # don't see different outputs in the strip(pipes) version.
+              serialize_default_value=False,
+              comment="""
+              True if query had AND ORDER BY on the GROUP BY.
+              """,
           ),
       ],
   )
@@ -2868,6 +3365,7 @@ def main(argv):
               private_comment="""
               Required.
               """),
+          Field('match_recognize_clause', 'ASTMatchRecognizeClause', tag_id=4),
           Field(
               'sample_clause',
               'ASTSampleClause',
@@ -3176,6 +3674,10 @@ def main(argv):
               'unpivot_clause',
               'ASTUnpivotClause',
               tag_id=5),
+          Field(
+              'match_recognize_clause',
+              'ASTMatchRecognizeClause',
+              tag_id=7),
           Field(
               'sample_clause',
               'ASTSampleClause',
@@ -4268,6 +4770,82 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTMatchRecognizeClause',
+      tag_id=484,
+      parent='ASTNode',
+      comment="""
+      Represents a row pattern recognition clause, i.e., MATCH_RECOGNIZE().
+      """,
+      fields=[
+          Field('partition_by', 'ASTPartitionBy', tag_id=2),
+          Field('order_by', 'ASTOrderBy', tag_id=3),
+          Field('measures', 'ASTSelectList', tag_id=4),
+          Field(
+              'pattern',
+              'ASTRowPatternExpression',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          # Note: Leaving a placeholder for subset_clause.
+          Field(
+              'pattern_variable_definition_list',
+              'ASTSelectList',
+              tag_id=7,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('output_alias', 'ASTAlias', tag_id=8),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTRowPatternExpression',
+      tag_id=485,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Represents a pattern expression for row pattern recognition.
+      """,
+      fields=[
+          Field('parenthesized', SCALAR_BOOL, tag_id=2),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTRowPatternVariable',
+      tag_id=486,
+      parent='ASTRowPatternExpression',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTRowPatternOperation',
+      tag_id=487,
+      parent='ASTRowPatternExpression',
+      comment="""
+      Represents an operation on a pattern expression. For example, it can
+      be an alternation (A|B) or a concatenation (A B), or quantification.
+      Note that alternation is analogous to OR, while concatenation is analogous
+      to AND.
+      """,
+      fields=[
+          Field('op_type', SCALAR_ROW_PATTERN_OPERATION_TYPE, tag_id=2),
+          Field(
+              'inputs',
+              'ASTRowPatternExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTQualify',
       tag_id=135,
       parent='ASTNode',
@@ -4933,6 +5511,7 @@ def main(argv):
               'unpivot_clause',
               'ASTUnpivotClause',
               tag_id=7),
+          Field('match_recognize_clause', 'ASTMatchRecognizeClause', tag_id=9),
           Field(
               'sample',
               'ASTSampleClause',
@@ -5060,6 +5639,33 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTCreateConnectionStatement',
+      tag_id=479,
+      parent='ASTCreateStatement',
+      comment="""
+      This represents a CREATE CONNECTION statement, i.e.,
+      CREATE [OR REPLACE] CONNECTION
+        [IF NOT EXISTS] <name_path> OPTIONS (name=value, ...);
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=3,
+          ),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
+
+  gen.AddNode(
       name='ASTCreateConstantStatement',
       tag_id=165,
       parent='ASTCreateStatement',
@@ -5073,16 +5679,19 @@ def main(argv):
               'name',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'expr',
               'ASTExpression',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
       ],
       extra_public_defs="""
-  const ASTPathExpression* GetDdlTarget() const override { return name_; }
-      """)
+      const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
 
   gen.AddNode(
       name='ASTCreateDatabaseStatement',
@@ -5276,6 +5885,12 @@ def main(argv):
       tag_id=171,
       parent='ASTPrintableLeaf',
       comment="Represents 'ALL COLUMNS' index key expression.",
+      fields=[
+          Field(
+              'column_options',
+              'ASTIndexItemList',
+              tag_id=2),
+      ]
   )
 
   gen.AddNode(
@@ -5360,16 +5975,21 @@ def main(argv):
               'ASTIndexStoringExpressionList',
               tag_id=7,
           ),
-          Field('options_list', 'ASTOptionsList', tag_id=8),
-          Field('is_unique', SCALAR_BOOL, tag_id=9),
-          Field('is_search', SCALAR_BOOL, tag_id=10),
+          Field(
+              'optional_partition_by',
+              'ASTPartitionBy',
+              tag_id=8,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=9),
+          Field('is_unique', SCALAR_BOOL, tag_id=10),
+          Field('is_search', SCALAR_BOOL, tag_id=11),
           Field(
               'spanner_interleave_clause',
               'ASTSpannerInterleaveClause',
-              tag_id=11,
+              tag_id=12,
           ),
-          Field('spanner_is_null_filtered', SCALAR_BOOL, tag_id=12),
-          Field('is_vector', SCALAR_BOOL, tag_id=13),
+          Field('spanner_is_null_filtered', SCALAR_BOOL, tag_id=13),
+          Field('is_vector', SCALAR_BOOL, tag_id=14),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
@@ -8773,6 +9393,17 @@ def main(argv):
   const ASTPathExpression* GetDdlTarget() const override { return path_; }
   bool IsAlterStatement() const override { return true; }
       """)
+
+  gen.AddNode(
+      name='ASTAlterConnectionStatement',
+      tag_id=480,
+      parent='ASTAlterStatementBase',
+      comment="""
+      Represents the statement ALTER CONNECTION <name_path> SET OPTIONS
+      <options_list>
+      """,
+      fields=[],
+  )
 
   gen.AddNode(
       name='ASTAlterDatabaseStatement',

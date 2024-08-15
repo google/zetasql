@@ -966,6 +966,7 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=43-44
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -986,6 +987,7 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=39-40
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -1007,6 +1009,7 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=46-47
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -1055,6 +1058,7 @@ QueryStmt
     |       +-output_column_list=[KeyValue.Key#3]
     +-order_by_item_list=
       +-OrderByItem
+        +-parse_location=78-79
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key#5)
 ==

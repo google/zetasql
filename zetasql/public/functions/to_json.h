@@ -19,9 +19,11 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_TO_JSON_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_TO_JSON_H_
 
+#include "zetasql/public/functions/unsupported_fields.pb.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/value.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -31,21 +33,25 @@ namespace functions {
 // json object causing out of stack space.
 const int kNestingLevelStackCheckThreshold = 10;
 
-// Constructs JSONValue from <value> with option of
-// <stringify_wide_numbers> which defines how numeric values outside of DOUBLE
-// type domain are encoded in the generated JSON document.
-// All non-double numerics are encoded as strings if
-// <stringify_wide_numbers> is true. Otherwise, JSON number
-// type is used to represent all values of ZetaSQL number types, including
-// values outside of DOUBLE domain.
-// If true, the sign on a signed zero is removed when converting numeric type
-// to string.
+// Constructs JSONValue from <value> with options of:
+// - stringify_wide_numbers: which defines how numeric values outside of
+//   DOUBLE type domain are encoded in the generated JSON document.
+//   All non-double numerics are encoded as strings if
+//   stringify_wide_numbers is true. Otherwise, JSON number
+//   type is used to represent all values of ZetaSQL number types,
+//   including values outside of DOUBLE domain.
+// - canonicalize_zero: if true, the sign on a signed zero is removed
+//   when converting numeric type to string.
+// - unsupported_fields:
+//   - FAIL (default): fail the query for any unsupported field
+//   - IGNORE: treat unsupported fields as non-existent
+//   - PLACEHOLDER: replace value with descriptive message for the type
 // TODO : remove canonicalize_zero flag when all
 // engines have rolled out this new behavior.
-absl::StatusOr<JSONValue> ToJson(const Value& value,
-                                 bool stringify_wide_numbers,
-                                 const LanguageOptions& language_options,
-                                 bool canonicalize_zero = false);
+absl::StatusOr<JSONValue> ToJson(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, bool canonicalize_zero = false,
+    UnsupportedFields unsupported_fields = UnsupportedFields::FAIL);
 
 }  // namespace functions
 }  // namespace zetasql

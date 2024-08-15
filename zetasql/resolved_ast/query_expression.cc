@@ -34,29 +34,9 @@
 #include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
-// Joins entries present in <list> (with pairs as elements) separated by
-// <delimiter>. While appending each pair we add the second element (if present)
-// as an alias to the first element.
-static std::string JoinListWithAliases(
-    absl::Span<const std::pair<std::string, std::string>> list,
-    absl::string_view delimiter) {
-  std::string list_str;
-  bool first = true;
-  for (const auto& entry : list) {
-    if (!first) absl::StrAppend(&list_str, delimiter);
-
-    if (entry.second.empty()) {
-      absl::StrAppend(&list_str, entry.first);
-    } else {
-      absl::StrAppend(&list_str, entry.first, " AS ", entry.second);
-    }
-    first = false;
-  }
-  return list_str;
-}
 
 absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
     const {
@@ -79,35 +59,25 @@ absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
   return QueryExpression::kCorrespondenceSetOpScan;
 }
 
-void QueryExpression::set_corresponding_set_op_output_column_list(
-    std::vector<std::pair<std::string, std::string>> select_list) {
-  corresponding_set_op_output_column_list_ = std::move(select_list);
-}
+// Joins entries present in <list> (with pairs as elements) separated by
+// <delimiter>. While appending each pair we add the second element (if present)
+// as an alias to the first element.
+static std::string JoinListWithAliases(
+    absl::Span<const std::pair<std::string, std::string>> list,
+    absl::string_view delimiter) {
+  std::string list_str;
+  bool first = true;
+  for (const auto& entry : list) {
+    if (!first) absl::StrAppend(&list_str, delimiter);
 
-void QueryExpression::ClearAllClauses() {
-  with_list_.clear();
-  select_list_.clear();
-  select_as_modifier_.clear();
-  query_hints_.clear();
-  from_.clear();
-  where_.clear();
-  set_op_type_.clear();
-  set_op_modifier_.clear();
-  set_op_column_match_mode_.clear();
-  set_op_column_propagation_mode_.clear();
-  set_op_scan_list_.clear();
-  corresponding_set_op_output_column_list_.clear();
-  group_by_all_ = false;
-  group_by_list_.clear();
-  group_by_hints_.clear();
-  order_by_list_.clear();
-  order_by_hints_.clear();
-  limit_.clear();
-  offset_.clear();
-  anonymization_options_.clear();
-  with_recursive_ = false;
-  pivot_.clear();
-  unpivot_.clear();
+    if (entry.second.empty()) {
+      absl::StrAppend(&list_str, entry.first);
+    } else {
+      absl::StrAppend(&list_str, entry.first, " AS ", entry.second);
+    }
+    first = false;
+  }
+  return list_str;
 }
 
 std::string QueryExpression::GetSQLQuery() const {
@@ -207,14 +177,14 @@ std::string QueryExpression::GetSQLQuery() const {
         "BY ");
     // Legacy ROLLUP
     if (!rollup_column_id_list_.empty()) {
-      absl::StrAppend(
-          &sql, "ROLLUP(",
-          absl::StrJoin(rollup_column_id_list_, ", ",
-                        [this](std::string* out, int column_id) {
-                          absl::StrAppend(
-                              out, zetasql_base::FindOrDie(group_by_list_, column_id));
-                        }),
-          ")");
+      absl::StrAppend(&sql, "ROLLUP(",
+                      absl::StrJoin(rollup_column_id_list_, ", ",
+                                    [this](std::string* out, int column_id) {
+                                      absl::StrAppend(
+                                          out,
+                                          GetGroupByColumnOrDie(column_id));
+                                    }),
+                      ")");
     } else if (!grouping_set_id_list_.empty()) {
       // There are rollup, cube, or grouping sets in the group by clause.
       // a lambda expression to output a column list
@@ -228,12 +198,11 @@ std::string QueryExpression::GetSQLQuery() const {
           absl::StrAppend(output, "(");
         }
         absl::StrAppend(
-            output,
-            absl::StrJoin(column_id_list, ", ",
-                          [this](std::string* out, int column_id) {
-                            absl::StrAppend(
-                                out, zetasql_base::FindOrDie(group_by_list_, column_id));
-                          }));
+            output, absl::StrJoin(column_id_list, ", ",
+                                  [this](std::string* out, int column_id) {
+                                    absl::StrAppend(
+                                        out, GetGroupByColumnOrDie(column_id));
+                                  }));
         if (column_id_list.size() > 1) {
           absl::StrAppend(output, ")");
         }
@@ -314,10 +283,6 @@ std::string QueryExpression::GetSQLQuery() const {
   return sql;
 }
 
-bool QueryExpression::CanFormSQLQuery() const {
-  return !CanSetSelectClause();
-}
-
 void QueryExpression::Wrap(absl::string_view alias) {
   ABSL_DCHECK(CanFormSQLQuery());
   ABSL_DCHECK(!alias.empty());
@@ -347,10 +312,6 @@ bool QueryExpression::TrySetSelectClause(
   ABSL_DCHECK(query_hints_.empty());
   query_hints_ = select_hints;
   return true;
-}
-
-void QueryExpression::ResetSelectClause() {
-  select_list_.clear();
 }
 
 bool QueryExpression::TrySetFromClause(absl::string_view from) {
@@ -407,17 +368,6 @@ bool QueryExpression::TrySetGroupByClause(
   return true;
 }
 
-absl::Status QueryExpression::SetGroupByAllClause(
-    const std::map<int, std::string>& group_by_list,
-    absl::string_view group_by_hints) {
-  ZETASQL_RET_CHECK(CanSetGroupByClause());
-  group_by_all_ = true;
-  group_by_list_ = group_by_list;
-  ABSL_DCHECK(group_by_hints_.empty());
-  group_by_hints_ = group_by_hints;
-  return absl::OkStatus();
-}
-
 bool QueryExpression::TrySetOrderByClause(
     const std::vector<std::string>& order_by_list,
     absl::string_view order_by_hints) {
@@ -471,9 +421,9 @@ bool QueryExpression::TrySetUnpivotClause(absl::string_view unpivot) {
   return true;
 }
 
-bool QueryExpression::CanSetWithClause() const {
-  return !HasWithClause();
-}
+bool QueryExpression::CanFormSQLQuery() const { return !CanSetSelectClause(); }
+
+bool QueryExpression::CanSetWithClause() const { return !HasWithClause(); }
 bool QueryExpression::CanSetSelectClause() const {
   return !HasSelectClause() && !HasSetOpScanList();
 }
@@ -492,15 +442,16 @@ bool QueryExpression::CanSetGroupByClause() const {
 }
 bool QueryExpression::CanSetOrderByClause() const {
   return !HasOrderByClause() && !HasLimitClause() && !HasOffsetClause() &&
-      HasFromClause();
+         HasFromClause();
 }
 bool QueryExpression::CanSetLimitClause() const {
   return !HasLimitClause() && !HasOffsetClause();
 }
 bool QueryExpression::CanSetOffsetClause() const { return !HasOffsetClause(); }
-
+bool QueryExpression::CanSetWithAnonymizationClause() const {
+  return !HasWithAnonymizationClause();
+}
 bool QueryExpression::CanSetPivotClause() const { return !HasPivotClause(); }
-
 bool QueryExpression::CanSetUnpivotClause() const {
   return !HasUnpivotClause();
 }
@@ -516,9 +467,6 @@ QueryExpression::SelectList() const {
   }
 
   return select_list_;
-}
-bool QueryExpression::CanSetWithAnonymizationClause() const {
-  return !HasWithAnonymizationClause();
 }
 
 static bool HasDuplicateAliases(
@@ -588,6 +536,43 @@ absl::Status QueryExpression::SetAliasesForSelectList(
 void QueryExpression::SetSelectAsModifier(absl::string_view modifier) {
   ABSL_DCHECK(select_as_modifier_.empty());
   select_as_modifier_ = modifier;
+}
+
+absl::Status QueryExpression::SetGroupByAllClause(
+    const std::map<int, std::string>& group_by_list,
+    absl::string_view group_by_hints) {
+  ZETASQL_RET_CHECK(CanSetGroupByClause());
+  group_by_all_ = true;
+  group_by_list_ = group_by_list;
+  ABSL_DCHECK(group_by_hints_.empty());
+  group_by_hints_ = group_by_hints;
+  return absl::OkStatus();
+}
+
+void QueryExpression::ClearAllClauses() {
+  with_list_.clear();
+  select_list_.clear();
+  select_as_modifier_.clear();
+  query_hints_.clear();
+  from_.clear();
+  where_.clear();
+  set_op_type_.clear();
+  set_op_modifier_.clear();
+  set_op_column_match_mode_.clear();
+  set_op_column_propagation_mode_.clear();
+  set_op_scan_list_.clear();
+  corresponding_set_op_output_column_list_.clear();
+  group_by_all_ = false;
+  group_by_list_.clear();
+  group_by_hints_.clear();
+  order_by_list_.clear();
+  order_by_hints_.clear();
+  limit_.clear();
+  offset_.clear();
+  anonymization_options_.clear();
+  with_recursive_ = false;
+  pivot_.clear();
+  unpivot_.clear();
 }
 
 }  // namespace zetasql

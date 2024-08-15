@@ -565,3 +565,159 @@ ARRAY<STRUCT<null_map ARRAY<>,
    ARRAY<INT64>[known order:2, 1],
    ARRAY<INT64>[known order:3, 2, 1]
  }]
+==
+
+[name=map_empty]
+SELECT
+  MAP_EMPTY(MAP_FROM_ARRAY([('a', 1)])) as one_element_map,
+  MAP_EMPTY(MAP_FROM_ARRAY([('a', 1), ('b', 2)])) as two_element_map,
+  MAP_EMPTY(MAP_FROM_ARRAY([(NULL, NULL)])) as null_element_map,
+  MAP_EMPTY(MAP_FROM_ARRAY(CAST([] AS ARRAY<STRUCT<STRING, INT64>>))) as empty_map,
+  MAP_EMPTY(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>))) as null_map;
+--
+ARRAY<STRUCT<
+        one_element_map BOOL,
+        two_element_map BOOL,
+        null_element_map BOOL,
+        empty_map BOOL,
+        null_map BOOL
+      >>[{false, false, false, true, NULL}]
+==
+
+[name=map_insert_and_map_insert_or_replace]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', 2)                      as i_one_element_one_added,
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'c', 3)            as i_two_elements_one_added,
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', 2, 'c', 3)              as i_one_element_two_added,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', 2)           as r_one_element_one_added,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'c', 3) as r_two_elements_one_added,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', 2, 'c', 3)   as r_one_element_two_added;
+--
+ARRAY<STRUCT<
+        i_one_element_one_added MAP<STRING, INT64>,
+        i_two_elements_one_added MAP<STRING, INT64>,
+        i_one_element_two_added MAP<STRING, INT64>,
+        r_one_element_one_added MAP<STRING, INT64>,
+        r_two_elements_one_added MAP<STRING, INT64>,
+        r_one_element_two_added MAP<STRING, INT64>
+      >>
+[{
+   {"a": 1, "b": 2},
+   {"a": 1, "b": 2, "c": 3},
+   {"a": 1, "b": 2, "c": 3},
+   {"a": 1, "b": 2},
+   {"a": 1, "b": 2, "c": 3},
+   {"a": 1, "b": 2, "c": 3}
+ }]
+==
+
+[name=map_insert_and_map_insert_or_replace_null_map]
+SELECT
+  MAP_INSERT(NULL, 'a', 1) as i_one_added,
+  MAP_INSERT(NULL, 'b', 2, 'c', 3) as i_two_added,
+  MAP_INSERT(NULL, NULL, NULL) as i_null_key_one_added,
+  MAP_INSERT(NULL, 'b', 2, CAST(NULL as STRING), CAST(NULL as INT64)) as i_null_key_two_added,
+  MAP_INSERT_OR_REPLACE(NULL, 'a', 1) as r_one_added,
+  MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'c', 3) as r_two_added,
+  MAP_INSERT_OR_REPLACE(NULL, NULL, NULL) as r_null_key_one_added,
+  MAP_INSERT_OR_REPLACE(NULL, 'b', 2, CAST(NULL as STRING), CAST(NULL as INT64)) as r_null_key_two_added,
+--
+ARRAY<STRUCT<
+        i_one_added MAP<STRING, INT64>,
+        i_two_added MAP<STRING, INT64>,
+        i_null_key_one_added MAP<INT64, INT64>,
+        i_null_key_two_added MAP<STRING, INT64>,
+        r_one_added MAP<STRING, INT64>,
+        r_two_added MAP<STRING, INT64>,
+        r_null_key_one_added MAP<INT64, INT64>,
+        r_null_key_two_added MAP<STRING, INT64>
+      >>[{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}]
+==
+
+[name=map_insert_and_map_insert_or_replace_null_elements]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), NULL, 2) as i_one_element_one_added_null_key,
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', NULL) as i_one_element_one_added_null_value,
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), 'b', NULL) as i_two_elements_one_added_null_value,
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1), ('b', NULL)]), NULL, NULL) as i_two_elements_one_added_null_key,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2) as r_one_element_one_added_null_key,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', NULL) as r_one_element_one_added_null_value,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), 'b', NULL) as r_two_elements_one_added_null_value,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', NULL)]), NULL, NULL) as r_two_elements_one_added_null_key,
+--
+ARRAY<STRUCT<
+        i_one_element_one_added_null_key MAP<STRING, INT64>,
+        i_one_element_one_added_null_value MAP<STRING, INT64>,
+        i_two_elements_one_added_null_value MAP<STRING, INT64>,
+        i_two_elements_one_added_null_key MAP<STRING, INT64>,
+        r_one_element_one_added_null_key MAP<STRING, INT64>,
+        r_one_element_one_added_null_value MAP<STRING, INT64>,
+        r_two_elements_one_added_null_value MAP<STRING, INT64>,
+        r_two_elements_one_added_null_key MAP<STRING, INT64>
+      >>
+[{
+   {NULL: 2, "a": 1},
+   {"a": 1, "b": NULL},
+   {NULL: 2, "a": 1, "b": NULL},
+   {NULL: NULL, "a": 1, "b": NULL},
+   {NULL: 2, "a": 1},
+   {"a": 1, "b": NULL},
+   {NULL: 2, "a": 1, "b": NULL},
+   {NULL: NULL, "a": 1, "b": NULL}
+ }]
+==
+
+[name=map_insert_duplicate_key]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 3);
+--
+ERROR: generic::out_of_range: Key already exists in map: "a"
+==
+
+[name=map_insert_or_replace_duplicate_key]
+SELECT
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 3);
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{"a": 3, "b": 2}}]
+==
+
+[name=map_insert_duplicate_null_key]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), NULL, NULL);
+--
+ERROR: generic::out_of_range: Key already exists in map: NULL
+==
+
+[name=map_insert_or_replace_duplicate_null_key]
+SELECT
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), NULL, NULL);
+--
+ARRAY<STRUCT<MAP<STRING, INT64>>>[{{NULL: NULL, "a": 1}}]
+==
+
+[name=map_insert_duplicate_key_in_args]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', 2, 'b', 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "b"
+==
+
+[name=map_insert_or_replace_duplicate_key_in_args]
+SELECT
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', 2, 'b', 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "b"
+==
+
+[name=map_insert_duplicate_null_key_in_args]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), NULL, 2, CAST(NULL AS STRING), 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_insert_or_replace_duplicate_null_key_in_args]
+SELECT
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2, CAST(NULL AS STRING), 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: NULL

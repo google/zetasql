@@ -33,3 +33,27 @@ cc_library(
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
     ],
 )
+
+cc_library(
+    name = "error_matchers",
+    testonly = 1,
+    hdrs = ["error_matchers.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:status_matchers",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "error_matchers_test",
+    srcs = ["error_matchers_test.cc"],
+    deps = [
+        ":error_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)

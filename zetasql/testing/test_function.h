@@ -82,7 +82,7 @@ class QueryParamsWithResult {
   };
 
   // Constructs an instance that contains a single result.
-  QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
+  QueryParamsWithResult(absl::Span<const ValueConstructor> arguments,
                         const ValueConstructor& result,
                         absl::Status status = absl::OkStatus());
 
@@ -91,10 +91,10 @@ class QueryParamsWithResult {
                         FloatMargin float_margin_arg,
                         absl::Status status = absl::OkStatus());
 
-  QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
+  QueryParamsWithResult(absl::Span<const ValueConstructor> arguments,
                         const ValueConstructor& result, absl::StatusCode code);
 
-  QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
+  QueryParamsWithResult(absl::Span<const ValueConstructor> arguments,
                         const ValueConstructor& result,
                         absl::string_view error_substring);
 
@@ -224,7 +224,7 @@ struct FunctionTestCall {
   QueryParamsWithResult params;
 
   FunctionTestCall(absl::string_view function_name,
-                   const std::vector<ValueConstructor>& arguments,
+                   absl::Span<const ValueConstructor> arguments,
                    const ValueConstructor& result,
                    FloatMargin float_margin = kExactFloatMargin);
 

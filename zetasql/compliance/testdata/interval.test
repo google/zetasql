@@ -961,3 +961,107 @@ ARRAY<STRUCT<value INTERVAL, BOOL>>[unknown order:
   {0-0 0 1:59:59.999999, false},
   {0-0 0 -0:0:0.000001, false}
 ]
+==
+[required_features=INTERVAL_TYPE]
+[name=justify_interval]
+SELECT JUSTIFY_INTERVAL(i) AS justified_interval,
+  EXTRACT(YEAR FROM JUSTIFY_INTERVAL(i)) AS year,
+  EXTRACT(MONTH FROM JUSTIFY_INTERVAL(i)) AS month,
+  EXTRACT(DAY FROM JUSTIFY_INTERVAL(i)) AS day,
+  EXTRACT(HOUR FROM JUSTIFY_INTERVAL(i)) AS hour,
+  EXTRACT(MINUTE FROM JUSTIFY_INTERVAL(i)) AS minute,
+  EXTRACT(SECOND FROM JUSTIFY_INTERVAL(i)) AS second,
+  EXTRACT(MILLISECOND FROM JUSTIFY_INTERVAL(i)) AS milli,
+  EXTRACT(MICROSECOND FROM JUSTIFY_INTERVAL(i)) AS micro
+FROM UNNEST([INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 35 4:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 -35 4:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 12 40:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 -12 -40:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 48 75:7:4.657' YEAR TO SECOND,
+          INTERVAL '1-2 -48 -75:7:4.657' YEAR TO SECOND]) AS i;
+--
+ARRAY<STRUCT<
+        justified_interval INTERVAL,
+        year INT64,
+        month INT64,
+        day INT64,
+        hour INT64,
+        minute INT64,
+        second INT64,
+        milli INT64,
+        micro INT64
+      >>
+[unknown order:
+  {1-3 5 4:5:6.789, 1, 3, 5, 4, 5, 6, 789, 789000},
+  {1-2 13 16:5:6.789, 1, 2, 13, 16, 5, 6, 789, 789000},
+  {1-3 21 3:7:4.657, 1, 3, 21, 3, 7, 4, 657, 657000},
+  {1-2 3 4:5:6.789, 1, 2, 3, 4, 5, 6, 789, 789000},
+  {1-0 25 4:5:6.789, 1, 0, 25, 4, 5, 6, 789, 789000},
+  {1-1 16 7:54:53.211, 1, 1, 16, 7, 54, 53, 211, 211000},
+  {1-0 8 20:52:55.343, 1, 0, 8, 20, 52, 55, 343, 343000}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=justify_days]
+SELECT JUSTIFY_DAYS(i) AS justified_days,
+  EXTRACT(YEAR FROM JUSTIFY_DAYS(i)) AS year,
+  EXTRACT(MONTH FROM JUSTIFY_DAYS(i)) AS month,
+  EXTRACT(DAY FROM JUSTIFY_DAYS(i)) AS day,
+  EXTRACT(HOUR FROM JUSTIFY_DAYS(i)) AS hour,
+  EXTRACT(MINUTE FROM JUSTIFY_DAYS(i)) AS minute,
+  EXTRACT(SECOND FROM JUSTIFY_DAYS(i)) AS second,
+  EXTRACT(MILLISECOND FROM JUSTIFY_DAYS(i)) AS milli,
+  EXTRACT(MICROSECOND FROM JUSTIFY_DAYS(i)) AS micro
+FROM UNNEST([INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 35 48:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 -35 -48:5:6.789' YEAR TO SECOND]) AS i;
+--
+ARRAY<STRUCT<
+        justified_days INTERVAL,
+        year INT64,
+        month INT64,
+        day INT64,
+        hour INT64,
+        minute INT64,
+        second INT64,
+        milli INT64,
+        micro INT64
+      >>
+[unknown order:
+  {1-3 5 48:5:6.789, 1, 3, 5, 48, 5, 6, 789, 789000},
+  {1-2 3 4:5:6.789, 1, 2, 3, 4, 5, 6, 789, 789000},
+  {1-0 25 -48:5:6.789, 1, 0, 25, -48, -5, -6, -789, -789000}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=justify_hours]
+SELECT JUSTIFY_HOURS(i) AS justified_hours,
+  EXTRACT(YEAR FROM JUSTIFY_HOURS(i)) AS year,
+  EXTRACT(MONTH FROM JUSTIFY_HOURS(i)) AS month,
+  EXTRACT(DAY FROM JUSTIFY_HOURS(i)) AS day,
+  EXTRACT(HOUR FROM JUSTIFY_HOURS(i)) AS hour,
+  EXTRACT(MINUTE FROM JUSTIFY_HOURS(i)) AS minute,
+  EXTRACT(SECOND FROM JUSTIFY_HOURS(i)) AS second,
+  EXTRACT(MILLISECOND FROM JUSTIFY_HOURS(i)) AS milli,
+  EXTRACT(MICROSECOND FROM JUSTIFY_HOURS(i)) AS micro
+FROM UNNEST([INTERVAL '1-2 3 4:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 35 49:5:6.789' YEAR TO SECOND,
+          INTERVAL '1-2 -35 -49:5:6.789' YEAR TO SECOND]) AS i;
+--
+ARRAY<STRUCT<
+        justified_hours INTERVAL,
+        year INT64,
+        month INT64,
+        day INT64,
+        hour INT64,
+        minute INT64,
+        second INT64,
+        milli INT64,
+        micro INT64
+      >>
+[unknown order:
+  {1-2 37 1:5:6.789, 1, 2, 37, 1, 5, 6, 789, 789000},
+  {1-2 3 4:5:6.789, 1, 2, 3, 4, 5, 6, 789, 789000},
+  {1-2 -37 -1:5:6.789, 1, 2, -37, -1, -5, -6, -789, -789000}
+]

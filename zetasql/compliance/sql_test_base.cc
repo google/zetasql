@@ -35,6 +35,7 @@
 #include <variant>
 #include <vector>
 
+
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "google/protobuf/text_format.h"     
@@ -60,6 +61,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -69,6 +71,7 @@
 #include "zetasql/reference_impl/reference_driver.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/testing/type_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -672,7 +675,7 @@ bool CompareStatementResult(const StatementResult& expected,
     if (actual.result.ok()) {
       if (InternalValue::Equals(
               expected.result.value(), actual.result.value(),
-              {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+              {.interval_compare_mode = IntervalCompareMode::kSqlEquals,
                .float_margin = float_margin,
                .reason = reason})) {
         return true;
@@ -780,7 +783,7 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
         std::holds_alternative<Value>(arg.value())) {
       passed = InternalValue::Equals(
           std::get<Value>(expected.value()), std::get<Value>(arg.value()),
-          {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+          {.interval_compare_mode = IntervalCompareMode::kSqlEquals,
            .float_margin = float_margin,
            .reason = &reason});
     } else if (std::holds_alternative<ScriptResult>(expected.value()) &&
@@ -1033,7 +1036,8 @@ std::string SQLTestBase::GenerateFailureReport(const std::string& expected,
 
 FloatMargin SQLTestBase::GetFloatEqualityMargin(
     absl::StatusOr<ComplianceTestCaseResult> actual,
-    absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits) {
+    absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits,
+    QueryResultStats* stats) {
   FloatMargin expanded_float_margin = kDefaultFloatMargin;
   int ulp_bits = 0;
   ::testing::StringMatchResultListener listener;
@@ -1046,6 +1050,9 @@ FloatMargin SQLTestBase::GetFloatEqualityMargin(
     // file to see all unsuccessful tries.
     if (ReturnsCheckOnly(actual, expanded_float_margin)
             .MatchAndExplain(expected, &listener)) {
+      if (stats != nullptr) {
+        stats->verified_count += 1;
+      }
       break;
     }
 
@@ -1671,18 +1678,19 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
   absl::StatusOr<ComplianceTestCaseResult> result;
   std::optional<bool> is_deterministic_output = std::nullopt;
   if (IsVerifyingGoldens()) {
-    bool uses_unsupported_type = false;  // unused
     AutoLanguageOptions options_cleanup(reference_driver());
     LanguageOptions options_with_shadow_parsing =
         reference_driver_->language_options();
     options_with_shadow_parsing.EnableLanguageFeature(FEATURE_SHADOW_PARSING);
     reference_driver()->SetLanguageOptions(options_with_shadow_parsing);
     if (script_mode_) {
+      is_deterministic_output = true;
+      ReferenceDriver::ExecuteScriptAuxOutput aux_output;
       result = reference_driver()->ExecuteScriptForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), &uses_unsupported_type);
+          execute_statement_type_factory(), aux_output);
+      is_deterministic_output = aux_output.is_deterministic_output;
     } else {
-      is_deterministic_output = true;
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
       result = reference_driver()->ExecuteStatementForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
@@ -2152,9 +2160,11 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     bool uses_unsupported_type = false;
     absl::StatusOr<ComplianceTestCaseResult> ref_result;
     if (script_mode_) {
+      ReferenceDriver::ExecuteScriptAuxOutput aux_output;
       ref_result = reference_driver()->ExecuteScriptForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), &uses_unsupported_type);
+          execute_statement_type_factory(), aux_output);
+      uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     } else {
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
       ref_result = reference_driver()->ExecuteStatementForReferenceDriver(
@@ -2563,8 +2573,9 @@ std::string SQLTestBase::ToString(
     ABSL_CHECK(value.is_valid());
     if (format_value_content_options_ == nullptr) {
       result_string = InternalValue::FormatInternal(
-          value,
-          absl::GetFlag(FLAGS_zetasql_compliance_print_array_orderedness));
+          value, {.force_type_at_top_level = true,
+                  .include_array_ordereness = absl::GetFlag(
+                      FLAGS_zetasql_compliance_print_array_orderedness)});
     } else {
       result_string =
           InternalValue::FormatInternal(value, *format_value_content_options_);
@@ -2594,9 +2605,13 @@ std::string SQLTestBase::ToString(
     const std::map<std::string, Value>& parameters) {
   std::vector<std::string> param_strs;
   param_strs.reserve(parameters.size());
+  InternalValue::FormatValueContentOptions format_options;
+  format_options.mode =
+      InternalValue::FormatValueContentOptions::Mode::kSQLExpression;
   for (const std::pair<const std::string, Value>& entry : parameters) {
-    param_strs.emplace_back(absl::StrCat("  @", entry.first, " = ",
-                                         entry.second.FullDebugString()));
+    param_strs.emplace_back(absl::StrCat(
+        "  @", entry.first, " = ",
+        InternalValue::FormatInternal(entry.second, format_options)));
   }
   std::sort(param_strs.begin(), param_strs.end());
   return absl::StrJoin(param_strs, "\n");

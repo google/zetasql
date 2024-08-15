@@ -1140,12 +1140,7 @@ multi-statement query with the error message supplied.
 **Description**
 
 Calls a [procedure][procedures] with an argument list.
-`procedure_argument` may be a variable or an expression. For `OUT` or `INOUT`
-arguments, a variable passed as an argument must have the proper
-ZetaSQL [type](data-types).
-
-The same variable may not appear multiple times as an `OUT` or `INOUT`
-argument in the procedure's argument list.
+`procedure_argument` may be a variable or an expression.
 
 The maximum depth of procedure calls is 50 frames.
 

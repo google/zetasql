@@ -2718,3 +2718,45 @@ FROM
       KeyValue
     GROUP BY Key
   ), DESCRIPTOR(Key))
+==
+
+# Regression test for b/358469854 where the unparser used to print the inner
+# alias in the wrong place.
+SELECT * FROM tvf() AS t PIVOT(sum(a) FOR b IN (1, 2, 3)) AS p
+--
+QueryStatement [0-62] [SELECT * FROM..., 3)) AS p]
+  Query [0-62] [SELECT * FROM..., 3)) AS p]
+    Select [0-62] [SELECT * FROM..., 3)) AS p]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-62] [FROM tvf()..., 3)) AS p]
+        TVF [14-62] [tvf() AS t..., 3)) AS p]
+          PathExpression [14-17] [tvf]
+            Identifier(tvf) [14-17] [tvf]
+          Alias [20-24] [AS t]
+            Identifier(t) [23-24] [t]
+          PivotClause [25-62] [PIVOT(sum(..., 3)) AS p]
+            PivotExpressionList [31-37] [sum(a)]
+              PivotExpression [31-37] [sum(a)]
+                FunctionCall [31-37] [sum(a)]
+                  PathExpression [31-34] [sum]
+                    Identifier(sum) [31-34] [sum]
+                  PathExpression [35-36] [a]
+                    Identifier(a) [35-36] [a]
+            PathExpression [42-43] [b]
+              Identifier(b) [42-43] [b]
+            PivotValueList [48-55] [1, 2, 3]
+              PivotValue [48-49] [1]
+                IntLiteral(1) [48-49] [1]
+              PivotValue [51-52] [2]
+                IntLiteral(2) [51-52] [2]
+              PivotValue [54-55] [3]
+                IntLiteral(3) [54-55] [3]
+            Alias [58-62] [AS p]
+              Identifier(p) [61-62] [p]
+--
+SELECT
+  *
+FROM
+  tvf() AS t PIVOT(sum(a) FOR b IN (1, 2, 3)) AS p

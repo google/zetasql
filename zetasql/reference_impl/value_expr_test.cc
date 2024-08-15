@@ -878,32 +878,6 @@ TEST_F(EvalTest, DerefExprNameNotFound) {
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Missing name: v")));
 }
 
-TEST_F(EvalTest, RootExpr) {
-  VariableId p("p");
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_expr, DerefExpr::Create(p, proto_type_));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto root_expr,
-      RootExpr::Create(std::move(deref_expr), std::make_unique<RootData>()));
-  EXPECT_EQ(root_expr->DebugString(), "RootExpr($p)");
-
-  const TupleSchema params_schema({p});
-  ZETASQL_ASSERT_OK(root_expr->SetSchemasForEvaluation({&params_schema}));
-
-  std::vector<const SharedProtoState*> params_shared_states;
-  const TupleData params_data =
-      CreateTestTupleData({GetProtoValue(1)}, &params_shared_states);
-  EvaluationContext context((EvaluationOptions()));
-  TupleSlot result;
-  absl::Status status;
-  ASSERT_TRUE(root_expr->EvalSimple({&params_data}, &context, &result, &status))
-      << status;
-  EXPECT_EQ(result.value(), GetProtoValue(1));
-  const std::shared_ptr<SharedProtoState> result_shared_state =
-      *result.mutable_shared_proto_state();
-  EXPECT_THAT(result_shared_state, Pointee(Eq(nullopt)));
-  EXPECT_THAT(result_shared_state, HasRawPointer(params_shared_states[0]));
-}
-
 class DMLValueExprEvalTest : public EvalTest {
  public:
   DMLValueExprEvalTest() {
@@ -1916,7 +1890,7 @@ class ProtoEvalTest : public ::testing::Test {
   // Checks presence of 'field_name' in 'msg' using a GetProtoFieldExpr. Crashes
   // on error.
   Value HasProtoFieldOrDie(const google::protobuf::Message* msg,
-                           const std::string& field_name) {
+                           absl::string_view field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
     absl::Cord bytes;
     ABSL_CHECK(msg->SerializePartialToCord(&bytes));
@@ -1976,7 +1950,7 @@ class ProtoEvalTest : public ::testing::Test {
   // actual proto value is represented by a parameter.
   absl::Status EvalGetProtoFieldExprs(
       std::vector<std::pair<const ProtoFieldAccessInfo*, int>> infos,
-      const std::vector<TupleSlot>& proto_slots, EvaluationContext* context,
+      absl::Span<const TupleSlot> proto_slots, EvaluationContext* context,
       std::vector<absl::StatusOr<TupleSlot>>* output_slots) {
     ZETASQL_RET_CHECK(!proto_slots.empty());
 
@@ -2043,16 +2017,14 @@ class ProtoEvalTest : public ::testing::Test {
       EvaluationContext* context, std::unique_ptr<ProtoFieldRegistry>* registry,
       std::vector<std::unique_ptr<ProtoFieldReader>>* field_readers,
       std::vector<std::unique_ptr<GetProtoFieldExpr>>* exprs) {
-    *registry = std::make_unique<ProtoFieldRegistry>(
-        /*id=*/0);
+    *registry = std::make_unique<ProtoFieldRegistry>();
 
     for (const auto& entry : infos) {
       const ProtoFieldAccessInfo* info = entry.first;
       const int count = entry.second;
 
-      const int id = field_readers->size();
       field_readers->push_back(
-          std::make_unique<ProtoFieldReader>(id, *info, registry->get()));
+          std::make_unique<ProtoFieldReader>(*info, registry->get()));
       ProtoFieldReader* field_reader = field_readers->back().get();
 
       for (int i = 0; i < count; ++i) {
@@ -2070,8 +2042,7 @@ class ProtoEvalTest : public ::testing::Test {
           field_name = absl::StrCat("has_", field_name);
         }
         EXPECT_EQ(get_proto_field_expr->DebugString(),
-                  absl::StrCat("GetProtoFieldExpr(", field_name,
-                               ", $p [fid=", id, " rid=0])"));
+                  absl::StrCat("GetProtoFieldExpr(", field_name, ", $p)"));
 
         exprs->push_back(std::move(get_proto_field_expr));
       }

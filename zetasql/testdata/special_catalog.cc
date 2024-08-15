@@ -25,10 +25,11 @@
 #include <vector>
 
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "absl/container/btree_set.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"

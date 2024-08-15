@@ -44,6 +44,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "unicode/unistr.h"
+#include "unicode/utypes.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql::formatter::internal {
@@ -144,9 +145,8 @@ absl::StatusOr<std::unique_ptr<TokenizedStmt>> TokenizedStmt::ParseFrom(
     const ParseLocationTranslator& location_translator,
     const FormatterOptions& options) {
   const int start_offset = parse_location->byte_position();
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<Token> tokens,
-      TokenizeNextStatement(parse_location, options.IsAllowedInvalidTokens()));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<Token> tokens,
+                   TokenizeNextStatement(parse_location, options));
   auto parsed_sql = std::make_unique<TokenizedStmt>(
       parse_location->input(), start_offset, parse_location->byte_position(),
       std::move(tokens), options);

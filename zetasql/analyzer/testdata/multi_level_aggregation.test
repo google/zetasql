@@ -34,15 +34,12 @@ ERROR: Multi-level aggregation is not yet supported. [at 2:24]
                        ^
 ==
 
+# TODO: Re-enable this test.
 # GROUP BY modifier must be specified when invoking a multi-level aggregate expr
-SELECT
-  SUM(ANY_VALUE(int64))
-FROM SimpleTypes;
---
-ERROR: Aggregations of aggregations are not allowed [at 2:3]
-  SUM(ANY_VALUE(int64))
-  ^
-==
+# SELECT
+#  SUM(ANY_VALUE(int64))
+# FROM SimpleTypes;
+# ==
 
 # GROUP BY modifier must be a groupable type.
 SELECT
@@ -157,6 +154,39 @@ ALTERNATION GROUP: GROUPING SETS(bool, double)
 ERROR: GROUP BY GROUPING SETS is not supported inside an aggregate function. [at 3:4]
    GROUPING SETS(bool, double)
    ^
+==
+
+# GROUP AND ORDER BY is only supported in pipes.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
+FROM SimpleTypes;
+--
+ERROR: GROUP AND ORDER BY is not supported outside pipe AGGREGATE. [at 2:24]
+  SUM(ANY_VALUE(int64) GROUP AND ORDER BY bool)
+                       ^
+==
+
+# GROUP BY can only support order specification in in pipes.
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY double ASC)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY does not support order specification outside pipe AGGREGATE [at 2:40]
+  SUM(ANY_VALUE(int64) GROUP BY double ASC)
+                                       ^
+==
+
+# GROUP BY modifiers cannot have aliases
+[language_features=V_1_4_MULTILEVEL_AGGREGATION,PIPES]
+SELECT
+  SUM(ANY_VALUE(int64) GROUP BY bool AS some_alias)
+FROM SimpleTypes;
+--
+ERROR: GROUP BY expressions in an aggregate function cannot have aliases. [at 2:38]
+  SUM(ANY_VALUE(int64) GROUP BY bool AS some_alias)
+                                     ^
 ==
 
 # GROUP BY modifiers not supported on analytic functions.

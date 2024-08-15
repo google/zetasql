@@ -18,18 +18,26 @@
 
 #include <sys/types.h>
 
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/collator.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
-#include "absl/strings/str_cat.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
@@ -338,6 +346,18 @@ std::vector<LikeMatchTestParams> LikeWithUnderscoreTestCases() {
   };
 }
 
+template <typename OutType, typename FunctionType, typename... Args>
+bool EvaluateFunction(FunctionType function, const ZetaSqlCollator& collator,
+                      Args&&... args, OutType* out, absl::Status* status) {
+  if constexpr (std::is_invocable_v<decltype(function), decltype(collator),
+                                    Args..., OutType*, absl::Status*>) {
+    return function(collator, args..., out, status);
+  } else {
+    *status = function(collator, args..., out);
+    return status->ok();
+  }
+}
+
 template <typename OutType, typename FunctionType, class... Args>
 void TestStringFunctionWithCollation(FunctionType function,
                                      const QueryParamsWithResult& param,
@@ -347,7 +367,9 @@ void TestStringFunctionWithCollation(FunctionType function,
   absl::Status status;
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator(collation_spec));
-  EXPECT_EQ(function(*collator, args..., &out, &status), param.status().ok());
+  bool evaluation_result = EvaluateFunction<OutType, FunctionType, Args...>(
+      function, *collator, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(Value::String(out)))
@@ -362,6 +384,18 @@ void TestStringFunctionWithCollation(FunctionType function,
   }
 }
 
+template <typename Arg>
+std::string GetArgumentString(Arg&& arg) {
+  std::ostringstream os;
+  os << arg;
+  return os.str();
+}
+
+template <typename First, typename... Rest>
+std::string GetArgumentString(First&& first, Rest&&... rest) {
+  return GetArgumentString(first) + ", " + GetArgumentString(rest...);
+}
+
 template <typename FunctionType, class... Args>
 void TestStringArrayFunctionWithCollation(FunctionType function,
                                           const QueryParamsWithResult& param,
@@ -371,7 +405,10 @@ void TestStringArrayFunctionWithCollation(FunctionType function,
   absl::Status status;
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator(collation_spec));
-  EXPECT_EQ(function(*collator, args..., &out, &status), param.status().ok());
+  bool evaluation_result =
+      EvaluateFunction<std::vector<absl::string_view>, FunctionType, Args...>(
+          function, *collator, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     std::vector<Value> out_values;
     for (auto element : out) {
@@ -382,7 +419,9 @@ void TestStringArrayFunctionWithCollation(FunctionType function,
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(out_array))
         << "Expected: " << param.result() << "\n"
-        << "Actual: '" << out_array << "'\n";
+        << "Actual: '" << out_array << "'\n"
+        << "Collation: " << collation_spec << "\n"
+        << "Inputs: " << GetArgumentString(args...) << "\n";
   } else if (!param.status().message().empty()) {
     // If an error message is provided, it means we want to test the exact
     // message instead of a binary success/failure.
@@ -400,12 +439,17 @@ void TestFunctionWithCollation(FunctionType function,
   absl::Status status;
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
                        MakeSqlCollator(collation_spec));
-  EXPECT_EQ(function(*collator, args..., &out, &status), param.status().ok());
+
+  bool evaluation_result = EvaluateFunction<OutType, FunctionType, Args...>(
+      function, *collator, std::forward<Args>(args)..., &out, &status);
+  EXPECT_EQ(evaluation_result, param.status().ok());
   if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_TRUE(param.result().Equals(Value::Make<OutType>(out)))
         << "Expected: " << param.result() << "\n"
-        << "Actual: '" << out << "'\n";
+        << "Actual: '" << out << "'\n"
+        << "Collation: " << collation_spec << "\n"
+        << "Inputs: " << GetArgumentString(args...) << "\n";
   } else if (!param.status().message().empty()) {
     // If an error message is provided, it means we want to test the exact
     // message instead of a binary success/failure.
@@ -622,6 +666,35 @@ TEST(LikeWithCollationMatchTest, UnderscoreOnlyAllowedForUndci) {
                              "allowed when its operands have collation other "
                              "than und:ci")));
 }
+
+typedef testing::TestWithParam<FunctionTestCall> SplitSubstrTemplateTest;
+TEST_P(SplitSubstrTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  int64_t num_params = param.params.num_params();
+  const std::vector<Value>& args = param.params.params();
+
+  for (int i = 0; i < num_params; ++i) {
+    if (param.params.param(i).is_null()) {
+      return;
+    }
+  }
+
+  if (num_params == 5) {
+    TestFunctionWithCollation<std::string>(
+        &SplitSubstrWithCollation, param.params, args[0].string_value(),
+        args[1].string_value(), args[2].string_value(), args[3].int64_value(),
+        args[4].int64_value());
+  } else {
+    TestFunctionWithCollation<std::string>(
+        &SplitSubstrWithCollation, param.params, args[0].string_value(),
+        args[1].string_value(), args[2].string_value(), args[3].int64_value(),
+        std::numeric_limits<int64_t>::max());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    String, SplitSubstrTemplateTest,
+    testing::ValuesIn(GetFunctionTestsSplitSubstr(/*skip_collation=*/false)));
 
 }  // anonymous namespace
 }  // namespace functions

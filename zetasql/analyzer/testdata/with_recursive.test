@@ -3387,6 +3387,7 @@ QueryStmt
     |   |   +-unit=ROWS
     |   +-order_by_item_list=
     |     +-OrderByItem
+    |       +-parse_location=167-168
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=t.n#6)
     +-recursive=TRUE
@@ -3470,6 +3471,7 @@ QueryStmt
     |           |           |   |   +-unit=ROWS
     |           |           |   +-order_by_item_list=
     |           |           |     +-OrderByItem
+    |           |           |       +-parse_location=236-237
     |           |           |       +-column_ref=
     |           |           |         +-ColumnRef(type=INT64, column=tbl.n#5)
     |           |           +-join_expr=
@@ -3562,6 +3564,7 @@ QueryStmt
     |           |           |   |   +-unit=ROWS
     |           |           |   +-order_by_item_list=
     |           |           |     +-OrderByItem
+    |           |           |       +-parse_location=222-223
     |           |           |       +-column_ref=
     |           |           |         +-ColumnRef(type=INT64, column=tbl.n#4)
     |           |           +-right_scan=

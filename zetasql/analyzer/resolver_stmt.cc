@@ -260,6 +260,7 @@ static absl::Status ValidateStatementIsReturnable(
     case RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT:
     case RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT:
     case RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT:
+    case RESOLVED_CREATE_CONNECTION_STMT:
     case RESOLVED_CREATE_CONSTANT_STMT:
     case RESOLVED_CREATE_PROCEDURE_STMT:
     case RESOLVED_CLONE_DATA_STMT:
@@ -290,6 +291,7 @@ static absl::Status ValidateStatementIsReturnable(
     case RESOLVED_REVOKE_STMT:
     case RESOLVED_MERGE_STMT:
     case RESOLVED_TRUNCATE_STMT:
+    case RESOLVED_ALTER_CONNECTION_STMT:
     case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
     case RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT:
     case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
@@ -649,8 +651,9 @@ absl::Status Resolver::ResolveStatement(
 
     case AST_DROP_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_DROP_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveDropStatement(
-            statement->GetAsOrDie<ASTDropStatement>(), &stmt));
+        const zetasql::ASTDropStatement* drop_statement =
+            statement->GetAsOrDie<ASTDropStatement>();
+        ZETASQL_RETURN_IF_ERROR(ResolveDropStatement(drop_statement, &stmt));
       }
       break;
 
@@ -888,6 +891,18 @@ absl::Status Resolver::ResolveStatement(
         }
         ZETASQL_RETURN_IF_ERROR(ResolveModuleStatement(
             statement->GetAsOrDie<ASTModuleStatement>(), &stmt));
+      }
+      break;
+    case AST_CREATE_CONNECTION_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_CREATE_CONNECTION_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateConnectionStatement(
+            statement->GetAsOrDie<ASTCreateConnectionStatement>(), &stmt));
+      }
+      break;
+    case AST_ALTER_CONNECTION_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_CONNECTION_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterConnectionStatement(
+            statement->GetAsOrDie<ASTAlterConnectionStatement>(), &stmt));
       }
       break;
     case AST_CREATE_DATABASE_STATEMENT:
@@ -2371,6 +2386,27 @@ absl::Status Resolver::ResolveCreateTablePartitionByList(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveCreateConnectionStatement(
+    const ASTCreateConnectionStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+
+  // Resolve CREATE clauses then OPTIONS clauses.
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
+      ast_statement, /*statement_type=*/"CREATE CONNECTION", &create_scope,
+      &create_mode));
+
+  ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
+                                     /*allow_alter_array_operators=*/false,
+                                     &resolved_options));
+  *output = MakeResolvedCreateConnectionStmt(
+      ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
+      std::move(resolved_options));
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveCreateDatabaseStatement(
     const ASTCreateDatabaseStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -2612,6 +2648,29 @@ absl::Status Resolver::ResolveCreateIndexStatement(
     }
   }
 
+  std::vector<std::unique_ptr<const ResolvedExpr>> resolved_partition_by;
+  if (ast_statement->optional_partition_by() != nullptr) {
+    if (!language().LanguageFeatureEnabled(FEATURE_CREATE_INDEX_PARTITION_BY)) {
+      return MakeSqlErrorAt(ast_statement->optional_partition_by())
+             << "CREATE INDEX with PARTITION BY is not supported.";
+    }
+    // Only one of is_search() and is_vector() can be true.
+    if (ast_statement->is_search()) {
+      return MakeSqlErrorAt(ast_statement->optional_partition_by())
+             << "PARTITION BY is not supported for CREATE SEARCH INDEX.";
+    }
+    if (!ast_statement->is_vector()) {
+      return MakeSqlErrorAt(ast_statement->optional_partition_by())
+             << "PARTITION BY is not supported for CREATE INDEX.";
+    }
+    ZETASQL_RET_CHECK(ast_statement->optional_partition_by()->hint() == nullptr);
+    QueryResolutionInfo query_info(this);
+    ZETASQL_RETURN_IF_ERROR(ResolveCreateTablePartitionByList(
+        ast_statement->optional_partition_by()->partitioning_expressions(),
+        PartitioningKind::PARTITION_BY, name_scope, &query_info,
+        &resolved_partition_by));
+  }
+
   ResolvedCreateStatement::CreateScope create_scope;
   ResolvedCreateStatement::CreateMode create_mode;
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, "CREATE INDEX",
@@ -2631,8 +2690,8 @@ absl::Status Resolver::ResolveCreateIndexStatement(
       std::move(resolved_table_scan), ast_statement->is_unique(),
       ast_statement->is_search(), ast_statement->is_vector(), index_all_columns,
       std::move(resolved_index_items), std::move(resolved_index_storing_items),
-      std::move(resolved_options), std::move(resolved_computed_columns),
-      std::move(resolved_unnest_items));
+      std::move(resolved_partition_by), std::move(resolved_options),
+      std::move(resolved_computed_columns), std::move(resolved_unnest_items));
   return absl::OkStatus();
 }
 
@@ -2907,7 +2966,8 @@ absl::Status Resolver::ResolveCreateModelStatement(
     ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_statement->with_connection_clause()
                                           ->connection_clause()
                                           ->connection_path(),
-                                      &resolved_connection));
+                                      &resolved_connection,
+                                      /*is_default_connection_allowed=*/true));
   }
 
   // Resolve the query.
@@ -3305,9 +3365,19 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
                << "WITH CONNECTION clause is unsupported for CREATE TABLE";
       }
     }
-    ZETASQL_RETURN_IF_ERROR(ResolveConnection(
-        with_connection_clause->connection_clause()->connection_path(),
-        &statement_base_properties->connection));
+    switch (ast_statement->node_kind()) {
+      case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
+      case AST_CREATE_TABLE_STATEMENT:
+        ZETASQL_RETURN_IF_ERROR(ResolveConnection(
+            with_connection_clause->connection_clause()->connection_path(),
+            &statement_base_properties->connection,
+            /*is_default_connection_allowed=*/true));
+        break;
+      default:
+        ZETASQL_RETURN_IF_ERROR(ResolveConnection(
+            with_connection_clause->connection_clause()->connection_path(),
+            &statement_base_properties->connection));
+    }
   }
 
   if (partitions_clause != nullptr) {
@@ -5213,11 +5283,11 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
       // validation and getting correct type here is lengthy.
       arguments_map[function_param->name()->GetAsIdString()] = nullptr;
     }
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ParsedScript> parsed_script,
-        ParsedScript::CreateForRoutine(sql_, ast_statement->body(),
-                                       analyzer_options_.error_message_mode(),
-                                       std::move(arguments_map)));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ParsedScript> parsed_script,
+                     ParsedScript::CreateForRoutine(
+                         sql_, ast_statement->body(),
+                         analyzer_options_.error_message_options(),
+                         std::move(arguments_map)));
     ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(std::nullopt));
   }
 

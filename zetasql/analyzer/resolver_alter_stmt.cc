@@ -604,6 +604,24 @@ absl::Status Resolver::ResolveAlterExternalSchemaStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveAlterConnectionStatement(
+    const ASTAlterConnectionStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement,
+                                      /*<alter_statement_kind>*/ "CONNECTION",
+                                      output, &has_only_set_options_action,
+                                      &resolved_alter_actions));
+
+  *output = MakeResolvedAlterConnectionStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists());
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveAlterTableStatement(
     const ASTAlterTableStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {

@@ -170,24 +170,13 @@ std::string SignatureTextForAnonCountStarFunction(
     const LanguageOptions& language_options, const Function& function,
     const FunctionSignature& signature);
 
-std::string SupportedSignaturesForAnonCountStarFunction(
-    const LanguageOptions& language_options, const Function& function);
-
 std::string SignatureTextForAnonCountStarWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function, const FunctionSignature& signature);
 
-std::string SupportedSignaturesForAnonCountStarWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
-    const Function& function);
-
 std::string SignatureTextForAnonQuantilesWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function, const FunctionSignature& signature);
-
-std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
-    const std::string& report_format, const LanguageOptions& language_options,
-    const Function& function);
 
 std::string AnonSumWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs);
@@ -340,9 +329,6 @@ absl::Status CheckGenerateDateArrayArguments(
 absl::Status CheckGenerateTimestampArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
-
-absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
-                                const LanguageOptions& options);
 
 absl::Status CheckFormatPostResolutionArguments(
     const FunctionSignature& /*signature*/,
@@ -738,6 +724,10 @@ void GetArrayIncludesFunctions(TypeFactory* type_factory,
 absl::Status GetArrayZipFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types);
+
+absl::Status GetToJsonBuiltinEnumTypes(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToTypeMap* types);
 
 absl::Status GetStandaloneBuiltinEnumTypes(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,

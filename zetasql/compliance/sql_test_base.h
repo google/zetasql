@@ -134,6 +134,13 @@ class SQLTestCase {
   ParamsMap params_;
 };
 
+// Counts query result properties across multiple runs.
+struct QueryResultStats {
+  int verified_count = 0;
+  int nonempty_result_count = 0;
+  int ordered_result_count = 0;
+};
+
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
  public:
   using ComplianceTestCaseResult = std::variant<Value, ScriptResult>;
@@ -515,7 +522,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // two ComplianceTestCaseResult so that result can be considered equal.
   FloatMargin GetFloatEqualityMargin(
       absl::StatusOr<ComplianceTestCaseResult> actual,
-      absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits);
+      absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits,
+      QueryResultStats* stats = nullptr);
 
  protected:
   SQLTestBase();
@@ -638,6 +646,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Accesses RegisterTestCaseInspector
   friend class UniqueNameTestEnvironment;
+
+  // Accesses sql_, parameters_ and full_name_ for generating a report.
+  friend class RQGBasedSqlBuilderTest;
 
   // KnownErrorFilter needs to use stats_ to record failed statements. It also
   // needs to read sql_, location_, full_name_, and known_error_mode() for
@@ -980,6 +991,21 @@ class UniversalPrinter<absl::StatusOr<::zetasql::Value>> {
  public:
   static void Print(const absl::StatusOr<::zetasql::Value>& status_or,
                     ::std::ostream* os) {
+    *os << ::zetasql::SQLTestBase::ToString(status_or);
+  }
+};
+
+// Teaches googletest to print StatusOr<ComplianceTestCaseResult>.
+// This is important to make RQG test failures print a human consumable diff
+// between expected and actual results.
+template <>
+class UniversalPrinter<
+    absl::StatusOr<::zetasql::SQLTestBase::ComplianceTestCaseResult>> {
+ public:
+  static void Print(
+      const absl::StatusOr<::zetasql::SQLTestBase::ComplianceTestCaseResult>&
+          status_or,
+      ::std::ostream* os) {
     *os << ::zetasql::SQLTestBase::ToString(status_or);
   }
 };

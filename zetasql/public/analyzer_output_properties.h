@@ -20,6 +20,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/target_syntax.h"
+#include "absl/base/attributes.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 
@@ -31,45 +32,33 @@ class AnalyzerOutputProperties {
   ABSL_DEPRECATED(
       "Client code should consider this struct internal. "
       "It doesn't mean what you think it means.")
-  bool has_flatten = false;  // NOLINT
-
-  // TODO: Remove when external references drop to zero.
-  ABSL_DEPRECATED(
-      "Client code should consider this struct internal. "
-      "It doesn't mean what you think it means.")
   bool has_anonymization = false;  // NOLINT
 
   // Marks the given `rewrite` as being applicable to the resolved AST.
+  ABSL_DEPRECATED(
+      "REWRITE_ANONYMIZATION is the only rewrite still checked through this "
+      "mechanism.")
   void MarkRelevant(ResolvedASTRewrite rewrite) {
     relevant_rewrites_.insert(rewrite);
-    if (rewrite == REWRITE_FLATTEN) {
-      has_flatten = true;
-    }
     if (rewrite == REWRITE_ANONYMIZATION) {
       has_anonymization = true;
     }
   }
 
   // Returns true if the rewrite was marked relevant by the resolver.
+  ABSL_DEPRECATED(
+      "REWRITE_ANONYMIZATION is the only rewrite still checked through this "
+      "mechanism.")
   bool IsRelevant(ResolvedASTRewrite rewrite) const {
     return relevant_rewrites_.contains(rewrite);
   }
 
-  // Returns the set of rewrites marked as relevant by the resolver. The
-  // rewriter may identify more rewrites during rewriting.
-  const absl::btree_set<ResolvedASTRewrite>& relevant_rewrites() {
-    return relevant_rewrites_;
-  }
-
-  void MarkTargetSyntax(ResolvedNode* key, SQLBuildTargetSyntax target_syntax) {
-    target_syntax_.insert({key, target_syntax});
-  }
-
  private:
+  // Defined in zetasql/common/internal_analyzer_output_properties.h.
+  friend class InternalAnalyzerOutputProperties;
+
   absl::btree_set<ResolvedASTRewrite> relevant_rewrites_;
   TargetSyntaxMap target_syntax_;
-
-  friend class AnalyzerTestRunner;  // To read `target_syntax_`
 };
 
 }  // namespace zetasql

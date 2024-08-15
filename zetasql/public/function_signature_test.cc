@@ -1532,6 +1532,9 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   FunctionArgumentType arg_array_type_any_2_lambda =
       FunctionArgumentType::Lambda({type_factory.get_int64()},
                                    ARG_ARRAY_TYPE_ANY_2);
+  FunctionArgumentType arg_type_arbitrary(ARG_TYPE_ARBITRARY);
+
+  EXPECT_FALSE(arg_type_arbitrary.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1539,6 +1542,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_type_fixed.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_type_any_1.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_TRUE(arg_type_any_1.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1548,6 +1552,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_type_any_1.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_type_any_1.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_type_any_1.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_type_any_1.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   // arg_type_any_1_lambda is has the same behavior as arg_type_any_1
   EXPECT_FALSE(arg_type_any_1_lambda.TemplatedKindIsRelated(ARG_TYPE_FIXED));
@@ -1560,6 +1565,8 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_type_any_1_lambda.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_type_any_1_lambda.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_type_any_1_lambda.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(
+      arg_type_any_1_lambda.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_TRUE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1571,6 +1578,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1580,6 +1588,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   // arg_type_any_2_lambda is has the same behavior as arg_type_any_2
   EXPECT_FALSE(arg_type_any_2_lambda.TemplatedKindIsRelated(ARG_TYPE_FIXED));
@@ -1592,6 +1601,8 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_type_any_2_lambda.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_type_any_2_lambda.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_type_any_2_lambda.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(
+      arg_type_any_2_lambda.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1603,6 +1614,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_array_type_any_2.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   // arg_array_type_any_2_lambda is has the same behavior as
   // arg_array_type_any_2
@@ -1622,6 +1634,8 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
       arg_array_type_any_2_lambda.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(
       arg_array_type_any_2_lambda.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(
+      arg_array_type_any_2_lambda.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 
   EXPECT_FALSE(arg_enum_any.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_FALSE(arg_enum_any.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1631,6 +1645,7 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_enum_any.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_enum_any.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_TRUE(arg_enum_any.TemplatedKindIsRelated(ARG_ENUM_ANY));
+  EXPECT_FALSE(arg_enum_any.TemplatedKindIsRelated(ARG_TYPE_ARBITRARY));
 }
 
 static void CheckConcreteArgumentType(
@@ -2379,6 +2394,14 @@ INSTANTIATE_TEST_SUITE_P(
         {.result_type = {ARG_MAP_TYPE_ANY_1_2}, .arguments = {ARG_TYPE_ANY_2}},
         {.result_type = {ARG_MAP_TYPE_ANY_1_2},
          .arguments = {ARG_TYPE_ANY_1, ARG_TYPE_ANY_3}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {FunctionArgumentType::Lambda({ARG_TYPE_ANY_1},
+                                                    ARG_TYPE_ANY_1)}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {FunctionArgumentType::Lambda({ARG_TYPE_ANY_2},
+                                                    ARG_TYPE_ANY_2)}},
         // Templated proto map type should fail if key and value are not
         // present.
         {.result_type = {ARG_PROTO_MAP_ANY}, .arguments = {}},
@@ -2392,6 +2415,47 @@ INSTANTIATE_TEST_SUITE_P(
         //  .arguments = {ARG_PROTO_MAP_KEY_ANY}},
         // {.result_type = {ARG_PROTO_MAP_ANY},
         //  .arguments = {ARG_PROTO_MAP_VALUE_ANY}},
+    }));
+
+struct FunctionSignatureValidTestParams {
+  const FunctionArgumentType result_type;
+  const std::vector<FunctionArgumentType> arguments;
+};
+
+class FunctionSignatureValidTest
+    : public ::testing::TestWithParam<FunctionSignatureValidTestParams> {};
+
+TEST_P(FunctionSignatureValidTest,
+       SignatureValidWhenTemplatedTypeIsFullyResolved) {
+  std::unique_ptr<FunctionSignature> signature;
+  signature = std::make_unique<FunctionSignature>(
+      GetParam().result_type, GetParam().arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FunctionSignatureTests, FunctionSignatureValidTest,
+    ::testing::ValuesIn<FunctionSignatureValidTestParams>({
+        // Templated map type should succeed if key and value are both present
+        // or inferrable.
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_TYPE_ANY_1, ARG_TYPE_ANY_2}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_2}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_2}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_RANGE_TYPE_ANY_1, ARG_TYPE_ANY_2}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {ARG_RANGE_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_2}},
+        {.result_type = {ARG_MAP_TYPE_ANY_1_2},
+         .arguments = {FunctionArgumentType::Lambda({ARG_TYPE_ANY_1},
+                                                    ARG_TYPE_ANY_2)}},
+        {.result_type = {types::BoolType()},
+         .arguments = {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_2,
+                       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1},
+                                                    ARG_TYPE_ANY_1)}},
     }));
 
 }  // namespace zetasql
