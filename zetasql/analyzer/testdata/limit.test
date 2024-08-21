@@ -777,7 +777,6 @@ QueryStmt
     |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=34-35
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-limit=
@@ -801,7 +800,6 @@ QueryStmt
     |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=34-35
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-limit=

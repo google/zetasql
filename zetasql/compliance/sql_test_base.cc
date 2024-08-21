@@ -55,7 +55,6 @@
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/catalog.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"

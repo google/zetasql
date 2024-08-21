@@ -69,7 +69,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=STRING, column=$subquery1.target_element#3, is_correlated=TRUE)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=225-231
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.offset#5)
     |         +-input_scan=
@@ -156,7 +155,6 @@ QueryStmt
     |         |     |       |       +-ColumnRef(type=STRING, column=$subquery1.target_element#3, is_correlated=TRUE)
     |         |     |       +-order_by_item_list=
     |         |     |         +-OrderByItem
-    |         |     |           +-parse_location=237-243
     |         |     |           +-column_ref=
     |         |     |             +-ColumnRef(type=INT64, column=$array_offset.offset#5)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
@@ -263,7 +261,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=STRING, column=$subquery1.target_element#3, is_correlated=TRUE)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=220-226
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.offset#5)
     |         +-input_scan=
@@ -345,7 +342,6 @@ QueryStmt
     |         |     |       |       +-ColumnRef(type=STRING, column=$subquery1.target_element#3, is_correlated=TRUE)
     |         |     |       +-order_by_item_list=
     |         |     |         +-OrderByItem
-    |         |     |           +-parse_location=232-238
     |         |     |           +-column_ref=
     |         |     |             +-ColumnRef(type=INT64, column=$array_offset.offset#5)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL, has_explicit_type=TRUE)

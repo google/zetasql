@@ -469,29 +469,4 @@ TEST(ExecuteQueryStatementPrompt, LargeInput) {
   }
 }
 
-TEST(ExecuteQuerySingleInputTest, ReadEmptyString) {
-  ExecuteQueryConfig config;
-  ExecuteQuerySingleInput prompt{"", config};
-
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
-}
-
-TEST(ExecuteQuerySingleInputTest, ReadMultiLine) {
-  ExecuteQueryConfig config;
-  ExecuteQuerySingleInput prompt{"test\nline; SELECT 100;", config};
-
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds("test\nline;"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 100;"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
-}
-
-TEST(ExecuteQuerySingleInputTest, UnexpectedEnd) {
-  ExecuteQueryConfig config;
-  ExecuteQuerySingleInput prompt{"SELECT 99;\nSELECT", config};
-
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 99;"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
-}
-
 }  // namespace zetasql

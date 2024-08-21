@@ -1238,9 +1238,10 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                                           /*offset_or_ordinal=*/"ORDINAL")));
 }
 
-void GetJSONFunctions(TypeFactory* type_factory,
-                      const ZetaSQLBuiltinFunctionOptions& options,
-                      NameToFunctionMap* functions) {
+absl::Status GetJSONFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions,
+                              NameToTypeMap* types) {
   const Type* int32_type = types::Int32Type();
   const Type* int64_type = types::Int64Type();
   const Type* uint32_type = types::Uint32Type();
@@ -1359,25 +1360,45 @@ void GetJSONFunctions(TypeFactory* type_factory,
          {json_type, optional_json_path_argument},
          FN_JSON_VALUE_ARRAY_JSON});
 
-    FunctionArgumentTypeList to_json_args(
-        {ARG_TYPE_ANY_1,
-         {bool_type,
-          FunctionArgumentTypeOptions()
-              .set_cardinality(FunctionEnums::OPTIONAL)
-              .set_argument_name("stringify_wide_numbers", kNamedOnly)
-              .set_default(values::Bool(false))}});
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
-      to_json_args.push_back(
-          {unsupported_fields_type,
-           FunctionArgumentTypeOptions()
-               .set_cardinality(FunctionEnums::OPTIONAL)
-               .set_argument_name("unsupported_fields", kNamedOnly)
-               .set_default(values::Enum(unsupported_fields_type,
-                                         functions::UnsupportedFields::FAIL))});
+    {
+      std::vector<FunctionSignatureOnHeap> signatures = {
+          {json_type,
+           {ARG_TYPE_ANY_1,
+            {bool_type,
+             FunctionArgumentTypeOptions()
+                 .set_cardinality(FunctionEnums::OPTIONAL)
+                 .set_argument_name("stringify_wide_numbers", kNamedOnly)
+                 .set_default(values::Bool(false))}},
+           FN_TO_JSON},
+      };
+      if (options.language_options.LanguageFeatureEnabled(
+              FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
+        signatures.push_back(
+            {json_type,
+             {ARG_TYPE_ANY_1,
+              {bool_type,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionEnums::OPTIONAL)
+                   .set_argument_name("stringify_wide_numbers", kNamedOnly)
+                   .set_default(values::Bool(false))},
+              {
+                  unsupported_fields_type,
+                  FunctionArgumentTypeOptions()
+                      .set_cardinality(FunctionEnums::OPTIONAL)
+                      .set_argument_name("unsupported_fields", kNamedOnly)
+                      .set_default(
+                          values::Enum(unsupported_fields_type,
+                                       functions::UnsupportedFieldsEnum::FAIL)),
+              }},
+             FN_TO_JSON_UNSUPPORTED_FIELDS});
+
+        ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
+            functions, types, options, "to_json", SCALAR, signatures,
+            /*function_options=*/{}, {unsupported_fields_type}));
+      } else {
+        InsertFunction(functions, options, "to_json", SCALAR, signatures);
+      }
     }
-    InsertFunction(functions, options, "to_json", SCALAR,
-                   {{json_type, to_json_args, FN_TO_JSON}});
 
     InsertFunction(
         functions, options, "parse_json", SCALAR,
@@ -1748,6 +1769,7 @@ void GetJSONFunctions(TypeFactory* type_factory,
       FunctionOptions()
           .AddRequiredLanguageFeature(FEATURE_JSON_TYPE)
           .AddRequiredLanguageFeature(FEATURE_JSON_KEYS_FUNCTION));
+  return absl::OkStatus();
 }
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,

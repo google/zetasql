@@ -207,7 +207,7 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
   GetArrayMiscFunctions(&type_factory, options, &functions);
   GetArrayAggregationFunctions(&type_factory, options, &functions);
   GetSubscriptFunctions(&type_factory, options, &functions);
-  GetJSONFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(GetJSONFunctions(&type_factory, options, &functions, &types));
   ZETASQL_RETURN_IF_ERROR(GetMathFunctions(&type_factory, options, &functions, &types));
   GetHllCountFunctions(&type_factory, options, &functions);
   GetD3ACountFunctions(&type_factory, options, &functions);
@@ -254,10 +254,6 @@ absl::Status GetBuiltinFunctionsAndTypes(const BuiltinFunctionOptions& options,
           FEATURE_V_1_4_ARRAY_ZIP)) {
     ZETASQL_RETURN_IF_ERROR(
         GetArrayZipFunctions(&type_factory, options, &functions, &types));
-  }
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_TO_JSON_UNSUPPORTED_FIELDS)) {
-    ZETASQL_RETURN_IF_ERROR(GetToJsonBuiltinEnumTypes(&type_factory, options, &types));
   }
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));

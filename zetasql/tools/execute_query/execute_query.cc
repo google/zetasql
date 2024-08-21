@@ -37,9 +37,12 @@
 #include "zetasql/tools/execute_query/execute_query_web.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
-#include "absl/flags/parse.h"
 #include "absl/functional/bind_front.h"
+#include "absl/flags/parse.h"
+#include "absl/flags/usage.h"
+#include "absl/flags/usage_config.h"
 #include "absl/log/initialize.h"
+#include "absl/strings/match.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -51,12 +54,6 @@ namespace {
 constexpr absl::string_view kHistoryFileName{
     ".zetasql_execute_query_history"};
 }
-
-ABSL_FLAG(
-    bool, interactive, false,
-    absl::StrFormat("Use interactive shell for entering multiple queries with "
-                    "the query history stored in ~/%s.",
-                    kHistoryFileName));
 
 ABSL_FLAG(bool, web, false, "Run a local webserver to execute queries.");
 ABSL_FLAG(int32_t, port, 8080, "Port to run the local webserver on.");
@@ -72,42 +69,51 @@ absl::Status RunTool(const std::vector<std::string>& args) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ExecuteQueryWriter> writer,
                    MakeWriterFromFlags(config, std::cout));
 
-  if (absl::GetFlag(FLAGS_interactive)) {
-    ABSL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
-  }
-
   if (absl::GetFlag(FLAGS_web)) {
     return RunExecuteQueryWebServer(absl::GetFlag(FLAGS_port));
   }
 
   const std::string sql = absl::StrJoin(args, " ");
-
-  ExecuteQuerySingleInput prompt(sql, config);
-
-  return ExecuteQueryLoop(prompt, config, *writer,
-                          &ExecuteQueryLoopPrintErrorHandler);
+  return ExecuteQuery(sql, config, *writer);
 }
 }  // namespace
 }  // namespace zetasql
 
+// Make --help show these flags.
+static bool HelpFilter(absl::string_view module) {
+  return absl::StrContains(module, "/execute_query.cc") ||
+         absl::StrContains(module, "/execute_query_tool.cc");
+}
+
+// Make --helpshort show these flags.
+static bool HelpShortFilter(absl::string_view module) {
+  return absl::StrContains(module, "/execute_query.cc");
+}
+
 int main(int argc, char* argv[]) {
   const char kUsage[] =
-      "Usage: execute_query [--table_spec=<table_spec>] "
-      "{ --interactive | <sql> } { --web --port=<port> }\n";
+      "Usage: execute_query "
+      "{ \"<sql>\" | {--web [--port=<port>] } }\n";
 
   std::vector<std::string> args;
 
+  absl::FlagsUsageConfig flag_config;
+  flag_config.contains_help_flags = &HelpFilter;
+  flag_config.contains_helpshort_flags = &HelpShortFilter;
+  absl::SetFlagsUsageConfig(flag_config);
+
+  absl::SetProgramUsageMessage(kUsage);
   {
     std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
     args.assign(remaining_args.cbegin() + 1, remaining_args.cend());
   }
   absl::InitializeLog();
 
-  bool args_needed = !absl::GetFlag(FLAGS_interactive);
-  args_needed = args_needed && !absl::GetFlag(FLAGS_web);
+  bool args_needed = !absl::GetFlag(FLAGS_web);
 
   if (args_needed && args.empty()) {
-    ABSL_LOG(QFATAL) << "\n" << kUsage << "Pass --help for a full list of flags.\n";
+    std::cerr << kUsage << "Pass --help for a full list of flags.\n";
+    return 1;
   }
 
   if (const absl::Status status = zetasql::RunTool(args); status.ok()) {

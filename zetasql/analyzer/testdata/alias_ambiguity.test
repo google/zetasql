@@ -8,8 +8,6 @@ select {{key | keyvalue.key | key as key | keyvalue.key as key}}
 from keyvalue
 order by {{key | keyvalue.key}}
 --
-ALTERNATION GROUP: key ,key 
---
 QueryStmt
 +-output_column_list=
 | +-KeyValue.Key#1 AS key [INT64]
@@ -21,126 +19,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=35-38
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP: key , keyvalue.key
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=36-48
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  keyvalue.key ,key 
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=45-48
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  keyvalue.key , keyvalue.key
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=46-58
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  key as key ,key 
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=43-46
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  key as key , keyvalue.key
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=44-56
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  keyvalue.key as key,key 
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=51-54
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=KeyValue.Key#1)
---
-ALTERNATION GROUP:  keyvalue.key as key, keyvalue.key
---
-QueryStmt
-+-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[KeyValue.Key#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=52-64
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -160,7 +38,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=51-55
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -188,7 +65,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-46
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.key#3)
 ==
@@ -208,7 +84,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-48
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -248,7 +123,6 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-39
         +-column_ref=
           +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
@@ -268,7 +142,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-46
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -698,7 +571,6 @@ QueryStmt
     |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-50
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key#3)
 ==
@@ -708,8 +580,6 @@ from keyvalue
 group by 1
 order by key
 --
-ALTERNATION GROUP: key 
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.key#3 AS key [INT64]
@@ -726,73 +596,6 @@ QueryStmt
     |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=46-49
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=$groupby.key#3)
---
-ALTERNATION GROUP:  keyvalue.key 
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.key#3 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.key#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.key#3]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=56-59
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=$groupby.key#3)
---
-ALTERNATION GROUP:  key as key 
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.key#3 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.key#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.key#3]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=54-57
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=$groupby.key#3)
---
-ALTERNATION GROUP:  keyvalue.key as key
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.key#3 AS key [INT64]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.key#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.key#3]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=62-65
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key#3)
 ==
@@ -818,7 +621,6 @@ QueryStmt
     |     +-key1#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=53-57
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key1#3)
 ==
@@ -844,7 +646,6 @@ QueryStmt
     |     +-value#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=54-59
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.value#3)
 ==
@@ -870,7 +671,6 @@ QueryStmt
     |     +-key1#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=53-56
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key1#3)
 ==
@@ -900,7 +700,6 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=52-60
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
 ==
@@ -930,11 +729,9 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=52-55
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.key#3)
       +-OrderByItem
-        +-parse_location=57-65
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
 ==
@@ -1218,8 +1015,6 @@ select {{kv|kv as kv}}
 from KeyValue kv
 order by kv.key
 --
-ALTERNATION GROUP: kv
---
 QueryStmt
 +-output_column_list=
 | +-$query.kv#4 AS kv [STRUCT<Key INT64, Value STRING>]
@@ -1251,44 +1046,6 @@ QueryStmt
     |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=36-42
-        +-column_ref=
-          +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
---
-ALTERNATION GROUP: kv as kv
---
-QueryStmt
-+-output_column_list=
-| +-$query.kv#4 AS kv [STRUCT<Key INT64, Value STRING>]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.kv#4]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $query.kv#4, $orderby.$orderbycol1#5]
-    |   +-expr_list=
-    |   | +-$orderbycol1#5 :=
-    |   |   +-GetStructField
-    |   |     +-type=INT64
-    |   |     +-expr=
-    |   |     | +-ColumnRef(type=STRUCT<Key INT64, Value STRING>, column=$query.kv#4)
-    |   |     +-field_idx=0
-    |   +-input_scan=
-    |     +-ProjectScan
-    |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $query.kv#4]
-    |       +-expr_list=
-    |       | +-kv#4 :=
-    |       |   +-MakeStruct
-    |       |     +-type=STRUCT<Key INT64, Value STRING>
-    |       |     +-field_list=
-    |       |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-    |       |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
-    |       +-input_scan=
-    |         +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=42-48
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -1359,7 +1116,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv")
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=50-52
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.kv#3)
 ==
@@ -1402,7 +1158,6 @@ QueryStmt
     |             +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-72
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.key#4)
 ==
@@ -1447,7 +1202,6 @@ QueryStmt
     |             +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=78-81
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.key#4)
 ==
@@ -1490,7 +1244,6 @@ QueryStmt
     |             +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-80
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -1524,7 +1277,6 @@ QueryStmt
     |   +-element_column_list=[$array.v#4]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=71-72
         +-column_ref=
           +-ColumnRef(type=INT32, column=$array.v#4)
 ==
@@ -1576,7 +1328,6 @@ QueryStmt
     |   +-element_column_list=[$array.v#4]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=71-72
         +-column_ref=
           +-ColumnRef(type=INT32, column=$array.v#4)
 ==

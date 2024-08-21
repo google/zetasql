@@ -2338,7 +2338,10 @@ SELECT ST_GEOGFROM(
 ### `ST_GEOGFROMGEOJSON`
 
 ```sql
-ST_GEOGFROMGEOJSON(geojson_string [, make_valid => constant_expression])
+ST_GEOGFROMGEOJSON(
+  geojson_string
+  [, make_valid => constant_expression ]
+)
 ```
 
 **Description**
@@ -2349,10 +2352,9 @@ input [GeoJSON][geojson-link] representation.
 `ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][geojson-spec-link]
 compliant.
 
-If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
-polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
-This parameter uses named argument syntax, and should be specified using
-`make_valid => argument_value` syntax.
+If the named argument `make_valid` is set to `TRUE`, the function attempts to
+repair polygons that don't conform to [Open Geospatial Consortium][ogc-link]
+semantics.
 
 A ZetaSQL `GEOGRAPHY` has spherical
 geodesic edges, whereas a GeoJSON `Geometry` object explicitly has planar edges.
@@ -2522,9 +2524,9 @@ ST_GEOGFROMWKB(
 ```sql
 ST_GEOGFROMWKB(
   wkb_hex_string_expression
-  [ , oriented => value ]
-  [ , planar => value ]
-  [ , make_valid => value ]
+  [, oriented => value ]
+  [, planar => value ]
+  [, make_valid => value ]
 )
 ```
 
@@ -2758,11 +2760,11 @@ FROM example;
 ### `ST_HAUSDORFFDISTANCE`
 
 ```sql
-ST_HAUSDORFFDISTANCE(geography_1, geography_2)
-```
-
-```sql
-ST_HAUSDORFFDISTANCE(geography_1, geography_2, directed=>{ TRUE | FALSE })
+ST_HAUSDORFFDISTANCE(
+  geography_1,
+  geography_2
+  [, directed => { TRUE | FALSE } ]
+)
 ```
 
 **Description**
@@ -2775,9 +2777,9 @@ discrete point in another geography.
 
 +   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
 +   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
-+   `directed`: Optional, required named argument that represents the type of
-    computation to use on the input geographies. If this argument is not
-    specified, `directed=>FALSE` is used by default.
++   `directed`: A named argument with a `BOOL` value. Represents the type of
+    computation to use on the input geographies. If this argument isn't
+    specified, `directed => FALSE` is used by default.
 
     +   `FALSE`: The largest Hausdorff distance found in
         (`geography_1`, `geography_2`) and

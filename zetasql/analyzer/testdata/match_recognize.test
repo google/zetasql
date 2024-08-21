@@ -1,0 +1,110 @@
+[default language_features=TABLE_VALUED_FUNCTIONS,NAMED_ARGUMENTS]
+[default show_unparsed]
+
+select m from KeyValue MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not supported [at 1:24]
+select m from KeyValue MATCH_RECOGNIZE(
+                       ^
+==
+
+# subquery
+select m from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not supported [at 1:45]
+select m from (SELECT * FROM KeyValue) AS k MATCH_RECOGNIZE(
+                                            ^
+==
+
+# UNNEST
+select m from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not allowed with array scans [at 1:47]
+select m from UNNEST(['abc', 'def']) AS value MATCH_RECOGNIZE(
+                                              ^
+==
+
+# 2 UNNESTs
+select m from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
+MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not allowed with array scans [at 2:1]
+MATCH_RECOGNIZE(
+^
+==
+
+# Table with 2 UNNESTs
+select m from UNNEST([1, 2]) AS key, UNNEST(['abc', 'def']) AS value
+MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not allowed with array scans [at 2:1]
+MATCH_RECOGNIZE(
+^
+==
+
+# TVF
+select * from tvf_no_args()
+MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not supported [at 2:1]
+MATCH_RECOGNIZE(
+^
+==
+
+# parenthesized join
+select m from (KeyValue t1 INNER JOIN KeyValue t2 ON t1.key = t2.key)
+MATCH_RECOGNIZE(
+  ORDER BY key
+  MEASURES min(value) AS m
+  PATTERN (a b)
+  DEFINE
+    A AS length(value) < 10,
+    B AS length(value) >= 10
+)
+--
+ERROR: MATCH_RECOGNIZE is not supported [at 2:1]
+MATCH_RECOGNIZE(
+^
+==

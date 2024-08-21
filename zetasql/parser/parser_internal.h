@@ -407,6 +407,22 @@ inline absl::Status IsIdentifierOrKeyword(absl::string_view text) {
   return absl::OkStatus();
 }
 
+inline ASTTableExpression* MaybeApplyPivotOrUnpivot(
+    ASTTableExpression* table_expr, ASTPivotClause* pivot_clause,
+    ASTUnpivotClause* unpivot_clause) {
+  ABSL_DCHECK(pivot_clause == nullptr || unpivot_clause == nullptr)
+      << "pivot_clause and unpivot_clause cannot both be non-null";
+  if (pivot_clause != nullptr) {
+    return WithExtraChildren(table_expr, {pivot_clause});
+  }
+
+  if (unpivot_clause != nullptr) {
+    return WithExtraChildren(table_expr, {unpivot_clause});
+  }
+
+  return table_expr;
+}
+
 template <typename Location>
 inline zetasql::ASTRowPatternExpression* MakeOrCombineRowPatternOperation(
     const zetasql::ASTRowPatternOperation::OperationType op,

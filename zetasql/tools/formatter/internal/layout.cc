@@ -1022,7 +1022,7 @@ void StmtLayout::PruneLineBreaks() {
     if (prev_line->LengthInChunks() == 1 &&
         !ChunkAt(prev_line->start)
              .LastToken()
-             .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+             .Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET)) {
       const Chunk& prev_chunk = ChunkAt(prev_line->start);
       const int curr_line_level = first_chunk.ChunkBlock()->Level();
       const int prev_line_level = prev_chunk.ChunkBlock()->Level();
@@ -1580,7 +1580,7 @@ absl::btree_set<int> StmtLayout::FindSiblingBreakpoints(const Line& line,
           // Curly braced constructor `NEW Type { foo: 1 }`.
           ChunkAt(closing_bracket)
               .FirstToken()
-              .Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+              .Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET)) {
         // Add a line break before closing parenthesis.
         result.insert(closing_bracket);
       } else {

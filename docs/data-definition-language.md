@@ -860,20 +860,19 @@ SELECT (DEFAULT_HEIGHT + 5) AS result;
 
 ## `CREATE AGGREGATE FUNCTION`
 
-A user-defined aggregate function (UDA), enables you to create an
-aggregate function using another SQL expression or another programming language.
-These functions accept arguments and perform actions, returning the
-result of those actions as a value. To create a UDA,
-see [UDAs][udas].
+A user-defined aggregate function (UDA), lets you create an aggregate function
+using another SQL expression or another programming language. These functions
+accept arguments and perform actions, returning the result of those actions as a
+value. To create a UDA, see [UDAs][udas].
 
 [udas]: https://github.com/google/zetasql/blob/master/docs/user-defined-aggregates.md#udas
 
 ## `CREATE FUNCTION`
 
-A user-defined function (UDF), enables you to create a scalar function using
-another SQL expression or another programming language.
-These functions accept arguments and perform actions, returning the
-result of those actions as a value. To create a UDF, see [UDFs][udfs].
+A user-defined function (UDF), lets you create a scalar function using another
+SQL expression or another programming language. These functions accept arguments
+and perform actions, returning the result of those actions as a value. To create
+a UDF, see [UDFs][udfs].
 
 [udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
@@ -949,9 +948,9 @@ denied from exercising these privileges on the object.
 
 ## `CREATE TABLE FUNCTION`
 
-A table function, also known as a table value function (TVF), is a function that
-returns a table.  A TVF is called in the `FROM` clause like a table subquery.
-To create a TVF, see [TVFs][tvfs].
+A table function, also known as a table value function (TVF), returns a table. A
+TVF is called in the `FROM` clause like a table subquery. To create a TVF, see
+[TVFs][tvfs].
 
 [tvfs]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
 

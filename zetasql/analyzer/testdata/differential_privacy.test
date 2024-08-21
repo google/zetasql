@@ -1962,7 +1962,6 @@ QueryStmt
         |   |   |           +-Literal(type=INT64, value=0)
         |   |   +-order_by_item_list=
         |   |     +-OrderByItem
-        |   |       +-parse_location=283-290
         |   |       +-column_ref=
         |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   +-limit=
@@ -2033,7 +2032,6 @@ QueryStmt
         |   |   |   |           +-Literal(type=INT64, value=0)
         |   |   |   +-order_by_item_list=
         |   |   |     +-OrderByItem
-        |   |   |       +-parse_location=283-290
         |   |   |       +-column_ref=
         |   |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   |   +-limit=

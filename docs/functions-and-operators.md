@@ -8179,7 +8179,7 @@ SELECT
 ARRAY_ZIP(
   array_input [ AS alias ],
   array_input [ AS alias ][, ... ]
-  [, transformation => lambda_expression ]
+  [, [ transformation => ] value ]
   [, mode => { 'STRICT' | 'TRUNCATE' | 'PAD' } ]
 )
 ```
@@ -8194,13 +8194,13 @@ Combines the elements from two to four arrays into one array.
     inputs. `ARRAY_ZIP` supports two to four input arrays.
 +   `alias`: An alias optionally supplied for an `array_input`. In the results,
     the alias is the name of the associated `STRUCT` field.
-+   `transformation`: A optionally-named lambda argument. `lambda_expression`
-    specifies how elements are combined as they are zipped. This overrides
-    the default `STRUCT` creation behavior.
-+   `mode`: A mandatory-named argument that determines how arrays of differing
-    lengths are zipped. If this optional argument is not supplied, the function
-    uses `STRICT` mode by default. This argument can be one of the following
-    values:
++   `transformation`: A named argument with a lambda expression.
+    The lambda expression specifies how elements are combined as they are
+    zipped. This overrides the default `STRUCT` creation behavior.
++   `mode`: A named argument with a `STRING` value. Determines how arrays of
+    differing lengths are zipped. If this argument isn't supplied, the
+    function uses `STRICT` mode. This argument can be one of the
+    following values:
 
     +   `STRICT` (default): If the length of any array is different from the
         others, produce an error.
@@ -8219,7 +8219,7 @@ Combines the elements from two to four arrays into one array.
 
 **Return type**
 
-+   If `transformation` is used and `lambda_expression` returns type `T`, the
++   If `transformation` is used and returns type `T`, the
     return type is `ARRAY<T>`.
 +   Otherwise, the return type is `ARRAY<STRUCT>`, with the `STRUCT` having a
     number of fields equal to the number of input arrays. Each field's name is
@@ -13680,7 +13680,7 @@ determine the optimal privacy parameters for your dataset and organization.
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -13695,9 +13695,9 @@ and can support the following arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -13824,7 +13824,7 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -13837,9 +13837,9 @@ is an aggregation across a privacy unit column.
 This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
 and can support the following argument:
 
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -13962,9 +13962,9 @@ and can support these arguments:
 
 + `expression`: The input expression. This expression can be any
   numeric input type, such as `INT64`.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -14103,9 +14103,9 @@ and can support these arguments:
   such as `INT64`. `NULL` values are always ignored.
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range `[0, 1]`.
-+ `contribution_bounds_per_row`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each row separately before performing intermediate
++ `contribution_bounds_per_row`: A named argument with a
+  [contribution bounds][dp-clamped-named].
+  Performs clamping for each row separately before performing intermediate
   grouping on the privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
@@ -14183,7 +14183,7 @@ GROUP BY item;
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -14197,10 +14197,9 @@ and can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL` values are always ignored.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
-  grouping on the privacy unit column.
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named]. Performs clamping for each group
+  separately before performing intermediate grouping on the privacy unit column.
 
 **Return type**
 
@@ -14324,7 +14323,7 @@ noise, see [Use differential privacy][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   VAR_POP(
     expression,
-    [contribution_bounds_per_row => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_row => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -14341,9 +14340,9 @@ can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
-+ `contribution_bounds_per_row`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each row separately before performing intermediate
++ `contribution_bounds_per_row`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each row separately before performing intermediate
   grouping on individual user values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
@@ -17647,7 +17646,10 @@ SELECT ST_GEOGFROM(
 ### `ST_GEOGFROMGEOJSON`
 
 ```sql
-ST_GEOGFROMGEOJSON(geojson_string [, make_valid => constant_expression])
+ST_GEOGFROMGEOJSON(
+  geojson_string
+  [, make_valid => constant_expression ]
+)
 ```
 
 **Description**
@@ -17658,10 +17660,9 @@ input [GeoJSON][geojson-link] representation.
 `ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][geojson-spec-link]
 compliant.
 
-If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
-polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
-This parameter uses named argument syntax, and should be specified using
-`make_valid => argument_value` syntax.
+If the named argument `make_valid` is set to `TRUE`, the function attempts to
+repair polygons that don't conform to [Open Geospatial Consortium][ogc-link]
+semantics.
 
 A ZetaSQL `GEOGRAPHY` has spherical
 geodesic edges, whereas a GeoJSON `Geometry` object explicitly has planar edges.
@@ -17831,9 +17832,9 @@ ST_GEOGFROMWKB(
 ```sql
 ST_GEOGFROMWKB(
   wkb_hex_string_expression
-  [ , oriented => value ]
-  [ , planar => value ]
-  [ , make_valid => value ]
+  [, oriented => value ]
+  [, planar => value ]
+  [, make_valid => value ]
 )
 ```
 
@@ -18067,11 +18068,11 @@ FROM example;
 ### `ST_HAUSDORFFDISTANCE`
 
 ```sql
-ST_HAUSDORFFDISTANCE(geography_1, geography_2)
-```
-
-```sql
-ST_HAUSDORFFDISTANCE(geography_1, geography_2, directed=>{ TRUE | FALSE })
+ST_HAUSDORFFDISTANCE(
+  geography_1,
+  geography_2
+  [, directed => { TRUE | FALSE } ]
+)
 ```
 
 **Description**
@@ -18084,9 +18085,9 @@ discrete point in another geography.
 
 +   `geography_1`: A `GEOGRAPHY` value that represents the first geography.
 +   `geography_2`: A `GEOGRAPHY` value that represents the second geography.
-+   `directed`: Optional, required named argument that represents the type of
-    computation to use on the input geographies. If this argument is not
-    specified, `directed=>FALSE` is used by default.
++   `directed`: A named argument with a `BOOL` value. Represents the type of
+    computation to use on the input geographies. If this argument isn't
+    specified, `directed => FALSE` is used by default.
 
     +   `FALSE`: The largest Hausdorff distance found in
         (`geography_1`, `geography_2`) and
@@ -20125,7 +20126,14 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 ### `MAKE_INTERVAL`
 
 ```sql
-MAKE_INTERVAL([year][, month][, day][, hour][, minute][, second])
+MAKE_INTERVAL(
+  [ [ year => ] value ]
+  [, [ month => ] value ]
+  [, [ day => ] value ]
+  [, [ hour => ] value ]
+  [, [ minute => ] value ]
+  [, [ second => ] value ]
+)
 ```
 
 **Description**
@@ -20282,8 +20290,8 @@ behavior:
         
       </td>
       <td>
-        Functions that flexibly convert a JSON value to an SQL value
-        without returning errors.
+        Functions that flexibly convert a JSON value to a SQL value without
+        returning errors.
       </td>
     </tr>
     
@@ -21009,7 +21017,10 @@ SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 <a id="double_for_json"></a>
 
 ```sql
-DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+DOUBLE(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -21026,8 +21037,8 @@ Arguments:
 
     If the JSON value is not a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument,
-    which defines what happens with a number that cannot be
++   `wide_number_mode`: A named argument with a `STRING` value.
+    Defines what happens with a number that can't be
     represented as a `DOUBLE` without loss of
     precision. This argument accepts one of the two case-sensitive values:
 
@@ -21105,7 +21116,10 @@ SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 <a id="double_array_for_json"></a>
 
 ```sql
-DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+DOUBLE_ARRAY(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -21122,8 +21136,8 @@ Arguments:
 
     If the JSON value is not an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
-    happens with a number that cannot be represented as a
++   `wide_number_mode`: A named argument that takes a `STRING` value. Defines
+    what happens with a number that can't be represented as a
     `DOUBLE` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
@@ -21189,7 +21203,10 @@ SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as
 <a id="float_for_json"></a>
 
 ```sql
-FLOAT(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+FLOAT(
+  json_expr
+  [, [ wide_number_mode => ] { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -21206,7 +21223,7 @@ Arguments:
 
     If the JSON value is not a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
++   `wide_number_mode`: A named argument with a `STRING` value. Defines what
     happens with a number that cannot be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
@@ -21285,7 +21302,10 @@ SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
 <a id="float_array_for_json"></a>
 
 ```sql
-FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+FLOAT_ARRAY(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -21302,8 +21322,8 @@ Arguments:
 
     If the JSON value is not an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
-    happens with a number that cannot be represented as a
++   `wide_number_mode`: A named argument with a `STRING` value. Defines
+    what happens with a number that can't be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
@@ -21724,7 +21744,7 @@ SELECT JSON_ARRAY() AS json_data
 JSON_ARRAY_APPEND(
   json_expr,
   json_path_value_pair[, ...]
-  [, append_each_element=>{ TRUE | FALSE }]
+  [, append_each_element => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -21748,7 +21768,7 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         append.
-+   `append_each_element`: An optional, mandatory named argument.
++   `append_each_element`: A named argument with a `BOOL` value.
 
     +   If `TRUE` (default), and `value` is a SQL array,
         appends each element individually.
@@ -21915,7 +21935,7 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
 JSON_ARRAY_INSERT(
   json_expr,
   json_path_value_pair[, ...]
-  [, insert_each_element=>{ TRUE | FALSE }]
+  [, insert_each_element => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -21940,7 +21960,7 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         insert.
-+   `insert_each_element`: An optional, mandatory named argument.
++   `insert_each_element`: A named argument with a `BOOL` value.
 
     +   If `TRUE` (default), and `value` is a SQL array,
         inserts each element individually.
@@ -23763,7 +23783,7 @@ SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 JSON_SET(
   json_expr,
   json_path_value_pair[, ...]
-  [, create_if_missing=> { TRUE | FALSE }]
+  [, create_if_missing => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -23788,11 +23808,11 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         insert.
-+   `create_if_missing`: An optional, mandatory named argument.
++   `create_if_missing`: A named argument that takes a `BOOL` value.
 
-    +   If TRUE (default), replaces or inserts data if the path does not exist.
+    +   If `TRUE` (default), replaces or inserts data if the path doesn't exist.
 
-    +   If FALSE, only _existing_ JSONPath values are replaced. If the path
+    +   If `FALSE`, only existing JSONPath values are replaced. If the path
         doesn't exist, the set operation is ignored.
 
 Details:
@@ -24052,9 +24072,9 @@ SELECT JSON_SET(
 ```sql
 JSON_STRIP_NULLS(
   json_expr
-  [, json_path]
-  [, include_arrays => { TRUE | FALSE }]
-  [, remove_empty => { TRUE | FALSE }]
+  [, json_path ]
+  [, include_arrays => { TRUE | FALSE } ]
+  [, remove_empty => { TRUE | FALSE } ]
 )
 ```
 
@@ -24069,10 +24089,10 @@ Arguments:
     ```
 +   `json_path`: Remove JSON nulls at this [JSONPath][JSONPath-format] for
     `json_expr`.
-+   `include_arrays`: An optional, mandatory named argument that is either
++   `include_arrays`: A named argument that's either
      `TRUE` (default) or `FALSE`. If `TRUE` or omitted, the function removes
      JSON nulls from JSON arrays. If `FALSE`, does not.
-+   `remove_empty`: An optional, mandatory named argument that is either
++   `remove_empty`: A named argument that's either
      `TRUE` or `FALSE` (default). If `TRUE`, the function removes empty
      JSON objects after JSON nulls are removed. If `FALSE` or omitted, does not.
 
@@ -27508,7 +27528,10 @@ SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
 ### `PARSE_JSON`
 
 ```sql
-PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+PARSE_JSON(
+  json_string_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -27522,9 +27545,10 @@ Arguments:
     ```
     '{"class": {"students": [{"name": "Jane"}]}}'
     ```
-+   `wide_number_mode`: Optional mandatory-named argument that determines how to
-    handle numbers that cannot be stored in a `JSON` value without the loss of
-    precision. If used, `wide_number_mode` must include one of these values:
++   `wide_number_mode`: A named argument with a `STRING` value. Determines
+    how to handle numbers that can't be stored in a `JSON` value without the
+    loss of precision. If used, `wide_number_mode` must include one of the
+    following values:
 
     +   `exact` (default): Only accept numbers that can be stored without loss
         of precision. If a number that cannot be stored without loss of
@@ -27713,7 +27737,10 @@ SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
 ### `TO_JSON`
 
 ```sql
-TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
+TO_JSON(
+  sql_value
+  [, stringify_wide_numbers => { TRUE | FALSE } ]
+)
 ```
 
 **Description**
@@ -27725,7 +27752,7 @@ Arguments:
 +   `sql_value`: The SQL value to convert to a JSON value. You can review the
     ZetaSQL data types that this function supports and their
     JSON encodings [here][json-encodings].
-+   `stringify_wide_numbers`: Optional mandatory-named argument that is either
++   `stringify_wide_numbers`: A named argument that's either
     `TRUE` or `FALSE` (default).
 
     +   If `TRUE`, numeric values outside of the
@@ -35215,13 +35242,14 @@ FROM AlbumList;
 ### `FILTER_FIELDS`
 
 ```sql
-FILTER_FIELDS(proto_expression, proto_field_list [, reset_fields_named_arg])
+FILTER_FIELDS(
+  proto_expression,
+  proto_field_list
+  [, reset_cleared_required_fields => { TRUE | FALSE } ]
+)
 
 proto_field_list:
   {+|-}proto_field_path[, ...]
-
-reset_fields_named_arg:
-  RESET_CLEARED_REQUIRED_FIELDS => { TRUE | FALSE }
 ```
 
 **Description**
@@ -35240,8 +35268,7 @@ Input values:
 + `proto_field_path`: The protocol buffer field to include or exclude.
   If the field represents an [extension][querying-proto-extensions], you can use
   syntax for that extension in the path.
-+ `reset_fields_named_arg`: You can optionally add the
- `RESET_CLEARED_REQUIRED_FIELDS` named argument.
++ `reset_cleared_required_fields`: Named argument with a `BOOL` value.
   If not explicitly set, `FALSE` is used implicitly.
   If `FALSE`, you must include all protocol buffer `required` fields in the
   `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required
@@ -39098,7 +39125,11 @@ FROM Employees;
 ### `EDIT_DISTANCE`
 
 ```sql
-EDIT_DISTANCE(value1, value2, [max_distance => max_distance_value])
+EDIT_DISTANCE(
+  value1,
+  value2,
+  [ max_distance => max_distance_value ]
+)
 ```
 
 **Description**
@@ -39110,8 +39141,8 @@ Computes the [Levenshtein distance][l-distance] between two `STRING` or
 
 +   `value1`: The first `STRING` or `BYTES` value to compare.
 +   `value2`: The second `STRING` or `BYTES` value to compare.
-+   `max_distance`: Optional mandatory-named argument. Takes a non-negative
-    `INT64` value that represents the maximum distance between the two values
++   `max_distance`: A named argument with a `INT64` value that is greater than
+    or equal to zero. Represents the maximum distance between the two values
     to compute.
 
     If this distance is exceeded, the function returns this value.

@@ -52,17 +52,17 @@ USER zetasql
 
 ENV BAZEL_ARGS="--config=g++"
 
-# Pre-build the binary for execute_query so that users can try out zetasql
-# directly. Users can modify the target in the docker file or enter the
-# container and build other targets as needed.
-RUN cd zetasql                                                              && \
-    CC=/usr/bin/gcc CXX=/usr/bin/g++                                           \
-    bazel build ${BAZEL_ARGS} -c opt //zetasql/tools/execute_query:execute_query
-
-# Create a shortcut for execute_query.
 ENV HOME=/home/zetasql
 RUN mkdir -p $HOME/bin
-RUN ln -s /zetasql/bazel-bin/zetasql/tools/execute_query/execute_query $HOME/bin/execute_query
+
+# Supported MODE:
+# - `build` (default): Builds all ZetaSQL targets.
+# - `execute_query`: Installs the `execute_query` tool only. Erases all other
+#                    build artifacts.
+ARG MODE=build
+
+RUN cd zetasql && ./docker_build.sh $MODE
+
 ENV PATH=$PATH:$HOME/bin
 
 WORKDIR /zetasql

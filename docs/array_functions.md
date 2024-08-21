@@ -1333,7 +1333,7 @@ SELECT
 ARRAY_ZIP(
   array_input [ AS alias ],
   array_input [ AS alias ][, ... ]
-  [, transformation => lambda_expression ]
+  [, [ transformation => ] value ]
   [, mode => { 'STRICT' | 'TRUNCATE' | 'PAD' } ]
 )
 ```
@@ -1348,13 +1348,13 @@ Combines the elements from two to four arrays into one array.
     inputs. `ARRAY_ZIP` supports two to four input arrays.
 +   `alias`: An alias optionally supplied for an `array_input`. In the results,
     the alias is the name of the associated `STRUCT` field.
-+   `transformation`: A optionally-named lambda argument. `lambda_expression`
-    specifies how elements are combined as they are zipped. This overrides
-    the default `STRUCT` creation behavior.
-+   `mode`: A mandatory-named argument that determines how arrays of differing
-    lengths are zipped. If this optional argument is not supplied, the function
-    uses `STRICT` mode by default. This argument can be one of the following
-    values:
++   `transformation`: A named argument with a lambda expression.
+    The lambda expression specifies how elements are combined as they are
+    zipped. This overrides the default `STRUCT` creation behavior.
++   `mode`: A named argument with a `STRING` value. Determines how arrays of
+    differing lengths are zipped. If this argument isn't supplied, the
+    function uses `STRICT` mode. This argument can be one of the
+    following values:
 
     +   `STRICT` (default): If the length of any array is different from the
         others, produce an error.
@@ -1373,7 +1373,7 @@ Combines the elements from two to four arrays into one array.
 
 **Return type**
 
-+   If `transformation` is used and `lambda_expression` returns type `T`, the
++   If `transformation` is used and returns type `T`, the
     return type is `ARRAY<T>`.
 +   Otherwise, the return type is `ARRAY<STRUCT>`, with the `STRUCT` having a
     number of fields equal to the number of input arrays. Each field's name is

@@ -171,7 +171,7 @@ SET @@struct_system_variable = {c:1}
 # Error: STRUCT should not use proto extension.
 SELECT STRUCT {(a.b): 1}
 --
-ERROR: STRUCT Braced constructor is not allowed to use proto extension. [at 1:16]
+ERROR: Fields in STRUCT Braced constructor should always have a single identifier specified, not a path expression [at 1:16]
 SELECT STRUCT {(a.b): 1}
                ^
 ==
@@ -1645,7 +1645,6 @@ QueryStmt
         |       +-column_index_list=[0]
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=157-177
             +-column_ref=
               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#5)
 

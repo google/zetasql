@@ -59,7 +59,7 @@ class NonSqlFunction : public Function {
   // CREATE statement associated with this NonSqlFunction, if applicable.  Must
   // only be set if there is a single FunctionSignature.
   static absl::Status Create(
-      const std::string& name, Mode mode,
+      absl::string_view name, Mode mode,
       const std::vector<FunctionSignature>& function_signatures,
       const FunctionOptions& function_options,
       const ResolvedCreateFunctionStmt* resolved_create_function_statement,

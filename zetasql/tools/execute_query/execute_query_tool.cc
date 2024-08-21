@@ -44,6 +44,7 @@
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_formatter.h"
@@ -993,6 +994,35 @@ static absl::Status ExecuteDescribe(const ResolvedNode* resolved_node,
   return absl::OkStatus();
 }
 
+static absl::StatusOr<absl::string_view> ExtractNextStatement(
+    absl::string_view script, const ExecuteQueryConfig& config,
+    const ParseResumeLocation& start_location) {
+  // Use GetParseTokens to find the end of the statement.
+  std::vector<ParseToken> tokens;
+  ParseResumeLocation end_location = start_location;
+  ZETASQL_RETURN_IF_ERROR(
+      GetParseTokens({.stop_at_end_of_statement = true,
+                      .language_options = config.analyzer_options().language()},
+                     &end_location, &tokens));
+
+  absl::string_view statement_text = script.substr(
+      start_location.byte_position(),
+      end_location.byte_position() - start_location.byte_position());
+
+  // Strip leading and trailing newlines.  From the web input, they show up
+  // with both \n and \r.
+  while (!statement_text.empty() &&
+         (statement_text.front() == '\n' || statement_text.front() == '\r')) {
+    statement_text.remove_prefix(1);
+  }
+  while (!statement_text.empty() &&
+         (statement_text.back() == '\n' || statement_text.back() == '\r')) {
+    statement_text.remove_suffix(1);
+  }
+
+  return statement_text;
+}
+
 // Process the next statement from script, updating `parse_result_location`
 // and `at_end_of_input` on success.
 static absl::Status ExecuteOneQuery(absl::string_view script,
@@ -1000,6 +1030,11 @@ static absl::Status ExecuteOneQuery(absl::string_view script,
                                     ExecuteQueryWriter& writer,
                                     ParseResumeLocation* parse_resume_location,
                                     bool* at_end_of_input) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      absl::string_view statement_text,
+      ExtractNextStatement(script, config, *parse_resume_location));
+  ZETASQL_RETURN_IF_ERROR(writer.statement_text(statement_text));
+
   std::unique_ptr<ParserOutput> parser_output;
   absl::StatusOr<const ASTNode*> ast = ParseSql(
       script, config, parse_resume_location, at_end_of_input, &parser_output);

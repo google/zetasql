@@ -13,9 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("//zetasql/tools/execute_query:build_rules.bzl", "execute_query_test")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
+
+exports_files(["run_execute_query_test.sh"])
 
 proto_library(
     name = "execute_query_proto",
@@ -123,8 +128,10 @@ cc_binary(
         "//zetasql/public:catalog",
         "//zetasql/public:language_options",
         "//zetasql/public:simple_catalog",
+        "@com_google_absl//absl/flags:config",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/flags:usage",
         "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/log:initialize",
         "@com_google_absl//absl/memory",
@@ -537,4 +544,21 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/synchronization",
     ],
+)
+
+execute_query_test(
+    name = "run_execute_query_test",
+    args = ["--catalog=tpch"],
+    sql_file = "testdata/run_execute_query_test.sql",
+)
+
+execute_query_test(
+    name = "run_execute_query_bad_parse_test",
+    args = ["--mode=parse"],
+    sql_file = "testdata/run_execute_query_test_bad.sql",
+)
+
+bzl_library(
+    name = "build_rules_bzl",
+    srcs = ["build_rules.bzl"],
 )

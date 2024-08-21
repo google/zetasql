@@ -109,4 +109,10 @@ TEST(ErrorMatchersTest, IsNamedArgumentNotFoundErrorMessageOld) {
               IsNamedArgumentNotFoundErrorMessage("bounding_algorithm_type"));
 }
 
+TEST(ErrorMatchersTest, IsTableNotFoundError) {
+  absl::Status error = absl::NotFoundError("Table not found: foo");
+  EXPECT_THAT(error.message(), IsTableNotFoundErrorMessage("Foo"));
+  EXPECT_THAT(error, IsTableNotFoundError("fOo"));
+}
+
 }  // namespace zetasql

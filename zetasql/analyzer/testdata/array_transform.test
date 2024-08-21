@@ -74,7 +74,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#5)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |         +-input_scan=
@@ -162,7 +161,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=221-224
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
@@ -255,7 +253,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -352,7 +349,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=221-224
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         +-input_scan=
@@ -445,7 +441,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -544,7 +539,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -653,7 +647,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#13)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         +-input_scan=
@@ -702,7 +695,6 @@ QueryStmt
     |             |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |             |         |           +-order_by_item_list=
     |             |         |             +-OrderByItem
-    |             |         |               +-parse_location=216-219
     |             |         |               +-column_ref=
     |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |             |         +-input_scan=
@@ -835,7 +827,6 @@ QueryStmt
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#14)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=216-219
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#14)
     |         |         +-input_scan=
@@ -884,7 +875,6 @@ QueryStmt
     |         |             |         |           |         +-ColumnHolder(column=$array_offset.off#9)
     |         |             |         |           +-order_by_item_list=
     |         |             |         |             +-OrderByItem
-    |         |             |         |               +-parse_location=216-219
     |         |             |         |               +-column_ref=
     |         |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |         |             |         +-input_scan=
@@ -1032,7 +1022,6 @@ QueryStmt
     |         |           |   |             |           |         +-ColumnHolder(column=$array_offset.off#20)
     |         |           |   |             |           +-order_by_item_list=
     |         |           |   |             |             +-OrderByItem
-    |         |           |   |             |               +-parse_location=216-219
     |         |           |   |             |               +-column_ref=
     |         |           |   |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#20)
     |         |           |   |             +-input_scan=
@@ -1056,7 +1045,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#13)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         +-input_scan=
@@ -1217,7 +1205,6 @@ QueryStmt
     |         |         |           |   |             |           |         +-ColumnHolder(column=$array_offset.off#21)
     |         |         |           |   |             |           +-order_by_item_list=
     |         |         |           |   |             |             +-OrderByItem
-    |         |         |           |   |             |               +-parse_location=216-219
     |         |         |           |   |             |               +-column_ref=
     |         |         |           |   |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#21)
     |         |         |           |   |             +-input_scan=
@@ -1241,7 +1228,6 @@ QueryStmt
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#14)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=216-219
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#14)
     |         |         +-input_scan=
@@ -1359,7 +1345,6 @@ QueryStmt
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=216-219
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=
@@ -1484,7 +1469,6 @@ QueryStmt
     |         |         |           |         +-ColumnHolder(column=$array_offset.off#8)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=216-219
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=

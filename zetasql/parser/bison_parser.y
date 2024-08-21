@@ -148,7 +148,6 @@
   zetasql::parser_internal::SeparatedIdentifierTmpNode* slashed_identifier;
   zetasql::ASTPivotClause* pivot_clause;
   zetasql::ASTUnpivotClause* unpivot_clause;
-  zetasql::ASTMatchRecognizeClause* match_recognize_clause;
   zetasql::ASTRowPatternExpression* row_pattern_expression;
   zetasql::ASTSetOperationType* set_operation_type;
   zetasql::ASTSetOperationAllOrDistinct* set_operation_all_or_distinct;
@@ -163,10 +162,8 @@
     zetasql::ASTUnpivotClause* unpivot_clause;
     zetasql::ASTAlias* alias;
   } pivot_or_unpivot_clause_and_alias;
-  struct {
-    zetasql::ASTMatchRecognizeClause* match_recognize_clause;
-    zetasql::ASTSampleClause* sample_clause;
-  } match_recognize_and_sample_clauses;
+  zetasql::ASTPostfixTableOperator* postfix_table_operator;
+  zetasql::ASTTableExpression* table_expression;
   struct {
     zetasql::ASTNode* where;
     zetasql::ASTNode* group_by;
@@ -1005,8 +1002,8 @@ using namespace zetasql::parser_internal;
 %type <expression> int_literal_or_parameter
 %type <expression> opt_int_literal_or_parameter
 %type <expression> integer_literal
-%type <node> join
-%type <node> join_input
+%type <table_expression> join
+%type <table_expression> join_input
 %type <expression> json_literal
 %type <expression> lambda_argument
 %type <node> lambda_argument_list
@@ -1014,7 +1011,7 @@ using namespace zetasql::parser_internal;
 %type <node> macro_body
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
-%type <node> merge_source
+%type <table_expression> merge_source
 %type <node> merge_statement
 %type <node> merge_statement_prefix
 %type <node> merge_when_clause
@@ -1029,6 +1026,10 @@ using namespace zetasql::parser_internal;
 %type <braced_constructor_field_value> braced_constructor_field_value
 %type <braced_constructor_field> braced_constructor_field
 %type <braced_constructor_field> braced_constructor_extension
+%type <expression> braced_constructor_extension_expression_start
+%type <expression> braced_constructor_extension_expression
+%type <expression> braced_constructor_extension_lhs
+%type <expression> braced_constructor_lhs
 %type <braced_constructor> braced_constructor_start
 %type <braced_constructor> braced_constructor_prefix
 %type <braced_constructor> braced_constructor
@@ -1141,15 +1142,10 @@ using namespace zetasql::parser_internal;
 %type <unpivot_clause> unpivot_clause
 %type <node> pivot_expression
 %type <node> pivot_expression_list
-%type <match_recognize_clause> match_recognize_clause
-// Use a combined struct to make sure they always are applied together, to avoid
-// forgetting one of them.
-%type <match_recognize_and_sample_clauses> opt_match_recognize_and_sample_clauses
-%type <match_recognize_clause> opt_match_recognize_clause
+%type <postfix_table_operator> match_recognize_clause
 %type <row_pattern_expression> row_pattern_expr
 %type <row_pattern_expression> row_pattern_concatenation
 %type <row_pattern_expression> row_pattern_factor
-%type <sample_clause> opt_sample_clause
 %type <node> opt_sample_clause_suffix
 %type <node> opt_select_as_clause
 %type <node> opt_table_element_list
@@ -1287,19 +1283,19 @@ using namespace zetasql::parser_internal;
 %type <node> table_element_list_prefix
 %type <node> table_and_column_info
 %type <node> table_and_column_info_list
-%type <node> table_path_expression
+%type <table_expression> table_path_expression
 %type <node> table_path_expression_base
-%type <node> table_primary
-%type <node> table_subquery
+%type <table_expression> table_primary
+%type <table_expression> table_subquery
 %type <node> templated_parameter_type
 %type <node> transaction_mode
 %type <node> transaction_mode_list
 %type <node> truncate_statement
-%type <node> tvf_with_suffixes
-%type <node> tvf
+%type <table_expression> tvf_with_suffixes
+%type <table_expression> tvf
 %type <node> tvf_argument
-%type <node> tvf_prefix
-%type <node> tvf_prefix_no_args
+%type <table_expression> tvf_prefix
+%type <table_expression> tvf_prefix_no_args
 %type <node> type
 %type <expression> type_parameter
 %type <node> type_parameters_prefix
@@ -6067,29 +6063,6 @@ sample_clause:
       }
     ;
 
-opt_match_recognize_and_sample_clauses:
-  %empty
-  {
-    $$.match_recognize_clause = nullptr;
-    $$.sample_clause = nullptr;
-  }
-  | match_recognize_clause[match_recognize] opt_sample_clause[sample]
-    {
-      $$.match_recognize_clause = $match_recognize;
-      $$.sample_clause = $sample;
-    }
-  | sample_clause[sample] opt_match_recognize_clause[match_recognize]
-    {
-      $$.match_recognize_clause = $match_recognize;
-      $$.sample_clause = $sample;
-    }
-  ;
-
-opt_sample_clause:
-    sample_clause
-    | %empty { $$ = nullptr; }
-    ;
-
 pivot_expression:
   expression opt_as_alias {
     $$ = MAKE_NODE(ASTPivotExpression, @$, {$1, $2});
@@ -6293,11 +6266,6 @@ opt_pivot_or_unpivot_clause_and_alias:
   }
   ;
 
-opt_match_recognize_clause:
-  match_recognize_clause
-  | %empty { $$ = nullptr; }
-  ;
-
 match_recognize_clause:
   KW_MATCH_RECOGNIZE_RESERVED "("
     opt_partition_by_clause[partition_by]
@@ -6349,7 +6317,6 @@ row_pattern_factor:
 table_subquery:
   parenthesized_query[query]
   opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
-  opt_match_recognize_and_sample_clauses[postfix_ops]
       {
         zetasql::ASTQuery* query = $query;
         if ($pivot_and_alias.pivot_clause != nullptr) {
@@ -6360,10 +6327,11 @@ table_subquery:
         // we print two sets of brackets in very disorderly way.
         // So set parenthesized to false.
         query->set_parenthesized(false);
-        $$ = MAKE_NODE(ASTTableSubquery, @$, {
-            $query, $pivot_and_alias.alias, $pivot_and_alias.pivot_clause,
-            $pivot_and_alias.unpivot_clause,
-            $postfix_ops.match_recognize_clause, $postfix_ops.sample_clause});
+        auto* node = MAKE_NODE(ASTTableSubquery, @$,
+                                {$query, $pivot_and_alias.alias});
+        $$ = MaybeApplyPivotOrUnpivot(node,
+                                      $pivot_and_alias.pivot_clause,
+                                      $pivot_and_alias.unpivot_clause);
       }
     ;
 
@@ -6534,22 +6502,24 @@ tvf_with_suffixes:
     tvf_prefix_no_args[prefix] ")"
     opt_hint[hint]
     opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
-    opt_match_recognize_and_sample_clauses[postfix_ops]
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($prefix, @$), {
-            $hint, $pivot_and_alias.alias, $pivot_and_alias.pivot_clause,
-            $pivot_and_alias.unpivot_clause,
-            $postfix_ops.match_recognize_clause, $postfix_ops.sample_clause});
+        auto* node = WithExtraChildren(
+                        parser->WithEndLocation($prefix, @$),
+                        {$hint, $pivot_and_alias.alias});
+        $$ = MaybeApplyPivotOrUnpivot(node,
+                                      $pivot_and_alias.pivot_clause,
+                                      $pivot_and_alias.unpivot_clause);
       }
     | tvf_prefix[prefix] ")"
       opt_hint[hint]
       opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
-      opt_match_recognize_and_sample_clauses[postfix_ops]
       {
-        $$ = WithExtraChildren(parser->WithEndLocation($prefix, @$), {
-            $hint, $pivot_and_alias.alias, $pivot_and_alias.pivot_clause,
-            $pivot_and_alias.unpivot_clause,
-            $postfix_ops.match_recognize_clause, $postfix_ops.sample_clause});
+        auto* node = WithExtraChildren(
+                        parser->WithEndLocation($prefix, @$),
+                        {$hint, $pivot_and_alias.alias});
+        $$ = MaybeApplyPivotOrUnpivot(node,
+                                      $pivot_and_alias.pivot_clause,
+                                      $pivot_and_alias.unpivot_clause);
       }
     ;
 
@@ -6592,7 +6562,6 @@ table_path_expression:
     opt_pivot_or_unpivot_clause_and_alias[pivot_and_alias]
     opt_with_offset_and_alias[offset]
     opt_at_system_time[time]
-    opt_match_recognize_and_sample_clauses[postfix_ops]
       {
         if ( $offset != nullptr) {
           // We do not support combining PIVOT or UNPIVOT with WITH OFFSET.
@@ -6608,11 +6577,11 @@ table_path_expression:
           // happens if we have a WITH OFFSET without PIVOT) and give an explicit
           // error if both clauses are present.
           if ($pivot_and_alias.pivot_clause != nullptr) {
-            YYERROR_AND_ABORT_AT(@4,
+            YYERROR_AND_ABORT_AT(@offset,
               "PIVOT and WITH OFFSET cannot be combined");
           }
           if ($pivot_and_alias.unpivot_clause != nullptr) {
-            YYERROR_AND_ABORT_AT(@4,
+            YYERROR_AND_ABORT_AT(@offset,
               "UNPIVOT and WITH OFFSET cannot be combined");
           }
         }
@@ -6620,32 +6589,30 @@ table_path_expression:
         if ($time != nullptr) {
           if ($pivot_and_alias.pivot_clause != nullptr) {
             YYERROR_AND_ABORT_AT(
-                @5,
+                @time,
                 "Syntax error: PIVOT and FOR SYSTEM TIME AS OF "
                 "may not be combined");
           }
           if ($pivot_and_alias.unpivot_clause != nullptr) {
             YYERROR_AND_ABORT_AT(
-                @5,
+                @time,
                 "Syntax error: UNPIVOT and FOR SYSTEM TIME AS OF "
                 "may not be combined");
           }
         }
-        $$ = MAKE_NODE(ASTTablePathExpression, @$, {$path, $hint,
-            $pivot_and_alias.alias, $pivot_and_alias.pivot_clause,
-            $pivot_and_alias.unpivot_clause, $offset, $time,
-            $postfix_ops.match_recognize_clause, $postfix_ops.sample_clause});
+        auto* node = MAKE_NODE(ASTTablePathExpression, @$,
+                               {$path, $hint, $pivot_and_alias.alias, $offset,
+                                $time});
+
+        $$ = MaybeApplyPivotOrUnpivot(node,
+                                      $pivot_and_alias.pivot_clause,
+                                      $pivot_and_alias.unpivot_clause);
       };
 
 table_primary:
-    // TODO: sample, pivot, match_recognize, etc should be grouped
-    //                both in the grammar and in the AST, to apply to all
-    //                table primary types, and would help dedup the unparser.
-    // Test coverage to add: pipes, parenthesized join.
     tvf_with_suffixes
     | table_path_expression
     | "(" join ")"
-      opt_match_recognize_and_sample_clauses[postfix_ops]
       {
         zetasql::parser::ErrorInfo error_info;
         auto node = zetasql::parser::TransformJoinExpression(
@@ -6654,11 +6621,21 @@ table_primary:
           YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
         }
 
-        $$ = MAKE_NODE(ASTParenthesizedJoin, @$,
-                       {node, $postfix_ops.match_recognize_clause,
-                        $postfix_ops.sample_clause});
+        $$ = MAKE_NODE(ASTParenthesizedJoin, @$,{node});
       }
     | table_subquery
+    // Postfix operators. Note that PIVOT/UNPIVOT are lumped together with each
+    // rule because they're entangled with alias to work around the fact that
+    // PIVOT and UNPIVOT are not reserved keywords.
+    // Ideally they should be listed here.
+    | table_primary[table] match_recognize_clause
+      {
+        $$ = WithExtraChildren($table, {$match_recognize_clause});
+      }
+    | table_primary[table] sample_clause
+      {
+        $$ = WithExtraChildren($table, {$sample_clause});
+      }
     ;
 
 opt_at_system_time:
@@ -6778,12 +6755,12 @@ join:
           YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
         }
 
-        $$ = node;
+        $$ = node->GetAsOrDie<zetasql::ASTJoin>();
       }
     ;
 
 from_clause_contents:
-    table_primary
+    table_primary[table] { $$ = $table; }
     | from_clause_contents "," table_primary
       {
         zetasql::parser::ErrorInfo error_info;
@@ -8998,15 +8975,43 @@ braced_constructor_field_value:
       }
     ;
 
-braced_constructor_extension:
-    "(" path_expression ")" braced_constructor_field_value
+braced_constructor_extension_expression_start:
+    "(" path_expression ")"
       {
-        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$2, $4});
+        $2->set_parenthesized(true);
+        $$ = $2;
+      }
+    ;
+
+braced_constructor_extension_expression:
+    // This production exists to allow for future expansion on the types of
+    // paths that are supported.
+    braced_constructor_extension_expression_start
+    ;
+
+braced_constructor_extension_lhs:
+    braced_constructor_extension_expression
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
+      }
+    ;
+
+braced_constructor_extension:
+    braced_constructor_extension_lhs braced_constructor_field_value
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
+      }
+    ;
+
+braced_constructor_lhs:
+    generalized_path_expression
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorLhs, @$, {$1});
       }
     ;
 
 braced_constructor_field:
-    identifier braced_constructor_field_value
+    braced_constructor_lhs braced_constructor_field_value
       {
         $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
       }

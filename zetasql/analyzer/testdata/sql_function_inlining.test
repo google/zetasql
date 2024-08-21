@@ -1266,7 +1266,6 @@ QueryStmt
     |             |           |         +-ColumnHolder(column=$array_offset.off#6)
     |             |           +-order_by_item_list=
     |             |             +-OrderByItem
-    |             |               +-parse_location=216-219
     |             |               +-column_ref=
     |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |             +-input_scan=
@@ -1355,7 +1354,6 @@ QueryStmt
     |             |           |         +-ColumnHolder(column=$array_offset.off#7)
     |             |           +-order_by_item_list=
     |             |             +-OrderByItem
-    |             |               +-parse_location=216-219
     |             |               +-column_ref=
     |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |             +-input_scan=

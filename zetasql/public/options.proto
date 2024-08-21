@@ -78,7 +78,7 @@ extend google.protobuf.EnumValueOptions {
 //
 // LanguageOptions::EnableMaximumLanguageFeaturesForDevelopment() enables all
 // features with 'ideally_enabled == true'.
-// Next id: 14065
+// Next id: 14068
 message LanguageFeatureOptions {
   // Indicates whether a feature is enabled in the idealized ZetaSQL. (One
   // reason to disable a feature is if it exists only to support backwards

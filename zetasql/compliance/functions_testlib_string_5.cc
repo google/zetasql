@@ -24,6 +24,7 @@
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -765,7 +766,7 @@ struct FunctionTestWithCollator {
 };
 
 std::vector<FunctionTestCall> GetFunctionTestCalls(
-    const std::vector<FunctionTestWithCollator>& tests, bool skip_collation) {
+    absl::Span<const FunctionTestWithCollator> tests, bool skip_collation) {
   std::vector<FunctionTestCall> function_test_calls;
   for (const auto& test : tests) {
     for (const auto& result : test.results) {

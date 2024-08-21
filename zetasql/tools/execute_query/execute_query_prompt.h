@@ -131,21 +131,6 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   std::deque<absl::StatusOr<std::optional<std::string>>> queue_;
 };
 
-class ExecuteQuerySingleInput : public ExecuteQueryStatementPrompt {
- public:
-  ExecuteQuerySingleInput(absl::string_view query,
-                          const ExecuteQueryConfig& config);
-  ExecuteQuerySingleInput(const ExecuteQuerySingleInput&) = delete;
-  ExecuteQuerySingleInput& operator=(const ExecuteQuerySingleInput&) = delete;
-
- private:
-  std::optional<std::string> ReadNext(bool continuation);
-
- private:
-  const std::string query_;
-  bool done_ = false;
-};
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_PROMPT_H_

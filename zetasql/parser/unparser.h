@@ -434,6 +434,8 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTNewConstructor(const ASTNewConstructor* node,
                               void* data) override;
+  void visitASTBracedConstructorLhs(const ASTBracedConstructorLhs* node,
+                                    void* data) override;
   void visitASTBracedConstructorFieldValue(
       const ASTBracedConstructorFieldValue* node, void* data) override;
   void visitASTBracedConstructorField(const ASTBracedConstructorField* node,

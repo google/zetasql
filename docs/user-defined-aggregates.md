@@ -7,7 +7,7 @@
 
 ZetaSQL supports user-defined aggregate functions (UDAs).
 
-An SQL UDA is a user-defined function that
+A SQL UDA is a user-defined function that
 performs a calculation on a group of rows at a time and returns the result of
 that calculation as a single value.
 

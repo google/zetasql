@@ -23,14 +23,6 @@
 
 namespace zetasql {
 
-absl::Status GetToJsonBuiltinEnumTypes(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    NameToTypeMap* types) {
-  ZETASQL_RETURN_IF_ERROR(
-      InsertType(types, options, types::UnsupportedFieldsEnumType()));
-  return absl::OkStatus();
-}
-
 absl::Status GetStandaloneBuiltinEnumTypes(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToTypeMap* types) {

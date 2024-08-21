@@ -83,7 +83,8 @@ template <typename T>
 absl::StatusOr<JSONValue> ToJsonFromNumeric(
     const T& value, bool stringify_wide_number,
     const LanguageOptions& language_options, const std::string_view type_name,
-    bool canonicalize_zero, UnsupportedFields unsupported_fields) {
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
   if (!value.HasFractionalPart()) {
     // Check whether the value is int64_t
     if (value >= T(kInt64Min) && value <= T(kInt64Max)) {
@@ -138,12 +139,11 @@ JSONValue ToJsonFromFloat(FloatType value, bool canonicalize_zero) {
 // space when <current_nesting_level> not less than
 // kNestingLevelStackCheckThreshold. Returns StatusCode::kResourceExhausted when
 // stack overflows.
-absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
-                                       bool stringify_wide_numbers,
-                                       const LanguageOptions& language_options,
-                                       int current_nesting_level,
-                                       bool canonicalize_zero,
-                                       UnsupportedFields unsupported_fields) {
+absl::StatusOr<JSONValue> ToJsonHelper(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, int current_nesting_level,
+    bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
   // Check the stack usage iff the <current_neesting_level> not less than
   // kNestingLevelStackCheckThreshold.
   if (current_nesting_level >= kNestingLevelStackCheckThreshold) {
@@ -276,19 +276,20 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
           auto json_element =
               ToJsonHelper(element_value, stringify_wide_numbers,
                            language_options, current_nesting_level + 1,
-                           canonicalize_zero, UnsupportedFields::FAIL);
+                           canonicalize_zero, UnsupportedFieldsEnum::FAIL);
           if (json_element.status().code() ==
               absl::StatusCode::kUnimplemented) {
             // The value type is not supported by TO_JSON, and we should
             // handle this entire array field as a whole, e.g. for IGNORE we
             // return just one `NULL`, instead of an `ARRAY(NULL, ...)`.
-            if (unsupported_fields == UnsupportedFields::FAIL) {
+            if (unsupported_fields == UnsupportedFieldsEnum::FAIL) {
               return json_element.status();
             }
-            if (unsupported_fields == UnsupportedFields::IGNORE) {
+            if (unsupported_fields == UnsupportedFieldsEnum::IGNORE) {
               return JSONValue();
             }
-            ZETASQL_RET_CHECK_EQ(unsupported_fields, UnsupportedFields::PLACEHOLDER);
+            ZETASQL_RET_CHECK_EQ(unsupported_fields,
+                         UnsupportedFieldsEnum::PLACEHOLDER);
             return JSONValue(
                 absl::StrCat("Unsupported: array of ",
                              element_value.type()->ShortTypeName(
@@ -331,16 +332,16 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       return json_value;
     }
     default: {
-      if (unsupported_fields == UnsupportedFields::FAIL) {
+      if (unsupported_fields == UnsupportedFieldsEnum::FAIL) {
         return ::zetasql_base::UnimplementedErrorBuilder()
                << "Unsupported argument type "
                << value.type()->ShortTypeName(language_options.product_mode())
                << " for TO_JSON";
       }
-      if (unsupported_fields == UnsupportedFields::IGNORE) {
+      if (unsupported_fields == UnsupportedFieldsEnum::IGNORE) {
         return JSONValue();
       }
-      ZETASQL_RET_CHECK_EQ(unsupported_fields, UnsupportedFields::PLACEHOLDER);
+      ZETASQL_RET_CHECK_EQ(unsupported_fields, UnsupportedFieldsEnum::PLACEHOLDER);
       // The object of unsupported type will be replaced with a json string,
       // and no error will be triggered.
       return JSONValue(absl::StrCat(
@@ -352,11 +353,10 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
 
 }  // namespace
 
-absl::StatusOr<JSONValue> ToJson(const Value& value,
-                                 bool stringify_wide_numbers,
-                                 const LanguageOptions& language_options,
-                                 bool canonicalize_zero,
-                                 UnsupportedFields unsupported_fields) {
+absl::StatusOr<JSONValue> ToJson(
+    const Value& value, bool stringify_wide_numbers,
+    const LanguageOptions& language_options, bool canonicalize_zero,
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields) {
   return ToJsonHelper(value, stringify_wide_numbers, language_options,
                       /*current_nesting_level=*/0, canonicalize_zero,
                       unsupported_fields);

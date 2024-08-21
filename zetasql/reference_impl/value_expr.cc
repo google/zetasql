@@ -499,9 +499,13 @@ absl::Status DerefExpr::SetSchemasForEvaluation(
 
 bool DerefExpr::Eval(absl::Span<const TupleData* const> params,
                      EvaluationContext* context, VirtualTupleSlot* result,
-                     absl::Status* /* status */) const {
-  ABSL_DCHECK(idx_in_params_ >= 0 && slot_ >= 0)
-      << "You forgot to call SetSchemasForEvaluation() " << name_;
+                     absl::Status* status) const {
+  if (idx_in_params_ < 0 || slot_ < 0) {
+    *status = zetasql_base::InternalErrorBuilder()
+              << "No schemas are available for " << name_
+              << ". SetSchemasForEvaluation() may not have run.";
+    return false;
+  }
   result->CopyFromSlot(params[idx_in_params_]->slot(slot_));
   return true;
 }

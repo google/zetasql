@@ -22,6 +22,7 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,12 +47,14 @@
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/macros.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+#include "zetasql/base/optional_ref.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 
@@ -530,6 +533,7 @@ enum class FunctionKind {
   kMapEmpty,
   kMapInsert,
   kMapInsertOrReplace,
+  kMapReplaceKeyValuePairs,
 };
 
 // Provides two utility methods to look up a built-in function name or function
@@ -546,6 +550,12 @@ class BuiltinFunctionCatalog {
  private:
   BuiltinFunctionCatalog() = default;
 };
+
+// Helper function to convert a series of ValueExpr to AlgebraArg.
+// TODO: b/359716173: Remove this function once all usages of ValueExpr to
+// represent function arguments are migrated to AlgebraArg.
+std::vector<std::unique_ptr<AlgebraArg>> ConvertValueExprsToAlgebraArgs(
+    std::vector<std::unique_ptr<ValueExpr>>&& arguments);
 
 // Abstract built-in scalar function.
 class BuiltinScalarFunction : public ScalarFunctionBody {
@@ -579,12 +589,18 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
 
   // Similar to the above, but for functions which do not accept any lambda
   // arguments.
+  // TODO: b/359716173: Remove this function once all usages have been inlined.
+  ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCall(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
       std::vector<std::unique_ptr<ValueExpr>> arguments,
       ResolvedFunctionCallBase::ErrorMode error_mode =
-          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE) {
+    return CreateCall(kind, language_options, output_type,
+                      ConvertValueExprsToAlgebraArgs(std::move(arguments)),
+                      error_mode);
+  }
 
   static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCast(
       const LanguageOptions& language_options, const Type* output_type,
@@ -602,6 +618,35 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
       absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
+
+  // Given a list of the AlgebraArgs to a function, store the arguments which
+  // cannot be represented as `zetasql::Value`. Intended to be used only once,
+  // immediately after construction. Only arguments which cannot be represented
+  // as `zetasql::Value` are included, and the rest are set as nullopt.
+  void SetExtendedArgs(
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments) {
+    ABSL_DCHECK_EQ(extended_args_.size(), 0)
+        << "Function extended_args_ should not be set more than once.";
+
+    extended_args_.clear();
+    extended_args_.reserve(arguments.size());
+
+    for (const auto& arg : arguments) {
+      if (arg->value_expr() == nullptr) {
+        extended_args_.push_back(arg.get());
+      } else {
+        extended_args_.push_back(std::nullopt);
+      }
+    }
+  }
+
+ protected:
+  // Function arguments which cannot be represented as `zetasql::Value`,
+  // such as `InlineLambdaArg`. Order and position of the non-value arguments is
+  // preserved by using nullopt in place of Value-coercible arguments.
+  const std::vector<zetasql_base::optional_ref<AlgebraArg>>& extended_args() const {
+    return extended_args_;
+  }
 
  private:
   // Like CreateValidated(), but returns a raw pointer with ownership.
@@ -633,6 +678,7 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
                        absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   FunctionKind kind_;
+  std::vector<zetasql_base::optional_ref<AlgebraArg>> extended_args_;
 };
 
 // Alternate form of BuiltinScalarFunction that is easier to implement for
@@ -764,7 +810,8 @@ class BuiltinFunctionRegistry {
   // Returns an unowned pointer to the function. The caller is responsible for
   // cleanup.
   static absl::StatusOr<BuiltinScalarFunction*> GetScalarFunction(
-      FunctionKind kind, const Type* output_type);
+      FunctionKind kind, const Type* output_type,
+      absl::Span<const std::unique_ptr<AlgebraArg>> arguments);
 
   // Registers a function implementation for one or more FunctionKinds.
   static void RegisterScalarFunction(
@@ -2247,7 +2294,6 @@ absl::Status MakeMaxArrayValueByteSizeExceededError(
 
 // Returns TimestampScale to use based on language options.
 functions::TimestampScale GetTimestampScale(const LanguageOptions& options);
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_FUNCTION_H_

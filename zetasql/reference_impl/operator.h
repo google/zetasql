@@ -64,6 +64,7 @@
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/hash/hash.h"
@@ -123,6 +124,7 @@ class AlgebraArg {
   // Convenience method, returns node()->AsValueExpr() or nullptr.
   const ValueExpr* value_expr() const;
   ValueExpr* mutable_value_expr();
+  std::unique_ptr<ValueExpr> release_value_expr();
   // Convenience method, returns node()->AsRelationalOp() or nullptr.
   const RelationalOp* relational_op() const;
   RelationalOp* mutable_relational_op();
@@ -3159,6 +3161,8 @@ class ScalarFunctionCallExpr final : public ValueExpr {
   ScalarFunctionCallExpr& operator=(const ScalarFunctionCallExpr&) = delete;
 
   const ScalarFunctionBody* function() const { return function_.get(); }
+  FRIEND_TEST(BuiltinFunctionRegistryTest,
+              CreateCallPopulatesNonValueArgsInFunction);
 
   std::unique_ptr<const ScalarFunctionBody> function_;
   const ResolvedFunctionCallBase::ErrorMode error_mode_;

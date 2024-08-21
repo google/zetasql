@@ -522,6 +522,26 @@ AllDepthLimitDetectorTestCases() {
                   },
           },
           {
+              .depth_limit_test_case_name = "to_json_struct_array",
+              .depth_limit_template = {"SELECT TO_JSON((SELECT ",
+                                       R({"STRUCT(["}), "1", R({"] AS f)"}),
+                                       "))", R({"[\"f\"][0]"})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_JSON_TYPE,
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "to_json_nested_struct",
+              .depth_limit_template = {"SELECT TO_JSON((SELECT ",
+                                       R({"STRUCT("}), "1", R({" AS f)"}), "))",
+                                       R({"[\"f\"]"})},
+              .depth_limit_required_features =
+                  {
+                      LanguageFeature::FEATURE_JSON_TYPE,
+                  },
+          },
+          {
               .depth_limit_test_case_name = "with_union_all",
               .depth_limit_template = {"WITH ",
                                        R({"t", N(), " AS (SELECT 1 AS c),"}),

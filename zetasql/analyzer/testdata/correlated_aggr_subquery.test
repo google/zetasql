@@ -3600,7 +3600,6 @@ QueryStmt
     |         +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=54-149
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
 
@@ -3764,6 +3763,5 @@ QueryStmt
     |         +-TableScan(column_list=SimpleTypesWithStruct.[key#1, TestEnum#2, TestStruct#3], table=SimpleTypesWithStruct, column_index_list=[0, 1, 2], alias="st")
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=52-99
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#9)

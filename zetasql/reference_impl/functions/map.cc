@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/functions/map.h"
 
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
@@ -402,10 +403,43 @@ class MapEmptyFunction : public SimpleBuiltinScalarFunction {
   }
 };
 
-static inline absl::StatusOr<Value> MapInsertImpl(
-    const bool replace_existing_values, const Type* output_type,
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) {
+static inline absl::Status CheckKeyExistsInMap(const Value& map,
+                                               const Value& key) {
+  if (!map.map_entries().contains(key)) {
+    return MakeEvalError() << "Key does not exist in map: "
+                           << key.Format(/*print_top_level_type=*/false);
+  }
+  return absl::OkStatus();
+}
+
+enum class KeyExistenceConstraint {
+  kNone,          // No constraint on key existence.
+  kMustExist,     // The key must already exist in the map.
+  kMustNotExist,  // The key must not already exist in the map.
+};
+
+// Given a set of keys and a new key, adds the new key to the set if it is not
+// already present. Returns an error if the new key is already present. This is
+// used to ensure that a key passed into a map modification function is not
+// provided more than once. <next_key> is the key to add, <keys> is the set of
+// keys already present to be appended with <next_key>.
+static inline absl::Status AddMapKeyToInsertionSetOrErrorIfNotUnique(
+    const Value& next_key, absl::flat_hash_set<Value>& keys) {
+  const auto& [unused_iter, success] = keys.insert(next_key);
+  if (!success) {
+    return MakeEvalError() << "Key provided more than once as argument: "
+                           << next_key.Format(/*print_top_level_type=*/false);
+  }
+  return absl::OkStatus();
+}
+
+// Implementation for functions which modify a map by adding or replacing
+// key/value pairs. <key_existence_constraint> controls the precondition for
+// existence within the map value for the keys provided in the arguments.
+static inline absl::StatusOr<Value> PairwiseMapModificationFunctionImpl(
+    const KeyExistenceConstraint key_existence_constraint,
+    const Type* output_type, absl::Span<const TupleData* const> params,
+    absl::Span<const Value> args, EvaluationContext* context) {
   ZETASQL_RET_CHECK(args.size() >= 3) << args.size();
   ZETASQL_RET_CHECK(args.size() % 2 == 1)
       << args.size()
@@ -419,34 +453,41 @@ static inline absl::StatusOr<Value> MapInsertImpl(
   }
 
   // (size - 1) because the first argument is the map, which we don't include.
-  const int num_entries = (args.size() - 1) / 2;
+  const size_t keys_to_modify_count = (args.size() - 1) / 2;
 
   absl::flat_hash_set<Value> keys_to_insert;
-  keys_to_insert.reserve(num_entries);
-  std::vector<std::pair<Value, Value>> entries;
-  entries.reserve(num_entries);
+  keys_to_insert.reserve(keys_to_modify_count);
+  std::vector<std::pair<Value, Value>> map_entries;
+  map_entries.reserve(
+      (key_existence_constraint == KeyExistenceConstraint::kMustNotExist
+           ? map.num_elements() + keys_to_modify_count
+           : map.num_elements()));
 
   // The ZETASQL_RET_CHECK above should catch any issue with unexpected size, but just
   // to be safe, check (size - 1) here since the loop increments by 2.
   for (int i = 1; i < args.size() - 1; i += 2) {
-    const auto& [unused, success] = keys_to_insert.emplace(args[i]);
-    if (!success) {
-      return MakeEvalError() << "Key provided more than once as argument: "
-                             << args[i].Format(/*print_top_level_type=*/false);
+    ZETASQL_RETURN_IF_ERROR(
+        AddMapKeyToInsertionSetOrErrorIfNotUnique(args[i], keys_to_insert));
+    map_entries.push_back({args[i], args[i + 1]});
+  }
+
+  if (key_existence_constraint == KeyExistenceConstraint::kMustExist) {
+    for (const auto& key : keys_to_insert) {
+      ZETASQL_RETURN_IF_ERROR(CheckKeyExistsInMap(map, key));
     }
-    entries.push_back({args[i], args[i + 1]});
   }
 
   for (const auto& [key, value] : map.map_entries()) {
     if (!keys_to_insert.contains(key)) {
-      entries.push_back({key, value});
-    } else if (!replace_existing_values) {
+      map_entries.push_back({key, value});
+    } else if (key_existence_constraint ==
+               KeyExistenceConstraint::kMustNotExist) {
       return MakeEvalError() << "Key already exists in map: "
                              << key.Format(/*print_top_level_type=*/false);
     }
   }
 
-  return Value::MakeMap(args[0].type(), std::move(entries));
+  return Value::MakeMap(output_type, std::move(map_entries));
 }
 
 class MapInsertFunction : public SimpleBuiltinScalarFunction {
@@ -456,8 +497,9 @@ class MapInsertFunction : public SimpleBuiltinScalarFunction {
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override {
-    return MapInsertImpl(/*replace_existing_values=*/false, output_type(),
-                         params, args, context);
+    return PairwiseMapModificationFunctionImpl(
+        KeyExistenceConstraint::kMustNotExist, output_type(), params, args,
+        context);
   }
 };
 
@@ -468,8 +510,21 @@ class MapInsertOrReplaceFunction : public SimpleBuiltinScalarFunction {
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override {
-    return MapInsertImpl(/*replace_existing_values=*/true, output_type(),
-                         params, args, context);
+    return PairwiseMapModificationFunctionImpl(
+        KeyExistenceConstraint::kNone, output_type(), params, args, context);
+  }
+};
+
+class MapReplaceKeysAndValuesFunction : public SimpleBuiltinScalarFunction {
+ public:
+  MapReplaceKeysAndValuesFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return PairwiseMapModificationFunctionImpl(
+        KeyExistenceConstraint::kMustExist, output_type(), params, args,
+        context);
   }
 };
 
@@ -545,5 +600,11 @@ void RegisterBuiltinMapFunctions() {
       [](FunctionKind kind, const Type* output_type) {
         return new MapInsertOrReplaceFunction(kind, output_type);
       });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapReplaceKeyValuePairs},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapReplaceKeysAndValuesFunction(kind, output_type);
+      });
 }
+
 }  // namespace zetasql

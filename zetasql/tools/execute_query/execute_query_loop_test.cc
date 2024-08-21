@@ -60,22 +60,6 @@ class StaticResultPrompt : public ExecuteQueryPrompt {
 };
 }  // namespace
 
-TEST(ExecuteQueryLoopTest, SelectOne) {
-  ExecuteQueryConfig config;
-  ExecuteQuerySingleInput prompt{"SELECT 1", config};
-  std::ostringstream output;
-  ExecuteQueryStreamWriter writer{output};
-
-  ZETASQL_EXPECT_OK(ExecuteQueryLoop(prompt, config, writer));
-  EXPECT_EQ(output.str(), R"(+---+
-|   |
-+---+
-| 1 |
-+---+
-
-)");
-}
-
 TEST(ExecuteQueryLoopTest, ReadError) {
   StaticResultPrompt prompt;
 

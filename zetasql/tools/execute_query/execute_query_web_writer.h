@@ -42,6 +42,11 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
   ExecuteQueryWebWriter(const ExecuteQueryWebWriter &) = delete;
   ExecuteQueryWebWriter &operator=(const ExecuteQueryWebWriter &) = delete;
 
+  absl::Status statement_text(absl::string_view statement) override {
+    current_statement_params_["statement_text"] = std::string(statement);
+    return absl::OkStatus();
+  }
+
   absl::Status log(absl::string_view message) override {
     absl::StrAppend(&log_messages_, message, "\n");
     current_statement_params_["result_log"] = std::string(log_messages_);
@@ -121,6 +126,12 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
     //   template_params_["statements"]).push_back(current_statement_params_);
     statement_params_array_.push_back(current_statement_params_);
     template_params_["statements"] = mstch::array(statement_params_array_);
+
+    // Show the input statements when there is more than one statement,
+    // so it's easy to match output to input statements.
+    if (statement_params_array_.size() > 1) {
+      template_params_["show_statement_text"] = true;
+    }
 
     got_results_ = false;
     current_statement_params_.clear();

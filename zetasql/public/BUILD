@@ -1927,6 +1927,7 @@ cc_library(
     hdrs = ["analyzer_options.h"],
     deps = [
         ":catalog",
+        ":cycle_detector",
         ":error_helpers",
         ":id_string",
         ":options_cc_proto",

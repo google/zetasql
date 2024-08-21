@@ -319,11 +319,7 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
     local_options->set_id_string_pool(
         (*statement_parser_output)->id_string_pool());
   }
-  CycleDetector owned_cycle_detector;
-  if (local_options->find_options().cycle_detector() == nullptr) {
-    local_options->mutable_find_options()->set_cycle_detector(
-        &owned_cycle_detector);
-  }
+  ZETASQL_RET_CHECK(local_options->find_options().cycle_detector() != nullptr);
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();
   return AnalyzeStatementHelper(*ast_statement, *local_options, sql, catalog,
@@ -627,9 +623,12 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(
-      ParseScript(sql, options.GetParserOptions(), options.error_message_mode(),
-                  options.attach_error_location_payload(), &parser_output));
+  ZETASQL_RETURN_IF_ERROR(ParseScript(
+      sql, options.GetParserOptions(),
+      {.mode = options.error_message_mode(),
+       .attach_error_location_payload = options.attach_error_location_payload(),
+       .stability = GetDefaultErrorMessageStability()},
+      &parser_output));
   ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
 
   absl::Status status = table_name_resolver::FindTableNamesInScript(

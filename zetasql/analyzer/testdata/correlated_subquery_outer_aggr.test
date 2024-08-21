@@ -1114,7 +1114,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=50-62
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -1161,7 +1160,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=56-73
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -1929,7 +1927,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=50-71
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==
@@ -1987,7 +1984,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=56-82
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==
@@ -2354,7 +2350,6 @@ QueryStmt
     |   |         |         +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#5)
     |   |         +-order_by_item_list=
     |   |           +-OrderByItem
-    |   |             +-parse_location=145-212
     |   |             +-column_ref=
     |   |               +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#9)
     |   +-input_scan=
@@ -2366,7 +2361,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-213
         +-column_ref=
           +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$orderby.$orderbycol1#10)
 ==
@@ -2619,11 +2613,9 @@ QueryStmt
     |   |       +-Literal(type=DOUBLE, value=14)
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |     | +-parse_location=608-617
     |     | +-column_ref=
     |     |   +-ColumnRef(type=INT64, column=$groupby.field#10)
     |     +-OrderByItem
-    |       +-parse_location=619-628
     |       +-column_ref=
     |         +-ColumnRef(type=DOUBLE, column=$query.value#11)
     +-limit=
@@ -2944,7 +2936,6 @@ QueryStmt
     |         +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=50-69
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
 ==
@@ -3241,7 +3232,6 @@ QueryStmt
     |         |             +-ColumnRef(type=INT64, column=KeyValue.Key#9)
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=116-122
     |             +-column_ref=
     |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#13)
     +-input_scan=
@@ -3560,7 +3550,6 @@ QueryStmt
         |           |             +-ColumnRef(type=INT64, column=KeyValue.Key#3)
         |           +-order_by_item_list=
         |             +-OrderByItem
-        |               +-parse_location=140-146
         |               +-column_ref=
         |                 +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#7)
         +-group_by_list=
@@ -3931,7 +3920,6 @@ QueryStmt
         |         |             +-ColumnRef(type=INT64, column=KeyValue.Key#4)
         |         +-order_by_item_list=
         |           +-OrderByItem
-        |             +-parse_location=157-163
         |             +-column_ref=
         |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
         +-aggregate_list=
@@ -4272,7 +4260,6 @@ QueryStmt
             |     |             +-ColumnRef(type=INT64, column=KeyValue.Key#5)
             |     +-order_by_item_list=
             |       +-OrderByItem
-            |         +-parse_location=132-138
             |         +-column_ref=
             |           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
             +-Literal(type=INT64, value=0)
@@ -4332,7 +4319,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-124
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
 ==
@@ -4385,7 +4371,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-119
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
 ==
@@ -4450,7 +4435,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-150
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
 ==
@@ -4508,7 +4492,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-129
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#10)
 ==
@@ -4573,7 +4556,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-149
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
 ==
@@ -4625,7 +4607,6 @@ QueryStmt
     |   |         |             +-ColumnRef(type=INT64, column=KeyValue.Key#5)
     |   |         +-order_by_item_list=
     |   |           +-OrderByItem
-    |   |             +-parse_location=140-146
     |   |             +-column_ref=
     |   |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
     |   +-input_scan=
@@ -4641,7 +4622,6 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-147
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#10)
 ==
@@ -4854,8 +4834,6 @@ from KitchenSinkValueTable t0
 group by 1
 order by (select {{t0.|}}has_int32_val)
 --
-ALTERNATION GROUP: t0.
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.has_int32_val#3 AS has_int32_val [BOOL]
@@ -4900,57 +4878,6 @@ QueryStmt
     |         +-has_int32_val#3 := ColumnRef(type=BOOL, column=$pre_groupby.has_int32_val#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-99
-        +-column_ref=
-          +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.has_int32_val#3 AS has_int32_val [BOOL]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.has_int32_val#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.has_int32_val#3, $orderby.$orderbycol1#5]
-    |   +-expr_list=
-    |   | +-$orderbycol1#5 :=
-    |   |   +-SubqueryExpr
-    |   |     +-type=BOOL
-    |   |     +-subquery_type=SCALAR
-    |   |     +-parameter_list=
-    |   |     | +-ColumnRef(type=BOOL, column=$groupby.has_int32_val#3)
-    |   |     +-subquery=
-    |   |       +-ProjectScan
-    |   |         +-column_list=[$expr_subquery.has_int32_val#4]
-    |   |         +-expr_list=
-    |   |         | +-has_int32_val#4 := ColumnRef(type=BOOL, column=$groupby.has_int32_val#3, is_correlated=TRUE)
-    |   |         +-input_scan=
-    |   |           +-SingleRowScan
-    |   +-input_scan=
-    |     +-AggregateScan
-    |       +-column_list=[$groupby.has_int32_val#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[KitchenSinkValueTable.value#1, $pre_groupby.has_int32_val#2]
-    |       |   +-expr_list=
-    |       |   | +-has_int32_val#2 :=
-    |       |   |   +-GetProtoField
-    |       |   |     +-type=BOOL
-    |       |   |     +-expr=
-    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-    |       |   |     +-field_descriptor=int32_val
-    |       |   |     +-get_has_bit=TRUE
-    |       |   +-input_scan=
-    |       |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0], alias="t0")
-    |       +-group_by_list=
-    |         +-has_int32_val#3 := ColumnRef(type=BOOL, column=$pre_groupby.has_int32_val#2)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=74-96
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
 ==
@@ -4961,8 +4888,6 @@ select distinct t0.has_int32_val
 from KitchenSinkValueTable t0
 order by (select {{t0.|}}has_int32_val)
 --
-ALTERNATION GROUP: t0.
---
 QueryStmt
 +-output_column_list=
 | +-$distinct.has_int32_val#3 AS has_int32_val [BOOL]
@@ -5007,57 +4932,6 @@ QueryStmt
     |         +-has_int32_val#3 := ColumnRef(type=BOOL, column=$query.has_int32_val#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=72-97
-        +-column_ref=
-          +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.has_int32_val#3 AS has_int32_val [BOOL]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.has_int32_val#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$distinct.has_int32_val#3, $orderby.$orderbycol1#5]
-    |   +-expr_list=
-    |   | +-$orderbycol1#5 :=
-    |   |   +-SubqueryExpr
-    |   |     +-type=BOOL
-    |   |     +-subquery_type=SCALAR
-    |   |     +-parameter_list=
-    |   |     | +-ColumnRef(type=BOOL, column=$distinct.has_int32_val#3)
-    |   |     +-subquery=
-    |   |       +-ProjectScan
-    |   |         +-column_list=[$expr_subquery.has_int32_val#4]
-    |   |         +-expr_list=
-    |   |         | +-has_int32_val#4 := ColumnRef(type=BOOL, column=$distinct.has_int32_val#3, is_correlated=TRUE)
-    |   |         +-input_scan=
-    |   |           +-SingleRowScan
-    |   +-input_scan=
-    |     +-AggregateScan
-    |       +-column_list=[$distinct.has_int32_val#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[KitchenSinkValueTable.value#1, $query.has_int32_val#2]
-    |       |   +-expr_list=
-    |       |   | +-has_int32_val#2 :=
-    |       |   |   +-GetProtoField
-    |       |   |     +-type=BOOL
-    |       |   |     +-expr=
-    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-    |       |   |     +-field_descriptor=int32_val
-    |       |   |     +-get_has_bit=TRUE
-    |       |   +-input_scan=
-    |       |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0], alias="t0")
-    |       +-group_by_list=
-    |         +-has_int32_val#3 := ColumnRef(type=BOOL, column=$query.has_int32_val#2)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=72-94
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#5)
 ==

@@ -25,6 +25,7 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/public/time_zone_util.h"
@@ -305,9 +306,12 @@ AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
     : data_(new Data{
           .language_options = language_options,
+          .owned_cycle_detector = std::make_shared<CycleDetector>(),
           .validate_resolved_ast =
               absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
           .error_message_stability = GetDefaultErrorMessageStability()}) {
+  data_->find_options.set_cycle_detector(data_->owned_cycle_detector.get());
+
   ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
                               &data_->default_timezone))
       << "Did you need to install the tzdata package?";

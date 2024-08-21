@@ -945,8 +945,6 @@ FROM ComplexTypes ct
 GROUP BY TestStruct.d
 ORDER BY (SELECT {{ct.|}}TestStruct.d.a);
 --
-ALTERNATION GROUP: ct.
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.d#8 AS d [STRUCT<a INT32, b STRING>]
@@ -995,61 +993,6 @@ QueryStmt
     |         +-d#8 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=$pre_groupby.d#7)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=72-98
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#10)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.d#8 AS d [STRUCT<a INT32, b STRING>]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.d#8]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.d#8, $orderby.$orderbycol1#10]
-    |   +-expr_list=
-    |   | +-$orderbycol1#10 :=
-    |   |   +-SubqueryExpr
-    |   |     +-type=INT32
-    |   |     +-subquery_type=SCALAR
-    |   |     +-parameter_list=
-    |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.d#8)
-    |   |     +-subquery=
-    |   |       +-ProjectScan
-    |   |         +-column_list=[$expr_subquery.a#9]
-    |   |         +-expr_list=
-    |   |         | +-a#9 :=
-    |   |         |   +-GetStructField
-    |   |         |     +-type=INT32
-    |   |         |     +-expr=
-    |   |         |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.d#8, is_correlated=TRUE)
-    |   |         |     +-field_idx=0
-    |   |         +-input_scan=
-    |   |           +-SingleRowScan
-    |   +-input_scan=
-    |     +-AggregateScan
-    |       +-column_list=[$groupby.d#8]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[ComplexTypes.TestStruct#5, $pre_groupby.d#7]
-    |       |   +-expr_list=
-    |       |   | +-d#7 :=
-    |       |   |   +-GetStructField
-    |       |   |     +-type=STRUCT<a INT32, b STRING>
-    |       |   |     +-expr=
-    |       |   |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
-    |       |   |     +-field_idx=1
-    |       |   +-input_scan=
-    |       |     +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4], alias="ct")
-    |       +-group_by_list=
-    |         +-d#8 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=$pre_groupby.d#7)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=72-95
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#10)
 ==
@@ -1101,7 +1044,6 @@ QueryStmt
     |         +-TestStruct#7 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-97
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#9)
 ==
@@ -1818,7 +1760,6 @@ QueryStmt
     |         +-TestStruct#7 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=65-112
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#10)
 ==
@@ -2325,7 +2266,6 @@ QueryStmt
     |   |         |                 +-field_idx=1
     |   |         +-order_by_item_list=
     |   |           +-OrderByItem
-    |   |             +-parse_location=164-205
     |   |             +-column_ref=
     |   |               +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#18)
     |   +-input_scan=
@@ -2337,7 +2277,6 @@ QueryStmt
     |         +-TestStruct#7 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=68-206
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#19)
 ==
@@ -2431,7 +2370,6 @@ QueryStmt
     |   |         |                 +-field_idx=1
     |   |         +-order_by_item_list=
     |   |           +-OrderByItem
-    |   |             +-parse_location=155-181
     |   |             +-column_ref=
     |   |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#20)
     |   +-input_scan=
@@ -2463,7 +2401,6 @@ QueryStmt
     |             +-TestStruct#8 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=70-182
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#21)
 ==
@@ -2877,7 +2814,6 @@ QueryStmt
     |             +-TestStruct#8 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-108
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#11)
 ==
@@ -3213,7 +3149,6 @@ QueryStmt
     |             +-TestStruct#8 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=72-119
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#17)
 ==
@@ -3483,8 +3418,6 @@ FROM TestStructValueTable
 GROUP BY TestStructValueTable
 ORDER BY (SELECT TestStructValueTable.a)
 --
-ALTERNATION GROUP: TestStructValueTable.
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.TestStructValueTable#3 AS TestStructValueTable [STRUCT<a INT32, b STRING>]
@@ -3544,72 +3477,6 @@ QueryStmt
     |             +-TestStructValueTable#3 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=117-148
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.TestStructValueTable#3 AS TestStructValueTable [STRUCT<a INT32, b STRING>]
-| +-$query.a#4 AS a [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.TestStructValueTable#3, $query.a#4]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.TestStructValueTable#3, $query.a#4, $orderby.$orderbycol1#6]
-    |   +-expr_list=
-    |   | +-$orderbycol1#6 :=
-    |   |   +-SubqueryExpr
-    |   |     +-type=INT32
-    |   |     +-subquery_type=SCALAR
-    |   |     +-parameter_list=
-    |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#3)
-    |   |     +-subquery=
-    |   |       +-ProjectScan
-    |   |         +-column_list=[$expr_subquery.a#5]
-    |   |         +-expr_list=
-    |   |         | +-a#5 :=
-    |   |         |   +-GetStructField
-    |   |         |     +-type=INT32
-    |   |         |     +-expr=
-    |   |         |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#3, is_correlated=TRUE)
-    |   |         |     +-field_idx=0
-    |   |         +-input_scan=
-    |   |           +-SingleRowScan
-    |   +-input_scan=
-    |     +-ProjectScan
-    |       +-column_list=[$groupby.TestStructValueTable#3, $query.a#4]
-    |       +-expr_list=
-    |       | +-a#4 :=
-    |       |   +-GetStructField
-    |       |     +-type=INT32
-    |       |     +-expr=
-    |       |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#3)
-    |       |     +-field_idx=0
-    |       +-input_scan=
-    |         +-AggregateScan
-    |           +-column_list=[$groupby.TestStructValueTable#3]
-    |           +-input_scan=
-    |           | +-ProjectScan
-    |           |   +-column_list=[TestStructValueTable.value#1, $pre_groupby.a#2]
-    |           |   +-expr_list=
-    |           |   | +-a#2 :=
-    |           |   |   +-GetStructField
-    |           |   |     +-type=INT32
-    |           |   |     +-expr=
-    |           |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-    |           |   |     +-field_idx=0
-    |           |   +-input_scan=
-    |           |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
-    |           +-group_by_list=
-    |             +-TestStructValueTable#3 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=96-127
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
 ==
@@ -3620,8 +3487,6 @@ FROM TestStructValueTable vt
 GROUP BY vt
 ORDER BY (SELECT vt.a)
 --
-ALTERNATION GROUP: vt.
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.vt#3 AS vt [STRUCT<a INT32, b STRING>]
@@ -3681,72 +3546,6 @@ QueryStmt
     |             +-vt#3 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=66-79
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.vt#3 AS vt [STRUCT<a INT32, b STRING>]
-| +-$query.a#4 AS a [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.vt#3, $query.a#4]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.vt#3, $query.a#4, $orderby.$orderbycol1#6]
-    |   +-expr_list=
-    |   | +-$orderbycol1#6 :=
-    |   |   +-SubqueryExpr
-    |   |     +-type=INT32
-    |   |     +-subquery_type=SCALAR
-    |   |     +-parameter_list=
-    |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.vt#3)
-    |   |     +-subquery=
-    |   |       +-ProjectScan
-    |   |         +-column_list=[$expr_subquery.a#5]
-    |   |         +-expr_list=
-    |   |         | +-a#5 :=
-    |   |         |   +-GetStructField
-    |   |         |     +-type=INT32
-    |   |         |     +-expr=
-    |   |         |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.vt#3, is_correlated=TRUE)
-    |   |         |     +-field_idx=0
-    |   |         +-input_scan=
-    |   |           +-SingleRowScan
-    |   +-input_scan=
-    |     +-ProjectScan
-    |       +-column_list=[$groupby.vt#3, $query.a#4]
-    |       +-expr_list=
-    |       | +-a#4 :=
-    |       |   +-GetStructField
-    |       |     +-type=INT32
-    |       |     +-expr=
-    |       |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.vt#3)
-    |       |     +-field_idx=0
-    |       +-input_scan=
-    |         +-AggregateScan
-    |           +-column_list=[$groupby.vt#3]
-    |           +-input_scan=
-    |           | +-ProjectScan
-    |           |   +-column_list=[TestStructValueTable.value#1, $pre_groupby.a#2]
-    |           |   +-expr_list=
-    |           |   | +-a#2 :=
-    |           |   |   +-GetStructField
-    |           |   |     +-type=INT32
-    |           |   |     +-expr=
-    |           |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-    |           |   |     +-field_idx=0
-    |           |   +-input_scan=
-    |           |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0], alias="vt")
-    |           +-group_by_list=
-    |             +-vt#3 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=63-76
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
 ==

@@ -14,13 +14,6 @@
 // limitations under the License.
 //
 
-// Tool for running a query against a Catalog constructed from various input
-// sources. Also serves as a demo of the PreparedQuery API.
-//
-// The tool uses the global proto db to lookup proto descriptors based on their
-// names. For an example of how to use this tool with a custom proto db, see
-// :execute_query_test. Note that not all protos are in the global proto db.
-
 #include <fcntl.h>
 
 #include <memory>

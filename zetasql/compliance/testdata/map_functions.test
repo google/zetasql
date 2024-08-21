@@ -721,3 +721,56 @@ SELECT
   MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2, CAST(NULL AS STRING), 2);
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_replace]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2) as one_element_one_replaced,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 2) as two_elements_one_replaced,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 2, 'b', 1) as two_elements_two_replaced;
+--
+ARRAY<STRUCT<
+        one_element_one_replaced MAP<STRING, INT64>,
+        two_elements_one_replaced MAP<STRING, INT64>,
+        two_elements_two_replaced MAP<STRING, INT64>
+      >>[{{"a": 2}, {"a": 2, "b": 2}, {"a": 2, "b": 1}}]
+==
+
+[name=map_replace_error_nonexistent_key]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'b', 3, 'a', 2, 'c', 1);
+--
+ERROR: generic::out_of_range: Key does not exist in map: "c"
+==
+
+[name=map_replace_error_duplicate_key_arg]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 2, 'b', 3, 'a', 0);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "a"
+==
+
+[name=map_replace_null_map]
+SELECT
+  MAP_REPLACE(NULL, 'b', 2) as null_map,
+  MAP_REPLACE(NULL, NULL, NULL) as null_map_null_key,
+  MAP_REPLACE(NULL, NULL, NULL) as null_map_null_key_and_value;
+--
+ARRAY<STRUCT<
+        null_map MAP<STRING, INT64>,
+        null_map_null_key MAP<INT64, INT64>,
+        null_map_null_key_and_value MAP<INT64, INT64>
+      >>[{NULL, NULL, NULL}]
+==
+
+[name=map_modify_fns_null_map_duplicate_key_arg]
+# All map modification functions should return NULL if the map is NULL, and this
+# takes precedence over the duplicate key argument error.
+SELECT
+  MAP_INSERT(NULL, 'b', 2, 'b', 3) as map_insert,
+  MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'b', 3) as map_insert_or_replace,
+  MAP_REPLACE(NULL, 'b', 2, 'b', 3) as map_replace;
+--
+ARRAY<STRUCT<
+        map_insert MAP<STRING, INT64>,
+        map_insert_or_replace MAP<STRING, INT64>,
+        map_replace MAP<STRING, INT64>
+      >>[{NULL, NULL, NULL}]

@@ -737,7 +737,7 @@ QueryStmt
 --
 ALTERNATION GROUP: bad_name
 --
-ERROR: Field 1 has name bad_name which is not a field in proto zetasql_test__.KitchenSinkPB.Nested [at 4:39]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB.Nested does not have a field named bad_name [at 4:39]
   nested_value: (SELECT 1 |> SELECT { bad_name: 5 })
                                       ^
 ==

@@ -1093,7 +1093,9 @@ static const EnumType* s_unsupported_fields_enum_type() {
   static const EnumType* s_unsupported_fields_enum_type = [] {
     const EnumType* enum_type;
     ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
-        s_type_factory(), functions::UnsupportedFields_descriptor(), &enum_type,
+        s_type_factory(),
+        functions::UnsupportedFieldsEnum::UnsupportedFields_descriptor(),
+        &enum_type,
         /*catalog_name_path=*/{}));
     return enum_type;
   }();

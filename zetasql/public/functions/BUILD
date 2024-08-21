@@ -845,6 +845,7 @@ cc_proto_library(
 proto_library(
     name = "unsupported_fields_proto",
     srcs = ["unsupported_fields.proto"],
+    deps = ["//zetasql/public:type_proto"],
 )
 
 cc_proto_library(

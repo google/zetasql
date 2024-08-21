@@ -17,8 +17,10 @@
 #include "zetasql/reference_impl/function.h"
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -43,7 +45,12 @@
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/types/span.h"
+#include "zetasql/base/optional_ref.h"
 
 namespace zetasql {
 
@@ -538,6 +545,79 @@ TEST(NonDeterministicEvaluationContextTest,
             .status());
     EXPECT_FALSE(context.IsDeterministicOutput());
   }
+}
+
+namespace {
+
+class BasicTestFunction : public SimpleBuiltinScalarFunction {
+ public:
+  BasicTestFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override {
+    return absl::UnimplementedError("Not implemented");
+  }
+
+  std::vector<zetasql_base::optional_ref<AlgebraArg>> non_value_args_for_testing()
+      const {
+    return extended_args();
+  }
+};
+}  // namespace
+
+std::unique_ptr<InlineLambdaExpr> CreateLambdaExprForTesting() {
+  return InlineLambdaExpr::Create(
+      /*arguments=*/{VariableId("e")},
+      /*body=*/ConstExpr::Create(Value::Bool(true)).value());
+}
+
+TEST(BuiltinFunctionRegistryTest, ScalarFunctionRegistrationAndLookup) {
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kIsNull}, [](FunctionKind kind, const Type* output_type) {
+        return new BasicTestFunction(kind, output_type);
+      });
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(BuiltinScalarFunction * unowned_test_fn,
+                       BuiltinFunctionRegistry::GetScalarFunction(
+                           FunctionKind::kIsNull, types::BoolType(), {}));
+  auto test_fn = absl::WrapUnique<BuiltinScalarFunction>(unowned_test_fn);
+  EXPECT_EQ(test_fn->kind(), FunctionKind::kIsNull);
+  EXPECT_EQ(test_fn->output_type(), types::BoolType());
+}
+
+TEST(BuiltinFunctionRegistryTest, CreateCallPopulatesNonValueArgsInFunction) {
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      // Must be a function type that uses BuiltinFunctionRegistry.
+      {FunctionKind::kMapFromArray},
+      [](FunctionKind kind, const Type* output_type) {
+        return new BasicTestFunction(kind, output_type);
+      });
+
+  // Create a call with a const string and a lambda argument.
+  std::vector<std::unique_ptr<AlgebraArg>> args;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ValueExpr> expr,
+                       ConstExpr::Create(Value::StringValue("foo")));
+  args.push_back(std::make_unique<ExprArg>(std::move(expr)));
+  args.push_back(
+      std::make_unique<InlineLambdaArg>(CreateLambdaExprForTesting()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ScalarFunctionCallExpr> call,
+                       BuiltinScalarFunction::CreateCall(
+                           FunctionKind::kMapFromArray, LanguageOptions(),
+                           types::BoolType(), std::move(args)));
+
+  std::function<void(std::string*, zetasql_base::optional_ref<AlgebraArg>)>
+      algebra_arg_formatter =
+          [](std::string* out, zetasql_base::optional_ref<AlgebraArg> arg) {
+            absl::StrAppend(out, arg.has_value() ? arg->DebugString() : "null");
+          };
+
+  EXPECT_THAT(
+      absl::StrJoin(static_cast<const BasicTestFunction*>(call->function())
+                        ->non_value_args_for_testing(),
+                    ", ", algebra_arg_formatter),
+      absl::StrCat("null, ", CreateLambdaExprForTesting()->DebugString()));
 }
 
 }  // namespace zetasql

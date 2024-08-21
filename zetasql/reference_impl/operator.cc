@@ -25,6 +25,7 @@
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/type.h"
 #include "absl/base/attributes.h"
+#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/stl_util.h"
@@ -51,6 +52,13 @@ const ValueExpr* AlgebraArg::value_expr() const {
 
 ValueExpr* AlgebraArg::mutable_value_expr() {
   return node() ? mutable_node()->AsMutableValueExpr() : nullptr;
+}
+
+std::unique_ptr<ValueExpr> AlgebraArg::release_value_expr() {
+  if (node() == nullptr || node()->AsValueExpr() == nullptr) {
+    return nullptr;
+  }
+  return absl::WrapUnique(node_.release()->AsMutableValueExpr());
 }
 
 const RelationalOp* AlgebraArg::relational_op() const {

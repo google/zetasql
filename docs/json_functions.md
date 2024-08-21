@@ -127,8 +127,8 @@ behavior:
         
       </td>
       <td>
-        Functions that flexibly convert a JSON value to an SQL value
-        without returning errors.
+        Functions that flexibly convert a JSON value to a SQL value without
+        returning errors.
       </td>
     </tr>
     
@@ -854,7 +854,10 @@ SELECT BOOL_ARRAY(JSON 'null') AS result; -- Throws an error
 <a id="double_for_json"></a>
 
 ```sql
-DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+DOUBLE(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -871,8 +874,8 @@ Arguments:
 
     If the JSON value is not a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument,
-    which defines what happens with a number that cannot be
++   `wide_number_mode`: A named argument with a `STRING` value.
+    Defines what happens with a number that can't be
     represented as a `DOUBLE` without loss of
     precision. This argument accepts one of the two case-sensitive values:
 
@@ -950,7 +953,10 @@ SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 <a id="double_array_for_json"></a>
 
 ```sql
-DOUBLE_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+DOUBLE_ARRAY(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -967,8 +973,8 @@ Arguments:
 
     If the JSON value is not an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
-    happens with a number that cannot be represented as a
++   `wide_number_mode`: A named argument that takes a `STRING` value. Defines
+    what happens with a number that can't be represented as a
     `DOUBLE` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
@@ -1034,7 +1040,10 @@ SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'exact') as
 <a id="float_for_json"></a>
 
 ```sql
-FLOAT(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+FLOAT(
+  json_expr
+  [, [ wide_number_mode => ] { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -1051,7 +1060,7 @@ Arguments:
 
     If the JSON value is not a number, an error is produced. If the expression
     is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
++   `wide_number_mode`: A named argument with a `STRING` value. Defines what
     happens with a number that cannot be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
@@ -1130,7 +1139,10 @@ SELECT SAFE.FLOAT(JSON '"strawberry"') AS result;
 <a id="float_array_for_json"></a>
 
 ```sql
-FLOAT_ARRAY(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+FLOAT_ARRAY(
+  json_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -1147,8 +1159,8 @@ Arguments:
 
     If the JSON value is not an array of numbers, an error is produced. If the
     expression is a SQL `NULL`, the function returns SQL `NULL`.
-+   `wide_number_mode`: Optional mandatory-named argument, which defines what
-    happens with a number that cannot be represented as a
++   `wide_number_mode`: A named argument with a `STRING` value. Defines
+    what happens with a number that can't be represented as a
     `FLOAT` without loss of precision. This argument accepts
     one of the two case-sensitive values:
 
@@ -1569,7 +1581,7 @@ SELECT JSON_ARRAY() AS json_data
 JSON_ARRAY_APPEND(
   json_expr,
   json_path_value_pair[, ...]
-  [, append_each_element=>{ TRUE | FALSE }]
+  [, append_each_element => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -1593,7 +1605,7 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         append.
-+   `append_each_element`: An optional, mandatory named argument.
++   `append_each_element`: A named argument with a `BOOL` value.
 
     +   If `TRUE` (default), and `value` is a SQL array,
         appends each element individually.
@@ -1760,7 +1772,7 @@ SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
 JSON_ARRAY_INSERT(
   json_expr,
   json_path_value_pair[, ...]
-  [, insert_each_element=>{ TRUE | FALSE }]
+  [, insert_each_element => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -1785,7 +1797,7 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         insert.
-+   `insert_each_element`: An optional, mandatory named argument.
++   `insert_each_element`: A named argument with a `BOOL` value.
 
     +   If `TRUE` (default), and `value` is a SQL array,
         inserts each element individually.
@@ -3608,7 +3620,7 @@ SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 JSON_SET(
   json_expr,
   json_path_value_pair[, ...]
-  [, create_if_missing=> { TRUE | FALSE }]
+  [, create_if_missing => { TRUE | FALSE } ]
 )
 
 json_path_value_pair:
@@ -3633,11 +3645,11 @@ Arguments:
 
     +   `value`: A [JSON encoding-supported][json-encodings] value to
         insert.
-+   `create_if_missing`: An optional, mandatory named argument.
++   `create_if_missing`: A named argument that takes a `BOOL` value.
 
-    +   If TRUE (default), replaces or inserts data if the path does not exist.
+    +   If `TRUE` (default), replaces or inserts data if the path doesn't exist.
 
-    +   If FALSE, only _existing_ JSONPath values are replaced. If the path
+    +   If `FALSE`, only existing JSONPath values are replaced. If the path
         doesn't exist, the set operation is ignored.
 
 Details:
@@ -3897,9 +3909,9 @@ SELECT JSON_SET(
 ```sql
 JSON_STRIP_NULLS(
   json_expr
-  [, json_path]
-  [, include_arrays => { TRUE | FALSE }]
-  [, remove_empty => { TRUE | FALSE }]
+  [, json_path ]
+  [, include_arrays => { TRUE | FALSE } ]
+  [, remove_empty => { TRUE | FALSE } ]
 )
 ```
 
@@ -3914,10 +3926,10 @@ Arguments:
     ```
 +   `json_path`: Remove JSON nulls at this [JSONPath][JSONPath-format] for
     `json_expr`.
-+   `include_arrays`: An optional, mandatory named argument that is either
++   `include_arrays`: A named argument that's either
      `TRUE` (default) or `FALSE`. If `TRUE` or omitted, the function removes
      JSON nulls from JSON arrays. If `FALSE`, does not.
-+   `remove_empty`: An optional, mandatory named argument that is either
++   `remove_empty`: A named argument that's either
      `TRUE` or `FALSE` (default). If `TRUE`, the function removes empty
      JSON objects after JSON nulls are removed. If `FALSE` or omitted, does not.
 
@@ -7353,7 +7365,10 @@ SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
 ### `PARSE_JSON`
 
 ```sql
-PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+PARSE_JSON(
+  json_string_expr
+  [, wide_number_mode => { 'exact' | 'round' } ]
+)
 ```
 
 **Description**
@@ -7367,9 +7382,10 @@ Arguments:
     ```
     '{"class": {"students": [{"name": "Jane"}]}}'
     ```
-+   `wide_number_mode`: Optional mandatory-named argument that determines how to
-    handle numbers that cannot be stored in a `JSON` value without the loss of
-    precision. If used, `wide_number_mode` must include one of these values:
++   `wide_number_mode`: A named argument with a `STRING` value. Determines
+    how to handle numbers that can't be stored in a `JSON` value without the
+    loss of precision. If used, `wide_number_mode` must include one of the
+    following values:
 
     +   `exact` (default): Only accept numbers that can be stored without loss
         of precision. If a number that cannot be stored without loss of
@@ -7558,7 +7574,10 @@ SELECT STRING_ARRAY(JSON 'null') AS result; -- Throws an error
 ### `TO_JSON`
 
 ```sql
-TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
+TO_JSON(
+  sql_value
+  [, stringify_wide_numbers => { TRUE | FALSE } ]
+)
 ```
 
 **Description**
@@ -7570,7 +7589,7 @@ Arguments:
 +   `sql_value`: The SQL value to convert to a JSON value. You can review the
     ZetaSQL data types that this function supports and their
     JSON encodings [here][json-encodings].
-+   `stringify_wide_numbers`: Optional mandatory-named argument that is either
++   `stringify_wide_numbers`: A named argument that's either
     `TRUE` or `FALSE` (default).
 
     +   If `TRUE`, numeric values outside of the

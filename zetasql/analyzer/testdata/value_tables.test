@@ -825,7 +825,6 @@ QueryStmt
     |     +-a#5 := ColumnRef(type=INT32, column=$pre_groupby.a#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=101-104
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.a#5)
 --
@@ -893,7 +892,6 @@ QueryStmt
     |     +-A#5 := ColumnRef(type=INT32, column=$pre_groupby.a#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=101-104
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.A#5)
 --
@@ -961,7 +959,6 @@ QueryStmt
     |     +-a#5 := ColumnRef(type=INT32, column=$pre_groupby.A#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=101-104
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.a#5)
 --
@@ -1029,7 +1026,6 @@ QueryStmt
     |     +-A#5 := ColumnRef(type=INT32, column=$pre_groupby.A#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=101-104
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.A#5)
 ==
@@ -1797,11 +1793,9 @@ QueryStmt
     |                   +-default_value=77
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=80-89
       | +-column_ref=
       |   +-ColumnRef(type=BYTES, column=$orderby.$orderbycol1#3)
       +-OrderByItem
-        +-parse_location=91-101
         +-column_ref=
           +-ColumnRef(type=BOOL, column=$orderby.$orderbycol2#4)
 ==
@@ -1830,7 +1824,6 @@ QueryStmt
     |       +-Literal(type=INT32, value=0)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=53-59
         +-column_ref=
         | +-ColumnRef(type=INT32, column=Int32ValueTable.value#1)
         +-is_descending=TRUE
@@ -1907,7 +1900,6 @@ QueryStmt
     |           +-output_column_list=[$make_proto.$proto#8]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=146-149
         +-column_ref=
           +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#10)
 ==
@@ -1992,7 +1984,6 @@ QueryStmt
         |   |     +-value#7 := ColumnRef(type=STRING, column=$aggregate.value#3)
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=187-188
         |       +-column_ref=
         |         +-ColumnRef(type=INT64, column=$distinct.key#6)
         +-limit=
@@ -2070,7 +2061,6 @@ QueryStmt
     |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-84
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
 ==
@@ -2083,8 +2073,6 @@ group by {{k.|}}int32_val1
 having {{k.|}}int32_val1 > 0
 order by {{k.|}}int32_val1
 --
-ALTERNATION GROUP: k.,k.,k.,k.
---
 QueryStmt
 +-output_column_list=
 | +-$groupby.int32_val1#5 AS int32_val1 [INT32]
@@ -2119,299 +2107,6 @@ QueryStmt
     |       +-Literal(type=INT32, value=0)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=102-114
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUP: k.,k.,k.,
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=102-112
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUPS:
-    k.,k.,,k.
-    k.,,k.,k.
-    k.,k.,k.
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=100-112
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUPS:
-    k.,k.,,
-    k.,,k.,
-    k.,k.,
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=100-110
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUPS:
-    k.,,,k.
-    k.,,k.
-    k.,k.
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=98-110
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUPS:
-    k.,,,
-    k.,,
-    k.,
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=98-108
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUP: k.
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=96-108
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32_val1#5 AS int32_val1 [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32_val1#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-FilterScan
-    |   +-column_list=[$groupby.int32_val1#5]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32_val1#5]
-    |   |   +-input_scan=
-    |   |   | +-ProjectScan
-    |   |   |   +-column_list=[TestExtraValueTable.value#1, $pre_groupby.int32_val1#4]
-    |   |   |   +-expr_list=
-    |   |   |   | +-int32_val1#4 :=
-    |   |   |   |   +-GetProtoField
-    |   |   |   |     +-type=INT32
-    |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
-    |   |   |   |     +-field_descriptor=int32_val1
-    |   |   |   |     +-default_value=0
-    |   |   |   +-input_scan=
-    |   |   |     +-TableScan(column_list=[TestExtraValueTable.value#1], table=TestExtraValueTable, column_index_list=[0], alias="k")
-    |   |   +-group_by_list=
-    |   |     +-int32_val1#5 := ColumnRef(type=INT32, column=$pre_groupby.int32_val1#4)
-    |   +-filter_expr=
-    |     +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
-    |       +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
-    |       +-Literal(type=INT32, value=0)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=96-106
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
 ==
@@ -2598,7 +2293,6 @@ QueryStmt
     |           +-default_value=0
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=91-101
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.foo#6)
 ==
@@ -2662,7 +2356,6 @@ QueryStmt
     |           +-default_value=0
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=131-141
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.int32_val1#5)
 ==
@@ -2975,15 +2668,12 @@ QueryStmt
     |         +-Literal(type=INT64, value=4)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=216-227
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.int64_key_1#4)
       +-OrderByItem
-      | +-parse_location=229-254
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.nested_int64#5)
       +-OrderByItem
-        +-parse_location=256-270
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg2#7)
 ==
@@ -3046,7 +2736,6 @@ QueryStmt
     |           +-Literal(type=INT64, value=2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=145-174
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -3184,27 +2873,21 @@ QueryStmt
     |         +-Literal(type=INT64, value=5)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=417-428
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.int64_key_1#6)
       +-OrderByItem
-      | +-parse_location=430-443
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.int64_key_2#7)
       +-OrderByItem
-      | +-parse_location=445-470
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.nested_int64#8)
       +-OrderByItem
-      | +-parse_location=481-508
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.nested_int64#8)
       +-OrderByItem
-      | +-parse_location=510-524
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$aggregate.$agg3#11)
       +-OrderByItem
-        +-parse_location=526-545
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg4#12)
 ==
@@ -3392,8 +3075,6 @@ group by {{T.|}}f.d.b
 having {{T.|}}f.d.b = 'foo'
 order by concat({{T.|}}f.d.b, "b")
 --
-ALTERNATION GROUP: T.,T.,T.,T.
---
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#3 AS `$col1` [STRING]
@@ -3446,425 +3127,6 @@ QueryStmt
     |           +-Literal(type=STRING, value="foo")
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=111-131
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUP: T.,T.,T.,
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=111-129
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUPS:
-    T.,T.,,T.
-    T.,,T.,T.
-    T.,T.,T.
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=109-129
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUPS:
-    T.,T.,,
-    T.,,T.,
-    T.,T.,
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=109-127
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUPS:
-    T.,,,T.
-    T.,,T.
-    T.,T.
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=107-127
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUPS:
-    T.,,,
-    T.,,
-    T.,
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=107-125
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUP: T.
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=105-125
-        +-column_ref=
-          +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
---
-ALTERNATION GROUP: <empty>
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#3 AS `$col1` [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[$query.$col1#3]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-ProjectScan
-    |   +-column_list=[$groupby.b#2, $query.$col1#3, $orderby.$orderbycol1#4]
-    |   +-expr_list=
-    |   | +-$orderbycol1#4 :=
-    |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |   |     +-Literal(type=STRING, value="b")
-    |   +-input_scan=
-    |     +-FilterScan
-    |       +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       +-input_scan=
-    |       | +-ProjectScan
-    |       |   +-column_list=[$groupby.b#2, $query.$col1#3]
-    |       |   +-expr_list=
-    |       |   | +-$col1#3 :=
-    |       |   |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |       |   |     +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |       |   |     +-Literal(type=STRING, value="a")
-    |       |   +-input_scan=
-    |       |     +-AggregateScan
-    |       |       +-column_list=[$groupby.b#2]
-    |       |       +-input_scan=
-    |       |       | +-TableScan(column_list=[TestNestedStructValueTable.value#1], table=TestNestedStructValueTable, column_index_list=[0], alias="T")
-    |       |       +-group_by_list=
-    |       |         +-b#2 :=
-    |       |           +-GetStructField
-    |       |             +-type=STRING
-    |       |             +-expr=
-    |       |             | +-GetStructField
-    |       |             |   +-type=STRUCT<a INT32, b STRING>
-    |       |             |   +-expr=
-    |       |             |   | +-GetStructField
-    |       |             |   |   +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-    |       |             |   |   +-expr=
-    |       |             |   |   | +-ColumnRef(type=STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>, column=TestNestedStructValueTable.value#1)
-    |       |             |   |   +-field_idx=1
-    |       |             |   +-field_idx=1
-    |       |             +-field_idx=1
-    |       +-filter_expr=
-    |         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
-    |           +-ColumnRef(type=STRING, column=$groupby.b#2)
-    |           +-Literal(type=STRING, value="foo")
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=105-123
         +-column_ref=
           +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
 ==

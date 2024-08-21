@@ -20,7 +20,6 @@ QueryStmt
               +-ColumnRef(type=INT32, column=TestTable.key#1)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=30-33
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=TestTable.key#1)
 
@@ -71,11 +70,9 @@ QueryStmt
               +-ColumnRef(type=INT32, column=TestTable.key#1)
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=30-39
                 | +-column_ref=
                 |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
                 +-OrderByItem
-                  +-parse_location=41-50
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol2#5)
 
@@ -108,7 +105,6 @@ QueryStmt
                 +-Literal(type=INT64, value=1)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=52-55
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=TestTable.key#1)
 
@@ -145,12 +141,10 @@ QueryStmt
     |           +-default_value=0
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=53-56
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=TestTable.key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=95-98
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.Key#5)
 
@@ -190,7 +184,6 @@ QueryStmt
                 +-default_value="default_name"
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=50-57
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 
@@ -227,7 +220,6 @@ QueryStmt
     |     |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |     |   +-order_by_item_list=
     |     |     +-OrderByItem
-    |     |       +-parse_location=45-50
     |     |       +-column_ref=
     |     |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |     +-s2#4 :=
@@ -236,7 +228,6 @@ QueryStmt
     |     |   +-Literal(type=STRING, value=",")
     |     |   +-order_by_item_list=
     |     |     +-OrderByItem
-    |     |       +-parse_location=97-102
     |     |       +-column_ref=
     |     |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |     +-s3#5 :=
@@ -246,24 +237,19 @@ QueryStmt
     |         +-Literal(type=BYTES, value=b"b")
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=165-170
     |             +-column_ref=
     |               +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=214-217
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.key#6)
       +-OrderByItem
-      | +-parse_location=219-221
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$aggregate.s1#3)
       +-OrderByItem
-      | +-parse_location=223-225
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$aggregate.s2#4)
       +-OrderByItem
-        +-parse_location=227-229
         +-column_ref=
           +-ColumnRef(type=BYTES, column=$aggregate.s3#5)
 
@@ -323,7 +309,6 @@ QueryStmt
           |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=60-81
           |       +-column_ref=
           |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           +-$agg2#7 :=
@@ -331,7 +316,6 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#6)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=134-156
                   +-column_ref=
                     +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#6)
 
@@ -379,7 +363,6 @@ QueryStmt
                     +-default_value=0
                   +-order_by_item_list=
                     +-OrderByItem
-                      +-parse_location=73-76
                       +-column_ref=
                         +-ColumnRef(type=INT32, column=TestTable.key#1)
 
@@ -434,7 +417,6 @@ QueryStmt
                 +-default_value=0
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=71-106
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#7)
 
@@ -477,7 +459,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=69-90
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 
@@ -541,12 +522,10 @@ QueryStmt
                 +-default_value=0
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=71-79
                 | +-column_ref=
                 | | +-ColumnRef(type=INT32, column=TestTable.key#1)
                 | +-is_descending=TRUE
                 +-OrderByItem
-                  +-parse_location=81-107
                   +-column_ref=
                   | +-ColumnRef(type=INT32, column=$orderby.$orderbycol2#4)
                   +-is_descending=TRUE
@@ -590,7 +569,6 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=73-116
                   +-column_ref=
                   | +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
                   +-collation_name=
@@ -703,16 +681,13 @@ QueryStmt
           |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |     | +-parse_location=71-92
           |     | +-column_ref=
           |     |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |     +-OrderByItem
-          |     | +-parse_location=114-144
           |     | +-column_ref=
           |     | | +-ColumnRef(type=INT64, column=$orderby.$orderbycol2#5)
           |     | +-is_descending=TRUE
           |     +-OrderByItem
-          |       +-parse_location=166-188
           |       +-column_ref=
           |         +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
           +-b#9 :=
@@ -725,15 +700,12 @@ QueryStmt
           |     +-default_value=77
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |     | +-parse_location=255-276
           |     | +-column_ref=
           |     |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |     +-OrderByItem
-          |     | +-parse_location=298-320
           |     | +-column_ref=
           |     |   +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
           |     +-OrderByItem
-          |       +-parse_location=342-372
           |       +-column_ref=
           |       | +-ColumnRef(type=INT64, column=$orderby.$orderbycol3#8)
           |       +-is_descending=TRUE
@@ -742,16 +714,13 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=441-462
                 | +-column_ref=
                 |   +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#10)
                 +-OrderByItem
-                | +-parse_location=484-510
                 | +-column_ref=
                 | | +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
                 | +-is_descending=TRUE
                 +-OrderByItem
-                  +-parse_location=532-575
                   +-column_ref=
                   | +-ColumnRef(type=STRING, column=$orderby.$orderbycol3#6)
                   +-collation_name=
@@ -825,7 +794,6 @@ QueryStmt
         |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
         |         +-order_by_item_list=
         |           +-OrderByItem
-        |             +-parse_location=60-81
         |             +-column_ref=
         |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
         +-function_group_list=
@@ -901,7 +869,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=39-42
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=TestTable.key#1)
 
@@ -910,240 +877,63 @@ QueryStmt
 select array_agg(distinct {{|TestTable.}}Key order by {{|TestTable.}}Key)
 from TestTable
 --
-ALTERNATION GROUP: <empty>
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#4 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
+              +-ColumnRef(type=INT32, column=TestTable.key#1)
+              +-distinct=TRUE
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT32, column=TestTable.key#1)
 
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#4]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#4]
-        +-input_scan=
-        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=39-42
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: TestTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#4]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#4]
-        +-input_scan=
-        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=39-52
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: TestTable.,
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#4]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#4]
-        +-input_scan=
-        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=49-52
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: TestTable.,TestTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#4]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#4]
-        +-input_scan=
-        | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=49-62
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
 
 select array_agg({{|KitchenSinkValueTable.}}int64_key_1
                  order by {{|KitchenSinkValueTable.}}int64_key_1)
 from KitchenSinkValueTable
 --
-ALTERNATION GROUP: <empty>
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[KitchenSinkValueTable.value#1, $orderby.$orderbycol1#2]
+        |   +-expr_list=
+        |   | +-$orderbycol1#2 :=
+        |   |   +-GetProtoField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+        |   |     +-field_descriptor=int64_key_1
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
 
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT64>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[KitchenSinkValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetProtoField
-        |   |     +-type=INT64
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-        |   |     +-field_descriptor=int64_key_1
-        |   +-input_scan=
-        |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
-              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=55-66
-                  +-column_ref=
-                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: KitchenSinkValueTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT64>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[KitchenSinkValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetProtoField
-        |   |     +-type=INT64
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-        |   |     +-field_descriptor=int64_key_1
-        |   +-input_scan=
-        |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
-              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=55-88
-                  +-column_ref=
-                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: KitchenSinkValueTable.,
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT64>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[KitchenSinkValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetProtoField
-        |   |     +-type=INT64
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-        |   |     +-field_descriptor=int64_key_1
-        |   +-input_scan=
-        |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
-              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=77-88
-                  +-column_ref=
-                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: KitchenSinkValueTable.,KitchenSinkValueTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT64>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[KitchenSinkValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetProtoField
-        |   |     +-type=INT64
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
-        |   |     +-field_descriptor=int64_key_1
-        |   +-input_scan=
-        |     +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
-              +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=77-110
-                  +-column_ref=
-                    +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
 ==
 
 select array_agg(distinct KitchenSinkValueTable.int64_key_1
@@ -1178,7 +968,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=86-119
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#2)
 
@@ -1188,138 +977,36 @@ select array_agg({{|TestStructValueTable.}}a
                  order by {{|TestStructValueTable.}}a)
 from TestStructValueTable
 --
-ALTERNATION GROUP: <empty>
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[TestStructValueTable.value#1, $orderby.$orderbycol1#2]
+        |   +-expr_list=
+        |   | +-$orderbycol1#2 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
+              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
 
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestStructValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetStructField
-        |   |     +-type=INT32
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-        |   |     +-field_idx=0
-        |   +-input_scan=
-        |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=45-46
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: TestStructValueTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestStructValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetStructField
-        |   |     +-type=INT32
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-        |   |     +-field_idx=0
-        |   +-input_scan=
-        |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=45-67
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: TestStructValueTable.,
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestStructValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetStructField
-        |   |     +-type=INT32
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-        |   |     +-field_idx=0
-        |   +-input_scan=
-        |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=66-67
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
---
-ALTERNATION GROUP: TestStructValueTable.,TestStructValueTable.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestStructValueTable.value#1, $orderby.$orderbycol1#2]
-        |   +-expr_list=
-        |   | +-$orderbycol1#2 :=
-        |   |   +-GetStructField
-        |   |     +-type=INT32
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
-        |   |     +-field_idx=0
-        |   +-input_scan=
-        |     +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=66-88
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
 ==
 
 select array_agg(distinct TestStructValueTable.a
@@ -1354,7 +1041,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=75-97
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#2)
 
@@ -1368,202 +1054,52 @@ from
             KitchenSink.string_val as string_val
      from TestTable) as T
 --
-ALTERNATION GROUP: <empty>
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#7 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#7]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#7]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[TestTable.key#1, T.int64_val#4, T.int32_val#5, T.string_val#6]
+        |   +-expr_list=
+        |   | +-int64_val#4 :=
+        |   | | +-GetProtoField
+        |   | |   +-type=INT64
+        |   | |   +-expr=
+        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | |   +-field_descriptor=int64_val
+        |   | |   +-default_value=0
+        |   | +-int32_val#5 :=
+        |   | | +-GetProtoField
+        |   | |   +-type=INT32
+        |   | |   +-expr=
+        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | |   +-field_descriptor=int32_val
+        |   | |   +-default_value=77
+        |   | +-string_val#6 :=
+        |   |   +-GetProtoField
+        |   |     +-type=STRING
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |     +-field_descriptor=string_val
+        |   |     +-default_value="default_name"
+        |   +-input_scan=
+        |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
+        +-aggregate_list=
+          +-$agg1#7 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
+              +-ColumnRef(type=INT32, column=TestTable.key#1)
+              +-distinct=TRUE
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT32, column=TestTable.key#1)
 
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#7 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#7]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#7]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestTable.key#1, T.int64_val#4, T.int32_val#5, T.string_val#6]
-        |   +-expr_list=
-        |   | +-int64_val#4 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT64
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int64_val
-        |   | |   +-default_value=0
-        |   | +-int32_val#5 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT32
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int32_val
-        |   | |   +-default_value=77
-        |   | +-string_val#6 :=
-        |   |   +-GetProtoField
-        |   |     +-type=STRING
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |     +-field_descriptor=string_val
-        |   |     +-default_value="default_name"
-        |   +-input_scan=
-        |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
-        +-aggregate_list=
-          +-$agg1#7 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=39-42
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: T.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#7 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#7]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#7]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestTable.key#1, T.int64_val#4, T.int32_val#5, T.string_val#6]
-        |   +-expr_list=
-        |   | +-int64_val#4 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT64
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int64_val
-        |   | |   +-default_value=0
-        |   | +-int32_val#5 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT32
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int32_val
-        |   | |   +-default_value=77
-        |   | +-string_val#6 :=
-        |   |   +-GetProtoField
-        |   |     +-type=STRING
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |     +-field_descriptor=string_val
-        |   |     +-default_value="default_name"
-        |   +-input_scan=
-        |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
-        +-aggregate_list=
-          +-$agg1#7 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=39-44
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: T.,
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#7 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#7]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#7]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestTable.key#1, T.int64_val#4, T.int32_val#5, T.string_val#6]
-        |   +-expr_list=
-        |   | +-int64_val#4 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT64
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int64_val
-        |   | |   +-default_value=0
-        |   | +-int32_val#5 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT32
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int32_val
-        |   | |   +-default_value=77
-        |   | +-string_val#6 :=
-        |   |   +-GetProtoField
-        |   |     +-type=STRING
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |     +-field_descriptor=string_val
-        |   |     +-default_value="default_name"
-        |   +-input_scan=
-        |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
-        +-aggregate_list=
-          +-$agg1#7 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=41-44
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
---
-ALTERNATION GROUP: T.,T.
---
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#7 AS `$col1` [ARRAY<INT32>]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#7]
-    +-input_scan=
-      +-AggregateScan
-        +-column_list=[$aggregate.$agg1#7]
-        +-input_scan=
-        | +-ProjectScan
-        |   +-column_list=[TestTable.key#1, T.int64_val#4, T.int32_val#5, T.string_val#6]
-        |   +-expr_list=
-        |   | +-int64_val#4 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT64
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int64_val
-        |   | |   +-default_value=0
-        |   | +-int32_val#5 :=
-        |   | | +-GetProtoField
-        |   | |   +-type=INT32
-        |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   | |   +-field_descriptor=int32_val
-        |   | |   +-default_value=77
-        |   | +-string_val#6 :=
-        |   |   +-GetProtoField
-        |   |     +-type=STRING
-        |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |     +-field_descriptor=string_val
-        |   |     +-default_value="default_name"
-        |   +-input_scan=
-        |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
-        +-aggregate_list=
-          +-$agg1#7 :=
-            +-AggregateFunctionCall(ZetaSQL:array_agg(INT32) -> ARRAY<INT32>)
-              +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-distinct=TRUE
-              +-order_by_item_list=
-                +-OrderByItem
-                  +-parse_location=41-46
-                  +-column_ref=
-                    +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
 
 select Key,
@@ -1631,7 +1167,6 @@ QueryStmt
           |   +-distinct=TRUE
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=111-120
           |       +-column_ref=
           |         +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
           +-b#8 :=
@@ -1642,11 +1177,9 @@ QueryStmt
           |   +-distinct=TRUE
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |     | +-parse_location=227-236
           |     | +-column_ref=
           |     |   +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
           |     +-OrderByItem
-          |       +-parse_location=238-247
           |       +-column_ref=
           |         +-ColumnRef(type=INT64, column=$subquery1.int64_val#4)
           +-c#9 :=
@@ -1657,15 +1190,12 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=354-363
                 | +-column_ref=
                 |   +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
                 +-OrderByItem
-                | +-parse_location=365-374
                 | +-column_ref=
                 |   +-ColumnRef(type=INT64, column=$subquery1.int64_val#4)
                 +-OrderByItem
-                  +-parse_location=376-386
                   +-column_ref=
                     +-ColumnRef(type=STRING, column=$subquery1.string_val#6)
 
@@ -1732,16 +1262,13 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=111-125
                 | +-column_ref=
                 | | +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
                 | +-is_descending=TRUE
                 +-OrderByItem
-                | +-parse_location=160-173
                 | +-column_ref=
                 |   +-ColumnRef(type=INT64, column=$subquery1.int64_val#4)
                 +-OrderByItem
-                  +-parse_location=208-223
                   +-column_ref=
                   | +-ColumnRef(type=STRING, column=$subquery1.string_val#6)
                   +-is_descending=TRUE
@@ -1807,15 +1334,12 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                | +-parse_location=111-120
                 | +-column_ref=
                 |   +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
                 +-OrderByItem
-                | +-parse_location=122-131
                 | +-column_ref=
                 |   +-ColumnRef(type=INT32, column=$subquery1.int32_val#5)
                 +-OrderByItem
-                  +-parse_location=133-142
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$subquery1.int64_val#4)
 
@@ -1909,7 +1433,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=40-44
                   +-column_ref=
                     +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#4)
 ==
@@ -1968,7 +1491,6 @@ QueryStmt
               +-ColumnRef(type=ARRAY<INT64>, column=$union_all.x#8)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=35-36
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$union_all.w#7)
 ==
@@ -2027,7 +1549,6 @@ QueryStmt
               +-ColumnRef(type=ARRAY<INT64>, column=$union_all.x#8)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=35-41
                   +-column_ref=
                   | +-ColumnRef(type=INT64, column=$union_all.w#7)
                   +-is_descending=TRUE
@@ -2078,7 +1599,6 @@ QueryStmt
           |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |   +-order_by_item_list=
           |   | +-OrderByItem
-          |   |   +-parse_location=60-81
           |   |   +-column_ref=
           |   |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
           |   +-limit=
@@ -2088,7 +1608,6 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#6)
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=143-165
               |   +-column_ref=
               |     +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -2160,7 +1679,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=39-42
               |   +-column_ref=
               |     +-ColumnRef(type=INT32, column=TestTable.key#1)
               +-limit=
@@ -2209,12 +1727,10 @@ QueryStmt
                 +-default_value=0
               +-order_by_item_list=
               | +-OrderByItem
-              | | +-parse_location=71-79
               | | +-column_ref=
               | | | +-ColumnRef(type=INT32, column=TestTable.key#1)
               | | +-is_descending=TRUE
               | +-OrderByItem
-              |   +-parse_location=81-107
               |   +-column_ref=
               |   | +-ColumnRef(type=INT32, column=$orderby.$orderbycol2#4)
               |   +-is_descending=TRUE
@@ -2257,7 +1773,6 @@ QueryStmt
               +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr1#1)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=38-42
                   +-column_ref=
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr2#2)
 ==
@@ -2311,7 +1826,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=47-51
                   +-column_ref=
                     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.arr1#1)
 ==
@@ -2370,7 +1884,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=43-50
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -2415,7 +1928,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=73-98
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -2469,7 +1981,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=128-206
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -2509,7 +2020,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=84-106
                   +-column_ref=
                     +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#4)
 --
@@ -2556,7 +2066,6 @@ QueryStmt
               +-distinct=TRUE
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=88-114
                   +-column_ref=
                     +-ColumnRef(type=BOOL, column=$orderby.$orderbycol1#4)
 ==
@@ -2604,7 +2113,6 @@ QueryStmt
               +-ColumnRef(type=INT32, column=TestTable.key#1)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=30-45
                   +-column_ref=
                   | +-ColumnRef(type=INT32, column=TestTable.key#1)
                   +-null_order=NULLS_FIRST
@@ -2628,7 +2136,6 @@ QueryStmt
               +-ColumnRef(type=INT32, column=TestTable.key#1)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=30-44
                   +-column_ref=
                   | +-ColumnRef(type=INT32, column=TestTable.key#1)
                   +-null_order=NULLS_LAST

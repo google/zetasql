@@ -371,7 +371,7 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
       },
       FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE));
 
-  const FunctionArgumentTypeList map_insert_argument_types = {
+  const FunctionArgumentTypeList arglist_map_and_kv_pairs = {
       input_map_argument_type,
       ARG_TYPE_ANY_1,
       ARG_TYPE_ANY_2,
@@ -384,11 +384,26 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
       FunctionOptions().AddRequiredLanguageFeature(FEATURE_V_1_4_MAP_TYPE);
   InsertFunction(
       functions, options, "map_insert", Function::SCALAR,
-      {{ARG_MAP_TYPE_ANY_1_2, map_insert_argument_types, FN_MAP_INSERT}},
+      {{ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs, FN_MAP_INSERT}},
       map_insert_function_options);
   InsertFunction(functions, options, "map_insert_or_replace", Function::SCALAR,
-                 {{ARG_MAP_TYPE_ANY_1_2, map_insert_argument_types,
+                 {{ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs,
                    FN_MAP_INSERT_OR_REPLACE}},
+                 map_insert_function_options);
+  InsertFunction(functions, options, "map_replace", Function::SCALAR,
+                 {
+                     {ARG_MAP_TYPE_ANY_1_2, arglist_map_and_kv_pairs,
+                      FN_MAP_REPLACE_KV_PAIRS},
+                     {ARG_MAP_TYPE_ANY_1_2,
+                      {input_map_argument_type,
+                       ARG_TYPE_ANY_1,
+                       {ARG_TYPE_ANY_1, FunctionArgumentType::REPEATED},
+                       FunctionArgumentType::Lambda(
+                           {ARG_TYPE_ANY_2}, ARG_TYPE_ANY_2,
+                           FunctionArgumentTypeOptions().set_argument_name(
+                               "value", kPositionalOnly))},
+                      FN_MAP_REPLACE_K_REPEATED_V_LAMBDA},
+                 },
                  map_insert_function_options);
 }
 

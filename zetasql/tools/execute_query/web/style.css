@@ -69,8 +69,8 @@ main {
 
 textarea {
   width: 100%;
-  min-height: 30em;
-  height: 60vh;
+  min-height: 20em;
+  height: 40vh;
   margin: 0;
   padding: 0.7em;
   outline: none;
@@ -134,7 +134,7 @@ form {
 }
 
 .result > h3 {
-  margin-top: 2.5em;
+  margin-top: 1.5em;
   margin-bottom: 0;
   background-color: #1597ec;
   color: #fff;
@@ -145,6 +145,11 @@ form {
 
 .result > h3:first-of-type {
   margin-top: auto;
+}
+
+h3.statement {
+  background-color: #3cb151;
+  color: #fff;
 }
 
 pre.output {
@@ -196,4 +201,11 @@ pre.output tbody tr:nth-child(even) {
 
 pre.output tbody tr:hover {
   background: #eee;
+}
+
+hr {
+  height: 1px;
+  background-color: #111;
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
 }

@@ -233,7 +233,14 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 ### `MAKE_INTERVAL`
 
 ```sql
-MAKE_INTERVAL([year][, month][, day][, hour][, minute][, second])
+MAKE_INTERVAL(
+  [ [ year => ] value ]
+  [, [ month => ] value ]
+  [, [ day => ] value ]
+  [, [ hour => ] value ]
+  [, [ minute => ] value ]
+  [, [ second => ] value ]
+)
 ```
 
 **Description**

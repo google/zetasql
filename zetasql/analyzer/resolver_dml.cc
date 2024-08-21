@@ -2354,7 +2354,8 @@ absl::Status Resolver::ResolveGeneratedColumnsForDml(
   CycleDetector* cycle_detector =
       analyzer_options_.find_options().cycle_detector();
   ZETASQL_RET_CHECK(cycle_detector != nullptr)
-      << "Cycle detector needs to be set in analyzer options";
+      << "Cycle detector needs to be set in AnalyzerOptions when analyzing "
+         "DML statements";
 
   std::vector<GeneratedColumnIndexAndResolvedId>
       topologically_sorted_generated_columns;

@@ -2032,7 +2032,6 @@ QueryStmt
         |   |   |           +-Literal(type=INT64, value=0)
         |   |   +-order_by_item_list=
         |   |     +-OrderByItem
-        |   |       +-parse_location=265-272
         |   |       +-column_ref=
         |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   +-limit=
@@ -2104,7 +2103,6 @@ QueryStmt
         |   |   |   |           +-Literal(type=INT64, value=0)
         |   |   |   +-order_by_item_list=
         |   |   |     +-OrderByItem
-        |   |   |       +-parse_location=265-272
         |   |   |       +-column_ref=
         |   |   |         +-ColumnRef(type=INT64, column=$aggregate.int64#13)
         |   |   +-limit=
@@ -8469,7 +8467,6 @@ QueryStmt
         |   | |   |     |           |       +-Literal(type=STRING, value="x")
         |   | |   |     |           +-order_by_item_list=
         |   | |   |     |             +-OrderByItem
-        |   | |   |     |               +-parse_location=231-234
         |   | |   |     |               +-column_ref=
         |   | |   |     |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
         |   | |   |     +-input_scan=
@@ -8618,7 +8615,6 @@ QueryStmt
     |         |           |       +-Literal(parse_location=65-68, type=STRING, value="x")
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#28)
     |         +-input_scan=
@@ -9783,7 +9779,6 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |     +-order_by_item_list=
         |       +-OrderByItem
-        |         +-parse_location=202-207
         |         +-column_ref=
         |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         +-anonymization_option_list=
@@ -9812,7 +9807,6 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         |     +-order_by_item_list=
         |       +-OrderByItem
-        |         +-parse_location=202-207
         |         +-column_ref=
         |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
         +-anonymization_option_list=

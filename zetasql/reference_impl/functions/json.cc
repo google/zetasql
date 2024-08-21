@@ -625,10 +625,12 @@ absl::StatusOr<Value> ToJsonFunction::Eval(
   }
   const bool stringify_wide_numbers = args[1].bool_value();
   ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
-  zetasql::functions::UnsupportedFields unsupported_fields =
-      args.size() == 3 ? static_cast<zetasql::functions::UnsupportedFields>(
-                             args[2].enum_value())
-                       : zetasql::functions::UnsupportedFields::FAIL;
+  zetasql::functions::UnsupportedFieldsEnum::UnsupportedFields
+      unsupported_fields =
+          args.size() == 3
+              ? static_cast<zetasql::functions::UnsupportedFieldsEnum::
+                                UnsupportedFields>(args[2].enum_value())
+              : zetasql::functions::UnsupportedFieldsEnum::FAIL;
   ZETASQL_ASSIGN_OR_RETURN(
       JSONValue outputJson,
       functions::ToJson(args[0], stringify_wide_numbers,

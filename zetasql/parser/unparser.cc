@@ -362,17 +362,9 @@ void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
   }
-  if (node->pivot_clause() != nullptr) {
-    node->pivot_clause()->Accept(this, data);
-  }
-  if (node->unpivot_clause() != nullptr) {
-    node->unpivot_clause()->Accept(this, data);
-  }
-  if (node->match_recognize_clause()) {
-    node->match_recognize_clause()->Accept(this, data);
-  }
-  if (node->sample() != nullptr) {
-    node->sample()->Accept(this, data);
+
+  for (const auto* op : node->postfix_operators()) {
+    op->Accept(this, data);
   }
 }
 
@@ -1923,11 +1915,8 @@ void Unparser::visitASTParenthesizedJoin(const ASTParenthesizedJoin* node,
   println();
   print(")");
 
-  if (node->match_recognize_clause()) {
-    node->match_recognize_clause()->Accept(this, data);
-  }
-  if (node->sample_clause() != nullptr) {
-    node->sample_clause()->Accept(this, data);
+  for (const auto* op : node->postfix_operators()) {
+    op->Accept(this, data);
   }
 }
 
@@ -2225,13 +2214,8 @@ void Unparser::visitASTBracedConstructorFieldValue(
 
 void Unparser::visitASTBracedConstructorField(
     const ASTBracedConstructorField* node, void* data) {
-  if (node->identifier()) {
-    node->identifier()->Accept(this, data);
-  }
-  if (node->parenthesized_path()) {
-    print("(");
-    node->parenthesized_path()->Accept(this, data);
-    print(")");
+  if (node->braced_constructor_lhs()) {
+    node->braced_constructor_lhs()->Accept(this, data);
   }
   node->value()->Accept(this, data);
 }
@@ -2263,6 +2247,11 @@ void Unparser::visitASTStructBracedConstructor(
     print("STRUCT");
   }
   node->braced_constructor()->Accept(this, data);
+}
+
+void Unparser::visitASTBracedConstructorLhs(const ASTBracedConstructorLhs* node,
+                                            void* data) {
+  node->extended_path_expr()->Accept(this, data);
 }
 
 void Unparser::visitASTInferredTypeColumnSchema(
@@ -2597,6 +2586,11 @@ void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
 
 void Unparser::visitASTCaseNoValueExpression(
     const ASTCaseNoValueExpression* node, void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
+
   println();
   print("CASE");
   int i;
@@ -2815,6 +2809,10 @@ void Unparser::visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) {
 }
 
 void Unparser::visitASTArrayElement(const ASTArrayElement* node, void* data) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   PrintOpenParenIfNeeded(node);
   node->array()->Accept(this, data);
   print("[");

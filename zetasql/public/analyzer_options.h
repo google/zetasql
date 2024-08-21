@@ -835,6 +835,12 @@ class AnalyzerOptions {
     // These options determine the language that is accepted.
     LanguageOptions language_options;
 
+    // This stores a default CycleDetector that will be installed into
+    // find_options.cycle_detector by default.  Analyzer code expects
+    // that field to be set under FindOptions, but it's meant primarily
+    // for internal use rather than user configuration.
+    std::shared_ptr<CycleDetector> owned_cycle_detector;
+
     // These options are used for name lookups into the catalog, i.e., for
     // Catalog::Find*() calls.
     Catalog::FindOptions find_options;

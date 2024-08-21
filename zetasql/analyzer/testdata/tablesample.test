@@ -746,7 +746,6 @@ QueryStmt
     |   |               +-unit=ROWS
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=136-139
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-limit=
@@ -1599,3 +1598,14 @@ ALTERNATION GROUP: TestEnum
 ERROR: Unrecognized name: TestEnum [at 5:51]
       TABLESAMPLE RESERVOIR (10 ROWS PARTITION BY TestEnum)
                                                   ^
+==
+
+# Cannot combine table operators
+select KeyValue.Value from KeyValue
+TABLESAMPLE RESERVOIR (1 ROWS)
+TABLESAMPLE RESERVOIR (2 ROWS)
+TABLESAMPLE RESERVOIR (3 ROWS)
+--
+ERROR: Unsupported combination of table operators. The only allowed combination is PIVOT/UNPIVOT followed by TABLESAMPLE.  [at 3:1]
+TABLESAMPLE RESERVOIR (2 ROWS)
+^

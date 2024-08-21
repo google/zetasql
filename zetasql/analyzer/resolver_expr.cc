@@ -308,23 +308,10 @@ absl::Status Resolver::ResolveBuildProto(
 
   for (int i = 0; i < arguments->size(); ++i) {
     ResolvedBuildProtoArg& argument = (*arguments)[i];
-    const AliasOrASTPathExpression& alias_or_ast_path_expr =
-        *argument.alias_or_ast_path_expr;
-    IdString field_alias;  // Empty if we are using a path expression.
-    const google::protobuf::FieldDescriptor* field = argument.field_descriptor;
-    const Type* proto_field_type = argument.proto_field_type;
-    if (field == nullptr || proto_field_type == nullptr) {
-      ZETASQL_ASSIGN_OR_RETURN(
-          field,
-          FindFieldDescriptor(descriptor, alias_or_ast_path_expr,
-                              argument.ast_location, i, argument_description));
-      ZETASQL_ASSIGN_OR_RETURN(proto_field_type,
-                       FindProtoFieldType(field, argument.ast_location,
-                                          proto_type->CatalogNamePath()));
-    }
-
-    if (alias_or_ast_path_expr.kind() == AliasOrASTPathExpression::ALIAS) {
-      field_alias = alias_or_ast_path_expr.alias();
+    const google::protobuf::FieldDescriptor* field =
+        argument.field_descriptor_path.back();
+    const Type* proto_field_type = argument.leaf_field_type;
+    if (!field->is_extension()) {
       if (field->is_required()) {
         // Note that required fields may be listed twice, so this erase can
         // be a no-op.  This condition will eventually trigger a duplicate
@@ -339,13 +326,13 @@ absl::Status Resolver::ResolveBuildProto(
       // effort to print simple error messages for common cases.
       const google::protobuf::FieldDescriptor* other_field = insert_result.first->second;
       if (other_field->full_name() == field->full_name()) {
-        if (!field_alias.empty()) {
+        if (!field->is_extension()) {
           // Very common case (regular field accessed twice) or a very weird
           // case (regular field accessed sometime after accessing an extension
           // field with the same tag number and name).
           return MakeSqlErrorAt(argument.ast_location)
                  << query_description << " has duplicate column name "
-                 << ToIdentifierLiteral(field_alias)
+                 << ToIdentifierLiteral(field->name())
                  << " so constructing proto field " << field->full_name()
                  << " is ambiguous";
         } else {
@@ -2467,33 +2454,30 @@ static absl::Status MakeCannotAccessFieldError(
          << " on a value with type " << invalid_type_name;
 }
 
-static absl::Status GetLastSeenFieldType(
-    const std::vector<std::pair<int, const StructType::StructField*>>*
-        struct_path,
-    const std::vector<const google::protobuf::FieldDescriptor*>& field_descriptors,
+absl::Status Resolver::GetLastSeenFieldType(
+    const Resolver::FindFieldsOutput& output,
     absl::Span<const std::string> catalog_name_path, TypeFactory* type_factory,
     const Type** last_field_type) {
-  if (!field_descriptors.empty()) {
-    return type_factory->GetProtoFieldType(field_descriptors.back(),
+  if (!output.field_descriptor_path.empty()) {
+    return type_factory->GetProtoFieldType(output.field_descriptor_path.back(),
                                            catalog_name_path, last_field_type);
   }
   // No proto fields have been extracted, therefore return the type of the
   // last struct field.
-  ZETASQL_RET_CHECK(struct_path);
-  ZETASQL_RET_CHECK(!struct_path->empty());
-  *last_field_type = struct_path->back().second->type;
+  ZETASQL_RET_CHECK(!output.struct_path.empty());
+  *last_field_type = output.struct_path.back().field->type;
   return absl::OkStatus();
 }
 
-absl::Status Resolver::FindFieldsFromPathExpression(
+absl::StatusOr<Resolver::FindFieldsOutput>
+Resolver::FindFieldsFromPathExpression(
     absl::string_view function_name,
     const ASTGeneralizedPathExpression* generalized_path, const Type* root_type,
-    bool can_traverse_array_fields,
-    std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
-    std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
+    bool can_traverse_array_fields) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(generalized_path != nullptr);
   ZETASQL_RET_CHECK(root_type->IsStructOrProto());
+  Resolver::FindFieldsOutput output;
   switch (generalized_path->node_kind()) {
     case AST_PATH_EXPRESSION: {
       auto path_expression = generalized_path->GetAsOrDie<ASTPathExpression>();
@@ -2503,24 +2487,26 @@ absl::Status Resolver::FindFieldsFromPathExpression(
               const google::protobuf::FieldDescriptor* field_descriptor,
               FindExtensionFieldDescriptor(path_expression,
                                            root_type->AsProto()->descriptor()));
-          field_descriptors->push_back(field_descriptor);
+          output.field_descriptor_path.push_back(field_descriptor);
         } else {
           ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(path_expression->names(),
                                                root_type->AsProto(),
-                                               field_descriptors));
+                                               &output.field_descriptor_path));
         }
       } else {
-        ZETASQL_RET_CHECK(struct_path);
-        ZETASQL_RETURN_IF_ERROR(FindStructFieldPrefix(
-            path_expression->names(), root_type->AsStruct(), struct_path));
-        const Type* last_struct_field_type = struct_path->back().second->type;
+        ZETASQL_RETURN_IF_ERROR(FindStructFieldPrefix(path_expression->names(),
+                                              root_type->AsStruct(),
+                                              &output.struct_path));
+        const Type* last_struct_field_type =
+            output.struct_path.back().field->type;
         if (last_struct_field_type->IsProto() &&
-            path_expression->num_names() != struct_path->size()) {
+            path_expression->num_names() != output.struct_path.size()) {
           // There are proto extractions in this path expression.
           ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
               path_expression->names().last(path_expression->num_names() -
-                                            struct_path->size()),
-              last_struct_field_type->AsProto(), field_descriptors));
+                                            output.struct_path.size()),
+              last_struct_field_type->AsProto(),
+              &output.field_descriptor_path));
         }
       }
       break;
@@ -2533,14 +2519,14 @@ absl::Status Resolver::FindFieldsFromPathExpression(
       auto generalized_path_expr =
           dot_generalized_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
-      ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          function_name, generalized_path_expr, root_type,
-          can_traverse_array_fields, struct_path, field_descriptors));
+      ZETASQL_ASSIGN_OR_RETURN(output, FindFieldsFromPathExpression(
+                                   function_name, generalized_path_expr,
+                                   root_type, can_traverse_array_fields));
 
       // The extension should be extracted from the last seen field in the path,
       // which must be of proto type.
       const Type* last_seen_type;
-      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(struct_path, *field_descriptors,
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(output,
                                            GetTypeCatalogNamePath(root_type),
                                            type_factory_, &last_seen_type));
       if (can_traverse_array_fields && last_seen_type->IsArray()) {
@@ -2557,7 +2543,7 @@ absl::Status Resolver::FindFieldsFromPathExpression(
                        FindExtensionFieldDescriptor(
                            dot_generalized_ast->path(),
                            last_seen_type->AsProto()->descriptor()));
-      field_descriptors->push_back(field_descriptor);
+      output.field_descriptor_path.push_back(field_descriptor);
       break;
     }
     case AST_DOT_IDENTIFIER: {
@@ -2569,14 +2555,14 @@ absl::Status Resolver::FindFieldsFromPathExpression(
       auto generalized_path_expr =
           dot_identifier_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
-      ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          function_name, generalized_path_expr, root_type,
-          can_traverse_array_fields, struct_path, field_descriptors));
+      ZETASQL_ASSIGN_OR_RETURN(output, FindFieldsFromPathExpression(
+                                   function_name, generalized_path_expr,
+                                   root_type, can_traverse_array_fields));
 
       // The field should be extracted from the last seen field in the path,
       // which must be of proto type.
       const Type* last_seen_type;
-      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(struct_path, *field_descriptors,
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(output,
                                            GetTypeCatalogNamePath(root_type),
                                            type_factory_, &last_seen_type));
       if (last_seen_type->IsArray() && IsFilterFields(function_name)) {
@@ -2591,7 +2577,7 @@ absl::Status Resolver::FindFieldsFromPathExpression(
       }
       ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors({dot_identifier_ast->name()},
                                            last_seen_type->AsProto(),
-                                           field_descriptors));
+                                           &output.field_descriptor_path));
       break;
     }
     case AST_ARRAY_ELEMENT: {
@@ -2605,38 +2591,24 @@ absl::Status Resolver::FindFieldsFromPathExpression(
     }
   }
 
-  return absl::OkStatus();
+  return output;
 }
 
-// Builds the string representation of a field path using 'struct_path_prefix'
-// and 'proto_field_path_suffix' and attempts to add it to 'field_path_trie'. If
-// non-empty, the field path is expanded starting with the fields in
-// 'struct_path_prefix'. Returns an error if this path string overlaps with a
-// path that is already present in 'field_path_trie'. For example,
-// message.nested and message.nested.field are overlapping field paths, but
-// message.nested.field1 and message.nested.field2 are not overlapping. Two
-// paths that modify the same OneOf field are considered overlapping only when
-// the language feature FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF is not
-// enabled. 'oneof_path_to_full_path' maps from paths of OneOf fields that have
-// already been modified to the corresponding path expression that accessed the
-// OneOf path. If 'proto_field_path_suffix' modifies a OneOf field that has not
-// already been modified, it will be added to 'oneof_path_to_full_path'.
-static absl::Status AddToFieldPathTrie(
+absl::Status Resolver::AddToFieldPathTrie(
     const LanguageOptions& language_options, const ASTNode* path_location,
-    const std::vector<std::pair<int, const StructType::StructField*>>&
-        struct_path_prefix,
+    const std::vector<FindFieldsOutput::StructFieldInfo>& struct_path_prefix,
     const std::vector<const google::protobuf::FieldDescriptor*>& proto_field_path_suffix,
     absl::flat_hash_map<std::string, std::string>* oneof_path_to_full_path,
     zetasql_base::GeneralTrie<const ASTNode*, nullptr>* field_path_trie) {
   std::string path_string;
   bool overlapping_oneof = false;
   std::string shortest_oneof_path;
-  for (const std::pair<int, const StructType::StructField*>& struct_field :
+  for (const FindFieldsOutput::StructFieldInfo& struct_field :
        struct_path_prefix) {
     if (!path_string.empty()) {
       absl::StrAppend(&path_string, ".");
     }
-    absl::StrAppend(&path_string, struct_field.second->name);
+    absl::StrAppend(&path_string, struct_field.field->name);
   }
   for (const google::protobuf::FieldDescriptor* field : proto_field_path_suffix) {
     if (field->real_containing_oneof() != nullptr &&
@@ -2708,7 +2680,7 @@ static absl::Status AddToFieldPathTrie(
 absl::Status Resolver::FindStructFieldPrefix(
     absl::Span<const ASTIdentifier* const> path_vector,
     const StructType* root_struct,
-    std::vector<std::pair<int, const StructType::StructField*>>* struct_path) {
+    std::vector<Resolver::FindFieldsOutput::StructFieldInfo>* struct_path) {
   ZETASQL_RET_CHECK(root_struct != nullptr);
   const StructType* current_struct = root_struct;
   for (const ASTIdentifier* const current_field : path_vector) {
@@ -2716,7 +2688,7 @@ absl::Status Resolver::FindStructFieldPrefix(
       // There was an attempt to modify a field of a non-message type field.
       return MakeCannotAccessFieldError(
           current_field, current_field->GetAsString(),
-          struct_path->back().second->type->ShortTypeName(product_mode()),
+          struct_path->back().field->type->ShortTypeName(product_mode()),
           /*is_extension=*/false);
     }
     bool is_ambiguous = false;
@@ -2733,7 +2705,8 @@ absl::Status Resolver::FindStructFieldPrefix(
              << "Struct " << current_struct->ShortTypeName(product_mode())
              << " does not have field named " << current_field->GetAsString();
     }
-    struct_path->emplace_back(found_index, field);
+    struct_path->emplace_back(
+        Resolver::FindFieldsOutput::StructFieldInfo(found_index, field));
     if (field->type->IsProto()) {
       return absl::OkStatus();
     }
@@ -2917,20 +2890,19 @@ absl::Status Resolver::ResolveFilterFieldsFunctionCall(
     const ASTGeneralizedPathExpression* generalized_path_expression =
         unary->operand()->GetAs<ASTGeneralizedPathExpression>();
 
-    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
-
-    ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-        "FILTER_FIELDS", generalized_path_expression, proto_to_modify->type(),
-        /*can_traverse_array_fields=*/true,
-        /*struct_path=*/nullptr, &field_descriptor_path));
+    ZETASQL_ASSIGN_OR_RETURN(Resolver::FindFieldsOutput output,
+                     FindFieldsFromPathExpression(
+                         "FILTER_FIELDS", generalized_path_expression,
+                         proto_to_modify->type(),
+                         /*can_traverse_array_fields=*/true));
     if (absl::Status status =
-            validator.ValidateFieldPath(include, field_descriptor_path);
+            validator.ValidateFieldPath(include, output.field_descriptor_path);
         !status.ok()) {
       return MakeSqlErrorAt(unary) << status.message();
     }
 
     filter_field_args.push_back(
-        MakeResolvedFilterFieldArg(include, field_descriptor_path));
+        MakeResolvedFilterFieldArg(include, output.field_descriptor_path));
   }
   // Validator also ensures that there is at least one field path.
   if (absl::Status status = validator.FinalValidation(
@@ -2986,24 +2958,24 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
   for (const ASTReplaceFieldsArg* replace_arg :
        ast_replace_fields->arguments()) {
     // Get the field descriptors for the field to be modified.
-    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
-    std::vector<std::pair<int, const StructType::StructField*>> struct_path;
-    ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-        "REPLACE_FIELDS", replace_arg->path_expression(),
-        expr_to_modify->type(), /*can_traverse_array_fields=*/false,
-        &struct_path, &field_descriptor_path));
-    ZETASQL_RETURN_IF_ERROR(AddToFieldPathTrie(
-        language(), replace_arg->path_expression(), struct_path,
-        field_descriptor_path, &oneof_path_to_full_path, &field_path_trie));
+    ZETASQL_ASSIGN_OR_RETURN(
+        Resolver::FindFieldsOutput output,
+        FindFieldsFromPathExpression(
+            "REPLACE_FIELDS", replace_arg->path_expression(),
+            expr_to_modify->type(), /*can_traverse_array_fields=*/false));
+    ZETASQL_RETURN_IF_ERROR(
+        AddToFieldPathTrie(language(), replace_arg->path_expression(),
+                           output.struct_path, output.field_descriptor_path,
+                           &oneof_path_to_full_path, &field_path_trie));
 
     // Add a cast to the modified value if it needs to be coerced to the type
     // of the field.
     const Type* field_type;
-    if (field_descriptor_path.empty()) {
-      field_type = struct_path.back().second->type;
+    if (output.field_descriptor_path.empty()) {
+      field_type = output.struct_path.back().field->type;
     } else {
       ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
-          field_descriptor_path.back(),
+          output.field_descriptor_path.back(),
           GetTypeCatalogNamePath(expr_to_modify->type()), &field_type));
     }
     // Resolve the new value passing down the inferred type.
@@ -3016,14 +2988,14 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
         "Cannot replace field of type $0 with value of type $1",
         &replaced_field_expr));
     std::vector<int> struct_index_path;
-    struct_index_path.reserve(struct_path.size());
-    for (const std::pair<int, const StructType::StructField*>& struct_field :
-         struct_path) {
-      struct_index_path.push_back(struct_field.first);
+    struct_index_path.reserve(output.struct_path.size());
+    for (const FindFieldsOutput::StructFieldInfo& struct_field :
+         output.struct_path) {
+      struct_index_path.push_back(struct_field.field_index);
     }
-    resolved_modify_items.push_back(
-        MakeResolvedReplaceFieldItem(std::move(replaced_field_expr),
-                                     struct_index_path, field_descriptor_path));
+    resolved_modify_items.push_back(MakeResolvedReplaceFieldItem(
+        std::move(replaced_field_expr), struct_index_path,
+        output.field_descriptor_path));
   }
 
   const Type* field_type = expr_to_modify->type();
@@ -6794,9 +6766,9 @@ absl::Status Resolver::ResolveNewConstructor(
     ZETASQL_RETURN_IF_ERROR(
         ResolveExpr(ast_arg->expression(), expr_resolution_info, &expr, type));
 
-    arguments.emplace_back(ast_arg->expression(), std::move(expr),
-                           std::move(alias_or_ast_path_expr), field_descriptor,
-                           type);
+    arguments.emplace_back(
+        ast_arg->expression(), std::move(expr), type,
+        std::vector<const google::protobuf::FieldDescriptor*>{field_descriptor});
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveBuildProto(
@@ -6806,63 +6778,65 @@ absl::Status Resolver::ResolveNewConstructor(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ResolveBracedConstructorFieldValue(
-    const ASTBracedConstructorFieldValue* ast_braced_constructor_field_value,
-    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+absl::StatusOr<Resolver::BracedConstructorField>
+Resolver::ResolveBracedConstructorLhs(
+    const ASTBracedConstructorLhs* ast_braced_constructor_lhs,
+    const ProtoType* parent_type) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_braced_constructor_field_value->expression(),
-                              expr_resolution_info, resolved_expr_out,
-                              inferred_type));
-  return absl::OkStatus();
+  BracedConstructorField field;
+  ZETASQL_ASSIGN_OR_RETURN(
+      Resolver::FindFieldsOutput output,
+      FindFieldsFromPathExpression(
+          "BracedConstructor", ast_braced_constructor_lhs->extended_path_expr(),
+          parent_type, /*can_traverse_array_fields=*/true));
+  field.location = ast_braced_constructor_lhs->extended_path_expr();
+  field.field_info = output;
+
+  return field;
 }
 
 absl::StatusOr<Resolver::ResolvedBuildProtoArg>
 Resolver::ResolveBracedConstructorField(
     const ASTBracedConstructorField* ast_braced_constructor_field,
-    const ProtoType* parent_type, int field_index,
+    const ProtoType* parent_type, int field_index, bool allow_field_paths,
+    const ResolvedExpr* update_constructor_expr_to_modify,
     ExprResolutionInfo* expr_resolution_info) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  const ASTNode* location = nullptr;
-  std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr;
-  if (ast_braced_constructor_field->identifier() != nullptr) {
-    alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
-        ast_braced_constructor_field->identifier()->GetAsIdString());
-    location = ast_braced_constructor_field->identifier();
-  } else if (ast_braced_constructor_field->parenthesized_path() != nullptr) {
-    if (!language().LanguageFeatureEnabled(
-            FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_NEW)) {
-      return MakeSqlErrorAt(ast_braced_constructor_field->parenthesized_path())
-             << "NEW constructor does not support proto extensions";
-    }
-    alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
-        ast_braced_constructor_field->parenthesized_path());
-    location = ast_braced_constructor_field->parenthesized_path();
-  } else {
+  const ASTBracedConstructorLhs* braced_constructor_lhs =
+      ast_braced_constructor_field->braced_constructor_lhs();
+  ZETASQL_ASSIGN_OR_RETURN(
+      BracedConstructorField field,
+      ResolveBracedConstructorLhs(braced_constructor_lhs, parent_type));
+  const std::vector<const google::protobuf::FieldDescriptor*>& field_descriptor_path =
+      field.field_info.field_descriptor_path;
+  if (field_descriptor_path.empty()) {
     ZETASQL_RET_CHECK_FAIL() << "Cannot construct proto because field "
                      << (field_index + 1)
-                     << " does not specify field name/extension path. This "
-                        "should be a parser error.";
+                     << " does not specify field name/extension path. "
+                     << "This should be a parser error.";
+  }
+  if (!allow_field_paths && field_descriptor_path.size() > 1) {
+    return MakeSqlErrorAt(field.location)
+           << "Braced constructor supports only singular field paths, "
+           << "nested paths should use additional sets of braces";
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      const google::protobuf::FieldDescriptor* field_descriptor,
-      FindFieldDescriptor(parent_type->descriptor(), *alias_or_ast_path_expr,
-                          location, field_index, "Field"));
-  ZETASQL_ASSIGN_OR_RETURN(const Type* type,
-                   FindProtoFieldType(field_descriptor, location,
+  const google::protobuf::FieldDescriptor* leaf_field_descriptor =
+      field_descriptor_path.back();
+  ZETASQL_ASSIGN_OR_RETURN(const Type* lhs_type,
+                   FindProtoFieldType(leaf_field_descriptor, field.location,
                                       parent_type->CatalogNamePath()));
-
+  // Resolve the field value.
+  const ASTExpression* field_value =
+      ast_braced_constructor_field->value()->expression();
   std::unique_ptr<const ResolvedExpr> expr;
   ZETASQL_RETURN_IF_ERROR(
-      ResolveBracedConstructorFieldValue(ast_braced_constructor_field->value(),
-                                         type, expr_resolution_info, &expr));
+      ResolveExpr(field_value, expr_resolution_info, &expr, lhs_type));
 
-  return ResolvedBuildProtoArg(location, std::move(expr),
-                               std::move(alias_or_ast_path_expr),
-                               field_descriptor, type);
+  return ResolvedBuildProtoArg(field.location, std::move(expr), lhs_type,
+                               field_descriptor_path);
 }
 
 // TODO: The noinline attribute is to prevent the stack usage
@@ -6925,16 +6899,16 @@ absl::Status Resolver::ResolveBracedConstructorForStruct(
     if (is_first_field) {
       is_first_field = false;
     }
-    // Proto extension is parsed as parenthesized_path, otherwise identifier.
-    if (ast_field->parenthesized_path() != nullptr) {
+    const ASTGeneralizedPathExpression* generalized_path =
+        ast_field->braced_constructor_lhs()->extended_path_expr();
+    if (generalized_path->node_kind() != AST_PATH_EXPRESSION ||
+        generalized_path->GetAsOrDie<ASTPathExpression>()->num_names() != 1) {
       return MakeSqlErrorAt(ast_field)
-             << "STRUCT Braced constructor is not allowed to use proto "
-                "extension.";
+             << "Fields in STRUCT Braced constructor should always have a "
+                "single identifier specified, not a path expression";
     }
-    ZETASQL_RET_CHECK_NE(ast_field->identifier(), nullptr)
-        << "Fields in STRUCT Braced constructor should always have a "
-           "single identifier specified, not a path expression";
-    identifiers.push_back(ast_field->identifier());
+    identifiers.push_back(
+        generalized_path->GetAsOrDie<ASTPathExpression>()->first_name());
     field_expressions.push_back(ast_field->value()->expression());
   }
   // Skip name matching for all bare struct.
@@ -6956,10 +6930,12 @@ absl::Status Resolver::ResolveBracedConstructorForProto(
     const ASTBracedConstructorField* ast_field =
         ast_braced_constructor->fields(i);
 
-    ZETASQL_ASSIGN_OR_RETURN(
-        ResolvedBuildProtoArg arg,
-        ResolveBracedConstructorField(ast_field, inferred_type->AsProto(), i,
-                                      expr_resolution_info));
+    ZETASQL_ASSIGN_OR_RETURN(ResolvedBuildProtoArg arg,
+                     ResolveBracedConstructorField(
+                         ast_field, inferred_type->AsProto(), i,
+                         /*allow_field_paths=*/false,
+                         /*update_constructor_expr_to_modify=*/nullptr,
+                         expr_resolution_info));
     resolved_build_proto_args.emplace_back(std::move(arg));
   }
 
@@ -7293,7 +7269,7 @@ absl::Status Resolver::ResolveStructConstructorWithParens(
   return ResolveStructConstructorImpl(
       ast_struct_constructor,
       /*ast_struct_type=*/nullptr, ast_struct_constructor->field_expressions(),
-      /*ast_field_names*/ {}, inferred_type, /*require_name_match*/ false,
+      /*ast_field_identifiers*/ {}, inferred_type, /*require_name_match*/ false,
       expr_resolution_info, resolved_expr_out);
 }
 

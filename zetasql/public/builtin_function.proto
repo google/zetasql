@@ -26,7 +26,7 @@ option java_outer_classname = "ZetaSQLFunction";
 // A unique ID for ZetaSQL function signatures.  Resolved ZetaSQL functions
 // will provide one of these enums, and ZetaSQL implementations should map
 // them to something they can evaluate.
-// Next id: 1948
+// Next id: 1949
 enum FunctionSignatureId {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -829,11 +829,13 @@ enum FunctionSignatureId {
   FN_JSON_SUBSCRIPT_STRING = 1690;  // $subscript(json,string)-> json
   FN_TO_JSON_STRING = 1622;         // to_json_string(any[, bool]) -> string
   FN_TO_JSON = 1697;                // to_json(any[, bool]) -> json
-  FN_JSON_QUERY = 1623;             // json_query(string, string) -> string
-  FN_JSON_QUERY_JSON = 1686;        // json_query(json, string) -> json
-  FN_JSON_VALUE = 1624;             // json_value(string[, string]) -> string
-  FN_JSON_VALUE_JSON = 1687;        // json_value(json[, string]) -> string
-  FN_PARSE_JSON = 1698;             // parse_json(string[, string]) -> json
+  FN_TO_JSON_UNSUPPORTED_FIELDS =
+      1948;              // to_json(any[, bool][, unsupported_fields]) -> json
+  FN_JSON_QUERY = 1623;  // json_query(string, string) -> string
+  FN_JSON_QUERY_JSON = 1686;  // json_query(json, string) -> json
+  FN_JSON_VALUE = 1624;       // json_value(string[, string]) -> string
+  FN_JSON_VALUE_JSON = 1687;  // json_value(json[, string]) -> string
+  FN_PARSE_JSON = 1698;       // parse_json(string[, string]) -> json
   FN_FROM_PROTO_TIMESTAMP =
       1626;  // from_proto(google.protobuf.Timestamp) -> timestamp
   FN_FROM_PROTO_DATE = 1627;  // from_proto(google.type.Date) -> date
@@ -1534,7 +1536,13 @@ enum FunctionSignatureId {
   FN_MAP_VALUES_SORTED_BY_KEY = 3011;  // map_values_sorted_by_key(map<K, V>)
                                        // -> array<V>
   FN_MAP_EMPTY = 3012;                 // map_empty(map<K, V>) -> bool
-  FN_MAP_INSERT = 3013;  // map_insert(map<K, V>, K, V[, K, V, ...]) -> bool
-  // map_insert_or_replace(map<K, V>, K, V[, K, V, ...]) -> bool
+
+  // map_insert(map<K, V>, K, V[, K, V, ...]) -> map<K, V>
+  FN_MAP_INSERT = 3013;
+  // map_insert_or_replace(map<K, V>, K, V[, K, V, ...]) -> map<K, V>
   FN_MAP_INSERT_OR_REPLACE = 3014;
+  // map_replace(map<K, V>, K, V[, K, V, ...]) -> map<k, V>
+  FN_MAP_REPLACE_KV_PAIRS = 3015;
+  // map_replace(map<K, V>, K[, ...], (V)->V) -> map<k, V>
+  FN_MAP_REPLACE_K_REPEATED_V_LAMBDA = 3016;
 }

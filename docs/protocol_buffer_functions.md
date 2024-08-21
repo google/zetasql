@@ -324,13 +324,14 @@ FROM AlbumList;
 ### `FILTER_FIELDS`
 
 ```sql
-FILTER_FIELDS(proto_expression, proto_field_list [, reset_fields_named_arg])
+FILTER_FIELDS(
+  proto_expression,
+  proto_field_list
+  [, reset_cleared_required_fields => { TRUE | FALSE } ]
+)
 
 proto_field_list:
   {+|-}proto_field_path[, ...]
-
-reset_fields_named_arg:
-  RESET_CLEARED_REQUIRED_FIELDS => { TRUE | FALSE }
 ```
 
 **Description**
@@ -349,8 +350,7 @@ Input values:
 + `proto_field_path`: The protocol buffer field to include or exclude.
   If the field represents an [extension][querying-proto-extensions], you can use
   syntax for that extension in the path.
-+ `reset_fields_named_arg`: You can optionally add the
- `RESET_CLEARED_REQUIRED_FIELDS` named argument.
++ `reset_cleared_required_fields`: Named argument with a `BOOL` value.
   If not explicitly set, `FALSE` is used implicitly.
   If `FALSE`, you must include all protocol buffer `required` fields in the
   `FILTER_FIELDS` function. If `TRUE`, you do not need to include all required

@@ -445,7 +445,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=36-37
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$subquery1.x#1)
     +-filter_expr=

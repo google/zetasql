@@ -3,7 +3,9 @@
 select `string` col from SimpleTypes
 order by col COLLATE {{"en_US"|@test_param_string|r"en_US"}}
 --
-ALTERNATION GROUP: "en_US"
+ALTERNATION GROUPS:
+    "en_US"
+    r"en_US"
 --
 QueryStmt
 +-output_column_list=
@@ -16,7 +18,6 @@ QueryStmt
     | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=46-65
         +-column_ref=
         | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
         +-collation_name=
@@ -35,30 +36,10 @@ QueryStmt
     | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=46-76
         +-column_ref=
         | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
         +-collation_name=
           +-Parameter(type=STRING, name="test_param_string")
---
-ALTERNATION GROUP: r"en_US"
---
-QueryStmt
-+-output_column_list=
-| +-SimpleTypes.string#5 AS col [STRING]
-+-query=
-  +-OrderByScan
-    +-column_list=[SimpleTypes.string#5]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=46-66
-        +-column_ref=
-        | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
-        +-collation_name=
-          +-Literal(type=STRING, value="en_US")
 ==
 
 # COLLATE must be followed by a string literal or a string parameter.
@@ -132,7 +113,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=36-70
         +-column_ref=
         | +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#3)
         +-collation_name=
@@ -175,26 +155,22 @@ QueryStmt
     | +-TableScan(column_list=SimpleTypes.[int32#1, string#5], table=SimpleTypes, column_index_list=[0, 4])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=75-93
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       | +-collation_name=
       |   +-Literal(type=STRING, value="s1")
       +-OrderByItem
-      | +-parse_location=104-123
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       | +-collation_name=
       | | +-Literal(type=STRING, value="s2")
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=134-166
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       | +-collation_name=
       |   +-Parameter(type=STRING, name="test_param_string")
       +-OrderByItem
-        +-parse_location=177-183
         +-column_ref=
         | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
         +-is_descending=TRUE
@@ -218,19 +194,16 @@ QueryStmt
     | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=44-56
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       | +-collation_name=
       |   +-Literal(type=STRING, value="")
       +-OrderByItem
-      | +-parse_location=67-83
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       | +-collation_name=
       |   +-Literal(type=STRING, value="NULL")
       +-OrderByItem
-        +-parse_location=94-117
         +-column_ref=
         | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
         +-collation_name=
@@ -461,7 +434,6 @@ QueryStmt
     | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=42-59
         +-column_ref=
         | +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
         +-collation_name=

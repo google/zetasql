@@ -50,27 +50,22 @@ QueryStmt
     |     +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=162-167
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#5)
       +-OrderByItem
-      | +-parse_location=180-185
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=199-204
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-null_order=NULLS_FIRST
       +-OrderByItem
-      | +-parse_location=229-234
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-is_descending=TRUE
       | +-null_order=NULLS_LAST
       +-OrderByItem
-        +-parse_location=259-264
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#6)
 --
@@ -111,39 +106,31 @@ QueryStmt
     |     +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=145-148
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.key#4)
       +-OrderByItem
-      | +-parse_location=157-162
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#5)
       +-OrderByItem
-      | +-parse_location=171-176
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#5)
       +-OrderByItem
-      | +-parse_location=189-194
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=208-213
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-null_order=NULLS_FIRST
       +-OrderByItem
-      | +-parse_location=238-243
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.value#5)
       | +-is_descending=TRUE
       | +-null_order=NULLS_LAST
       +-OrderByItem
-      | +-parse_location=268-273
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#6)
       +-OrderByItem
-        +-parse_location=286-291
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.$groupbycol4#7)
 ==
@@ -204,16 +191,13 @@ QueryStmt
     |     +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=84-87
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
       +-OrderByItem
-      | +-parse_location=93-96
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$groupby.$groupbycol4#8)
       | +-is_descending=TRUE
       +-OrderByItem
-        +-parse_location=103-106
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$groupby.$groupbycol5#9)
         +-is_descending=TRUE
@@ -268,24 +252,19 @@ QueryStmt
     |     +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=85-86
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.x#5)
       +-OrderByItem
-      | +-parse_location=88-91
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol2#6)
       +-OrderByItem
-      | +-parse_location=93-96
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.$groupbycol3#7)
       +-OrderByItem
-      | +-parse_location=102-105
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$groupby.$groupbycol4#8)
       | +-is_descending=TRUE
       +-OrderByItem
-        +-parse_location=112-115
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$groupby.$groupbycol5#9)
         +-is_descending=TRUE
@@ -330,7 +309,6 @@ QueryStmt
     |     +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=58-61
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$groupby.key#4)
         +-null_order=NULLS_FIRST
@@ -356,7 +334,6 @@ QueryStmt
     |     +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=58-61
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$groupby.key#4)
         +-null_order=NULLS_LAST
@@ -622,21 +599,17 @@ QueryStmt
     |             +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=27-37
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
       +-OrderByItem
-      | +-parse_location=56-68
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=88-100
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$aggregate.$col3#8)
       | +-null_order=NULLS_FIRST
       +-OrderByItem
-        +-parse_location=131-139
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.$agg4#6)
         +-is_descending=TRUE
@@ -682,16 +655,13 @@ QueryStmt
     |     +-$agg3#9 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=103-111
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.string_b#11)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=34-49
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#7)
       +-OrderByItem
-        +-parse_location=69-77
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.$agg3#9)
         +-is_descending=TRUE
@@ -727,20 +697,16 @@ QueryStmt
     |     +-$agg3#9 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=105-110
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.int_a#10)
       +-OrderByItem
-      | +-parse_location=112-120
       | +-column_ref=
       | | +-ColumnRef(type=STRING, column=$groupby.string_b#11)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=34-49
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$aggregate.$agg1#7)
       +-OrderByItem
-        +-parse_location=69-77
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.$agg3#9)
         +-is_descending=TRUE

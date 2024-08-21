@@ -2333,7 +2333,6 @@ QueryStmt
     |     +-ColumnHolder(column=$array_offset.o#22)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=93-94
         +-column_ref=
           +-ColumnRef(type=INT64, column=$array_offset.o#22)
 
@@ -2390,7 +2389,6 @@ QueryStmt
     |     +-ColumnHolder(column=$array_offset.o#22)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=93-94
         +-column_ref=
           +-ColumnRef(type=INT64, column=$array_offset.o#22)
 ==
@@ -2630,7 +2628,6 @@ QueryStmt
     |     +-ColumnHolder(column=$array_offset.o#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=203-204
         +-column_ref=
           +-ColumnRef(type=INT64, column=$array_offset.o#3)
 
@@ -2746,7 +2743,6 @@ QueryStmt
     |     +-ColumnHolder(column=$array_offset.o#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=203-204
         +-column_ref=
           +-ColumnRef(type=INT64, column=$array_offset.o#3)
 ==
@@ -4379,7 +4375,6 @@ QueryStmt
     |             |     |     |     |     |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |             |     |     |     |     |           +-order_by_item_list=
     |             |     |     |     |     |             +-OrderByItem
-    |             |     |     |     |     |               +-parse_location=231-234
     |             |     |     |     |     |               +-column_ref=
     |             |     |     |     |     |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |             |     |     |     |     +-input_scan=

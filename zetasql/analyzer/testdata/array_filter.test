@@ -73,7 +73,6 @@ QueryStmt
     |         |           |       +-Literal(type=INT64, value=0)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |         +-input_scan=
@@ -162,7 +161,6 @@ QueryStmt
     |           |           |       +-Literal(type=INT64, value=0)
     |           |           +-order_by_item_list=
     |           |             +-OrderByItem
-    |           |               +-parse_location=231-234
     |           |               +-column_ref=
     |           |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |           +-input_scan=
@@ -249,7 +247,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=236-239
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
@@ -341,7 +338,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -437,7 +433,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=236-239
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         +-input_scan=
@@ -528,7 +523,6 @@ QueryStmt
     |         |           |       +-Literal(type=INT64, value=0)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -626,7 +620,6 @@ QueryStmt
     |         |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
@@ -733,7 +726,6 @@ QueryStmt
     |         |           |       +-Literal(type=INT64, value=1)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
     |         +-input_scan=
@@ -781,7 +773,6 @@ QueryStmt
     |             |         |           |       +-Literal(type=INT64, value=0)
     |             |         |           +-order_by_item_list=
     |             |         |             +-OrderByItem
-    |             |         |               +-parse_location=231-234
     |             |         |               +-column_ref=
     |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |             |         +-input_scan=
@@ -912,7 +903,6 @@ QueryStmt
     |         |         |           |       +-Literal(type=INT64, value=1)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=231-234
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         |         +-input_scan=
@@ -960,7 +950,6 @@ QueryStmt
     |         |             |         |           |       +-Literal(type=INT64, value=0)
     |         |             |         |           +-order_by_item_list=
     |         |             |         |             +-OrderByItem
-    |         |             |         |               +-parse_location=231-234
     |         |             |         |               +-column_ref=
     |         |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |         |             |         +-input_scan=
@@ -1113,7 +1102,6 @@ QueryStmt
     |         |           |               |           |       +-Literal(type=INT64, value=0)
     |         |           |               |           +-order_by_item_list=
     |         |           |               |             +-OrderByItem
-    |         |           |               |               +-parse_location=231-234
     |         |           |               |               +-column_ref=
     |         |           |               |                 +-ColumnRef(type=INT64, column=$array_offset.off#17)
     |         |           |               +-input_scan=
@@ -1129,7 +1117,6 @@ QueryStmt
     |         |           |                     +-SingleRowScan
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
     |         +-input_scan=
@@ -1296,7 +1283,6 @@ QueryStmt
     |         |         |           |               |           |       +-Literal(type=INT64, value=0)
     |         |         |           |               |           +-order_by_item_list=
     |         |         |           |               |             +-OrderByItem
-    |         |         |           |               |               +-parse_location=231-234
     |         |         |           |               |               +-column_ref=
     |         |         |           |               |                 +-ColumnRef(type=INT64, column=$array_offset.off#18)
     |         |         |           |               +-input_scan=
@@ -1312,7 +1298,6 @@ QueryStmt
     |         |         |           |                     +-SingleRowScan
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=231-234
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         |         +-input_scan=
@@ -1429,7 +1414,6 @@ QueryStmt
     |         |         |           |       +-Literal(type=INT64, value=1)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=231-234
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=
@@ -1553,7 +1537,6 @@ QueryStmt
     |         |         |           |       +-ColumnRef(type=INT64, column=$array.element#7)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
-    |         |         |               +-parse_location=231-234
     |         |         |               +-column_ref=
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=
@@ -1657,7 +1640,6 @@ QueryStmt
     |         |           |       +-Literal(type=INT64, value=0)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=231-234
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#11)
     |         +-input_scan=
@@ -1704,7 +1686,6 @@ QueryStmt
     |             |         |           |         +-ColumnHolder(column=$array_offset.off#6)
     |             |         |           +-order_by_item_list=
     |             |         |             +-OrderByItem
-    |             |         |               +-parse_location=216-219
     |             |         |               +-column_ref=
     |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |             |         +-input_scan=
@@ -1834,7 +1815,6 @@ QueryStmt
     |         |           |   |           |           |       +-Literal(type=INT64, value=1)
     |         |           |   |           |           +-order_by_item_list=
     |         |           |   |           |             +-OrderByItem
-    |         |           |   |           |               +-parse_location=231-234
     |         |           |   |           |               +-column_ref=
     |         |           |   |           |                 +-ColumnRef(type=INT64, column=$array_offset.off#16)
     |         |           |   |           +-input_scan=
@@ -1857,7 +1837,6 @@ QueryStmt
     |         |           |         +-ColumnHolder(column=$array_offset.off#10)
     |         |           +-order_by_item_list=
     |         |             +-OrderByItem
-    |         |               +-parse_location=216-219
     |         |               +-column_ref=
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#10)
     |         +-input_scan=
@@ -2026,7 +2005,6 @@ QueryStmt
     |   |         |           |       +-Literal(type=INT64, value=1)
     |   |         |           +-order_by_item_list=
     |   |         |             +-OrderByItem
-    |   |         |               +-parse_location=231-234
     |   |         |               +-column_ref=
     |   |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#10)
     |   |         +-input_scan=
@@ -2127,7 +2105,6 @@ QueryStmt
     |         |     |       |       +-Literal(type=INT64, value=0)
     |         |     |       +-order_by_item_list=
     |         |     |         +-OrderByItem
-    |         |     |           +-parse_location=243-246
     |         |     |           +-column_ref=
     |         |     |             +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)

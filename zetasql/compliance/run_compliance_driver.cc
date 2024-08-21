@@ -16,23 +16,32 @@
 
 #include <unistd.h>
 
-#include <algorithm>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/init_google.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/fileutils.h"
+#include "zetasql/base/helpers.h"
+#include "zetasql/base/options.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_driver.pb.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/flags/flag.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 struct QueryParameterFlagValue {

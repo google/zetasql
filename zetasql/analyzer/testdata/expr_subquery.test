@@ -1143,11 +1143,9 @@ QueryStmt
     |         |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |           | +-parse_location=51-58
     |           | +-column_ref=
     |           |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
     |           +-OrderByItem
-    |             +-parse_location=60-81
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol2#5)
     +-input_scan=
@@ -1215,7 +1213,6 @@ QueryStmt
     |         |           +-output_column_list=[$union_all2_cast.$col1#6]
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=104-125
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#7)
     +-input_scan=
@@ -1263,11 +1260,9 @@ QueryStmt
     |         |     +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |           | +-parse_location=84-91
     |           | +-column_ref=
     |           |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
     |           +-OrderByItem
-    |             +-parse_location=93-114
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol2#5)
     +-input_scan=
@@ -1331,7 +1326,6 @@ QueryStmt
     |         |           +-output_column_list=[$union_all2.$col1#6]
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=80-103
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#8)
     +-input_scan=
@@ -1407,7 +1401,6 @@ QueryStmt
     |         |           +-output_column_list=[$union_all2.$col1#7, $union_all2_cast.$col2#11]
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=130-153
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#12)
     +-input_scan=

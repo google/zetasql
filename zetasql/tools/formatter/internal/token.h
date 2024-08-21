@@ -120,8 +120,10 @@ class Token : public ParseToken {
     // Marks builtin-functions, some of which may be multipart, e.g.
     // D3A_COUNT.INIT()
     BUILTIN_FUNCTION,
-    // Marks open and closing brackets inside braced (map) constructors.
-    BRACED_CONSTR_BRACKET,
+    // Marks open brackets inside braced (map) constructors.
+    BRACED_CONSTR_OPEN_BRACKET,
+    // Marks close brackets inside braced (map) constructors.
+    BRACED_CONSTR_CLOSE_BRACKET,
     // Marks colons in braced constructors.
     BRACED_CONSTR_COLON,
     // Marks the beginning of a field name in braced constructor. It can be '('
@@ -183,6 +185,14 @@ class Token : public ParseToken {
   // Returns true if the current token is marked as close angle bracket: ">"
   // (but not a comparison operator).
   bool IsCloseAngleBracket() const;
+
+  // Returns true if the current token is a comment that annotates the following
+  // string literal as embedded SQL. Example: /*sql*/'''select 1'''
+  bool IsEmbeddedSqlAnnotation() const;
+
+  // Returns true if the current token is a comment that annotates the following
+  // string literal as embedded proto. Example: /*proto*/'''foo: 1'''
+  bool IsEmbeddedProtoAnnotation() const;
 
   // Checks if the current token may be an identifier (but may be also a non
   // reserved keyword).

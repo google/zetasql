@@ -199,3 +199,6 @@ extend google.protobuf.EnumValueOptions {
   // they are used as opaque enums.
   optional OpaqueEnumValueOptions opaque_enum_value_options = 474580774;
 }
+
+message MeasureTypeProto {
+}

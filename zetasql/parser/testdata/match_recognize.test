@@ -453,9 +453,9 @@ select * from t match_recognize(
 --
 ALTERNATION GROUP:  MATCH_RECOGNIZE 
 --
-ERROR: Syntax error: Expected end of input but got keyword MATCH_RECOGNIZE [at 6:19]
+ERROR: Syntax error: Expected "(" but got end of statement [at 6:34]
 ) as outer_alias  MATCH_RECOGNIZE 
-                  ^
+                                 ^
 --
 ALTERNATION GROUP:  TABLESAMPLE 
 --
@@ -629,6 +629,188 @@ FROM
       max(A.b) AS m1
     PATTERN (A)
     DEFINE A AS true)
+==
+
+# MATCH_RECOGNIZE() on a parenthesized join
+SELECT * FROM (t1 INNER JOIN t2 ON t1.a = t2.b)
+  match_recognize(
+    ORDER BY c DESC, f(d)
+    MEASURES max(A.x) AS m1, min(B.y) AS m2
+    PATTERN ( A B )
+    DEFINE A AS x.y
+  )
+--
+QueryStatement [0-180] [SELECT * FROM...AS x.y   )]
+  Query [0-180] [SELECT * FROM...AS x.y   )]
+    Select [0-180] [SELECT * FROM...AS x.y   )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-180] [FROM (t1 INNER...AS x.y   )]
+        ParenthesizedJoin [14-180] [(t1 INNER...AS x.y   )]
+          Join(INNER) [15-46] [t1 INNER JOIN...t1.a = t2.b]
+            TablePathExpression [15-17] [t1]
+              PathExpression [15-17] [t1]
+                Identifier(t1) [15-17] [t1]
+            Location [18-28] [INNER JOIN]
+            TablePathExpression [29-31] [t2]
+              PathExpression [29-31] [t2]
+                Identifier(t2) [29-31] [t2]
+            OnClause [32-46] [ON t1.a = t2.b]
+              BinaryExpression(=) [35-46] [t1.a = t2.b]
+                PathExpression [35-39] [t1.a]
+                  Identifier(t1) [35-37] [t1]
+                  Identifier(a) [38-39] [a]
+                PathExpression [42-46] [t2.b]
+                  Identifier(t2) [42-44] [t2]
+                  Identifier(b) [45-46] [b]
+          MatchRecognizeClause [50-180] [match_recognize...AS x.y   )]
+            OrderBy [71-92] [ORDER BY c DESC, f(d)]
+              OrderingExpression(DESC) [80-86] [c DESC]
+                PathExpression [80-81] [c]
+                  Identifier(c) [80-81] [c]
+              OrderingExpression(ASC) [88-92] [f(d)]
+                FunctionCall [88-92] [f(d)]
+                  PathExpression [88-89] [f]
+                    Identifier(f) [88-89] [f]
+                  PathExpression [90-91] [d]
+                    Identifier(d) [90-91] [d]
+            SelectList [106-136] [max(A.x) AS m1, min(B.y) AS m2]
+              SelectColumn [106-120] [max(A.x) AS m1]
+                FunctionCall [106-114] [max(A.x)]
+                  PathExpression [106-109] [max]
+                    Identifier(max) [106-109] [max]
+                  PathExpression [110-113] [A.x]
+                    Identifier(A) [110-111] [A]
+                    Identifier(x) [112-113] [x]
+                Alias [115-120] [AS m1]
+                  Identifier(m1) [118-120] [m1]
+              SelectColumn [122-136] [min(B.y) AS m2]
+                FunctionCall [122-130] [min(B.y)]
+                  PathExpression [122-125] [min]
+                    Identifier(min) [122-125] [min]
+                  PathExpression [126-129] [B.y]
+                    Identifier(B) [126-127] [B]
+                    Identifier(y) [128-129] [y]
+                Alias [131-136] [AS m2]
+                  Identifier(m2) [134-136] [m2]
+            RowPatternOperation [151-154] [A B]
+              RowPatternVariable [151-152] [A]
+                Identifier(A) [151-152] [A]
+              RowPatternVariable [153-154] [B]
+                Identifier(B) [153-154] [B]
+            SelectList [168-176] [A AS x.y]
+              SelectColumn [168-176] [A AS x.y]
+                PathExpression [173-176] [x.y]
+                  Identifier(x) [173-174] [x]
+                  Identifier(y) [175-176] [y]
+                Alias [168-172] [A AS]
+                  Identifier(A) [168-169] [A]
+--
+SELECT
+  *
+FROM
+  (
+    t1
+    INNER JOIN
+    t2
+    ON t1.a = t2.b
+  ) MATCH_RECOGNIZE(
+    ORDER BY c DESC, f(d)
+    MEASURES
+      max(A.x) AS m1,
+      min(B.y) AS m2
+    PATTERN (A  B)
+    DEFINE A AS x.y)
+==
+
+# MATCH_RECOGNIZE() on a table subquery
+SELECT * FROM ( SELECT * FROM t) AS u
+  match_recognize(
+    ORDER BY c DESC, f(d)
+    MEASURES max(A.x) AS m1, min(B.y) AS m2
+    PATTERN ( A B )
+    DEFINE A AS x.y
+  )
+--
+
+QueryStatement [0-170] [SELECT * FROM...AS x.y   )]
+  Query [0-170] [SELECT * FROM...AS x.y   )]
+    Select [0-170] [SELECT * FROM...AS x.y   )]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-170] [FROM ( SELECT...AS x.y   )]
+        TableSubquery [14-170] [( SELECT *...AS x.y   )]
+          Query [16-31] [SELECT * FROM t]
+            Select [16-31] [SELECT * FROM t]
+              SelectList [23-24] [*]
+                SelectColumn [23-24] [*]
+                  Star(*) [23-24] [*]
+              FromClause [25-31] [FROM t]
+                TablePathExpression [30-31] [t]
+                  PathExpression [30-31] [t]
+                    Identifier(t) [30-31] [t]
+          Alias [33-37] [AS u]
+            Identifier(u) [36-37] [u]
+          MatchRecognizeClause [40-170] [match_recognize...AS x.y   )]
+            OrderBy [61-82] [ORDER BY c DESC, f(d)]
+              OrderingExpression(DESC) [70-76] [c DESC]
+                PathExpression [70-71] [c]
+                  Identifier(c) [70-71] [c]
+              OrderingExpression(ASC) [78-82] [f(d)]
+                FunctionCall [78-82] [f(d)]
+                  PathExpression [78-79] [f]
+                    Identifier(f) [78-79] [f]
+                  PathExpression [80-81] [d]
+                    Identifier(d) [80-81] [d]
+            SelectList [96-126] [max(A.x) AS m1, min(B.y) AS m2]
+              SelectColumn [96-110] [max(A.x) AS m1]
+                FunctionCall [96-104] [max(A.x)]
+                  PathExpression [96-99] [max]
+                    Identifier(max) [96-99] [max]
+                  PathExpression [100-103] [A.x]
+                    Identifier(A) [100-101] [A]
+                    Identifier(x) [102-103] [x]
+                Alias [105-110] [AS m1]
+                  Identifier(m1) [108-110] [m1]
+              SelectColumn [112-126] [min(B.y) AS m2]
+                FunctionCall [112-120] [min(B.y)]
+                  PathExpression [112-115] [min]
+                    Identifier(min) [112-115] [min]
+                  PathExpression [116-119] [B.y]
+                    Identifier(B) [116-117] [B]
+                    Identifier(y) [118-119] [y]
+                Alias [121-126] [AS m2]
+                  Identifier(m2) [124-126] [m2]
+            RowPatternOperation [141-144] [A B]
+              RowPatternVariable [141-142] [A]
+                Identifier(A) [141-142] [A]
+              RowPatternVariable [143-144] [B]
+                Identifier(B) [143-144] [B]
+            SelectList [158-166] [A AS x.y]
+              SelectColumn [158-166] [A AS x.y]
+                PathExpression [163-166] [x.y]
+                  Identifier(x) [163-164] [x]
+                  Identifier(y) [165-166] [y]
+                Alias [158-162] [A AS]
+                  Identifier(A) [158-159] [A]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT
+      *
+    FROM
+      t
+  ) AS u MATCH_RECOGNIZE(
+    ORDER BY c DESC, f(d)
+    MEASURES
+      max(A.x) AS m1,
+      min(B.y) AS m2
+    PATTERN (A  B)
+    DEFINE A AS x.y)
 ==
 
 select * from t match_recognize(

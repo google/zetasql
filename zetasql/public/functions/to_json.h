@@ -51,7 +51,8 @@ const int kNestingLevelStackCheckThreshold = 10;
 absl::StatusOr<JSONValue> ToJson(
     const Value& value, bool stringify_wide_numbers,
     const LanguageOptions& language_options, bool canonicalize_zero = false,
-    UnsupportedFields unsupported_fields = UnsupportedFields::FAIL);
+    UnsupportedFieldsEnum::UnsupportedFields unsupported_fields =
+        UnsupportedFieldsEnum::FAIL);
 
 }  // namespace functions
 }  // namespace zetasql

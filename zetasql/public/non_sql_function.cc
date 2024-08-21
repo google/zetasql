@@ -47,7 +47,7 @@ NonSqlFunction::NonSqlFunction(
       parse_resume_location_(parse_resume_location) {}
 
 absl::Status NonSqlFunction::Create(
-    const std::string& name, Mode mode,
+    absl::string_view name, Mode mode,
     const std::vector<FunctionSignature>& function_signatures,
     const FunctionOptions& function_options,
     const ResolvedCreateFunctionStmt* resolved_create_function_statement,

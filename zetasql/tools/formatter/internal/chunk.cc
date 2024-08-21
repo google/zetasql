@@ -343,11 +343,11 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
   // Always have space after ':' and after '{'
   // e.g.: "field1: { a: 1 ..."
   if (token_before.Is(Token::Type::BRACED_CONSTR_COLON) ||
-      (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+      (token_before.Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) &&
        token_before.GetKeyword() == "{")) {
     return true;
     // Always have space before '}'.
-  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
+  } else if (token_after.Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET) &&
              token_after.GetKeyword() == "}") {
     return true;
     // Keep space before '{' only if when it goes after another map constructor
@@ -355,18 +355,16 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
     //   repeated_field: [ { ...
     // but:
     //   ARRAY<Foo>[{ ...
-  } else if (token_after.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
-             token_after.GetKeyword() == "{" &&
-             token_before.Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+  } else if (token_after.Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) &&
+             token_before.Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET)) {
     return true;
     // After '}' leave space only when next token is another map constructor
     // bracket, otherwise use default rules. e.g.:
     //   repeated_field: [ { ... } ]
     // but:
     //   ARRAY<Foo>[{ ... }]
-  } else if (token_before.Is(Token::Type::BRACED_CONSTR_BRACKET) &&
-             token_before.GetKeyword() == "}" &&
-             token_after.Is(Token::Type::BRACED_CONSTR_BRACKET)) {
+  } else if (token_before.Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET) &&
+             token_after.Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET)) {
     return true;
   }
 
@@ -662,6 +660,7 @@ bool Chunk::OpensParenBlock() const { return !Empty() && LastKeyword() == "("; }
 
 bool Chunk::OpensParenOrBracketBlock() const {
   return LastToken().Is(Token::Type::OPEN_BRACKET) ||
+         LastToken().Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) ||
          IsOpenParenOrBracket(LastKeyword());
 }
 
@@ -671,6 +670,7 @@ bool Chunk::ClosesParenBlock() const {
 
 bool Chunk::ClosesParenOrBracketBlock() const {
   return FirstToken().Is(Token::Type::CLOSE_BRACKET) ||
+         FirstToken().Is(Token::Type::BRACED_CONSTR_CLOSE_BRACKET) ||
          IsCloseParenOrBracket(FirstKeyword());
 }
 
@@ -1074,7 +1074,7 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
   // In proto constructors colon acts similar to the assignment operator:
   // field_name: value
   if (previous_token->Is(Token::Type::BRACED_CONSTR_COLON)) {
-    return current_token->Is(Token::Type::BRACED_CONSTR_BRACKET);
+    return current_token->Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET);
   } else if (current_token->Is(Token::Type::BRACED_CONSTR_COLON)) {
     return true;
   }
@@ -2312,20 +2312,21 @@ void MarkAllComplexScriptNames(const TokensView& tokens_view) {
 void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
   const std::vector<Token*>& tokens = tokens_view.WithoutComments();
   for (int t = 0; t < tokens.size(); ++t) {
-    if (!MaybeAnOpenBraceForMapConstructor(tokens, t)) {
+    if (!tokens[t]->Is(Token::Type::BRACED_CONSTR_OPEN_BRACKET) &&
+        !MaybeAnOpenBraceForMapConstructor(tokens, t)) {
       continue;
     }
     // Found braced constructor start.
-    tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+    tokens[t]->SetType(Token::Type::BRACED_CONSTR_OPEN_BRACKET);
     const int end = FindMatchingClosingBracket(tokens, t);
     if (end < tokens.size()) {
-      tokens[end]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+      tokens[end]->SetType(Token::Type::BRACED_CONSTR_CLOSE_BRACKET);
     }
     while (++t < end) {
       bool found_field_name = false;
       if (tokens[t]->GetKeyword() == "{") {
         if (MaybeAnOpenBraceForMapConstructor(tokens, t)) {
-          tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+          tokens[t]->SetType(Token::Type::BRACED_CONSTR_OPEN_BRACKET);
           if (tokens[t - 1]->GetKeyword() != ":" &&
               !IsOpenParenOrBracket(tokens[t - 1]->GetKeyword())) {
             found_field_name = true;
@@ -2340,7 +2341,7 @@ void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
         found_field_name = true;
       } else if (tokens[t]->GetKeyword() == "}" &&
                  tokens[t]->Is(Token::Type::UNKNOWN)) {
-        tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+        tokens[t]->SetType(Token::Type::BRACED_CONSTR_CLOSE_BRACKET);
         // [] and () in map constructors behave similarly to {} if they
         // surround the entire value and are not part of bigger expression.
       } else if ((tokens[t]->GetKeyword() == "[" ||
@@ -2357,9 +2358,9 @@ void MarkTokensInBracedConstructors(const TokensView& tokens_view) {
                tokens[next_token]->GetKeyword() == "," ||
                tokens[next_token]->GetKeyword() == "}" ||
                tokens[next_token]->MayBeStartOfIdentifier())) {
-            tokens[t]->SetType(Token::Type::BRACED_CONSTR_BRACKET);
+            tokens[t]->SetType(Token::Type::BRACED_CONSTR_OPEN_BRACKET);
             tokens[closing_bracket]->SetType(
-                Token::Type::BRACED_CONSTR_BRACKET);
+                Token::Type::BRACED_CONSTR_CLOSE_BRACKET);
           }
         }
       }

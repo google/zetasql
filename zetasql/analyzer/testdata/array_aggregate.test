@@ -72,7 +72,6 @@ QueryStmt
               |     +-Literal(type=INT64, value=3)
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=250-255
               |   +-column_ref=
               |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -188,7 +187,6 @@ QueryStmt
         |             |         |   |     +-distinct.arg#12 := ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#9)
         |             |         |   +-order_by_item_list=
         |             |         |     +-OrderByItem
-        |             |         |       +-parse_location=250-255
         |             |         |       +-column_ref=
         |             |         |         +-ColumnRef(type=INT64, column=$agg_rewriter.distinct.arg#12)
         |             |         +-limit=
@@ -347,7 +345,6 @@ QueryStmt
           |   +-ColumnRef(type=INT64, column=$array.a#4)
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=28-29
           |       +-column_ref=
           |         +-ColumnRef(type=INT64, column=$array.a#4)
           +-$agg2#6 :=
@@ -355,7 +352,6 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$array.a#4)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=53-54
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
@@ -437,7 +433,6 @@ QueryStmt
         | |           |         |       +-element_column_list=[$agg_rewriter.$struct#9]
         | |           |         +-order_by_item_list=
         | |           |           +-OrderByItem
-        | |           |             +-parse_location=28-29
         | |           |             +-column_ref=
         | |           |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#7)
         | |           +-input_scan=
@@ -492,7 +487,6 @@ QueryStmt
         |             |         |       +-element_column_list=[$agg_rewriter.$struct#13]
         |             |         +-order_by_item_list=
         |             |           +-OrderByItem
-        |             |             +-parse_location=53-54
         |             |             +-column_ref=
         |             |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#11)
         |             +-input_scan=
@@ -628,7 +622,6 @@ QueryStmt
           |   +-ColumnRef(type=INT64, column=$array.a#4)
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=28-29
           |       +-column_ref=
           |         +-ColumnRef(type=UINT64, column=$array.b#5)
           +-$agg2#7 :=
@@ -636,7 +629,6 @@ QueryStmt
               +-ColumnRef(type=UINT64, column=$array.b#5)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=53-54
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
@@ -732,7 +724,6 @@ QueryStmt
         | |           |         |       +-element_column_list=[$agg_rewriter.$struct#11]
         | |           |         +-order_by_item_list=
         | |           |           +-OrderByItem
-        | |           |             +-parse_location=28-29
         | |           |             +-column_ref=
         | |           |               +-ColumnRef(type=UINT64, column=$agg_rewriter.b#9)
         | |           +-input_scan=
@@ -793,7 +784,6 @@ QueryStmt
         |             |         |       +-element_column_list=[$agg_rewriter.$struct#16]
         |             |         +-order_by_item_list=
         |             |           +-OrderByItem
-        |             |             +-parse_location=53-54
         |             |             +-column_ref=
         |             |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#13)
         |             +-input_scan=
@@ -963,7 +953,6 @@ QueryStmt
           |   |       +-ColumnRef(type=UINT64, column=$array.b#5)
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=132-133
           |       +-column_ref=
           |         +-ColumnRef(type=UINT64, column=$array.b#5)
           +-$agg2#7 :=
@@ -982,7 +971,6 @@ QueryStmt
               |     +-Literal(type=INT64, value=3)
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=188-189
                   +-column_ref=
                     +-ColumnRef(type=INT64, column=$array.a#4)
 
@@ -1084,7 +1072,6 @@ QueryStmt
         | |           |         |       +-element_column_list=[$agg_rewriter.$struct#13]
         | |           |         +-order_by_item_list=
         | |           |           +-OrderByItem
-        | |           |             +-parse_location=132-133
         | |           |             +-column_ref=
         | |           |               +-ColumnRef(type=UINT64, column=$agg_rewriter.b#11)
         | |           +-input_scan=
@@ -1145,7 +1132,6 @@ QueryStmt
         |             |         |       +-element_column_list=[$agg_rewriter.$struct#18]
         |             |         +-order_by_item_list=
         |             |           +-OrderByItem
-        |             |             +-parse_location=188-189
         |             |             +-column_ref=
         |             |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#15)
         |             +-input_scan=
@@ -1386,7 +1372,6 @@ QueryStmt
               +-ColumnRef(type=INT64, column=$array.a#4)
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=74-77
               |   +-column_ref=
               |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -1544,7 +1529,6 @@ QueryStmt
         |             |         |   |       +-element_column_list=[$agg_rewriter.$struct#15]
         |             |         |   +-order_by_item_list=
         |             |         |     +-OrderByItem
-        |             |         |       +-parse_location=74-77
         |             |         |       +-column_ref=
         |             |         |         +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#13)
         |             |         +-limit=
@@ -1724,7 +1708,6 @@ QueryStmt
         |                   |     +-ColumnRef(type=INT64, column=t.correlated#2, is_correlated=TRUE)
         |                   +-order_by_item_list=
         |                   | +-OrderByItem
-        |                   |   +-parse_location=139-142
         |                   |   +-column_ref=
         |                   |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#7)
         |                   +-limit=
@@ -1859,7 +1842,6 @@ QueryStmt
         |             |             |         |   |       +-element_column_list=[$agg_rewriter.$struct#13]
         |             |             |         |   +-order_by_item_list=
         |             |             |         |     +-OrderByItem
-        |             |             |         |       +-parse_location=139-142
         |             |             |         |       +-column_ref=
         |             |             |         |         +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#11)
         |             |             |         +-limit=

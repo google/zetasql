@@ -20,7 +20,6 @@ package zetasql;
 
 import "zetasql/public/annotation.proto";
 import "zetasql/public/options.proto";
-
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
 

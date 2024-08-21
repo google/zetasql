@@ -253,6 +253,33 @@ MATCHER_P(IsStatementNotSupportedError, statement_kind_name,
          ExplainMatchResult(status_matcher, arg, result_listener);
 }
 
+// Matches an error message indicating that a table is not found.
+//
+// The argument is the name of the table. If the error matched reports a
+// table name then the matcher will assert that the reported name matches
+// the argument in a case insensitive manner.
+MATCHER_P(IsTableNotFoundErrorMessage, table_name,
+          "is an error message indicating the table is not found") {
+  auto name_matcher = ::testing::HasSubstr(absl::AsciiStrToUpper(table_name));
+  auto message_matcher = ::testing::HasSubstr("Table not found");
+  return ExplainMatchResult(name_matcher, absl::AsciiStrToUpper(arg),
+                            result_listener) &&
+         ExplainMatchResult(message_matcher, arg, result_listener);
+}
+
+// Matches an error status indicating that a table is not found.
+//
+// The argument is the name of the table. If the error matched reports a
+// table name then the matcher will assert that the reported name matches
+// the argument in a case insensitive manner.
+MATCHER_P(IsTableNotFoundError, table_name,
+          "is an error indicating the table is not found") {
+  return ExplainMatchResult(
+      absl_testing::StatusIs(absl::StatusCode::kNotFound,
+                             IsTableNotFoundErrorMessage(table_name)),
+      arg, result_listener);
+}
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_TESTING_ERROR_MATCHERS_H_

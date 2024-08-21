@@ -6,16 +6,15 @@
 
 ZetaSQL supports user-defined functions (UDFs).
 
-A UDF enables you to
-create a function using another SQL expression or another programming
-language, such as JavaScript or Lua. These functions accept columns of input
-and perform actions, returning the result of those actions as a value.
+A UDF lets you create a function using another SQL expression or another
+programming language, such as JavaScript or Lua. These functions accept columns
+of input and perform actions, returning the result of those actions as a value.
 
 ## SQL UDFs 
 <a id="sql_udfs"></a>
 
-A SQL user-defined function (UDF) is a user-defined function that operates on
-one row at a time and returns the result of that calculation as a single value.
+A SQL user-defined function (UDF) operates on one row at a time and returns the
+result of that calculation as a single value.
 
 All of the arguments are expressions that are computed in the context of a
 single row.
@@ -173,8 +172,8 @@ FROM
 ## JavaScript UDFs 
 <a id="javascript_udfs"></a>
 
-A JavaScript UDF is a JavaScript user-defined function that executes
-JavaScript code and returns the result as a single value.
+A JavaScript user-defined function (UDF) runs JavaScript code and returns the
+result as a single value.
 
 ### Create a JavaScript UDF
 
@@ -749,8 +748,8 @@ FROM Input AS t;
 ## Lua UDFs 
 <a id="lua_udfs"></a>
 
-A Lua UDF is a SQL user-defined function that executes Lua code and returns the
-result as a single value.
+A Lua user-defined function (UDF) runs Lua code and returns the result as a
+single value.
 
 ### Create a Lua UDF
 

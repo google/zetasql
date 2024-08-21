@@ -72,7 +72,6 @@ QueryStmt
               |     +-Literal(type=INT64, value=3)
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=251-263
               |   +-column_ref=
               |     +-ColumnRef(type=STRING, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -156,7 +155,6 @@ QueryStmt
         |     |         |         |   |     +-distinct.arg#12 := ColumnRef(type=STRING, column=$agg_rewriter.$orderbycol1#9)
         |     |         |         |   +-order_by_item_list=
         |     |         |         |     +-OrderByItem
-        |     |         |         |       +-parse_location=251-263
         |     |         |         |       +-column_ref=
         |     |         |         |         +-ColumnRef(type=STRING, column=$agg_rewriter.distinct.arg#12)
         |     |         |         +-limit=
@@ -256,7 +254,6 @@ QueryStmt
           |   +-Literal(type=STRING, value="x")
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=34-35
           |       +-column_ref=
           |         +-ColumnRef(type=STRING, column=$array.a#4)
           +-$agg2#6 :=
@@ -265,7 +262,6 @@ QueryStmt
               +-Literal(type=STRING, value=", ")
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=66-67
                   +-column_ref=
                     +-ColumnRef(type=STRING, column=$array.a#4)
 
@@ -339,7 +335,6 @@ QueryStmt
         | |   |         |         |         +-ColumnRef(type=STRING, column=$agg_rewriter.a#7)
         | |   |         |         +-order_by_item_list=
         | |   |         |           +-OrderByItem
-        | |   |         |             +-parse_location=34-35
         | |   |         |             +-column_ref=
         | |   |         |               +-ColumnRef(type=STRING, column=$agg_rewriter.a#7)
         | |   |         +-input_scan=
@@ -403,7 +398,6 @@ QueryStmt
         |     |         |         |         +-ColumnRef(type=STRING, column=$agg_rewriter.a#11)
         |     |         |         +-order_by_item_list=
         |     |         |           +-OrderByItem
-        |     |         |             +-parse_location=66-67
         |     |         |             +-column_ref=
         |     |         |               +-ColumnRef(type=STRING, column=$agg_rewriter.a#11)
         |     |         +-input_scan=
@@ -486,7 +480,6 @@ QueryStmt
           |   +-Literal(type=STRING, value=",")
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=34-35
           |       +-column_ref=
           |         +-ColumnRef(type=BYTES, column=$array.b#5)
           +-$agg2#7 :=
@@ -495,7 +488,6 @@ QueryStmt
               +-Literal(type=BYTES, value=b", ")
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=67-68
                   +-column_ref=
                     +-ColumnRef(type=STRING, column=$array.a#4)
 
@@ -575,7 +567,6 @@ QueryStmt
         | |   |         |         |         +-ColumnRef(type=STRING, column=$agg_rewriter.a#8)
         | |   |         |         +-order_by_item_list=
         | |   |         |           +-OrderByItem
-        | |   |         |             +-parse_location=34-35
         | |   |         |             +-column_ref=
         | |   |         |               +-ColumnRef(type=BYTES, column=$agg_rewriter.b#9)
         | |   |         +-input_scan=
@@ -645,7 +636,6 @@ QueryStmt
         |     |         |         |         +-ColumnRef(type=BYTES, column=$agg_rewriter.b#14)
         |     |         |         +-order_by_item_list=
         |     |         |           +-OrderByItem
-        |     |         |             +-parse_location=67-68
         |     |         |             +-column_ref=
         |     |         |               +-ColumnRef(type=STRING, column=$agg_rewriter.a#13)
         |     |         +-input_scan=
@@ -746,7 +736,6 @@ QueryStmt
               +-Literal(type=STRING, value=",")
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=88-104
               |   +-column_ref=
               |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -897,7 +886,6 @@ QueryStmt
         |     |         |         |   |         +-ColumnRef(type=STRING, column=$agg_rewriter.a#12)
         |     |         |         |   +-order_by_item_list=
         |     |         |         |     +-OrderByItem
-        |     |         |         |       +-parse_location=88-104
         |     |         |         |       +-column_ref=
         |     |         |         |         +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#13)
         |     |         |         +-limit=
@@ -998,7 +986,6 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$array.a#4)
               +-order_by_item_list=
               | +-OrderByItem
-              |   +-parse_location=73-89
               |   +-column_ref=
               |     +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
               +-limit=
@@ -1149,7 +1136,6 @@ QueryStmt
         |     |         |         |   |         +-ColumnRef(type=STRING, column=$agg_rewriter.a#12)
         |     |         |         |   +-order_by_item_list=
         |     |         |         |     +-OrderByItem
-        |     |         |         |       +-parse_location=73-89
         |     |         |         |       +-column_ref=
         |     |         |         |         +-ColumnRef(type=INT64, column=$agg_rewriter.$orderbycol1#13)
         |     |         |         +-limit=

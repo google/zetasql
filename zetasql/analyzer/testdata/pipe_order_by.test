@@ -35,21 +35,17 @@ QueryStmt
     |   |         +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |     | +-parse_location=28-29
     |     | +-column_ref=
     |     |   +-ColumnRef(type=INT64, column=$query.x#1)
     |     +-OrderByItem
-    |     | +-parse_location=31-37
     |     | +-column_ref=
     |     | | +-ColumnRef(type=INT64, column=$query.y#2)
     |     | +-is_descending=TRUE
     |     +-OrderByItem
-    |       +-parse_location=39-42
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol3#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=65-66
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.x#1)
 ==
@@ -81,14 +77,12 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=32-47
     |       +-column_ref=
     |       | +-ColumnRef(type=STRING, column=$query.x#1)
     |       +-collation_name=
     |         +-Literal(type=STRING, value="abc")
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=60-77
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$query.y#2)
         +-is_descending=TRUE
@@ -122,20 +116,16 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |     | +-parse_location=28-29
     |     | +-column_ref=
     |     |   +-ColumnRef(type=INT64, column=$query.x#1)
     |     +-OrderByItem
-    |       +-parse_location=31-32
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$query.y#2)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=45-46
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$query.y#2)
       +-OrderByItem
-        +-parse_location=48-54
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$query.x#1)
         +-is_descending=TRUE
@@ -210,7 +200,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=28-42
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#3)
 ==
@@ -312,23 +301,18 @@ QueryStmt
     |                       +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=33-34
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$query.x#1)
       +-OrderByItem
-      | +-parse_location=48-51
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol2#8)
       +-OrderByItem
-      | +-parse_location=65-81
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol3#9)
       +-OrderByItem
-      | +-parse_location=95-121
       | +-column_ref=
       |   +-ColumnRef(type=DOUBLE, column=$analytic.$analytic2#5)
       +-OrderByItem
-        +-parse_location=135-165
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic3#6)
 ==
@@ -410,7 +394,6 @@ QueryStmt
     |       |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     |       +-order_by_item_list=
     |         +-OrderByItem
-    |           +-parse_location=37-79
     |           +-column_ref=
     |             +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
     +-filter_expr=

@@ -1627,3 +1627,32 @@ select * from KeyValue TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY)
 ERROR: Syntax error: Unexpected ")" [at 1:68]
 select * from KeyValue TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY)
                                                                    ^
+==
+
+# Multiple table operators, this becomes an analyzer error
+select a FROM b TABLESAMPLE SYSTEM (1 ROWS) TABLESAMPLE SYSTEM (2 ROWS) 
+--
+QueryStatement [0-71] [select a FROM...YSTEM (2 ROWS)]
+  Query [0-71] [select a FROM...YSTEM (2 ROWS)]
+    Select [0-71] [select a FROM...YSTEM (2 ROWS)]
+      SelectList [7-8] [a]
+        SelectColumn [7-8] [a]
+          PathExpression [7-8] [a]
+            Identifier(a) [7-8] [a]
+      FromClause [9-71] [FROM b TABLESAMPL...M (2 ROWS)]
+        TablePathExpression [14-71] [b TABLESAMPLE...YSTEM (2 ROWS)]
+          PathExpression [14-15] [b]
+            Identifier(b) [14-15] [b]
+          SampleClause [16-43] [TABLESAMPLE SYSTEM (1 ROWS)]
+            Identifier(SYSTEM) [28-34] [SYSTEM]
+            SampleSize [36-42] [1 ROWS]
+              IntLiteral(1) [36-37] [1]
+          SampleClause [44-71] [TABLESAMPLE SYSTEM (2 ROWS)]
+            Identifier(SYSTEM) [56-62] [SYSTEM]
+            SampleSize [64-70] [2 ROWS]
+              IntLiteral(2) [64-65] [2]
+--
+SELECT
+  a
+FROM
+  b TABLESAMPLE SYSTEM(1 ROWS) TABLESAMPLE SYSTEM(2 ROWS)

@@ -89,6 +89,8 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "google/protobuf/descriptor.h"
+#include "zetasql/base/general_trie.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -2190,25 +2192,19 @@ class Resolver {
   };
 
   struct ResolvedBuildProtoArg {
-    ResolvedBuildProtoArg(
-        const ASTNode* ast_location_in,
-        std::unique_ptr<const ResolvedExpr> expr_in,
-        std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr_in,
-        const google::protobuf::FieldDescriptor* field_descriptor_in = nullptr,
-        const Type* proto_field_type_in = nullptr)
+    ResolvedBuildProtoArg(const ASTNode* ast_location_in,
+                          std::unique_ptr<const ResolvedExpr> expr_in,
+                          const Type* leaf_field_type_in,
+                          const std::vector<const google::protobuf::FieldDescriptor*>
+                              field_descriptor_path_in)
         : ast_location(ast_location_in),
           expr(std::move(expr_in)),
-          alias_or_ast_path_expr(std::move(alias_or_ast_path_expr_in)),
-          field_descriptor(field_descriptor_in),
-          proto_field_type(proto_field_type_in) {}
+          leaf_field_type(leaf_field_type_in),
+          field_descriptor_path(field_descriptor_path_in) {}
     const ASTNode* ast_location;
     std::unique_ptr<const ResolvedExpr> expr;
-    std::unique_ptr<const AliasOrASTPathExpression> alias_or_ast_path_expr;
-
-    // The following two fields can be set if available so that they don't have
-    // to be computed again.
-    const google::protobuf::FieldDescriptor* field_descriptor;
-    const Type* proto_field_type;
+    const Type* leaf_field_type;
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
   };
 
   // Create a ResolvedMakeProto from a type and a vector of arguments.
@@ -2263,8 +2259,34 @@ class Resolver {
       const ProtoType* root_type,
       std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
 
-  // Parses <generalized_path>, filling <struct_path> and/or <field_descriptors>
-  // as appropriate, with the struct and proto fields that correspond to each of
+  // The output of FindFieldsFromPathExpression.
+  struct FindFieldsOutput {
+    struct StructFieldInfo {
+      explicit StructFieldInfo(int field_index_in,
+                               const StructType::StructField* field_in)
+          : field_index(field_index_in), field(field_in) {}
+
+      int field_index;
+      const StructType::StructField* field;
+    };
+    std::vector<StructFieldInfo> struct_path;
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
+  };
+
+  void AppendFindFieldsOutput(const FindFieldsOutput& to_append,
+                              FindFieldsOutput* output) {
+    output->struct_path.insert(output->struct_path.end(),
+                               to_append.struct_path.begin(),
+                               to_append.struct_path.end());
+    output->field_descriptor_path.insert(
+        output->field_descriptor_path.end(),
+        to_append.field_descriptor_path.begin(),
+        to_append.field_descriptor_path.end());
+  }
+
+  // Parses <generalized_path>, filling in <struct_path> and/or
+  // <field_descriptors> in FindFieldsOutput (returned as a value) as
+  // appropriate, with the struct and proto fields that correspond to each of
   // the fields in the path. The first field is looked up with respect to
   // <root_type>. Both <struct_path> and <field_descriptors> may be populated if
   // <generalized_path> contains accesses to fields of a proto nested within a
@@ -2273,23 +2295,21 @@ class Resolver {
   // <field_descriptors>. If <can_traverse_array_fields> is true, the
   // <generalized_path> can traverse array or repeated fields. <function_name>
   // is for generating error messages.
-  absl::Status FindFieldsFromPathExpression(
+  absl::StatusOr<FindFieldsOutput> FindFieldsFromPathExpression(
       absl::string_view function_name,
       const ASTGeneralizedPathExpression* generalized_path,
-      const Type* root_type, bool can_traverse_array_fields,
-      std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
-      std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
+      const Type* root_type, bool can_traverse_array_fields);
 
-  // Returns a vector of StructFields and their indexes corresponding to the
-  // fields in the path represented by <path_vector>. The first field in the
-  // returned vector is looked up with respect to <root_struct>. If a field of
-  // proto type is encountered in the path, it will be inserted into
-  // <struct_path> and the function will return without examining any further
-  // fields in the path.
+  // Fills in a vector of FindFieldsOutput::StructFieldInfo which contains
+  // StructFields and their indexes corresponding to the fields in the path
+  // represented by <path_vector>. The first field in the returned vector is
+  // looked up with respect to <root_struct>. If a field of proto type is
+  // encountered in the path, it will be inserted into <struct_path> and the
+  // function will return without examining any further fields in the path.
   absl::Status FindStructFieldPrefix(
       absl::Span<const ASTIdentifier* const> path_vector,
       const StructType* root_struct,
-      std::vector<std::pair<int, const StructType::StructField*>>* struct_path);
+      std::vector<FindFieldsOutput::StructFieldInfo>* struct_path);
 
   // Looks up a proto message type name first in <descriptor_pool> and then in
   // <catalog>. Returns NULL if the type name is not found. If
@@ -4027,14 +4047,25 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
-  absl::Status ResolveBracedConstructorFieldValue(
-      const ASTBracedConstructorFieldValue* ast_braced_constructor_field_value,
-      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+  // A container that has state about the 'lhs' part of a braced constructor
+  // field.
+  struct BracedConstructorField {
+    const ASTNode* location;
+    FindFieldsOutput field_info;
+  };
 
+  // Resolves the 'lhs' of a braced constructor field and returns a container
+  // with state.
+  absl::StatusOr<BracedConstructorField> ResolveBracedConstructorLhs(
+      const ASTBracedConstructorLhs* ast_braced_constructor_lhs,
+      const ProtoType* parent_type);
+
+  // Resolves a braced constructor field and returns a container that has state
+  // to build the protocol buffer field.
   absl::StatusOr<ResolvedBuildProtoArg> ResolveBracedConstructorField(
       const ASTBracedConstructorField* ast_braced_constructor_field,
-      const ProtoType* parent_type, int field_index,
+      const ProtoType* parent_type, int field_index, bool allow_field_paths,
+      const ResolvedExpr* update_constructor_expr_to_modify,
       ExprResolutionInfo* expr_resolution_info);
 
   absl::Status ResolveBracedConstructor(
@@ -4940,7 +4971,7 @@ class Resolver {
       const ASTTVF* ast_tvf, const std::vector<const ASTNode*>& arg_locations,
       const SignatureMatchResult& signature_match_result,
       const TableValuedFunction& tvf_catalog_entry, const std::string& tvf_name,
-      const std::vector<InputArgumentType>& input_arg_types, int signature_idx);
+      absl::Span<const InputArgumentType> input_arg_types, int signature_idx);
 
   // Struct to control the features to be resolved by
   // ResolveCreateTableStmtBaseProperties.
@@ -5199,6 +5230,35 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedExpr>>&
           resolved_array_expr_list,
       std::vector<ResolvedColumn>& resolved_element_column_list);
+
+  // Fills in `last_field_type` with the type of a the last element found in
+  // FindFieldsOutput.
+  static absl::Status GetLastSeenFieldType(
+      const FindFieldsOutput& output,
+      absl::Span<const std::string> catalog_name_path,
+      TypeFactory* type_factory, const Type** last_field_type);
+
+  // Builds the string representation of a field path using `struct_path_prefix`
+  // and `proto_field_path_suffix` and attempts to add it to `field_path_trie`.
+  // If non-empty, the field path is expanded starting with the fields in
+  // `struct_path_prefix`. Returns an error if this path string overlaps with a
+  // path that is already present in `field_path_trie`. For example,
+  // message.nested and message.nested.field are overlapping field paths, but
+  // message.nested.field1 and message.nested.field2 are not overlapping. Two
+  // paths that modify the same OneOf field are considered overlapping only when
+  // the language feature FEATURE_V_1_4_REPLACE_FIELDS_ALLOW_MULTI_ONEOF is not
+  // enabled. `oneof_path_to_full_path` maps from paths of OneOf fields that
+  // have already been modified to the corresponding path expression that
+  // accessed the OneOf path. If `proto_field_path_suffix` modifies a OneOf
+  // field that has not already been modified, it will be added to
+  // `oneof_path_to_full_path`.
+  static absl::Status AddToFieldPathTrie(
+      const LanguageOptions& language_options, const ASTNode* path_location,
+      const std::vector<FindFieldsOutput::StructFieldInfo>& struct_path_prefix,
+      const std::vector<const google::protobuf::FieldDescriptor*>&
+          proto_field_path_suffix,
+      absl::flat_hash_map<std::string, std::string>* oneof_path_to_full_path,
+      zetasql_base::GeneralTrie<const ASTNode*, nullptr>* field_path_trie);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

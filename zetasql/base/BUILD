@@ -850,3 +850,32 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )
+
+cc_library(
+    name = "optional_ref",
+    hdrs = ["optional_ref.h"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
+    name = "optional_ref_matchers",
+    testonly = 1,
+    hdrs = ["optional_ref_matchers.h"],
+    deps = [
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_test(
+    name = "optional_ref_test",
+    srcs = ["optional_ref_test.cc"],
+    deps = [
+        ":logging",
+        ":optional_ref",
+        ":optional_ref_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/strings",
+    ],
+)

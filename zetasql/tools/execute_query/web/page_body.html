@@ -2,7 +2,6 @@
 
     <main>
       <form action="/" method="post">
-        <h2>Query</h2>
         <textarea name="query" spellcheck=false
           placeholder="Enter your query here...">{{query}}</textarea>
 
@@ -65,13 +64,18 @@
         {{#statements}}
         {{#result_or_error}}
         <div class="result">
+          {{#show_statement_text}}
+          {{#statement_text}}
+            <h3 class="statement">Statement</h3>
+            <pre class="output statement"><code class="language-sql">{{statement_text}}</code></pre>
+          {{/statement_text}}
+          {{/show_statement_text}}
           {{#error}}
-            <h2>Error</h2>
+            <h3>Error</h3>
             <pre id="error">{{error}}</pre>
+            <p>
           {{/error}}
           {{#result}}
-            <h2>Result</h2>
-
             {{#result_executed}}
             <h3>Execute</h3>
               {{#result_executed_table}}

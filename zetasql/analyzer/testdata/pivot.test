@@ -5229,11 +5229,9 @@ QueryStmt
         |   +-null_handling_modifier=IGNORE_NULLS
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |     | +-parse_location=88-101
         |     | +-column_ref=
         |     |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
         |     +-OrderByItem
-        |       +-parse_location=103-109
         |       +-column_ref=
         |       | +-ColumnRef(type=INT64, column=$subquery1.z#3)
         |       +-is_descending=TRUE

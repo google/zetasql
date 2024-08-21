@@ -206,4 +206,29 @@ TEST(ExecuteQueryWebHandlerTest, TestCatalogUsed) {
               Eq("Table: Value\nColumns:\n  Value   INT64\n  Value_1 INT64\n"));
 }
 
+TEST(ExecuteQueryWebHandlerTest, TestEchoStatement) {
+  std::string result;
+  const auto web_template = FakeQueryWebTemplates("{{> body}}", "",
+                                                  "{{#statements}}"
+                                                  "{{#show_statement_text}}"
+                                                  "{{statement_text}}"
+                                                  "{{/show_statement_text}}"
+                                                  "\n---\n"
+                                                  "{{/statements}}");
+
+  // With one input statement, show_statement_text isn't set.
+  EXPECT_TRUE(
+      HandleRequest(ExecuteQueryWebRequest({"execute"}, "SELECT 1;", "none"),
+                    web_template, result));
+  EXPECT_THAT(result, Eq("\n---\n"));
+
+  // With more than one input statement, show_statement_text is set.
+  // Newlines are stripped off the beginning and end of statement_text.
+  EXPECT_TRUE(HandleRequest(
+      ExecuteQueryWebRequest(
+          {"execute"}, "\n\n\r\nSELECT 1;\n\r\nSELECT\n  2;\n\r\n", "none"),
+      web_template, result));
+  EXPECT_THAT(result, Eq("SELECT 1;\n---\nSELECT\n  2;\n---\n"));
+}
+
 }  // namespace zetasql

@@ -240,9 +240,10 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
     return language_options.LanguageFeatureEnabled(
         FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
-  // If ARRAY_ZIP_MODE enum is not created as a builtin type, falls through to
+  // If below enums were not created as a builtin type, falls through to
   // the generic logic below.
-  if (is_opaque_ && Equivalent(types::ArrayZipModeEnumType())) {
+  if (is_opaque_ && (Equivalent(types::ArrayZipModeEnumType()) ||
+                     Equivalent(types::UnsupportedFieldsEnumType()))) {
     return true;
   }
 
@@ -257,8 +258,7 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
   if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
       !Equivalent(types::DatePartEnumType()) &&
       !Equivalent(types::NormalizeModeEnumType()) &&
-      !Equivalent(types::RoundingModeEnumType()) &&
-      !Equivalent(types::UnsupportedFieldsEnumType())) {
+      !Equivalent(types::RoundingModeEnumType())) {
     return false;
   }
 

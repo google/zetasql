@@ -75,9 +75,11 @@ TEST(TableNameResolver, ScriptStatementsWithFindTables) {
   // Parse the script and compare actual table references against expected.
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(
-      script, ParserOptions(), ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-      /*keep_error_location_payload=*/
-      ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD,
+      script, ParserOptions(),
+      {.mode = ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+       .attach_error_location_payload =
+           (ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD),
+       .stability = GetDefaultErrorMessageStability()},
       &parser_output));
 
   AnalyzerOptions analyzer_options;
@@ -110,9 +112,11 @@ TEST(TableNameResolver, ScriptStatementWithTimeTravel) {
   // Parse the script and compare actual table references against expected.
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(
-      script, ParserOptions(), ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-      /*keep_error_location_payload=*/
-      ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD,
+      script, ParserOptions(),
+      {.mode = ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+       .attach_error_location_payload =
+           (ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD),
+       .stability = GetDefaultErrorMessageStability()},
       &parser_output));
 
   AnalyzerOptions analyzer_options;
@@ -159,9 +163,11 @@ TEST(TableNameResolver, UnsupportedAssignmentStatements) {
   // Parse the script and compare actual table references against expected.
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(
-      script, ParserOptions(), ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-      /*keep_error_location_payload=*/
-      ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD,
+      script, ParserOptions(),
+      {.mode = ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+       .attach_error_location_payload =
+           (ERROR_MESSAGE_MULTI_LINE_WITH_CARET == ERROR_MESSAGE_WITH_PAYLOAD),
+       .stability = GetDefaultErrorMessageStability()},
       &parser_output));
 
   AnalyzerOptions analyzer_options;
@@ -244,10 +250,11 @@ TEST(TableNameResolver, ExtractTableNamesFromASTStatement) {
   // Extract TVF names from AST statement
   std::unique_ptr<zetasql::ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(sql, zetasql::ParserOptions(),
-                        zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-                        /*keep_error_location_payload=*/
-                        zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ==
-                            ERROR_MESSAGE_WITH_PAYLOAD,
+                        {.mode = zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                         .attach_error_location_payload =
+                             (zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ==
+                              ERROR_MESSAGE_WITH_PAYLOAD),
+                         .stability = GetDefaultErrorMessageStability()},
                         &parser_output));
 
   std::vector<std::set<std::vector<std::string>>> actual;
@@ -317,10 +324,11 @@ TEST(TableNameResolver, ExtractTableNamesFromASTScript) {
   // Extract TVF names from AST script
   std::unique_ptr<zetasql::ParserOutput> parser_output;
   ZETASQL_ASSERT_OK(ParseScript(sql, zetasql::ParserOptions(),
-                        zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
-                        /*keep_error_location_payload=*/
-                        zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ==
-                            ERROR_MESSAGE_WITH_PAYLOAD,
+                        {.mode = zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                         .attach_error_location_payload =
+                             (zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ==
+                              ERROR_MESSAGE_WITH_PAYLOAD),
+                         .stability = GetDefaultErrorMessageStability()},
                         &parser_output));
 
   const zetasql::ASTScript* script = parser_output->script();

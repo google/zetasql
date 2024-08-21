@@ -18,7 +18,7 @@ optional `--port` flag (the default port is 8080).
 execute_query --web
 ```
 
-[!NOTE]
+> [!NOTE]
 > Note that this tool is intended primarily as a way to explore the language and
 > debug its implementation. It executes queries using the internal reference
 > implementation which is intended primarily for testing. It is not performant
@@ -106,3 +106,9 @@ DDL statements that update the catalog:
 SQL functions and TVFs will be executable.  Non-SQL functions and TVFs don't
 have an implementation, so queries using them can be analyzed but can't be
 executed.
+
+### Example queries
+
+There are some runnable example queries in
+[`zetasql/examples/tpch`](zetasql/examples/tpch) and
+[`zetasql/examples/pipe_queries`](zetasql/examples/pipe_queries).

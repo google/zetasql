@@ -130,7 +130,6 @@ TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
 |       |           |   |           +-ColumnRef(type=STRING, column=$subquery1.k#1, is_correlated=TRUE)
 |       |           |   +-order_by_item_list=
 |       |           |     +-OrderByItem
-|       |           |       +-parse_location=192-203
 |       |           |       +-column_ref=
 |       |           |       | +-ColumnRef(type=INT64, column=$array_offset.offset#4)
 |       |           |       +-is_descending=TRUE

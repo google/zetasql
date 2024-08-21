@@ -11,21 +11,24 @@ giving errors for unuspported features.
 ZetaSQL's compliance test suite can be used to validate query engine
 implementations are correct and consistent.
 
-ZetaSQL implements the ZetaSQL language, which is used across several of
+ZetaSQL implements the GoogleSQL language, which is used across several of
 Google's SQL products, both publicly and internally, including BigQuery,
 Spanner, F1, BigTable, Dremel, Procella, and others.
 
-ZetaSQL and ZetaSQL have been described in these publications:
+GoogleSQL and ZetaSQL have been described in these publications:
 
-* (CDMS 2022) [ZetaSQL: A SQL Language as a Component](https://cdmsworkshop.github.io/2022/Slides/Fri_C2.5_DavidWilhite.pptx) (Slides)
+* (CDMS 2022) [GoogleSQL: A SQL Language as a Component](https://cdmsworkshop.github.io/2022/Slides/Fri_C2.5_DavidWilhite.pptx) (Slides)
 * (SIGMOD 2017) [Spanner: Becoming a SQL System](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/46103.pdf) -- See section 6.
-* (VLDB 2024) [SQL Has Problems. We Can Fix Them: Pipe Syntax in SQL](https://research.google/pubs/pub1005959/) -- Describes ZetaSQL's new pipe query syntax.
+* (VLDB 2024) [SQL Has Problems. We Can Fix Them: Pipe Syntax in SQL](https://research.google/pubs/pub1005959/) -- Describes GoogleSQL's new pipe query syntax.
 
 Some other documentation:
 
 * [ZetaSQL Language Reference](docs/README.md)
 * [ZetaSQL Resolved AST](docs/resolved_ast.md), documenting the intermediate representation produced by the ZetaSQL analyzer.
 * [ZetaSQL Toolkit](https://github.com/GoogleCloudPlatform/zetasql-toolkit), a project using ZetaSQL to analyze and understand queries against BigQuery, and other ZetaSQL engines.
+* Pipe query syntax
+    * See the [reference documentation](https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md) and [research paper](https://research.google/pubs/pub1005959/).
+    * See some [example scripts](zetasql/examples/pipe_queries) and [TPC-H queries](zetasql/examples/tpch).
 
 ## Project Overview
 
@@ -62,7 +65,8 @@ You can run it using binaries from
 instructions below.
 
 There are some runnable example queries in
-[tpch examples](../zetasql/examples/tpch/README.md).
+[`zetasql/examples/tpch`](zetasql/examples/tpch) and
+[`zetasql/examples/pipe_queries`](zetasql/examples/pipe_queries).
 
 ### Getting and Running `execute_query`
 #### Pre-built Binaries
@@ -72,14 +76,20 @@ the [Releases](https://github.com/google/zetasql/releases) page. You can run
 the downloaded binary like:
 
 ```bash
+chmod +x execute_query_linux
 ./execute_query_linux --web
 ```
 
-Note the prebuilt binaries require GCC-9+ and tzdata. If you run into dependency
-issues, you can try running `execute_query` with Docker. See the
-[Run with Docker](#run-with-docker) section.
+MacOS users may see the error `execute_query_macos cannot be opened because the developer cannot be verified.`.
+You can right click the `execute_query_macos` file, click "open", and then you
+should be able to run the binary.
 
-#### Running from a bazel build
+Note the prebuilt binaries require GCC-9+ and tzdata. If you run into dependency
+issues or if the binary is incompatible with your platform, you can try running
+`execute_query` with Docker. See the [Run with Docker](#run-with-docker)
+section.
+
+#### Running from a Bazel Build
 
 You can build `execute_query` with Bazel from source and run it by:
 
@@ -89,14 +99,29 @@ bazel run zetasql/tools/execute_query:execute_query -- --web
 
 #### Run with Docker
 
-You can run `execute_query` using Docker. First download the pre-built Docker
-image `zetasql` or build your own from Dockerfile. See the instructions in the
-[Build With Docker](#build-with-docker) section.
-
-Assuming your Docker image name is MyZetaSQLImage, run:
+You can run `execute_query` using Docker. Download the pre-built Docker image
+file `zetasql_docker.tar.gz` from the
+[Releases](https://github.com/google/zetasql/releases) page, and load the image
+using:
 
 ```bash
-sudo docker run --init -it -h=$(hostname) -p 8080:8080 MyZetasqlImage execute_query --web
+sudo docker load -i /path/to/the/downloaded/zetasql_docker.tar.gz
+```
+
+The Docker image name is `zetasql`. (You can also build a Docker image locally
+using the instructions in the [Build with Docker](#build-with-docker) section.)
+
+You can then run `execute_query` using:
+
+```bash
+sudo docker run --init -it -h=$(hostname) -p 8080:8080 zetasql execute_query --web
+```
+
+If you are using MacOS with an Apple M1/M2 chip, add the additional argument
+`--platform=linux/amd64`:
+
+```bash
+sudo docker run --init -it -h=$(hostname) -p 8080:8080 --platform linux/amd64 zetasql execute_query --web
 ```
 
 Argument descriptions:
@@ -106,6 +131,7 @@ Argument descriptions:
 * `-h=$(hostname)`: Makes the hostname of the container the same as that of the
                     host.
 * `-p 8080:8080`: Sets up port forwarding.
+* `zetasql`: The docker image name.
 
 `-h=$(hostname)` and `-p 8080:8080` together make the URL address of the
 web server accessible from the host machine.
@@ -114,7 +140,7 @@ Alternatively, you can run this to start a bash shell, and then run
 `execute_query` inside:
 
 ```bash
-sudo docker run --init -it -h=$(hostname) -p 8080:8080 MyZetasqlImage
+sudo docker run --init -it -h=$(hostname) -p 8080:8080 my-zetasql-image
 
 # Inside the container bash shell
 execute_query --web
@@ -149,7 +175,7 @@ bazel build ...
 bazel run //zetasql/tools/execute_query:execute_query -- --web
 
 # The built binary can be found under bazel-bin and run directly.
-bazel-bin/tools/execute_query:execute_query --web
+bazel-bin/zetasql/tools/execute_query/execute_query --web
 
 # Build and run a test.
 bazel test //zetasql/parser:parser_set_test
@@ -165,10 +191,10 @@ version can be found in the `zetasql_deps_step_2.bzl` file.
 ZetaSQL also provides a `Dockerfile` which configures all the dependencies so
 that users can build ZetaSQL more easily across different platforms.
 
-To build the Docker image locally (called MyZetaSQLImage here), run:
+To build the Docker image locally (called `my-zetasql-image` here), run:
 
 ```bash
-sudo docker build . -t MyZetaSQLImage -f Dockerfile
+sudo docker build . -t my-zetasql-image -f Dockerfile
 ```
 
 Alternatively, ZetaSQL provides pre-built Docker images named `zetasql`. See the
@@ -176,7 +202,7 @@ Alternatively, ZetaSQL provides pre-built Docker images named `zetasql`. See the
 downloaded image by:
 
 ```bash
-sudo docker load -i /path/to/the/downloaded/zetasql_docker.tar
+sudo docker load -i /path/to/the/downloaded/zetasql_docker.tar.gz
 ```
 
 To run builds or other commands inside the Docker environment, run this command
@@ -184,8 +210,10 @@ to open a bash shell inside the container:
 
 ```bash
 # Start a bash shell running inside the Docker container.
-sudo docker run -it MyZetaSQLImage
+sudo docker run -it my-zetasql-image
 ```
+
+Replace `my-zetasql-image` with `zetasql` if you use the pre-built Docker image.
 
 Then you can run the commands from the [Build with Bazel](#build-with-bazel)
 section above.

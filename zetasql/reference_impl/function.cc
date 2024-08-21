@@ -1131,6 +1131,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kMapInsert, "map_insert", "MapInsert");
     RegisterFunction(FunctionKind::kMapInsertOrReplace, "map_insert_or_replace",
                      "MapInsertOrReplace");
+    RegisterFunction(FunctionKind::kMapReplaceKeyValuePairs,
+                     "map_replace_key_value_pairs", "MapReplaceKeyValuePairs");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1700,18 +1702,22 @@ functions::TimestampScale GetTimestampScale(const LanguageOptions& options) {
 ABSL_CONST_INIT absl::Mutex BuiltinFunctionRegistry::mu_(absl::kConstInit);
 
 /* static */ absl::StatusOr<BuiltinScalarFunction*>
-BuiltinFunctionRegistry::GetScalarFunction(FunctionKind kind,
-                                           const Type* output_type) {
+BuiltinFunctionRegistry::GetScalarFunction(
+    FunctionKind kind, const Type* output_type,
+    absl::Span<const std::unique_ptr<AlgebraArg>> arguments) {
   absl::MutexLock lock(&mu_);
   auto it = GetFunctionMap().find(kind);
-  if (it != GetFunctionMap().end()) {
-    return it->second(output_type);
-  } else {
+  if (it == GetFunctionMap().end()) {
     return zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current())
            << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
            << " is an optional function implementation which is not present "
               "in this binary or has not been registered";
   }
+
+  auto function_constructor = it->second;
+  BuiltinScalarFunction* function = function_constructor(output_type);
+  function->SetExtendedArgs(arguments);
+  return function;
 }
 
 /* static */ void BuiltinFunctionRegistry::RegisterScalarFunction(
@@ -2093,21 +2099,6 @@ BuiltinScalarFunction::CreateCast(
 absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCall(
     FunctionKind kind, const LanguageOptions& language_options,
-    const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> arguments,
-    ResolvedFunctionCallBase::ErrorMode error_mode) {
-  std::vector<std::unique_ptr<AlgebraArg>> converted_arguments;
-  converted_arguments.reserve(arguments.size());
-  for (auto& e : arguments) {
-    converted_arguments.push_back(std::make_unique<ExprArg>(std::move(e)));
-  }
-
-  return CreateCall(kind, language_options, output_type,
-                    std::move(converted_arguments), error_mode);
-}
-
-absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
-BuiltinScalarFunction::CreateCall(
-    FunctionKind kind, const LanguageOptions& language_options,
     const Type* output_type, std::vector<std::unique_ptr<AlgebraArg>> arguments,
     ResolvedFunctionCallBase::ErrorMode error_mode) {
   ZETASQL_ASSIGN_OR_RETURN(
@@ -2372,67 +2363,6 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new GenerateArrayFunction(output_type);
     case FunctionKind::kRangeBucket:
       return new RangeBucketFunction();
-    case FunctionKind::kJsonSubscript:
-    case FunctionKind::kJsonExtract:
-    case FunctionKind::kJsonExtractScalar:
-    case FunctionKind::kJsonExtractArray:
-    case FunctionKind::kJsonExtractStringArray:
-    case FunctionKind::kJsonQuery:
-    case FunctionKind::kJsonValue:
-    case FunctionKind::kJsonQueryArray:
-    case FunctionKind::kJsonValueArray:
-    case FunctionKind::kToJson:
-    case FunctionKind::kToJsonString:
-    case FunctionKind::kParseJson:
-    case FunctionKind::kJsonType:
-    case FunctionKind::kStringArray:
-    case FunctionKind::kInt32:
-    case FunctionKind::kInt32Array:
-    case FunctionKind::kInt64:
-    case FunctionKind::kInt64Array:
-    case FunctionKind::kUint32:
-    case FunctionKind::kUint32Array:
-    case FunctionKind::kUint64:
-    case FunctionKind::kUint64Array:
-    case FunctionKind::kDouble:
-    case FunctionKind::kDoubleArray:
-    case FunctionKind::kFloat:
-    case FunctionKind::kFloatArray:
-    case FunctionKind::kBool:
-    case FunctionKind::kBoolArray:
-    case FunctionKind::kLaxBool:
-    case FunctionKind::kLaxBoolArray:
-    case FunctionKind::kLaxInt32:
-    case FunctionKind::kLaxInt32Array:
-    case FunctionKind::kLaxInt64:
-    case FunctionKind::kLaxInt64Array:
-    case FunctionKind::kLaxUint32:
-    case FunctionKind::kLaxUint32Array:
-    case FunctionKind::kLaxUint64:
-    case FunctionKind::kLaxUint64Array:
-    case FunctionKind::kLaxDouble:
-    case FunctionKind::kLaxDoubleArray:
-    case FunctionKind::kLaxFloat:
-    case FunctionKind::kLaxFloatArray:
-    case FunctionKind::kLaxString:
-    case FunctionKind::kLaxStringArray:
-    case FunctionKind::kJsonArray:
-    case FunctionKind::kJsonObject:
-    case FunctionKind::kJsonRemove:
-    case FunctionKind::kJsonSet:
-    case FunctionKind::kJsonStripNulls:
-    case FunctionKind::kJsonArrayInsert:
-    case FunctionKind::kJsonArrayAppend:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
-    case FunctionKind::kStartsWithWithCollation:
-    case FunctionKind::kEndsWithWithCollation:
-    case FunctionKind::kReplaceWithCollation:
-    case FunctionKind::kStrposWithCollation:
-    case FunctionKind::kInstrWithCollation:
-    case FunctionKind::kSplitWithCollation:
-    case FunctionKind::kSplitSubstrWithCollation:
-    case FunctionKind::kCollationKey:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
     case FunctionKind::kArrayLength:
@@ -2579,29 +2509,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       break;
     case FunctionKind::kRand:
       return new RandFunction;
-    case FunctionKind::kGenerateUuid:
-    case FunctionKind::kNewUuid:
-      // UUID functions are optional.
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
-    case FunctionKind::kMd5:
-    case FunctionKind::kSha1:
-    case FunctionKind::kSha256:
-    case FunctionKind::kSha512:
-    case FunctionKind::kFarmFingerprint:
-      // Hash functions are optional.
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kError:
       return new ErrorFunction(output_type);
-    case FunctionKind::kRangeCtor:
-    case FunctionKind::kRangeIsStartUnbounded:
-    case FunctionKind::kRangeIsEndUnbounded:
-    case FunctionKind::kRangeStart:
-    case FunctionKind::kRangeEnd:
-    case FunctionKind::kRangeOverlaps:
-    case FunctionKind::kRangeIntersect:
-    case FunctionKind::kGenerateRangeArray:
-    case FunctionKind::kRangeContains:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kCosineDistance: {
       ZETASQL_ASSIGN_OR_RETURN(auto f,
                        CreateCosineDistanceFunction(input_types, output_type));
@@ -2646,13 +2555,9 @@ BuiltinScalarFunction::CreateValidatedRaw(
                        GetLambdaArgumentForArrayZip(arguments));
       return new ArrayZipFunction(kind, output_type, inline_lambda_expr);
     }
-    case FunctionKind::kMapFromArray:
-    case FunctionKind::kMapEntriesSorted:
-    case FunctionKind::kMapEntriesUnsorted:
-    case FunctionKind::kMapGet:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     default:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type,
+                                                        arguments);
   }
 }  // NOLINT(readability/fn_size)
 
@@ -12564,6 +12469,16 @@ bool ArrayZipFunction::EqualArrayLength(absl::Span<const Value> arrays) const {
     }
   }
   return true;
+}
+
+std::vector<std::unique_ptr<AlgebraArg>> ConvertValueExprsToAlgebraArgs(
+    std::vector<std::unique_ptr<ValueExpr>>&& arguments) {
+  std::vector<std::unique_ptr<AlgebraArg>> converted_arguments;
+  converted_arguments.reserve(arguments.size());
+  for (auto& e : arguments) {
+    converted_arguments.push_back(std::make_unique<ExprArg>(std::move(e)));
+  }
+  return converted_arguments;
 }
 
 }  // namespace zetasql

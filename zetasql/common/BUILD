@@ -273,7 +273,6 @@ cc_library(
     deps = [
         ":string_util",
         "//zetasql/base",
-        "//zetasql/base:mathlimits",
         "//zetasql/base:mathutil",
         "@com_google_absl//absl/strings",
     ],

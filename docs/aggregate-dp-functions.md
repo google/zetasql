@@ -186,7 +186,7 @@ determine the optimal privacy parameters for your dataset and organization.
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -201,9 +201,9 @@ and can support the following arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -330,7 +330,7 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -343,9 +343,9 @@ is an aggregation across a privacy unit column.
 This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
 and can support the following argument:
 
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -468,9 +468,9 @@ and can support these arguments:
 
 + `expression`: The input expression. This expression can be any
   numeric input type, such as `INT64`.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
 **Return type**
@@ -609,9 +609,9 @@ and can support these arguments:
   such as `INT64`. `NULL` values are always ignored.
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range `[0, 1]`.
-+ `contribution_bounds_per_row`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each row separately before performing intermediate
++ `contribution_bounds_per_row`: A named argument with a
+  [contribution bounds][dp-clamped-named].
+  Performs clamping for each row separately before performing intermediate
   grouping on the privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
@@ -689,7 +689,7 @@ GROUP BY item;
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -703,10 +703,9 @@ and can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL` values are always ignored.
-+ `contribution_bounds_per_group`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each group separately before performing intermediate
-  grouping on the privacy unit column.
++ `contribution_bounds_per_group`: A named argument with a
+  [contribution bound][dp-clamped-named]. Performs clamping for each group
+  separately before performing intermediate grouping on the privacy unit column.
 
 **Return type**
 
@@ -830,7 +829,7 @@ noise, see [Use differential privacy][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   VAR_POP(
     expression,
-    [contribution_bounds_per_row => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_row => (lower_bound, upper_bound) ]
   )
 ```
 
@@ -847,9 +846,9 @@ can support these arguments:
 
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
-+ `contribution_bounds_per_row`: The
-  [contribution bounds named argument][dp-clamped-named].
-  Perform clamping per each row separately before performing intermediate
++ `contribution_bounds_per_row`: A named argument with a
+  [contribution bound][dp-clamped-named].
+  Performs clamping for each row separately before performing intermediate
   grouping on individual user values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.

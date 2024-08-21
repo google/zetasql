@@ -224,7 +224,7 @@ class SQLBuilder : public ResolvedASTVisitor {
     // Records syntax hint against specific Resolved AST node to decide what
     // SQL syntax to restore. The syntax hint is particularly useful when
     // multiple SQL syntaxes are possible.
-    // WARNING: his map should only be populated by ZetaSQL resolver and RQG.
+    // WARNING: This map should only be populated by ZetaSQL resolver and RQG.
     // It's an advanced feature with specific intended use cases and misusing it
     // can cause the SQLBuilder to misbehave.
     TargetSyntaxMap target_syntax;

@@ -33,6 +33,7 @@
 #include <stack>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -2714,8 +2715,9 @@ absl::Status Resolver::ResolveOrderByItems(
       auto resolved_order_by_item = MakeResolvedOrderByItem(
           std::move(resolved_column_ref), std::move(resolved_collation_name),
           item_info.is_descending, item_info.null_order);
-      resolved_order_by_item->SetParseLocationRange(
-          item_info.ast_location->GetParseLocationRange());
+
+      MaybeRecordParseLocation(item_info.ast_location->GetParseLocationRange(),
+                               resolved_order_by_item.get());
       if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
         ZETASQL_RETURN_IF_ERROR(
             CollationAnnotation::ResolveCollationForResolvedOrderByItem(
@@ -6386,9 +6388,17 @@ absl::Status Resolver::ConvertScanToProto(
     std::unique_ptr<ResolvedColumnRef> expr =
         MakeColumnRef(named_column.column());
     MaybeRecordParseLocation(ast_column_location, expr.get());
+    ZETASQL_ASSIGN_OR_RETURN(
+        const google::protobuf::FieldDescriptor* field_descriptor,
+        FindFieldDescriptor(proto_type->descriptor(),
+                            AliasOrASTPathExpression(named_column.name()),
+                            ast_column_location, i, "Column"));
+    ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                     FindProtoFieldType(field_descriptor, ast_column_location,
+                                        proto_type->CatalogNamePath()));
     arguments.emplace_back(
-        ast_column_location, std::move(expr),
-        std::make_unique<AliasOrASTPathExpression>(named_column.name()));
+        ast_column_location, std::move(expr), type,
+        std::vector<const google::protobuf::FieldDescriptor*>{field_descriptor});
   }
 
   std::unique_ptr<const ResolvedExpr> resolved_build_proto_expr;
@@ -6714,7 +6724,7 @@ absl::Status Resolver::SetOperationResolver::CheckNoValueTable(
 // `named_columns` should not contain any duplicate names.
 static absl::StatusOr<
     absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>>
-ToColumnNameSet(const std::vector<NamedColumn>& named_columns) {
+ToColumnNameSet(absl::Span<const NamedColumn> named_columns) {
   absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
       column_names;
   for (const NamedColumn& named_column : named_columns) {
@@ -6726,7 +6736,7 @@ ToColumnNameSet(const std::vector<NamedColumn>& named_columns) {
 // Similar to `ToColumnNameSet` but allows the input `named_columns` to have
 // duplicate names.
 static absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
-ToColumnNameSetAllowDuplicates(const std::vector<NamedColumn>& named_columns) {
+ToColumnNameSetAllowDuplicates(absl::Span<const NamedColumn> named_columns) {
   absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
       column_names;
   for (const NamedColumn& named_column : named_columns) {
@@ -8573,6 +8583,34 @@ absl::Status Resolver::ResolveFromClauseAndCreateScan(
   return absl::OkStatus();
 }
 
+// The current rules are arbitrary, and we should simply allow all operators
+// to compose.
+static absl::Status CheckPostfixTableOperators(
+    const ASTTableExpression* table_expr) {
+  if (table_expr->postfix_operators().empty() ||
+      table_expr->postfix_operators().size() == 1) {
+    return absl::OkStatus();
+  }
+
+  const ASTPostfixTableOperator* target_op = table_expr->postfix_operators(1);
+
+  // Currently, the only allowed combination is PIVOT or UNPIVOT, followed by
+  // TABLESAMPLE.
+  if (table_expr->postfix_operators(1)->node_kind() == AST_SAMPLE_CLAUSE &&
+      (table_expr->postfix_operators(0)->node_kind() == AST_PIVOT_CLAUSE ||
+       table_expr->postfix_operators(0)->node_kind() == AST_UNPIVOT_CLAUSE)) {
+    if (table_expr->postfix_operators().size() == 2) {
+      return absl::OkStatus();
+    }
+
+    target_op = table_expr->postfix_operators(2);
+  }
+
+  return MakeSqlErrorAt(target_op)
+         << "Unsupported combination of table operators. The only allowed "
+            "combination is PIVOT/UNPIVOT followed by TABLESAMPLE. ";
+}
+
 // This is a self-contained table expression.  It can be an UNNEST, but
 // only as a leaf - not one that has to wrap another scan and flatten it.
 absl::Status Resolver::ResolveTableExpression(
@@ -8580,6 +8618,9 @@ absl::Status Resolver::ResolveTableExpression(
     const NameScope* local_scope, std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  ZETASQL_RETURN_IF_ERROR(CheckPostfixTableOperators(table_expr));
+
   switch (table_expr->node_kind()) {
     case AST_TABLE_PATH_EXPRESSION:
       return ResolveTablePathExpression(
@@ -9441,14 +9482,10 @@ absl::Status Resolver::ResolveTablePathExpression(
       return MakeSqlErrorAt(for_system_time)
              << "FOR SYSTEM_TIME AS OF is not allowed with array scans";
     }
-    if (table_ref->pivot_clause() != nullptr) {
-      return MakeSqlErrorAt(table_ref->pivot_clause())
-             << "PIVOT is not allowed with array scans";
-    }
-
-    if (table_ref->unpivot_clause() != nullptr) {
-      return MakeSqlErrorAt(table_ref->unpivot_clause())
-             << "UNPIVOT is not allowed with array scans";
+    if (!table_ref->postfix_operators().empty()) {
+      const auto* first_op = table_ref->postfix_operators(0);
+      return MakeSqlErrorAt(first_op)
+             << first_op->Name() << " is not allowed with array scans";
     }
 
     // When <table_ref> contains explicit UNNEST, do not supply <path_expr>.
@@ -9563,25 +9600,36 @@ absl::Status Resolver::ResolveTablePathExpression(
   ZETASQL_RET_CHECK(this_scan != nullptr);
   ZETASQL_RET_CHECK(name_list != nullptr);
 
-  if (table_ref->pivot_clause() != nullptr) {
-    ZETASQL_RET_CHECK_EQ(for_system_time, nullptr)
-        << "Parser should not allow PIVOT and FOR SYSTEM TIME AS OF to coexist";
-    ZETASQL_RETURN_IF_ERROR(
-        ResolvePivotClause(std::move(this_scan), name_list, external_scope,
-                           /*input_is_subquery=*/false,
-                           table_ref->pivot_clause(), &this_scan, &name_list));
-  }
-  if (table_ref->unpivot_clause() != nullptr) {
-    ZETASQL_RET_CHECK_EQ(for_system_time, nullptr)
-        << "Parser should not allow UNPIVOT and FOR SYSTEM TIME AS OF to "
-           "coexist";
-    ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
-        std::move(this_scan), name_list, external_scope,
-        table_ref->unpivot_clause(), &this_scan, &name_list));
-  }
-  if (table_ref->sample_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveTablesampleClause(table_ref->sample_clause(),
-                                             &name_list, &this_scan));
+  for (const auto* op : table_ref->postfix_operators()) {
+    switch (op->node_kind()) {
+      case AST_PIVOT_CLAUSE:
+        if (for_system_time != nullptr) {
+          ZETASQL_RET_CHECK_EQ(for_system_time, nullptr)
+              << "Parser should not allow PIVOT and FOR SYSTEM TIME AS OF to "
+                 "coexist";
+        }
+        ZETASQL_RETURN_IF_ERROR(ResolvePivotClause(
+            std::move(this_scan), name_list, external_scope,
+            /*input_is_subquery=*/false, op->GetAsOrDie<ASTPivotClause>(),
+            &this_scan, &name_list));
+        break;
+      case AST_UNPIVOT_CLAUSE:
+        ZETASQL_RET_CHECK_EQ(for_system_time, nullptr)
+            << "Parser should not allow UNPIVOT and FOR SYSTEM TIME AS OF to "
+               "coexist";
+        ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
+            std::move(this_scan), name_list, external_scope,
+            op->GetAsOrDie<ASTUnpivotClause>(), &this_scan, &name_list));
+        break;
+      case AST_SAMPLE_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(ResolveTablesampleClause(
+            op->GetAsOrDie<ASTSampleClause>(), &name_list, &this_scan));
+        break;
+      case AST_MATCH_RECOGNIZE_CLAUSE:
+        return MakeSqlErrorAt(op) << "MATCH_RECOGNIZE is not supported";
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported postfix operator: " << op->node_kind();
+    }
   }
 
   *output_name_list = name_list;
@@ -9706,21 +9754,30 @@ absl::Status Resolver::ResolveTableSubquery(
         table_ref, alias, subquery_name_list, output_name_list));
   }
 
-  if (table_ref->pivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolvePivotClause(
-        std::move(resolved_subquery), *output_name_list, scope,
-        /*input_is_subquery=*/true, table_ref->pivot_clause(),
-        &resolved_subquery, output_name_list));
-  }
-
-  if (table_ref->unpivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
-        std::move(resolved_subquery), *output_name_list, scope,
-        table_ref->unpivot_clause(), &resolved_subquery, output_name_list));
-  }
-  if (table_ref->sample_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveTablesampleClause(
-        table_ref->sample_clause(), output_name_list, &resolved_subquery));
+  for (const auto* op : table_ref->postfix_operators()) {
+    switch (op->node_kind()) {
+      case AST_PIVOT_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePivotClause(
+            std::move(resolved_subquery), *output_name_list, scope,
+            /*input_is_subquery=*/true, op->GetAsOrDie<ASTPivotClause>(),
+            &resolved_subquery, output_name_list));
+        break;
+      case AST_UNPIVOT_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
+            std::move(resolved_subquery), *output_name_list, scope,
+            op->GetAsOrDie<ASTUnpivotClause>(), &resolved_subquery,
+            output_name_list));
+        break;
+      case AST_SAMPLE_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(
+            ResolveTablesampleClause(op->GetAsOrDie<ASTSampleClause>(),
+                                     output_name_list, &resolved_subquery));
+        break;
+      case AST_MATCH_RECOGNIZE_CLAUSE:
+        return MakeSqlErrorAt(op) << "MATCH_RECOGNIZE is not supported";
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported postfix operator: " << op->node_kind();
+    }
   }
 
   *output = std::move(resolved_subquery);
@@ -10580,9 +10637,18 @@ absl::Status Resolver::ResolveParenthesizedJoin(
   ZETASQL_RETURN_IF_ERROR(ResolveJoin(parenthesized_join->join(), external_scope,
                               local_scope, &resolved_join, output_name_list));
 
-  if (parenthesized_join->sample_clause()) {
-    ZETASQL_RETURN_IF_ERROR(ResolveTablesampleClause(
-        parenthesized_join->sample_clause(), output_name_list, &resolved_join));
+  for (const auto* op : parenthesized_join->postfix_operators()) {
+    switch (op->node_kind()) {
+      case AST_SAMPLE_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(
+            ResolveTablesampleClause(op->GetAsOrDie<ASTSampleClause>(),
+                                     output_name_list, &resolved_join));
+        break;
+      case AST_MATCH_RECOGNIZE_CLAUSE:
+        return MakeSqlErrorAt(op) << "MATCH_RECOGNIZE is not supported";
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported postfix operator: " << op->node_kind();
+    }
   }
 
   *output = std::move(resolved_join);
@@ -10981,28 +11047,35 @@ absl::Status Resolver::ResolveTVF(
   MaybeRecordTVFCallParseLocation(ast_tvf, tvf_scan.get());
   *output = std::move(tvf_scan);
 
-  // Resolve the PIVOT clause, if present.
-  if (ast_tvf->pivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolvePivotClause(
-        std::move(*output), *output_name_list, external_scope,
-        /*input_is_subquery=*/false, ast_tvf->pivot_clause(), output,
-        output_name_list));
-  }
-
-  if (ast_tvf->unpivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
-        std::move(*output), *output_name_list, external_scope,
-        ast_tvf->unpivot_clause(), output, output_name_list));
-  }
-  // Resolve the TABLESAMPLE clause, if present.
-  if (ast_tvf->sample() != nullptr) {
-    if (!language().LanguageFeatureEnabled(
-            FEATURE_TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS)) {
-      return MakeSqlErrorAt(ast_tvf->sample())
-             << "TABLESAMPLE from table-valued function calls is not supported";
+  for (const auto* op : ast_tvf->postfix_operators()) {
+    switch (op->node_kind()) {
+      case AST_PIVOT_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(ResolvePivotClause(
+            std::move(*output), *output_name_list, external_scope,
+            /*input_is_subquery=*/false, op->GetAsOrDie<ASTPivotClause>(),
+            output, output_name_list));
+        break;
+      case AST_UNPIVOT_CLAUSE:
+        ZETASQL_RETURN_IF_ERROR(ResolveUnpivotClause(
+            std::move(*output), *output_name_list, external_scope,
+            op->GetAsOrDie<ASTUnpivotClause>(), output, output_name_list));
+        break;
+      case AST_SAMPLE_CLAUSE: {
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS)) {
+          return MakeSqlErrorAt(op)
+                 << "TABLESAMPLE from table-valued function calls is not "
+                    "supported";
+        }
+        ZETASQL_RETURN_IF_ERROR(ResolveTablesampleClause(
+            op->GetAsOrDie<ASTSampleClause>(), output_name_list, output));
+        break;
+      }
+      case AST_MATCH_RECOGNIZE_CLAUSE:
+        return MakeSqlErrorAt(op) << "MATCH_RECOGNIZE is not supported";
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported postfix operator: " << op->node_kind();
     }
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveTablesampleClause(ast_tvf->sample(), output_name_list, output));
   }
   return absl::OkStatus();
 }
@@ -11551,7 +11624,7 @@ absl::Status Resolver::GenerateTVFNotMatchError(
     const ASTTVF* ast_tvf, const std::vector<const ASTNode*>& arg_locations,
     const SignatureMatchResult& signature_match_result,
     const TableValuedFunction& tvf_catalog_entry, const std::string& tvf_name,
-    const std::vector<InputArgumentType>& input_arg_types, int signature_idx) {
+    absl::Span<const InputArgumentType> input_arg_types, int signature_idx) {
   const ASTNode* ast_location = ast_tvf;
   if (signature_match_result.bad_argument_index() != -1) {
     ZETASQL_RET_CHECK_LT(signature_match_result.bad_argument_index(),
@@ -12225,34 +12298,19 @@ absl::Status Resolver::ResolveArrayScan(
   ZETASQL_RET_CHECK(resolved_input_scan != nullptr);
   ZETASQL_RET_CHECK_EQ(*resolved_input_scan == nullptr, name_list_input == nullptr);
 
-  if (table_ref->sample_clause() != nullptr) {
-    return MakeSqlErrorAt(table_ref->sample_clause())
-           << "TABLESAMPLE is not allowed with array scans";
-  }
-  if (table_ref->pivot_clause() != nullptr) {
+  for (const auto* op : table_ref->postfix_operators()) {
     if (language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS)) {
-      return MakeSqlErrorAt(table_ref->pivot_clause())
-             << "PIVOT is not allowed with array scans";
-    } else {
-      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-          table_ref->pivot_clause(),
-          DeprecationWarning::PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN,
-          "PIVOT is not allowed with array scans. This will become an error"));
+            FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS) ||
+        (op->node_kind() != AST_PIVOT_CLAUSE &&
+         op->node_kind() != AST_UNPIVOT_CLAUSE)) {
+      return MakeSqlErrorAt(op)
+             << op->Name() << " is not allowed with array scans";
     }
-  }
-  if (table_ref->unpivot_clause() != nullptr) {
-    if (language().LanguageFeatureEnabled(
-            FEATURE_V_1_4_DISALLOW_PIVOT_AND_UNPIVOT_ON_ARRAY_SCANS)) {
-      return MakeSqlErrorAt(table_ref->unpivot_clause())
-             << "UNPIVOT is not allowed with array scans";
-    } else {
-      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-          table_ref->unpivot_clause(),
-          DeprecationWarning::PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN,
-          "UNPIVOT is not allowed with array scans. This will become an "
-          "error"));
-    }
+    ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
+        op, DeprecationWarning::PIVOT_OR_UNPIVOT_ON_ARRAY_SCAN,
+        absl::StrCat(op->Name(),
+                     " is not allowed with array scans. This will become "
+                     "an error")));
   }
 
   // We have either an array reference or UNNEST.

@@ -725,10 +725,6 @@ absl::Status GetArrayZipFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types);
 
-absl::Status GetToJsonBuiltinEnumTypes(
-    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
-    NameToTypeMap* types);
-
 absl::Status GetStandaloneBuiltinEnumTypes(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToTypeMap* types);
@@ -737,9 +733,10 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions);
 
-void GetJSONFunctions(TypeFactory* type_factory,
-                      const ZetaSQLBuiltinFunctionOptions& options,
-                      NameToFunctionMap* functions);
+absl::Status GetJSONFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions,
+                              NameToTypeMap* types);
 
 absl::Status GetNumericFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,

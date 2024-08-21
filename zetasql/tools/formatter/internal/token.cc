@@ -767,10 +767,14 @@ bool IsEmbeddedSqlStart(const ParseToken& parse_token,
                         const Token& prev_token) {
   return parse_token.IsValue() &&
          parse_token.GetValue().type_kind() == TYPE_STRING &&
-         prev_token.IsSlashStarComment() &&
-         StrContainsIgnoreCase(prev_token.GetImage(), "/*sql*/") &&
+         (prev_token.IsEmbeddedSqlAnnotation() ||
+          prev_token.IsEmbeddedProtoAnnotation()) &&
          !absl::StripAsciiWhitespace(parse_token.GetValue().string_value())
-              .empty();
+              .empty() &&
+         // Allow only multiline string literals (otherwise, formatter might
+         // break a string by adding a line break to it).
+         (absl::EndsWith(parse_token.GetImage(), "'''") ||
+          absl::EndsWith(parse_token.GetImage(), "\"\"\""));
 }
 
 // Updates grouping state with the end of no format region if the given
@@ -1034,23 +1038,18 @@ void UpdateGroupingStateForDoubleSlashComment(
 void UpdateGroupingStateForEmbeddedSql(const ParseToken& embedded_sql,
                                        TokenGroupingState* grouping_state) {
   grouping_state->type = GroupingType::kEmbeddedSql;
-  const int quotes_length =
-      static_cast<int>(embedded_sql.GetImage().size() -
-                       embedded_sql.GetValue().string_value().size());
-  // Find the start and end of the embedded SQL string within quotes. This
-  // handles single quotes, triple quotes and string literal prefixes, e.g.:
-  // r'raw string'.
-  int content_start = TokenStartOffset(embedded_sql);
-  int content_end = TokenEndOffset(embedded_sql);
-  if (quotes_length >= 6) {  // Triple quotes ''', """ or r'''.
-    content_start += quotes_length - 3;
-    content_end -= 3;
-  } else {  // Single quotes '' or "", or r''.
-    content_start += quotes_length - 1;
-    content_end -= 1;
+  // Find offsets of the string content.
+  absl::string_view sql = embedded_sql.GetImage();
+  int quotes_length = 1;
+  if (absl::EndsWith(sql, "'''") || absl::EndsWith(sql, "\"\"\"")) {
+    quotes_length = 3;
   }
-  grouping_state->start_position = content_start;
-  grouping_state->end_position = content_end;
+  grouping_state->start_position =
+      TokenStartOffset(embedded_sql) + quotes_length;
+  grouping_state->end_position = TokenEndOffset(embedded_sql) - quotes_length;
+  if (sql[0] == 'r' || sql[0] == 'R') {  // Consume raw string prefix if any.
+    grouping_state->start_position++;
+  }
 }
 
 // Creates a zetasql::ParseToken.
@@ -1496,9 +1495,15 @@ absl::Status ParseEmbeddedSql(const ParseToken& string_literal,
                               const FormatterOptions& options,
                               std::vector<Token>& tokens) {
   // Create a token that represents opening quotes of the string literal.
+  Token::Type open_bracket_type = Token::Type::OPEN_BRACKET;
+  if (tokens.back().IsEmbeddedProtoAnnotation()) {
+    // We parse textproto as SQL as well: ZetaSQL has braced constructors
+    // syntax that looks very similar to textproto.
+    open_bracket_type = Token::Type::BRACED_CONSTR_OPEN_BRACKET;
+  }
   tokens.push_back(CreateTokenForQuotes(sql, TokenStartOffset(string_literal),
                                         grouping_state.start_position,
-                                        Token::Type::OPEN_BRACKET));
+                                        open_bracket_type));
 
   // Parse substring inside the quotes. We preserve all bytes before the string
   // start to get the correct byte offsets.
@@ -1521,9 +1526,13 @@ absl::Status ParseEmbeddedSql(const ParseToken& string_literal,
     }
   }
   // Create a token that represents closing quotes of the string literal.
+  const Token::Type close_bracket_type =
+      open_bracket_type == Token::Type::OPEN_BRACKET
+          ? Token::Type::CLOSE_BRACKET
+          : Token::Type::BRACED_CONSTR_CLOSE_BRACKET;
   tokens.push_back(CreateTokenForQuotes(sql, grouping_state.end_position,
                                         TokenEndOffset(string_literal),
-                                        Token::Type::CLOSE_BRACKET));
+                                        close_bracket_type));
   return absl::OkStatus();
 }
 
@@ -1762,6 +1771,16 @@ bool Token::IsCloseAngleBracket() const {
   return Is(Type::CLOSE_BRACKET) && GetKeyword() == ">";
 }
 
+bool Token::IsEmbeddedSqlAnnotation() const {
+  return IsSlashStarComment() && StrContainsIgnoreCase(GetImage(), "/*sql*/");
+}
+
+bool Token::IsEmbeddedProtoAnnotation() const {
+  return IsSlashStarComment() &&
+         (StrContainsIgnoreCase(GetImage(), "/*proto*/") ||
+          StrContainsIgnoreCase(GetImage(), "/*txtpb*/"));
+}
+
 bool Token::MayBeIdentifier() const {
   return !UsedAsKeyword() &&
          (IsIdentifier() || Is(Token::Type::KEYWORD_AS_IDENTIFIER_FRAGMENT) ||
@@ -1955,7 +1974,7 @@ absl::string_view CorrespondingOpenBracket(absl::string_view keyword) {
 
 absl::string_view CorrespondingCloseBracket(absl::string_view keyword) {
   if (keyword.empty()) {
-    return "";
+    return "<unknown>";
   }
   switch (keyword[0]) {
     case '(':
@@ -1964,8 +1983,16 @@ absl::string_view CorrespondingCloseBracket(absl::string_view keyword) {
       return "]";
     case '{':
       return "}";
+    case '<':
+      return ">";
+    // Quotes behave as parentheses when the contents of a string literal is
+    // parsed as SQL.
+    case '\'':
+      return keyword.length() == 1 ? "'" : "'''";
+    case '"':
+      return keyword.length() == 1 ? "\"" : "\"\"\"";
     default:
-      return "";
+      return "<unknown>";
   }
 }
 

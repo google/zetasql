@@ -19,7 +19,6 @@ QueryStmt
     |     +-SingleRowScan
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=67-68
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.x#1)
 ==
@@ -49,7 +48,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=23-24
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$query.x#1)
     +-limit=
@@ -79,7 +77,6 @@ QueryStmt
     |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=33-36
     |       +-column_ref=
     |         +-ColumnRef(type=INT32, column=TestTable.key#1)
     +-limit=
@@ -114,7 +111,6 @@ QueryStmt
         | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=26-29
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 --
@@ -142,7 +138,6 @@ QueryStmt
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=26-29
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 --
@@ -169,7 +164,6 @@ QueryStmt
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=26-29
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 --
@@ -186,7 +180,6 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=26-29
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 --
@@ -220,7 +213,6 @@ QueryStmt
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=26-29
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -253,7 +245,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=23-24
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$query.x#1)
     +-filter_expr=
@@ -283,7 +274,6 @@ QueryStmt
     |   |     +-SingleRowScan
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=23-24
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$query.x#1)
     +-function_group_list=
@@ -320,7 +310,6 @@ QueryStmt
     |     +-SingleRowScan
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=23-24
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.x#1)
 ==
@@ -365,7 +354,6 @@ QueryStmt
         |           | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         |           +-order_by_item_list=
         |             +-OrderByItem
-        |               +-parse_location=26-27
         |               +-column_ref=
         |                 +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-function_group_list=
@@ -411,7 +399,6 @@ QueryStmt
     |           | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     |           +-order_by_item_list=
     |             +-OrderByItem
-    |               +-parse_location=26-27
     |               +-column_ref=
     |                 +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-function_group_list=
@@ -463,7 +450,6 @@ QueryStmt
         |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |       +-order_by_item_list=
         |         +-OrderByItem
-        |           +-parse_location=26-27
         |           +-column_ref=
         |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-function_group_list=
@@ -494,7 +480,6 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=32-35
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -527,7 +512,6 @@ QueryStmt
     |         |     +-TableScan(column_list=[KeyValue.Key#2], table=KeyValue, column_index_list=[0])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=65-68
     |             +-column_ref=
     |               +-ColumnRef(type=INT64, column=KeyValue.Key#2)
     +-input_scan=
@@ -579,7 +563,6 @@ QueryStmt
     |                 | +-TableScan(column_list=KeyValue.[Key#2, Value#3], table=KeyValue, column_index_list=[0, 1])
     |                 +-order_by_item_list=
     |                   +-OrderByItem
-    |                     +-parse_location=51-54
     |                     +-column_ref=
     |                       +-ColumnRef(type=INT64, column=KeyValue.Key#2)
     +-input_scan=

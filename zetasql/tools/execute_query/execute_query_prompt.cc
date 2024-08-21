@@ -262,22 +262,4 @@ void ExecuteQueryStatementPrompt::ProcessBuffer() {
   }
 }
 
-ExecuteQuerySingleInput::ExecuteQuerySingleInput(
-    absl::string_view query, const ExecuteQueryConfig& config)
-    : ExecuteQueryStatementPrompt{config,
-                                  absl::bind_front(
-                                      &ExecuteQuerySingleInput::ReadNext,
-                                      this)},
-      query_{query} {}
-
-std::optional<std::string> ExecuteQuerySingleInput::ReadNext(
-    bool continuation) {
-  if (!done_) {
-    done_ = true;
-    return query_;
-  }
-
-  return std::nullopt;
-}
-
 }  // namespace zetasql

@@ -1528,9 +1528,8 @@ absl::Status TableNameResolver::FindInTVF(
     }
   }
 
-  if (tvf->pivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(
-        FindInExpressionsUnder(tvf->pivot_clause(), external_visible_aliases));
+  for (const auto* op : tvf->postfix_operators()) {
+    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(op, external_visible_aliases));
   }
 
   if (tvf->alias() != nullptr) {
@@ -1551,9 +1550,8 @@ absl::Status TableNameResolver::FindInTableSubquery(
   ZETASQL_RETURN_IF_ERROR(FindInQuery(table_subquery->subquery(),
                               external_visible_aliases, &new_aliases));
 
-  if (table_subquery->pivot_clause() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_subquery->pivot_clause(),
-                                           external_visible_aliases));
+  for (const auto* op : table_subquery->postfix_operators()) {
+    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(op, external_visible_aliases));
   }
 
   if (table_subquery->alias() != nullptr) {
@@ -1652,9 +1650,8 @@ absl::Status TableNameResolver::FindInTablePathExpression(
       ZETASQL_RETURN_IF_ERROR(ResolveTablePath(path, table_ref->for_system_time()));
     }
 
-    if (table_ref->pivot_clause() != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(
-          FindInExpressionsUnder(table_ref->pivot_clause(), *visible_aliases));
+    for (const auto* op : table_ref->postfix_operators()) {
+      ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(op, *visible_aliases));
     }
 
     if (alias.empty()) {

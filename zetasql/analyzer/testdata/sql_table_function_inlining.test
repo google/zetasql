@@ -297,7 +297,6 @@ QueryStmt
         |         |           |       +-Literal(type=INT64, value=1)
         |         |           +-order_by_item_list=
         |         |             +-OrderByItem
-        |         |               +-parse_location=231-234
         |         |               +-column_ref=
         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
         |         +-input_scan=
@@ -3948,7 +3947,6 @@ QueryStmt
             |           |             |         |       +-element_column_list=[$agg_rewriter.$struct#8]
             |           |             |         +-order_by_item_list=
             |           |             |           +-OrderByItem
-            |           |             |             +-parse_location=155-156
             |           |             |             +-column_ref=
             |           |             |               +-ColumnRef(type=INT64, column=$agg_rewriter.a#6)
             |           |             +-input_scan=

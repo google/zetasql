@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 488
+NEXT_NODE_TAG_ID = 490
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -1582,6 +1582,21 @@ def main(argv):
     )
 
   gen.AddNode(
+      name='ASTPostfixTableOperator',
+      tag_id=488,
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      A common superclass for all postfix table operators like TABLESAMPLE.
+      """,
+      fields=[],
+      extra_public_defs="""
+  // The name of the operator to show in user-visible error messages.
+  virtual absl::string_view Name() const = 0;
+      """,
+  )
+
+  gen.AddNode(
       name='ASTTableExpression',
       tag_id=15,
       parent='ASTNode',
@@ -1600,8 +1615,43 @@ def main(argv):
   // Return the ASTNode location of the alias for this table expression,
   // if applicable.
   const ASTNode* alias_location() const;
-      """
-    )
+
+  // Compatibility getters until callers are migrated to directly use the list
+  // of posfix operators.
+  const ASTPivotClause* pivot_clause() const {
+    for (const auto* op : postfix_operators()) {
+      if (op->node_kind() == AST_PIVOT_CLAUSE) {
+        return op->GetAsOrDie<ASTPivotClause>();
+      }
+    }
+    return nullptr;
+  }
+  const ASTUnpivotClause* unpivot_clause() const {
+    for (const auto* op : postfix_operators()) {
+      if (op->node_kind() == AST_UNPIVOT_CLAUSE) {
+        return op->GetAsOrDie<ASTUnpivotClause>();
+      }
+    }
+    return nullptr;
+  }
+  const ASTSampleClause* sample_clause() const {
+    for (const auto* op : postfix_operators()) {
+      if (op->node_kind() == AST_SAMPLE_CLAUSE) {
+        return op->GetAsOrDie<ASTSampleClause>();
+      }
+    }
+    return nullptr;
+  }
+      """,
+      fields=[
+          Field(
+              'postfix_operators',
+              'ASTPostfixTableOperator',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              visibility=Visibility.PROTECTED,
+          ),
+      ])
 
   gen.AddNode(
       name='ASTTablePathExpression',
@@ -1640,31 +1690,9 @@ def main(argv):
               tag_id=6,
               comment="""
               Present if the scan had WITH OFFSET.
-              """),
-          Field(
-              'pivot_clause',
-              'ASTPivotClause',
-              tag_id=7,
-              comment="""
-              At most one of pivot_clause or unpivot_clause can be present.
-              """),
-          Field(
-              'unpivot_clause',
-              'ASTUnpivotClause',
-              tag_id=8),
-          Field(
-              'for_system_time',
-              'ASTForSystemTime',
-              tag_id=9),
-          Field(
-              'match_recognize_clause',
-              'ASTMatchRecognizeClause',
-              tag_id=11,
+              """,
           ),
-          Field(
-              'sample_clause',
-              'ASTSampleClause',
-              tag_id=10),
+          Field('for_system_time', 'ASTForSystemTime', tag_id=9),
       ],
       extra_public_defs="""
   const ASTAlias* alias() const override { return alias_; }
@@ -3365,14 +3393,6 @@ def main(argv):
               private_comment="""
               Required.
               """),
-          Field('match_recognize_clause', 'ASTMatchRecognizeClause', tag_id=4),
-          Field(
-              'sample_clause',
-              'ASTSampleClause',
-              tag_id=3,
-              private_comment="""
-              Optional.
-              """),
       ])
 
   gen.AddNode(
@@ -3663,25 +3683,6 @@ def main(argv):
               'ASTAlias',
               tag_id=3,
               gen_setters_and_getters=False),
-          Field(
-              'pivot_clause',
-              'ASTPivotClause',
-              tag_id=4,
-              private_comment="""
-              One of pivot_clause or unpivot_clause can be present but not both.
-              """),
-          Field(
-              'unpivot_clause',
-              'ASTUnpivotClause',
-              tag_id=5),
-          Field(
-              'match_recognize_clause',
-              'ASTMatchRecognizeClause',
-              tag_id=7),
-          Field(
-              'sample_clause',
-              'ASTSampleClause',
-              tag_id=6),
       ])
 
   gen.AddNode(
@@ -4660,7 +4661,7 @@ def main(argv):
   gen.AddNode(
       name='ASTPivotClause',
       tag_id=129,
-      parent='ASTNode',
+      parent='ASTPostfixTableOperator',
       fields=[
           Field(
               'pivot_expressions',
@@ -4681,7 +4682,10 @@ def main(argv):
               'output_alias',
               'ASTAlias',
               tag_id=5),
-      ])
+      ],
+      extra_public_defs="""
+  absl::string_view Name() const override { return "PIVOT"; }
+    """)
 
   gen.AddNode(
       name='ASTUnpivotInItem',
@@ -4714,7 +4718,7 @@ def main(argv):
   gen.AddNode(
       name='ASTUnpivotClause',
       tag_id=132,
-      parent='ASTNode',
+      parent='ASTPostfixTableOperator',
       use_custom_debug_string=True,
       fields=[
           Field(
@@ -4743,6 +4747,7 @@ def main(argv):
       ],
       extra_public_defs="""
   std::string GetSQLForNullFilter() const;
+  absl::string_view Name() const override { return "UNPIVOT"; }
       """)
 
   gen.AddNode(
@@ -4772,7 +4777,7 @@ def main(argv):
   gen.AddNode(
       name='ASTMatchRecognizeClause',
       tag_id=484,
-      parent='ASTNode',
+      parent='ASTPostfixTableOperator',
       comment="""
       Represents a row pattern recognition clause, i.e., MATCH_RECOGNIZE().
       """,
@@ -4795,7 +4800,9 @@ def main(argv):
           ),
           Field('output_alias', 'ASTAlias', tag_id=8),
       ],
-  )
+      extra_public_defs="""
+  absl::string_view Name() const override { return "MATCH_RECOGNIZE"; }
+    """)
 
   gen.AddNode(
       name='ASTRowPatternExpression',
@@ -5100,6 +5107,20 @@ def main(argv):
       """)
 
   gen.AddNode(
+      name='ASTBracedConstructorLhs',
+      tag_id=489,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'extended_path_expr',
+              'ASTGeneralizedPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ASTBracedConstructorFieldValue',
       tag_id=330,
       parent='ASTNode',
@@ -5108,7 +5129,8 @@ def main(argv):
               'expression',
               'ASTExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'colon_prefixed',
               SCALAR_BOOL,
@@ -5117,27 +5139,28 @@ def main(argv):
               True if "field:value" syntax is used.
               False if "field value" syntax is used.
               The later is only allowed in proto instead of struct.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTBracedConstructorField',
       tag_id=331,
       parent='ASTNode',
-      comment="""Exactly one of 'identifier' and 'parenthesized_path' is
-                 set.""",
       fields=[
           Field(
-              'identifier',
-              'ASTIdentifier',
-              tag_id=2,
+              'braced_constructor_lhs',
+              'ASTBracedConstructorLhs',
+              tag_id=6,
+              field_loader=FieldLoaderMethod.REQUIRED,
           ),
-          Field('parenthesized_path', 'ASTPathExpression', tag_id=3),
           Field(
               'value',
               'ASTBracedConstructorFieldValue',
               tag_id=4,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'comma_separated',
               SCALAR_BOOL,
@@ -5147,8 +5170,10 @@ def main(argv):
               e.g.all e.g. "a:1,b:2".
               False if separated by whitespace, e.g. "a:1 b:2".
               The latter is only allowed in proto instead of struct.
-              """),
-      ])
+              """,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTBracedConstructor',
@@ -5503,20 +5528,14 @@ def main(argv):
               'alias',
               'ASTAlias',
               tag_id=5),
-          Field(
-              'pivot_clause',
-              'ASTPivotClause',
-              tag_id=6),
-          Field(
-              'unpivot_clause',
-              'ASTUnpivotClause',
-              tag_id=7),
-          Field('match_recognize_clause', 'ASTMatchRecognizeClause', tag_id=9),
-          Field(
-              'sample',
-              'ASTSampleClause',
-              tag_id=8),
-      ])
+      ],
+      extra_public_defs="""
+  // Compatibility getters until callers are migrated to directly use the list
+  // of posfix operators.
+  const ASTSampleClause* sample() const {
+      return sample_clause();
+  }
+      """)
 
   gen.AddNode(
       name='ASTTableClause',
@@ -7183,7 +7202,7 @@ def main(argv):
   gen.AddNode(
       name='ASTSampleClause',
       tag_id=232,
-      parent='ASTNode',
+      parent='ASTPostfixTableOperator',
       fields=[
           Field(
               'sample_method',
@@ -7199,7 +7218,10 @@ def main(argv):
               'sample_suffix',
               'ASTSampleSuffix',
               tag_id=4),
-      ])
+      ],
+      extra_public_defs="""
+  absl::string_view Name() const override { return "TABLESAMPLE"; }
+    """)
 
   gen.AddNode(
       name='ASTAlterAction',

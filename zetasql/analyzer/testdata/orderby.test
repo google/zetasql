@@ -20,16 +20,13 @@ QueryStmt
     |     +-TableScan(table=KeyValue)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=38-44
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$query.$col2#4)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=46-47
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$query.$col3#5)
       +-OrderByItem
-        +-parse_location=49-54
         +-column_ref=
           +-ColumnRef(type=INT64, column=$query.$col1#3)
 ==
@@ -47,7 +44,6 @@ QueryStmt
     | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=35-36
         +-column_ref=
           +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -67,7 +63,6 @@ QueryStmt
     | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=33-34
         +-column_ref=
           +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -90,7 +85,6 @@ QueryStmt
     |     +-key#4 := ColumnRef(type=INT32, column=TestTable.key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=48-49
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.key#4)
 ==
@@ -125,7 +119,6 @@ QueryStmt
     |       +-Literal(type=INT64, value=5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-75
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key#4)
 ==
@@ -160,7 +153,6 @@ QueryStmt
     |       +-Literal(type=INT64, value=5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=74-75
         +-column_ref=
           +-ColumnRef(type=STRING, column=$aggregate.$agg1#3)
 ==
@@ -191,7 +183,6 @@ QueryStmt
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=51-52
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -214,7 +205,6 @@ QueryStmt
         | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=63-64
             +-column_ref=
               +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -234,11 +224,9 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=41-42
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-        +-parse_location=44-45
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -258,27 +246,21 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=41-42
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=44-45
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=47-48
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=50-51
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=53-54
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-        +-parse_location=56-57
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -316,60 +298,46 @@ QueryStmt
     | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=35-36
       | +-column_ref=
       |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
       +-OrderByItem
-      | +-parse_location=38-39
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
       +-OrderByItem
-      | +-parse_location=41-46
       | +-column_ref=
       |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
       +-OrderByItem
-      | +-parse_location=48-54
       | +-column_ref=
       | | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
       | +-is_descending=TRUE
       +-OrderByItem
-      | +-parse_location=56-57
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
       +-OrderByItem
-      | +-parse_location=59-60
       | +-column_ref=
       |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
       +-OrderByItem
-      | +-parse_location=62-63
       | +-column_ref=
       |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
       +-OrderByItem
-      | +-parse_location=65-66
       | +-column_ref=
       |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
       +-OrderByItem
-      | +-parse_location=68-69
       | +-column_ref=
       |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
       +-OrderByItem
-      | +-parse_location=71-73
       | +-column_ref=
       |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
       +-OrderByItem
-      | +-parse_location=75-77
       | +-column_ref=
       |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp_seconds#11)
       +-OrderByItem
-      | +-parse_location=79-81
       | +-column_ref=
       |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp_millis#12)
       +-OrderByItem
-      | +-parse_location=83-85
       | +-column_ref=
       |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp_micros#13)
       +-OrderByItem
-        +-parse_location=87-89
         +-column_ref=
           +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp_nanos#14)
 ==
@@ -389,7 +357,6 @@ QueryStmt
     | +-TableScan(column_list=[ComplexTypes.TestEnum#2], table=ComplexTypes, column_index_list=[1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-44
         +-column_ref=
           +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#2)
 ==
@@ -429,7 +396,6 @@ QueryStmt
     |       +-output_column_list=KeyValue.[Key#3, Value#4]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=83-84
         +-column_ref=
           +-ColumnRef(type=STRING, column=$union_all.value#6)
 ==
@@ -476,7 +442,6 @@ QueryStmt
     |     | |   |     +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     |     | |   +-order_by_item_list=
     |     | |     +-OrderByItem
-    |     | |       +-parse_location=50-51
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT32, column=TestTable.key#1)
     |     | +-output_column_list=[TestTable.key#1, $union_all1.$col2#4, $union_all1.$col3#5]
@@ -507,7 +472,6 @@ QueryStmt
     |       |   |   |     +-TableScan(column_list=[TestTable.key#6], table=TestTable, column_index_list=[0])
     |       |   |   +-order_by_item_list=
     |       |   |     +-OrderByItem
-    |       |   |       +-parse_location=113-114
     |       |   |       +-column_ref=
     |       |   |         +-ColumnRef(type=INT64, column=$union_all2.$col2#9)
     |       |   +-limit=
@@ -517,7 +481,6 @@ QueryStmt
     |       +-output_column_list=[TestTable.key#6, $union_all2.$col2#9, $union_all2.$col3#10]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=142-143
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.$col3#13)
 ==
@@ -606,7 +569,6 @@ QueryStmt
     | +-TableScan(column_list=[ComplexTypes.Int32Array#4], table=ComplexTypes, column_index_list=[3])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=45-46
         +-column_ref=
           +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
 ==
@@ -722,7 +684,6 @@ QueryStmt
     |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=32-36
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
 ==
@@ -742,7 +703,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-37
         +-column_ref=
           +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -782,7 +742,6 @@ QueryStmt
     |         +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=38-45
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -802,7 +761,6 @@ QueryStmt
     | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-39
         +-column_ref=
           +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
@@ -837,47 +795,36 @@ QueryStmt
     |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=32-35
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=37-42
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=44-45
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=47-48
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=50-55
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=57-58
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=60-63
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-      | +-parse_location=65-66
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
       +-OrderByItem
-      | +-parse_location=68-75
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol9#3)
       +-OrderByItem
-      | +-parse_location=77-78
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-        +-parse_location=80-87
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol11#4)
 ==
@@ -933,47 +880,36 @@ QueryStmt
     |           +-output_column_list=KeyValue.[Key#3, Value#4]
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=119-123
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
-      | +-parse_location=125-131
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$union_all.value1#6)
       +-OrderByItem
-      | +-parse_location=133-134
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
-      | +-parse_location=136-137
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$union_all.value1#6)
       +-OrderByItem
-      | +-parse_location=139-145
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$union_all.value1#6)
       +-OrderByItem
-      | +-parse_location=147-148
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
-      | +-parse_location=150-154
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
-      | +-parse_location=156-157
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$union_all.value1#6)
       +-OrderByItem
-      | +-parse_location=159-167
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol9#7)
       +-OrderByItem
-      | +-parse_location=169-170
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$union_all.key1#5)
       +-OrderByItem
-        +-parse_location=172-180
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol11#8)
 ==
@@ -1002,7 +938,6 @@ QueryStmt
     |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=32-39
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
 ==
@@ -1028,27 +963,21 @@ QueryStmt
     | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=77-82
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
       +-OrderByItem
-      | +-parse_location=84-90
       | +-column_ref=
       |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
       +-OrderByItem
-      | +-parse_location=92-98
       | +-column_ref=
       |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
       +-OrderByItem
-      | +-parse_location=100-101
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
       +-OrderByItem
-      | +-parse_location=103-104
       | +-column_ref=
       |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
       +-OrderByItem
-        +-parse_location=106-107
         +-column_ref=
           +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
 ==
@@ -1067,7 +996,6 @@ QueryStmt
     | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=42-45
         +-column_ref=
           +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -1087,7 +1015,6 @@ QueryStmt
     | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=42-45
         +-column_ref=
           +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -1114,7 +1041,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=41-48
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
 ==
@@ -1149,7 +1075,6 @@ QueryStmt
     |         +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=45-54
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
 ==
@@ -1174,7 +1099,6 @@ QueryStmt
     |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-50
         +-column_ref=
           +-ColumnRef(type=INT64, column=$groupby.key#3)
 ==
@@ -1207,7 +1131,6 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=61-69
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg2#5)
 ==
@@ -1237,7 +1160,6 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=51-59
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
 ==
@@ -1272,47 +1194,36 @@ QueryStmt
     |     +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=73-76
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=78-81
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=83-84
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=86-87
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#4)
       +-OrderByItem
-      | +-parse_location=89-94
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#4)
       +-OrderByItem
-      | +-parse_location=96-99
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=101-104
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=106-109
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-      | +-parse_location=111-112
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$groupby.value#4)
       +-OrderByItem
-      | +-parse_location=114-126
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$groupby.foo#3)
       +-OrderByItem
-        +-parse_location=128-142
         +-column_ref=
           +-ColumnRef(type=STRING, column=$groupby.value#4)
 ==
@@ -1350,7 +1261,6 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=54-62
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
 ==
@@ -1384,32 +1294,25 @@ QueryStmt
     |   |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |     | +-parse_location=62-65
     |     | +-column_ref=
     |     |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     +-OrderByItem
-    |     | +-parse_location=67-68
     |     | +-column_ref=
     |     |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |     +-OrderByItem
-    |     | +-parse_location=70-73
     |     | +-column_ref=
     |     |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     +-OrderByItem
-    |     | +-parse_location=75-76
     |     | +-column_ref=
     |     |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     |     +-OrderByItem
-    |       +-parse_location=78-87
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$orderby.$orderbycol5#3)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=99-100
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
       +-OrderByItem
-        +-parse_location=102-103
         +-column_ref=
           +-ColumnRef(type=STRING, column=KeyValue.Value#2)
 ==
@@ -1434,7 +1337,6 @@ QueryStmt
     |     +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-44
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.Key#3)
 ==
@@ -1458,7 +1360,6 @@ QueryStmt
     |     +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=43-46
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.Key#3)
 ==
@@ -1488,7 +1389,6 @@ QueryStmt
     |     +-key#4 := ColumnRef(type=INT64, column=$groupby.key#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=56-59
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.key#4)
 ==
@@ -1524,11 +1424,9 @@ QueryStmt
     |     +-maxvalue#6 := ColumnRef(type=STRING, column=$aggregate.maxvalue#3)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=80-83
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.key#5)
       +-OrderByItem
-        +-parse_location=85-86
         +-column_ref=
           +-ColumnRef(type=STRING, column=$distinct.maxvalue#6)
 ==
@@ -1564,15 +1462,12 @@ QueryStmt
     |     +-maxvalue#6 := ColumnRef(type=STRING, column=$aggregate.maxvalue#3)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=80-83
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.key#5)
       +-OrderByItem
-      | +-parse_location=85-86
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$distinct.maxvalue#6)
       +-OrderByItem
-        +-parse_location=88-96
         +-column_ref=
           +-ColumnRef(type=STRING, column=$distinct.maxvalue#6)
 ==
@@ -1612,11 +1507,9 @@ QueryStmt
     |     +-rankvalue#6 := ColumnRef(type=INT64, column=$analytic.rankvalue#4)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=86-91
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$distinct.Value#5)
       +-OrderByItem
-        +-parse_location=93-94
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.rankvalue#6)
 ==
@@ -1656,11 +1549,9 @@ QueryStmt
     |     +-rankvalue#6 := ColumnRef(type=INT64, column=$analytic.rankvalue#4)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=86-91
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$distinct.Value#5)
       +-OrderByItem
-        +-parse_location=93-102
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.rankvalue#6)
 ==
@@ -1741,7 +1632,6 @@ QueryStmt
     |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=48-58
         +-column_ref=
           +-ColumnRef(type=STRING, column=$aggregate.$agg1#4)
 --
@@ -1779,7 +1669,6 @@ QueryStmt
     |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=48-56
         +-column_ref=
           +-ColumnRef(type=INT64, column=$aggregate.$agg1#4)
 --
@@ -1830,7 +1719,6 @@ QueryStmt
     |       +-output_column_list=[$distinct.Key#6]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=87-90
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key#7)
 ==
@@ -1870,7 +1758,6 @@ QueryStmt
     |     | |   |     +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     | |   +-order_by_item_list=
     |     | |     +-OrderByItem
-    |     | |       +-parse_location=46-49
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT64, column=$distinct.Key#3)
     |     | +-output_column_list=[$distinct.Key#3]
@@ -1888,13 +1775,11 @@ QueryStmt
     |       |   |     +-Key#6 := ColumnRef(type=INT64, column=KeyValue.Key#4)
     |       |   +-order_by_item_list=
     |       |     +-OrderByItem
-    |       |       +-parse_location=107-110
     |       |       +-column_ref=
     |       |         +-ColumnRef(type=INT64, column=$distinct.Key#6)
     |       +-output_column_list=[$distinct.Key#6]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=121-124
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key#7)
 ==
@@ -1938,7 +1823,6 @@ QueryStmt
     |     | |   |     +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     | |   +-order_by_item_list=
     |     | |     +-OrderByItem
-    |     | |       +-parse_location=46-49
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT64, column=$distinct.Key#3)
     |     | +-output_column_list=[$distinct.Key#3]
@@ -1951,7 +1835,6 @@ QueryStmt
     |     | |   | +-TableScan(column_list=[KeyValue.Key#4], table=KeyValue, column_index_list=[0])
     |     | |   +-order_by_item_list=
     |     | |     +-OrderByItem
-    |     | |       +-parse_location=103-106
     |     | |       +-column_ref=
     |     | |         +-ColumnRef(type=INT64, column=KeyValue.Key#4)
     |     | +-output_column_list=[KeyValue.Key#4]
@@ -1969,13 +1852,11 @@ QueryStmt
     |       |   |     +-Key#8 := ColumnRef(type=INT64, column=KeyValue.Key#6)
     |       |   +-order_by_item_list=
     |       |     +-OrderByItem
-    |       |       +-parse_location=169-172
     |       |       +-column_ref=
     |       |         +-ColumnRef(type=INT64, column=$distinct.Key#8)
     |       +-output_column_list=[$distinct.Key#8]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=183-186
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_distinct.key#9)
 ==
@@ -2027,11 +1908,9 @@ QueryStmt
     |         +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=43-48
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#4)
       +-OrderByItem
-        +-parse_location=50-51
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.Key#3)
 ==
@@ -2069,7 +1948,6 @@ QueryStmt
     |         +-key#4 := ColumnRef(type=INT64, column=$groupby.key#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=59-64
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -2107,7 +1985,6 @@ QueryStmt
     |         +-key#4 := ColumnRef(type=INT64, column=$groupby.key#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=56-63
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -2137,11 +2014,9 @@ QueryStmt
         |     +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-order_by_item_list=
           +-OrderByItem
-          | +-parse_location=77-80
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-            +-parse_location=82-87
             +-column_ref=
               +-ColumnRef(type=STRING, column=$distinct.Value#4)
 ==
@@ -2168,19 +2043,15 @@ QueryStmt
     |     +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=41-42
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
       +-OrderByItem
-      | +-parse_location=44-45
       | +-column_ref=
       |   +-ColumnRef(type=STRING, column=$distinct.Value#4)
       +-OrderByItem
-      | +-parse_location=47-50
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
       +-OrderByItem
-        +-parse_location=52-57
         +-column_ref=
           +-ColumnRef(type=STRING, column=$distinct.Value#4)
 ==
@@ -2218,15 +2089,12 @@ QueryStmt
         |     +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-order_by_item_list=
           +-OrderByItem
-          | +-parse_location=60-61
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-          | +-parse_location=63-66
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-            +-parse_location=68-73
             +-column_ref=
               +-ColumnRef(type=STRING, column=$distinct.Value#4)
 ==
@@ -2252,15 +2120,12 @@ QueryStmt
     |     +-Key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=52-53
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
       +-OrderByItem
-      | +-parse_location=55-58
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
       +-OrderByItem
-        +-parse_location=60-72
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.Key#3)
 ==
@@ -2302,23 +2167,18 @@ QueryStmt
         |     +-Value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-order_by_item_list=
           +-OrderByItem
-          | +-parse_location=85-86
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-          | +-parse_location=88-91
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-          | +-parse_location=93-98
           | +-column_ref=
           |   +-ColumnRef(type=STRING, column=$distinct.Value#4)
           +-OrderByItem
-          | +-parse_location=100-112
           | +-column_ref=
           |   +-ColumnRef(type=INT64, column=$distinct.Key#3)
           +-OrderByItem
-            +-parse_location=114-128
             +-column_ref=
               +-ColumnRef(type=STRING, column=$distinct.Value#4)
 ==
@@ -2360,7 +2220,6 @@ QueryStmt
     |     +-nested_int64#3 := ColumnRef(type=INT64, column=$query.nested_int64#2)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=78-103
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.nested_int64#3)
 ==
@@ -2416,7 +2275,6 @@ QueryStmt
     |         +-nested_int64#4 := ColumnRef(type=INT64, column=$groupby.nested_int64#3)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=113-142
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#5)
 ==
@@ -2456,7 +2314,6 @@ QueryStmt
     |       +-output_column_list=[KeyValue.Key#3]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-72
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key#5)
 ==
@@ -2499,7 +2356,6 @@ QueryStmt
     |       +-output_column_list=[KeyValue.Key#4]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=78-81
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key#6)
 ==
@@ -2537,7 +2393,6 @@ QueryStmt
     |       +-output_column_list=[KeyValue.Key#3]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=85-89
         +-column_ref=
           +-ColumnRef(type=INT64, column=$union_all.key1#5)
 ==
@@ -2605,7 +2460,6 @@ QueryStmt
     |           +-output_column_list=[KeyValue.Key#3]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-78
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
 ==
@@ -2661,7 +2515,6 @@ QueryStmt
     |           +-output_column_list=[KeyValue.Key#3]
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-86
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#6)
 ==
@@ -2703,7 +2556,6 @@ QueryStmt
     |         +-TableScan(table=KeyValue)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-66
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
 ==
@@ -2738,7 +2590,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-51
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#3)
 ==
@@ -2762,7 +2613,6 @@ QueryStmt
     |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-50
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#3)
 ==
@@ -2811,7 +2661,6 @@ QueryStmt
     |         |         +-TableScan(column_list=[TestTable.KitchenSink#5], table=TestTable, column_index_list=[2])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=74-86
     |             +-column_ref=
     |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#7)
     +-input_scan=
@@ -2869,7 +2718,6 @@ QueryStmt
     |         |         +-TableScan(column_list=[TestTable.KitchenSink#5], table=TestTable, column_index_list=[2])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=74-110
     |             +-column_ref=
     |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#7)
     +-input_scan=
@@ -2937,7 +2785,6 @@ QueryStmt
     |         |           +-output_column_list=[$union_all2.$col1#7]
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=101-113
     |             +-column_ref=
     |               +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#9)
     +-input_scan=
@@ -2949,8 +2796,6 @@ select int32 as foo
 from SimpleTypes
 order by {{foo|1|int32}}
 --
-ALTERNATION GROUP: foo
---
 QueryStmt
 +-output_column_list=
 | +-SimpleTypes.int32#1 AS foo [INT32]
@@ -2962,41 +2807,6 @@ QueryStmt
     | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=46-49
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
---
-ALTERNATION GROUP: 1
---
-QueryStmt
-+-output_column_list=
-| +-SimpleTypes.int32#1 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[SimpleTypes.int32#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=46-47
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
---
-ALTERNATION GROUP: int32
---
-QueryStmt
-+-output_column_list=
-| +-SimpleTypes.int32#1 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[SimpleTypes.int32#1]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=46-51
         +-column_ref=
           +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
 ==
@@ -3009,7 +2819,13 @@ from SimpleTypes
 group by {{foo|1|int32}}
 order by {{foo|1|int32}}
 --
-ALTERNATION GROUP: foo,foo
+ALTERNATION GROUPS:
+    foo,foo
+    foo,1
+    foo,int32
+    1,foo
+    1,1
+    1,int32
 --
 QueryStmt
 +-output_column_list=
@@ -3027,121 +2843,13 @@ QueryStmt
     |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=59-62
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.foo#20)
 --
-ALTERNATION GROUP: foo,1
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.foo#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=59-60
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#20)
---
-ALTERNATION GROUP: foo,int32
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.foo#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=59-64
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#20)
---
-ALTERNATION GROUP: 1,foo
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.foo#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=57-60
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#20)
---
-ALTERNATION GROUP: 1,1
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.foo#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=57-58
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#20)
---
-ALTERNATION GROUP: 1,int32
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.foo#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.foo#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.foo#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=57-62
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.foo#20)
---
-ALTERNATION GROUP: int32,foo
+ALTERNATION GROUPS:
+    int32,foo
+    int32,1
+    int32,int32
 --
 QueryStmt
 +-output_column_list=
@@ -3159,51 +2867,6 @@ QueryStmt
     |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=61-64
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32#20)
---
-ALTERNATION GROUP: int32,1
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.int32#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=61-62
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$groupby.int32#20)
---
-ALTERNATION GROUP: int32,int32
---
-QueryStmt
-+-output_column_list=
-| +-$groupby.int32#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$groupby.int32#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$groupby.int32#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=61-66
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.int32#20)
 ==
@@ -3213,8 +2876,6 @@ select distinct int32 as foo
 from SimpleTypes
 order by {{foo|1|int32}}
 --
-ALTERNATION GROUP: foo
---
 QueryStmt
 +-output_column_list=
 | +-$distinct.int32#20 AS foo [INT32]
@@ -3231,51 +2892,6 @@ QueryStmt
     |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=55-58
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#20)
---
-ALTERNATION GROUP: 1
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.int32#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.int32#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.int32#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=55-56
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#20)
---
-ALTERNATION GROUP: int32
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.int32#20 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.int32#20]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.int32#20]
-    |   +-input_scan=
-    |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   +-group_by_list=
-    |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=55-60
         +-column_ref=
           +-ColumnRef(type=INT32, column=$distinct.int32#20)
 ==
@@ -3288,7 +2904,13 @@ from SimpleTypes
 group by {{foo|1|int32}}
 order by {{foo|1|int32}}
 --
-ALTERNATION GROUP: foo,foo
+ALTERNATION GROUPS:
+    foo,foo
+    foo,1
+    foo,int32
+    1,foo
+    1,1
+    1,int32
 --
 QueryStmt
 +-output_column_list=
@@ -3311,146 +2933,13 @@ QueryStmt
     |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=68-71
         +-column_ref=
           +-ColumnRef(type=INT32, column=$distinct.foo#21)
 --
-ALTERNATION GROUP: foo,1
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.foo#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.foo#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.foo#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=68-69
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#21)
---
-ALTERNATION GROUP: foo,int32
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.foo#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.foo#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.foo#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=68-73
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#21)
---
-ALTERNATION GROUP: 1,foo
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.foo#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.foo#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.foo#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=66-69
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#21)
---
-ALTERNATION GROUP: 1,1
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.foo#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.foo#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.foo#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=66-67
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#21)
---
-ALTERNATION GROUP: 1,int32
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.foo#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.foo#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.foo#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.foo#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-foo#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-foo#21 := ColumnRef(type=INT32, column=$groupby.foo#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=66-71
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.foo#21)
---
-ALTERNATION GROUP: int32,foo
+ALTERNATION GROUPS:
+    int32,foo
+    int32,1
+    int32,int32
 --
 QueryStmt
 +-output_column_list=
@@ -3473,61 +2962,6 @@ QueryStmt
     |     +-int32#21 := ColumnRef(type=INT32, column=$groupby.int32#20)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=70-73
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#21)
---
-ALTERNATION GROUP: int32,1
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.int32#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.int32#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.int32#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-int32#21 := ColumnRef(type=INT32, column=$groupby.int32#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=70-71
-        +-column_ref=
-          +-ColumnRef(type=INT32, column=$distinct.int32#21)
---
-ALTERNATION GROUP: int32,int32
---
-QueryStmt
-+-output_column_list=
-| +-$distinct.int32#21 AS foo [INT32]
-+-query=
-  +-OrderByScan
-    +-column_list=[$distinct.int32#21]
-    +-is_ordered=TRUE
-    +-input_scan=
-    | +-AggregateScan
-    |   +-column_list=[$distinct.int32#21]
-    |   +-input_scan=
-    |   | +-AggregateScan
-    |   |   +-column_list=[$groupby.int32#20]
-    |   |   +-input_scan=
-    |   |   | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
-    |   |   +-group_by_list=
-    |   |     +-int32#20 := ColumnRef(type=INT32, column=SimpleTypes.int32#1)
-    |   +-group_by_list=
-    |     +-int32#21 := ColumnRef(type=INT32, column=$groupby.int32#20)
-    +-order_by_item_list=
-      +-OrderByItem
-        +-parse_location=70-75
         +-column_ref=
           +-ColumnRef(type=INT32, column=$distinct.int32#21)
 ==
@@ -3608,7 +3042,6 @@ QueryStmt
     |           +-field_idx=0
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=109-113
         +-column_ref=
           +-ColumnRef(type=INT32, column=$groupby.b#3)
 ==
@@ -3678,7 +3111,6 @@ QueryStmt
     |         +-TestStruct#7 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=65-94
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#8)
 ==
@@ -3729,7 +3161,6 @@ QueryStmt
     |         +-TestStruct#9 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=99-114
         +-column_ref=
           +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#10)
 --
@@ -3768,7 +3199,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-49
         +-column_ref=
         | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-null_order=NULLS_FIRST
@@ -3786,7 +3216,6 @@ QueryStmt
     | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=34-48
         +-column_ref=
         | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-null_order=NULLS_LAST

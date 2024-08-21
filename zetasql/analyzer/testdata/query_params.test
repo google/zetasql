@@ -249,7 +249,6 @@ QueryStmt
     |   |     +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=55-56
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$groupby.key#3)
     +-limit=
@@ -283,7 +282,6 @@ QueryStmt
     |   |     +-value#4 := ColumnRef(type=STRING, column=KeyValue.Value#2)
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=55-56
     |       +-column_ref=
     |         +-ColumnRef(type=INT64, column=$groupby.key#3)
     +-limit=

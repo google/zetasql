@@ -48,7 +48,8 @@ namespace zetasql {
 namespace functions {
 namespace {
 
-constexpr UnsupportedFields kUnsupportFieldsDefault = UnsupportedFields::FAIL;
+constexpr UnsupportedFieldsEnum::UnsupportedFields kUnsupportFieldsDefault =
+    UnsupportedFieldsEnum::FAIL;
 constexpr absl::StatusCode kUnimplemented = absl::StatusCode::kUnimplemented;
 
 TEST(ToJsonTest, Compliance) {
@@ -103,55 +104,6 @@ TEST(ToJsonTest, Compliance) {
             expected_result_value, values::Json(std::move(output.value())),
             ValueEqualityCheckOptions{.float_margin = margin});
       }
-    } else {
-      EXPECT_EQ(output.status().code(), expected_status.code());
-    }
-  }
-}
-
-TEST(ToJsonTest, UnsupportedFieldsArg) {
-  std::vector<FunctionTestCall> tests;
-
-  const QueryParamsWithResult::FeatureSet default_feature_set = {
-      FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE,
-      FEATURE_TO_JSON_UNSUPPORTED_FIELDS};
-
-  for (const FunctionTestCall& test : tests) {
-    if (std::any_of(test.params.params().begin(), test.params.params().end(),
-                    [](const Value& param) { return param.is_null(); })) {
-      continue;
-    }
-    const Value& input_value = test.params.param(0);
-    const bool stringify_wide_numbers = test.params.params().size() >= 2
-                                            ? test.params.param(1).bool_value()
-                                            : false;
-    UnsupportedFields unsupported_fields =
-        static_cast<UnsupportedFields>(test.params.param(2).enum_value());
-    SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name,
-                                  input_value.ShortDebugString(),
-                                  stringify_wide_numbers));
-    zetasql::LanguageOptions language_options;
-    if (test.params.results().size() == 1 &&
-        zetasql_base::ContainsKey(test.params.results().begin()->first,
-                         FEATURE_JSON_STRICT_NUMBER_PARSING)) {
-      language_options.EnableLanguageFeature(
-          FEATURE_JSON_STRICT_NUMBER_PARSING);
-    }
-    absl::StatusOr<JSONValue> output =
-        ToJson(input_value, stringify_wide_numbers, language_options,
-               /*canonicalize_zero=*/true, unsupported_fields);
-
-    const QueryParamsWithResult::Result* result =
-        zetasql_base::FindOrNull(test.params.results(), default_feature_set);
-    const Value expected_result_value =
-        result == nullptr ? test.params.results().begin()->second.result
-                          : result->result;
-    const absl::Status expected_status =
-        result == nullptr ? test.params.results().begin()->second.status
-                          : result->status;
-
-    if (expected_status.ok()) {
-      EXPECT_EQ(expected_result_value, values::Json(std::move(output.value())));
     } else {
       EXPECT_EQ(output.status().code(), expected_status.code());
     }

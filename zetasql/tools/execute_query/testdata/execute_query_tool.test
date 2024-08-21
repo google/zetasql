@@ -1180,3 +1180,116 @@ TVF registered.
 +----+
 +----+
 \
+==
+
+[mode=analyze,execute]
+insert into KeyValue values (null, null)
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[$col#3, $col#4]
+|   +-expr_list=
+|   | +-$col#3 := Literal(type=INT64, value=NULL)
+|   | +-$col#4 := Literal(type=STRING, value=NULL)
+|   +-input_scan=
+|     +-SingleRowScan
++-query_output_column_list=KeyValue.[$col#3, $col#4]
++-column_access_list=WRITE,WRITE
+
+ERROR: INVALID_ARGUMENT: The statement InsertStmt is not supported for execution.
+==
+
+[mode=analyze,execute]
+insert into KeyValue
+select * from KeyValue where value is not null
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-query=
+| +-ProjectScan
+|   +-column_list=KeyValue.[Key#3, Value#4]
+|   +-input_scan=
+|     +-FilterScan
+|       +-column_list=KeyValue.[Key#3, Value#4]
+|       +-input_scan=
+|       | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+|       +-filter_expr=
+|         +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+|           +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+|             +-ColumnRef(type=STRING, column=KeyValue.Value#4)
++-query_output_column_list=KeyValue.[Key#3, Value#4]
++-column_access_list=WRITE,WRITE
+
+ERROR: INVALID_ARGUMENT: The statement InsertStmt is not supported for execution.
+==
+
+[mode=analyze,execute]
+delete from KeyValue
+where value is null
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=NONE,READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+
+ERROR: INVALID_ARGUMENT: The statement DeleteStmt is not supported for execution.
+==
+
+# An empty statement is not allowed.
+--
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected end of statement [at 1:1]
+
+^
+==
+
+# A statement that is just a comment is not allowed.
+/* comment */
+--
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected end of statement [at 1:14]
+/* comment */
+             ^
+==
+
+# A statement that is just a semicolon is not allowed.
+;
+--
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected ";" [at 1:1]
+;
+^
+==
+
+# Empty statements from double-semicolons are not allowed.
+select 1;;
+select 2;
+--
++---+
+|   |
++---+
+| 1 |
++---+
+
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected ";" [at 1:10]
+select 1;;
+         ^
+==
+
+# Trailing comments are allowed.
+/* comment */
+select 1;
+/* comment */
+--
++---+
+|   |
++---+
+| 1 |
++---+
+\

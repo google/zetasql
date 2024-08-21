@@ -1147,7 +1147,6 @@ QueryStmt
     | |       | +-TableScan(column_list=[CollatedTable.string_ci#5{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
     | |       +-order_by_item_list=
     | |         +-OrderByItem
-    | |           +-parse_location=150-159
     | |           +-column_ref=
     | |           | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#5{Collation:"und:ci"})
     | |           +-collation=und:ci
@@ -3372,17 +3371,14 @@ QueryStmt
     | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 3])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=60-69
       | +-column_ref=
       | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
       | +-collation=und:ci
       +-OrderByItem
-      | +-parse_location=71-84
       | +-column_ref=
       | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
       | +-collation=binary
       +-OrderByItem
-        +-parse_location=86-106
         +-column_ref=
         | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
         +-collation=[und:ci]
@@ -3420,12 +3416,10 @@ QueryStmt
     |     +-TableScan(column_list=CollatedTable.[string_ci#1, struct_with_string_ci#3], table=CollatedTable, column_index_list=[0, 2])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=57-81
       | +-column_ref=
       | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$orderby.$orderbycol1#5{Collation:"und:ci"})
       | +-collation=und:ci
       +-OrderByItem
-        +-parse_location=83-106
         +-column_ref=
         | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$orderby.$orderbycol2#6{Collation:"und:ci"})
         +-collation=und:ci
@@ -3449,14 +3443,12 @@ QueryStmt
     | +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=60-86
       | +-column_ref=
       | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
       | +-collation_name=
       | | +-Literal(type=STRING, value="binary")
       | +-collation=binary
       +-OrderByItem
-        +-parse_location=97-137
         +-column_ref=
         | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         +-collation_name=
@@ -3490,7 +3482,6 @@ QueryStmt
           |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=37-46
           |       +-column_ref=
           |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           |       +-collation=und:ci
@@ -3500,7 +3491,6 @@ QueryStmt
           |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           |   +-order_by_item_list=
           |     +-OrderByItem
-          |       +-parse_location=148-173
           |       +-column_ref=
           |       | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
           |       +-collation_name=
@@ -3512,7 +3502,6 @@ QueryStmt
               +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
               +-order_by_item_list=
                 +-OrderByItem
-                  +-parse_location=213-249
                   +-column_ref=
                   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
                   +-collation_name=
@@ -7830,7 +7819,6 @@ QueryStmt
     |           |           |         |       +-ColumnRef(type=INT64, column=$with_expr.end_offset#6, is_correlated=TRUE)
     |           |           |         +-order_by_item_list=
     |           |           |           +-OrderByItem
-    |           |           |             +-parse_location=770-773
     |           |           |             +-column_ref=
     |           |           |               +-ColumnRef(type=INT64, column=$array_offset.idx#8)
     |           |           +-input_scan=
@@ -8031,7 +8019,6 @@ QueryStmt
     |     |       |           |         |       +-ColumnRef(type=INT64, column=$with_expr.end_offset#10, is_correlated=TRUE)
     |     |       |           |         +-order_by_item_list=
     |     |       |           |           +-OrderByItem
-    |     |       |           |             +-parse_location=770-773
     |     |       |           |             +-column_ref=
     |     |       |           |               +-ColumnRef(type=INT64, column=$array_offset.idx#12)
     |     |       |           +-input_scan=

@@ -663,7 +663,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-117
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#8)
 ==
@@ -776,7 +775,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-138
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#8)
 ==
@@ -1097,16 +1095,13 @@ QueryStmt
     |                       +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=83-151
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$analytic.$analytic1#7)
       +-OrderByItem
-      | +-parse_location=162-212
       | +-column_ref=
       | | +-ColumnRef(type=INT64, column=$analytic.$analytic2#8)
       | +-is_descending=TRUE
       +-OrderByItem
-        +-parse_location=223-281
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol3#11)
 ==
@@ -1181,7 +1176,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=76-133
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#6)
 ==
@@ -1223,7 +1217,6 @@ QueryStmt
     |     +-analyticcol#6 := ColumnRef(type=INT64, column=$analytic.analyticcol#4)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=87-98
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.analyticcol#6)
 ==
@@ -1265,11 +1258,9 @@ QueryStmt
     |     +-analyticcol#6 := ColumnRef(type=INT64, column=$analytic.analyticcol#4)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=87-88
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$distinct.Key#5)
       +-OrderByItem
-        +-parse_location=90-91
         +-column_ref=
           +-ColumnRef(type=INT64, column=$distinct.analyticcol#6)
 ==
@@ -1822,15 +1813,12 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=46-72
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$analytic.$analytic1#20)
       +-OrderByItem
-      | +-parse_location=83-128
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$analytic.$analytic2#21)
       +-OrderByItem
-        +-parse_location=139-161
         +-column_ref=
           +-ColumnRef(type=INT32, column=$analytic.$analytic3#22)
 ==
@@ -1883,7 +1871,6 @@ QueryStmt
     |         +-$analytic1#22 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=94-120
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#22)
 ==
@@ -1922,7 +1909,6 @@ QueryStmt
     |         +-$analytic1#21 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=69-97
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#21)
 ==
@@ -2545,7 +2531,6 @@ QueryStmt
     |         +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=47-132
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
 ==
@@ -2628,7 +2613,6 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=57-102
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
 ==

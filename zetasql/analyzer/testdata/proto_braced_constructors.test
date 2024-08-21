@@ -139,6 +139,16 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# Nested values cannot (yet) be set using field paths.
+SELECT NEW zetasql_test__.KitchenSinkPB {
+  nested_value.nested_int64: 10
+}
+--
+ERROR: Braced constructor supports only singular field paths, nested paths should use additional sets of braces [at 2:3]
+  nested_value.nested_int64: 10
+  ^
+==
+
 # Nested repeated sub-message example.
 SELECT NEW zetasql_test__.KitchenSinkPB {
   int64_key_1: 1
@@ -244,6 +254,18 @@ QueryStmt
     |             +-ext_value := Literal(type=ARRAY<INT32>, value=[1])
     +-input_scan=
       +-SingleRowScan
+==
+
+# Extension without parenthesis is an error.
+SELECT NEW zetasql_test__.TestExtraPB {
+     zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension {
+         ext_value: [1]
+     }
+}
+--
+ERROR: Protocol buffer zetasql_test__.TestExtraPB does not have a field named zetasql_test__ [at 2:6]
+     zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension {
+     ^
 ==
 
 # Another example with extensions, this time with a regular field too.
@@ -387,7 +409,7 @@ ERROR: Scalar subquery cannot have more than one column unless using SELECT AS S
 # Invalid field test.
 SELECT NEW zetasql_test__.KitchenSinkPB {xxxxx: 5}
 --
-ERROR: Field 1 has name xxxxx which is not a field in proto zetasql_test__.KitchenSinkPB [at 1:42]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field named xxxxx [at 1:42]
 SELECT NEW zetasql_test__.KitchenSinkPB {xxxxx: 5}
                                          ^
 ==
@@ -1180,7 +1202,7 @@ SELECT NEW zetasql_test__.KitchenSinkPB {
   nested_value: (SELECT { nested: 5 })
 }
 --
-ERROR: Field 1 has name nested which is not a field in proto zetasql_test__.KitchenSinkPB.Nested [at 4:27]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB.Nested does not have a field named nested [at 4:27]
   nested_value: (SELECT { nested: 5 })
                           ^
 ==
@@ -1734,7 +1756,6 @@ QueryStmt
         |       +-column_index_list=[0]
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=156-176
             +-column_ref=
               +-ColumnRef(type=INT32, column=$orderby.$orderbycol1#5)
 

@@ -4,10 +4,10 @@
 
 # Aggregate function calls
 
-An aggregate function is a function that summarizes the rows of a group into a
-single value. When an aggregate function is used with the `OVER` clause, it
-becomes a window function, which computes values over a group of rows and then
-returns a single result for each row.
+An aggregate function summarizes the rows of a group into a single value. When
+an aggregate function is used with the `OVER` clause, it becomes a window
+function, which computes values over a group of rows and then returns a single
+result for each row.
 
 ## Aggregate function call syntax
 

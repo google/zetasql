@@ -514,7 +514,6 @@ QueryStmt
     |     +-max_groups_contributed := Literal(type=INT64, value=100)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=349-360
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE
@@ -605,7 +604,6 @@ QueryStmt
     |     +-max_groups_contributed := Literal(type=INT64, value=100)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=349-360
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE

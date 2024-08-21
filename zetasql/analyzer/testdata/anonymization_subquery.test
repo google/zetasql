@@ -501,7 +501,6 @@ QueryStmt
     |     +-kappa := Literal(type=INT64, value=100)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=313-324
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE
@@ -600,7 +599,6 @@ QueryStmt
     |     +-kappa := Literal(type=INT64, value=100)
     +-order_by_item_list=
       +-OrderByItem
-        +-parse_location=313-324
         +-column_ref=
         | +-ColumnRef(type=INT64, column=$aggregate.weight#6)
         +-is_descending=TRUE

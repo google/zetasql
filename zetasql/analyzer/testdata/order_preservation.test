@@ -27,7 +27,6 @@ QueryStmt
         | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=44-47
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -56,7 +55,6 @@ QueryStmt
         | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=68-71
             +-column_ref=
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
@@ -86,7 +84,6 @@ QueryStmt
         |     +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=46-49
             +-column_ref=
               +-ColumnRef(type=INT32, column=TestTable.key#1)
 ==
@@ -109,7 +106,6 @@ QueryStmt
     |   | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     |   +-order_by_item_list=
     |     +-OrderByItem
-    |       +-parse_location=35-38
     |       +-column_ref=
     |         +-ColumnRef(type=INT32, column=TestTable.key#1)
     +-limit=
@@ -138,7 +134,6 @@ QueryStmt
         |   | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=50-53
         |       +-column_ref=
         |         +-ColumnRef(type=INT32, column=TestTable.key#1)
         +-limit=
@@ -183,7 +178,6 @@ QueryStmt
             |   | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
             |   +-order_by_item_list=
             |     +-OrderByItem
-            |       +-parse_location=60-63
             |       +-column_ref=
             |         +-ColumnRef(type=INT32, column=TestTable.key#1)
             +-limit=
@@ -228,7 +222,6 @@ QueryStmt
         |   |     +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=49-52
         |       +-column_ref=
         |         +-ColumnRef(type=INT32, column=TestTable.key#1)
         +-limit=
@@ -269,7 +262,6 @@ QueryStmt
         |   |     +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=56-59
         |       +-column_ref=
         |         +-ColumnRef(type=INT32, column=TestTable.key#1)
         +-limit=
@@ -304,7 +296,6 @@ QueryStmt
     | |       | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     | |       +-order_by_item_list=
     | |         +-OrderByItem
-    | |           +-parse_location=45-48
     | |           +-column_ref=
     | |             +-ColumnRef(type=INT32, column=TestTable.key#1)
     | +-$col2#14 :=
@@ -319,7 +310,6 @@ QueryStmt
     | |       | +-TableScan(column_list=[TestTable.key#4], table=TestTable, column_index_list=[0])
     | |       +-order_by_item_list=
     | |         +-OrderByItem
-    | |           +-parse_location=94-97
     | |           +-column_ref=
     | |             +-ColumnRef(type=INT32, column=TestTable.key#4)
     | +-$col3#15 :=
@@ -333,7 +323,6 @@ QueryStmt
     | |       | +-TableScan(column_list=[TestTable.key#7], table=TestTable, column_index_list=[0])
     | |       +-order_by_item_list=
     | |         +-OrderByItem
-    | |           +-parse_location=144-147
     | |           +-column_ref=
     | |             +-ColumnRef(type=INT32, column=TestTable.key#7)
     | +-$col4#16 :=
@@ -349,7 +338,6 @@ QueryStmt
     |         | +-TableScan(column_list=[TestTable.key#10], table=TestTable, column_index_list=[0])
     |         +-order_by_item_list=
     |           +-OrderByItem
-    |             +-parse_location=193-196
     |             +-column_ref=
     |               +-ColumnRef(type=INT32, column=TestTable.key#10)
     +-input_scan=
@@ -377,7 +365,6 @@ QueryStmt
     |       | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     |       +-order_by_item_list=
     |         +-OrderByItem
-    |           +-parse_location=46-49
     |           +-column_ref=
     |             +-ColumnRef(type=INT32, column=TestTable.key#1)
     +-query=
@@ -410,7 +397,6 @@ QueryStmt
     | |     | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
     | |     +-order_by_item_list=
     | |       +-OrderByItem
-    | |         +-parse_location=47-50
     | |         +-column_ref=
     | |           +-ColumnRef(type=INT32, column=TestTable.key#1)
     | +-WithEntry
@@ -428,7 +414,6 @@ QueryStmt
         | +-WithRefScan(column_list=[T2.key#5], with_query_name="T2")
         +-order_by_item_list=
           +-OrderByItem
-            +-parse_location=109-115
             +-column_ref=
             | +-ColumnRef(type=INT32, column=T2.key#5)
             +-is_descending=TRUE
@@ -478,7 +463,6 @@ QueryStmt
         |   |     +-ColumnHolder(column=$array_offset.y#2)
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=81-82
         |       +-column_ref=
         |         +-ColumnRef(type=INT64, column=$array_offset.y#2)
         +-aggregate_list=
@@ -512,7 +496,6 @@ QueryStmt
         |       | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0])
         |       +-order_by_item_list=
         |         +-OrderByItem
-        |           +-parse_location=62-65
         |           +-column_ref=
         |             +-ColumnRef(type=INT32, column=TestTable.key#1)
         +-element_column_list=[$array.$unnest1#4]

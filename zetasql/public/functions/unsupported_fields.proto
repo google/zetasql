@@ -18,18 +18,29 @@ syntax = "proto2";
 
 package zetasql.functions;
 
+import "zetasql/public/type.proto";
+
 option java_package = "com.google.zetasql.functions";
 option java_outer_classname = "ZetaSQLUnsupportedFields";
 
 // Enum that defines how TO_JSON() handles fields of unsupported types.
 // See (broken link):safe-to-json for details.
-enum UnsupportedFields {
-  // Return error if unsupported type is encountered.
-  FAIL = 0;
+message UnsupportedFieldsEnum {
+  enum UnsupportedFields {
+    option (opaque_enum_type_options).sql_opaque_enum_name =
+        "UNSUPPORTED_FIELDS";
 
-  // Ignore all fields of unsupported types.
-  IGNORE = 1;
+    // Invalid in ZetaSQL.
+    UNSUPPORTED_FIELDS_INVALID = 0
+        [(opaque_enum_value_options).invalid_enum_value = true];
 
-  // Render a human-readable string to replace the unsupported field.
-  PLACEHOLDER = 2;
+    // Return error if unsupported type is encountered.
+    FAIL = 1;
+
+    // Ignore all fields of unsupported types.
+    IGNORE = 2;
+
+    // Render a human-readable string to replace the unsupported field.
+    PLACEHOLDER = 3;
+  }
 }

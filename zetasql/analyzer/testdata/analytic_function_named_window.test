@@ -755,11 +755,9 @@ QueryStmt
     |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
     +-order_by_item_list=
       +-OrderByItem
-      | +-parse_location=339-359
       | +-column_ref=
       |   +-ColumnRef(type=INT64, column=$analytic.$analytic8#17)
       +-OrderByItem
-        +-parse_location=370-406
         +-column_ref=
           +-ColumnRef(type=INT64, column=$analytic.$analytic9#18)
 ==

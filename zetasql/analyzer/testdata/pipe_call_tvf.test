@@ -1401,7 +1401,6 @@ QueryStmt
         |   |   +-has_using=TRUE
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=111-114
         |       +-column_ref=
         |         +-ColumnRef(type=INT64, column=w1.Key#5)
         +-limit=

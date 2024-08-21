@@ -1009,7 +1009,11 @@ FROM Employees;
 ### `EDIT_DISTANCE`
 
 ```sql
-EDIT_DISTANCE(value1, value2, [max_distance => max_distance_value])
+EDIT_DISTANCE(
+  value1,
+  value2,
+  [ max_distance => max_distance_value ]
+)
 ```
 
 **Description**
@@ -1021,8 +1025,8 @@ Computes the [Levenshtein distance][l-distance] between two `STRING` or
 
 +   `value1`: The first `STRING` or `BYTES` value to compare.
 +   `value2`: The second `STRING` or `BYTES` value to compare.
-+   `max_distance`: Optional mandatory-named argument. Takes a non-negative
-    `INT64` value that represents the maximum distance between the two values
++   `max_distance`: A named argument with a `INT64` value that is greater than
+    or equal to zero. Represents the maximum distance between the two values
     to compute.
 
     If this distance is exceeded, the function returns this value.

@@ -32,6 +32,12 @@ class ExecuteQueryWriter {
  public:
   virtual ~ExecuteQueryWriter() = default;
 
+  // Write the text of the statement, if desired by the subclass.
+  // By default, this is a no-op.
+  virtual absl::Status statement_text(absl::string_view statement) {
+    return absl::OkStatus();
+  }
+
   // Write textual logging messages. A newline will be added on the end.
   // This can be called multiple times for the same statement.
   virtual absl::Status log(absl::string_view message) {

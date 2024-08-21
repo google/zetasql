@@ -2333,3 +2333,335 @@ QueryStmt
       +-SingleRowScan
 ==
 
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2) as a,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'b', 2) as b,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2) as c,
+  MAP_REPLACE(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), 'a', 2) as d,
+  MAP_REPLACE(MAP_FROM_ARRAY(CAST(NULL AS ARRAY<STRUCT<STRING, INT64>>)), 'a', 2, 'b', 3) as e,
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#1 AS a [MAP<STRING, INT64>]
+| +-$query.b#2 AS b [MAP<STRING, INT64>]
+| +-$query.c#3 AS c [MAP<STRING, INT64>]
+| +-$query.d#4 AS d [MAP<STRING, INT64>]
+| +-$query.e#5 AS e [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[a#1, b#2, c#3, d#4, e#5]
+    +-expr_list=
+    | +-a#1 :=
+    | | +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, INT64, repeated(0) STRING, repeated(0) INT64) -> MAP<STRING, INT64>)
+    | |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    | |   | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    | |   +-Literal(type=STRING, value="a")
+    | |   +-Literal(type=INT64, value=2)
+    | +-b#2 :=
+    | | +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, INT64, repeated(0) STRING, repeated(0) INT64) -> MAP<STRING, INT64>)
+    | |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    | |   | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    | |   +-Literal(type=STRING, value="b")
+    | |   +-Literal(type=INT64, value=2)
+    | +-c#3 :=
+    | | +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, INT64, repeated(0) STRING, repeated(0) INT64) -> MAP<STRING, INT64>)
+    | |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    | |   | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    | |   +-Literal(type=STRING, value=NULL)
+    | |   +-Literal(type=INT64, value=2)
+    | +-d#4 :=
+    | | +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, INT64, repeated(0) STRING, repeated(0) INT64) -> MAP<STRING, INT64>)
+    | |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    | |   | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=NULL, has_explicit_type=TRUE)
+    | |   +-Literal(type=STRING, value="a")
+    | |   +-Literal(type=INT64, value=2)
+    | +-e#5 :=
+    |   +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, INT64, repeated(1) STRING, repeated(1) INT64) -> MAP<STRING, INT64>)
+    |     +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     | +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=STRING, value="a")
+    |     +-Literal(type=INT64, value=2)
+    |     +-Literal(type=STRING, value="b")
+    |     +-Literal(type=INT64, value=3)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]));
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]));
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Signature requires at least 3 arguments, found 1 argument
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Signature requires at least 3 arguments, found 1 argument [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]));
+  ^
+==
+
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), {{'a'|'a', 'b'|1, 2|'a', 2, 'b'}});
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a');
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, STRING
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Signature requires at least 3 arguments, found 2 arguments
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Signature requires at least 3 arguments, found 2 arguments [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a');
+  ^
+--
+ALTERNATION GROUP: 'a', 'b'
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b');
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, STRING, STRING
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Unable to find common supertype for templated argument <T2>
+      Input types for <T2>: {INT64, STRING}
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Argument 3: expected FUNCTION<T2->T2>, found STRING [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b');
+  ^
+--
+ALTERNATION GROUP: 1, 2
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, INT64, INT64. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 1, 2);
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, INT64, INT64
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING}
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Argument 3: expected FUNCTION<T2->T2>, found INT64 [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 1, 2);
+  ^
+--
+ALTERNATION GROUP: 'a', 2, 'b'
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, INT64, STRING. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2, 'b');
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, STRING, INT64, STRING
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Wrong number of repeated arguments provided. Expected a multiple of 2 but got 1 repeated argument
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Argument 4: expected FUNCTION<T2->T2>, found STRING [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 2, 'b');
+  ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), {{'a'|NULL|'a', 'b', 'c'}}, v -> v + 1);
+--
+ALTERNATION GROUP: 'a'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, repeated(0) STRING, FUNCTION<INT64->INT64> value) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="a")
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.v#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#1)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, repeated(0) STRING, FUNCTION<INT64->INT64> value) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value=NULL)
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.v#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#1)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: 'a', 'b', 'c'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, repeated(2) STRING, FUNCTION<INT64->INT64> value) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="a")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="b")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="c")
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.v#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.v#1)
+    |               +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 'c', v -> NULL);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [MAP<STRING, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(ZetaSQL:map_replace(MAP<STRING, INT64> input_map, STRING, repeated(2) STRING, FUNCTION<INT64->INT64> value) -> MAP<STRING, INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-FunctionCall(ZetaSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
+    |     |     +-Literal(type=ARRAY<STRUCT<STRING, INT64>>, value=[{"a", 1}])
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="a")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="b")
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="c")
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.v#1]
+    |           +-body=
+    |             +-Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Argument 5: expected T2, found LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Unable to find common supertype for templated argument <T1>
+      Input types for <T1>: {INT64, STRING, STRING} [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> v + 1);
+  ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: MAP<STRING, INT64>, STRING, STRING, INT64, LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Argument 5: expected T2, found LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Argument 5: failed to resolve lambda body, error: Lambda should return type INT64, but returns STRING [at 2:3]
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', 'b', 1, v -> 'a');
+  ^
+==
+
+[language_features=V_1_4_MAP_TYPE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
+--
+ERROR: No matching signature for function MAP_REPLACE for argument types: NULL, STRING, STRING, INT64, LAMBDA. Supported signatures: MAP_REPLACE(MAP, ANY, ANY, [[ANY, ANY], ...]); MAP_REPLACE(MAP, ANY, [ANY, ...], FUNCTION<ANY->ANY>) [at 2:3]
+  MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
+  ^
+--
+Signature Mismatch Details:
+ERROR: No matching signature for function MAP_REPLACE
+  Argument types: NULL, STRING, STRING, INT64, LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, T2, [[T1, T2], ...])
+    Argument 5: expected T2, found LAMBDA
+  Signature: MAP_REPLACE(MAP<T1, T2>, T1, [T1, ...], FUNCTION<T2->T2>)
+    Failed to infer type <T2> [at 2:3]
+  MAP_REPLACE(NULL, 'a', 'b', 1, v -> 'a');
+  ^

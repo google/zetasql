@@ -169,7 +169,6 @@ QueryStmt
         |   |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |   +-order_by_item_list=
         |     +-OrderByItem
-        |       +-parse_location=40-43
         |       +-column_ref=
         |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-limit=

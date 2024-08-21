@@ -1567,12 +1567,14 @@ absl::Status ZetaSqlLocalServiceImpl::ParseScriptImpl(
   if (request.has_sql_statement()) {
     const std::string& sql = request.sql_statement();
 
-    ZETASQL_RETURN_IF_ERROR(ParseScript(
-        sql, parser_options, ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
-        /*keep_error_location_payload=*/
-            ErrorMessageMode::ERROR_MESSAGE_ONE_LINE ==
-            ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD,
-        &parser_output));
+    ZETASQL_RETURN_IF_ERROR(
+        ParseScript(sql, parser_options,
+                    {.mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
+                     .attach_error_location_payload =
+                         (ErrorMessageMode::ERROR_MESSAGE_ONE_LINE ==
+                          ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD),
+                     .stability = GetDefaultErrorMessageStability()},
+                    &parser_output));
 
     return ParseTreeSerializer::Serialize(parser_output->script(),
                                           response->mutable_parsed_script());
